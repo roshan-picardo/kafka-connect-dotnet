@@ -8,13 +8,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{3AD1B61F
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kafka.Connect.Tests", "Tests\Kafka.Connect.Tests\Kafka.Connect.Tests.csproj", "{AAD85DA8-55AD-43CD-AA31-E7FEC2120716}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kafka.Connect.Data.Generator", "Tests\Kafka.Connect.Data.Generator\Kafka.Connect.Data.Generator.csproj", "{E44C1814-C581-4B9C-86C2-74AFDEA491BE}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Plugins", "Plugins", "{AF124F39-E61F-480A-B25F-CD2EA23F785A}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kafka.Connect.Mongodb", "Plugins\Kafka.Connect.Mongodb\Kafka.Connect.Mongodb.csproj", "{B5A27DEB-2151-478B-8288-0D86821CD9B5}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kafka.Connect.Mongodb.FunctionalTests", "Tests\Kafka.Connect.Mongodb.FunctionalTests\Kafka.Connect.Mongodb.FunctionalTests.csproj", "{0CCD1F71-7FCF-4DF6-B02C-29E598164661}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kafka.Connect.Streamer", "Plugins\Kafka.Connect.Streamer\Kafka.Connect.Streamer.csproj", "{A2156C14-E8BE-42AA-9D1E-0BCE02756462}"
 EndProject
