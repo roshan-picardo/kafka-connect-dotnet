@@ -53,14 +53,10 @@ namespace Kafka.Connect.Tests.Background
         [Fact]
         public void ServiceEnabledButCancellationRequested_StopsService()
         {
-            _configProvider.GetFailOverConfig().Returns(new FailOverConfig {Disabled = false});
+            _configProvider.GetFailOverConfig().Returns(new FailOverConfig {Disabled = false, InitialDelayMs = 1, PeriodicDelayMs = 1});
             _configProvider.GetConnectorConfigs().Returns(new List<ConnectorConfig>());
             _failOverMonitorService = GetFailOverMonitorService();
-            var cts = new CancellationTokenSource();
-            _tokenHandler
-                .When(k => k.DoNothing())
-                .Do(_ => cts.Cancel());
-            _failOverMonitorService.StartAsync(cts.Token);
+            _failOverMonitorService.StartAsync(GetCancellationToken(1));
             while (!_failOverMonitorService.ExecuteTask.IsCompletedSuccessfully)
             {
                 // wait for the task to complete
