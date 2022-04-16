@@ -48,24 +48,27 @@ namespace Kafka.Connect.Handlers
             }
         }
 
-        public async Task<SinkRecordBatch> Retry(Func<Task<SinkRecordBatch>> handler, SinkRecordBatch batch, string connector)
+        public async Task<SinkRecordBatch> Retry(Func<SinkRecordBatch, Task<SinkRecordBatch>> handler, SinkRecordBatch batch, string connector)
         {
             var retryConfig = _configurationProvider.GetRetriesConfig(connector);
             var (remaining, splitBatch, sinkRecordBatch) =
-                await RetryInternal(async () => await handler(),  retryConfig.Attempts, retryConfig.DelayTimeoutMs);
+                await RetryInternal(() => handler(batch),  retryConfig.Attempts, retryConfig.DelayTimeoutMs);
             
-            if (remaining < 0 || !splitBatch) return sinkRecordBatch;
+            batch = sinkRecordBatch ?? batch;
+            
+            if (remaining < 0 || !splitBatch) return batch;
             --remaining;
             _logger.LogDebug("{@Log}", new {Message = "The batch will be split, and messages will be processed individually"});
-            foreach (var record in sinkRecordBatch ?? batch)
+            batch.IsLastAttempt = true;
+            foreach (var record in batch)
             {
-                var singleBatch = new SinkRecordBatch(connector, record);
-                singleBatch.IsLastAttempt = true;
-                await RetryInternal(async () => await handler(), remaining, retryConfig.DelayTimeoutMs, true);
+                var singleBatch = new SinkRecordBatch(connector, record) {IsLastAttempt = true};
+                await RetryInternal(() => handler(singleBatch), remaining, retryConfig.DelayTimeoutMs, true);
             }
-            return sinkRecordBatch ?? batch;
+
+            return batch;
         }
-        
+
         public async Task<SinkRecordBatch> Retry(Func<SinkRecordBatch, Task<SinkRecordBatch>> handler, SinkRecordBatch consumedBatch, int attempts,
             int delayTimeoutMs)
         {

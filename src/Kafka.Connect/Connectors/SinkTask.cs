@@ -78,7 +78,7 @@ namespace Kafka.Connect.Connectors
                         try
                         {
                             batch = await _logger.Timed("Invoking consume.").Execute(() => _sinkConsumer.Consume(_consumer, connector, taskId));
-                            batch = await _retriableHandler.Retry(() => ProcessAndSinkInternal(connector, batch, Cancel), batch, connector);
+                            batch = await _retriableHandler.Retry(b => ProcessAndSinkInternal(connector, b, Cancel), batch, connector);
                         }
                         catch (Exception ex)
                         {
@@ -115,7 +115,7 @@ namespace Kafka.Connect.Connectors
                 {
                     _logger.Timed("Handle processing errors.").Execute(() => _sinkExceptionHandler.Handle(ex,cancelToken));
                     await _logger.Timed("Handover to dead-letter.").Execute(() => _sinkExceptionHandler.HandleDeadLetter(batch, ex, connector));
-                    batch.MarkAllCommitReady(_configurationProvider.IsErrorTolerated(connector));
+                    batch.MarkAllCommitReady(true);
                 }
                 else
                 {

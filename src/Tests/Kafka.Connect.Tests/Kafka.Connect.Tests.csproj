@@ -27,4 +27,29 @@
       <ProjectReference Include="..\..\Kafka.Connect\Kafka.Connect.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Compile Remove="Connectors\ConnectDeadLetterTests.cs" />
+      <Compile Remove="Connectors\ConnectorTests.cs" />
+      <Compile Remove="Connectors\SinkTaskTests.cs" />
+      <Compile Remove="Handlers\MessageHandlerTests.cs" />
+      <Compile Remove="Handlers\PartitionHandlerTests.cs" />
+      <Compile Remove="Handlers\RetriableHandlerTests.cs" />
+      <Compile Remove="Handlers\SinkConsumerTests.cs" />
+      <Compile Remove="Handlers\SinkExceptionHandlerTests.cs" />
+      <Compile Remove="Handlers\SinkProcessorTests.cs" />
+      <Compile Remove="Processors\BlacklistFieldProjectorTests.cs" />
+      <Compile Remove="Processors\DateTimeTypeOverriderTests.cs" />
+      <Compile Remove="Processors\FieldRenamerTests.cs" />
+      <Compile Remove="Processors\JsonTypeOverriderTests.cs" />
+      <Compile Remove="Processors\WhitelistFieldProjectorTests.cs" />
+      <Compile Remove="Providers\SinkHandlerProviderTests.cs" />
+      <Compile Remove="Serializers\MessageDeserializerTests.cs" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="Connectors" />
+      <Folder Include="Handlers" />
+      <Folder Include="Processors" />
+    </ItemGroup>
+
 </Project>

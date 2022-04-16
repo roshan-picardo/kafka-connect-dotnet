@@ -89,7 +89,7 @@ namespace Kafka.Connect.Configurations
 
         public BatchConfig GetBatchConfig(string connector)
         {
-            if (_workerConfig.EnablePartitionEof ?? false)
+            if (!(_workerConfig.EnablePartitionEof ?? false))
             {
                 return new BatchConfig {Size = 1, Parallelism = 1};
             }
@@ -152,12 +152,11 @@ namespace Kafka.Connect.Configurations
             return (_workerConfig.EnableAutoCommit ?? false, _workerConfig.EnableAutoOffsetStore ?? false);
         }
 
-        private static WorkerConfig Build(IOptions<WorkerConfig> options)
+        private WorkerConfig Build(IOptions<WorkerConfig> options)
         {
             var workerConfig = options?.Value ?? throw new ArgumentNullException(nameof(options));
-            //1. Kafka 
-            
-            
+            //1. Log Configs
+            _logger.LogCritical("{@Log}", workerConfig);
             return workerConfig;
         }
         

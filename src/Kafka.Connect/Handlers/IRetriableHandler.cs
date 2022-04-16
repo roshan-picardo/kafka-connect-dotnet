@@ -14,7 +14,7 @@ namespace Kafka.Connect.Handlers
         Task<SinkRecordBatch> Retry(Func<SinkRecordBatch, Task<SinkRecordBatch>> handler, SinkRecordBatch consumedBatch, int attempts,
             int delayTimeoutMs);
 
-        Task<SinkRecordBatch> Retry(Func<Task<SinkRecordBatch>> handler, SinkRecordBatch batch, string connector);
+        Task<SinkRecordBatch> Retry(Func<SinkRecordBatch, Task<SinkRecordBatch>> handler, SinkRecordBatch batch, string connector);
 
     }
 }

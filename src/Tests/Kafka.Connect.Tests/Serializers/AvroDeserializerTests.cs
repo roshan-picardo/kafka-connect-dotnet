@@ -26,7 +26,7 @@ namespace Kafka.Connect.Tests.Serializers
             
         }
 
-        [Fact]
+        //[Fact]
         public async Task AvroDeserializer_TestAsIs()
         {
             var expected = new JObject {{"value", "this is a test sample!"}};
