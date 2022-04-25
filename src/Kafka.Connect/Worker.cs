@@ -22,7 +22,6 @@ namespace Kafka.Connect
         private readonly IConfigurationProvider _configurationProvider;
         private PauseTokenSource _pauseTokenSource;
         private readonly IList<(string Name, IConnector Connector)> _connectors;
-        private CancellationTokenSource _cancellationTokenSource;
 
         private int _retryAttempts = -1;
 

@@ -2,12 +2,10 @@
 
     <PropertyGroup>
         <TargetFramework>net6.0</TargetFramework>
-
         <IsPackable>false</IsPackable>
-
         <LangVersion>10</LangVersion>
     </PropertyGroup>
-
+    
     <ItemGroup>
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.0.0" />
         <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
@@ -52,8 +50,6 @@
       <Compile Remove="Serializers\JsonDeserializerTests.cs" />
       <Compile Remove="Serializers\JsonSchemaDeserializerTests.cs" />
       <Compile Remove="Serializers\StringDeserializerTests.cs" />
-      <Compile Remove="Background\WorkerServiceTests.cs" />
-      <Compile Remove="Background\FailOverMonitorServiceTests.cs" />
     </ItemGroup>
 
     <ItemGroup>
