@@ -23,12 +23,11 @@ jobs:
       run: dotnet build src --no-restore 
     - name: Test
       run: dotnet test src/Tests/Kafka.Connect.Tests/Kafka.Connect.Tests.csproj --no-build --logger "trx;LogFileName=test-results.trx" || true 
-      
     - name: Test Report
       uses: dorny/test-reporter@v1
       if: always()
       with:
-        name: DotNET Tests
+        name: tests
         path: "**/test-results.trx"
         reporter: dotnet-trx
         fail-on-error: true  
