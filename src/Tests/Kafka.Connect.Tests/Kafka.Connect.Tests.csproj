@@ -2,12 +2,10 @@
 
     <PropertyGroup>
         <TargetFramework>net6.0</TargetFramework>
-
         <IsPackable>false</IsPackable>
-
         <LangVersion>10</LangVersion>
     </PropertyGroup>
-
+    
     <ItemGroup>
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.0.0" />
         <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
@@ -44,12 +42,23 @@
       <Compile Remove="Processors\WhitelistFieldProjectorTests.cs" />
       <Compile Remove="Providers\SinkHandlerProviderTests.cs" />
       <Compile Remove="Serializers\MessageDeserializerTests.cs" />
+      <Compile Remove="Converters\GenericRecordParserTests.cs" />
+      <Compile Remove="Converters\JsonRecordFlattenerTests.cs" />
+      <Compile Remove="Providers\ProcessorServiceProviderTests.cs" />
+      <Compile Remove="Serializers\AvroDeserializerTests.cs" />
+      <Compile Remove="Serializers\IgnoreDeserializerTests.cs" />
+      <Compile Remove="Serializers\JsonDeserializerTests.cs" />
+      <Compile Remove="Serializers\JsonSchemaDeserializerTests.cs" />
+      <Compile Remove="Serializers\StringDeserializerTests.cs" />
     </ItemGroup>
 
     <ItemGroup>
       <Folder Include="Connectors" />
+      <Folder Include="Converters" />
       <Folder Include="Handlers" />
       <Folder Include="Processors" />
+      <Folder Include="Providers" />
+      <Folder Include="Serializers" />
     </ItemGroup>
 
 </Project>

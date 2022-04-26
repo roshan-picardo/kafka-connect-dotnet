@@ -57,7 +57,7 @@ namespace Kafka.Connect.Background
                             using (LogContext.PushProperty("Connector", connector.Name))
                             {
                                 var topics = connector.Topics ?? new List<string>();
-                                if (!string.IsNullOrWhiteSpace(connector.Topic))
+                                if (!string.IsNullOrWhiteSpace(connector.Topic) && !topics.Contains(connector.Topic))
                                 {
                                     topics.Add(connector.Topic);
                                 }

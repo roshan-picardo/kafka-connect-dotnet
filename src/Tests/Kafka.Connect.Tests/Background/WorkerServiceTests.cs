@@ -13,7 +13,7 @@ namespace Kafka.Connect.Tests.Background
     {
         private readonly ILogger<WorkerService> _logger;
         private readonly IWorker _worker;
-        private WorkerService _workerService;
+        private readonly WorkerService _workerService;
 
         public WorkerServiceTests()
         {

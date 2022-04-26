@@ -26,7 +26,6 @@ namespace Kafka.Connect.Processors
 
         private static (bool, IDictionary<string, object>) ApplyInternal(IDictionary<string, object> flattened, IDictionary<string, string> maps = null)
         {
-            throw new ConnectRetriableException(ErrorCode.Unknown, new DataException("hahahaha"));
             maps ??= new Dictionary<string, string>();
             foreach (var (key, value) in ProcessorHelper.GetMaps(flattened, maps, true))
             {
