@@ -62,7 +62,7 @@ namespace Kafka.Connect.Tests.Background
                 // wait for the task to complete
             }
             
-            _kafkaClientBuilder.Received().GetAdminClient(Arg.Any<WorkerConfig>());
+            _kafkaClientBuilder.Received().GetAdminClient();
             _logger.Received().Log(LogLevel.Debug, "{@Log}",
                 new {Message = "Starting fail over monitoring service..."});
             _logger.Received().Log(LogLevel.Debug, "{@Log}",
@@ -434,7 +434,7 @@ namespace Kafka.Connect.Tests.Background
         {
             _serviceScopeFactory.CreateScope().ServiceProvider.GetService<IKafkaClientBuilder>()
                 .Returns(_kafkaClientBuilder);
-            _kafkaClientBuilder.GetAdminClient(Arg.Any<WorkerConfig>()).Returns(_adminClient);
+            _kafkaClientBuilder.GetAdminClient().Returns(_adminClient);
             return new FailOverMonitorService(_logger, _worker, _serviceScopeFactory, _tokenHandler, _configProvider);
         }
         

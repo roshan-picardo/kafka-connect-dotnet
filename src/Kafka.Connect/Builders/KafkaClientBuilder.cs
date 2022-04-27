@@ -2,14 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Confluent.Kafka;
-using Kafka.Connect.Config;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Connectors;
 using Kafka.Connect.Plugin.Logging;
 using Microsoft.Extensions.Logging;
 using Microsoft.VisualBasic;
 using Microsoft.VisualBasic.CompilerServices;
-using ConnectorConfig = Kafka.Connect.Config.ConnectorConfig;
 
 namespace Kafka.Connect.Builders
 {
@@ -21,7 +19,7 @@ namespace Kafka.Connect.Builders
         private Action<IEnumerable<TopicPartition>> OnPartitionAssigned { get; set; }
         private Action<IEnumerable<TopicPartition>> OnPartitionRevoked { get; set; }
 
-        public KafkaClientBuilder(IExecutionContext executionContext, ILogger<KafkaClientBuilder> logger, IConfigurationProvider configurationProvider)
+        public KafkaClientBuilder(ILogger<KafkaClientBuilder> logger, IExecutionContext executionContext, IConfigurationProvider configurationProvider)
         {
             _executionContext = executionContext;
             _logger = logger;
@@ -51,45 +49,12 @@ namespace Kafka.Connect.Builders
                     .Build());
         }
 
-        public IConsumer<byte[], byte[]> GetConsumer(ConsumerConfig consumerConfig)
-        {
-            return _logger.Timed("Creating consumer.")
-                .Execute(() => new ConsumerBuilder<byte[], byte[]>(consumerConfig)
-                    .SetErrorHandler((_, error) => HandleError(error))
-                    .SetLogHandler((_, message) => HandleLogMessage(message))
-                    .SetStatisticsHandler((_, message) => HandleStatistics(message))
-                    .SetPartitionsAssignedHandler(HandlePartitionAssigned)
-                    .SetPartitionsRevokedHandler(HandlePartitionRevoked)
-                    .SetOffsetsCommittedHandler(HandleOffsetCommitted)
-                    .Build());
-        }
-
-        public IAdminClient GetAdminClient(ConsumerConfig connectorConfig)
+        public IAdminClient GetAdminClient(string connector = null)
         {
             return _logger.Timed("Creating admin client")
-                .Execute(() => new AdminClientBuilder(connectorConfig)
+                .Execute(() => new AdminClientBuilder(_configurationProvider.GetConsumerConfig(connector))
                     .SetErrorHandler((_, error) => HandleError(error))
                     .SetLogHandler((_, message) => HandleLogMessage(message))
-                    .SetStatisticsHandler((_, message) => HandleStatistics(message))
-                    .Build());
-        }
-
-        public IProducer<byte[], byte[]> GetProducer(ConnectorConfig connectorConfig)
-        {
-            return _logger.Timed("Creating producer.")
-                .Execute(() => new ProducerBuilder<byte[], byte[]>(connectorConfig)
-                    .SetLogHandler((_, message) => HandleLogMessage(message))
-                    .SetErrorHandler((_, error) => HandleError(error))
-                    .SetStatisticsHandler((_, message) => HandleStatistics(message))
-                    .Build());
-        }
-        
-        public IProducer<byte[], byte[]> GetProducer(PublisherConfig publisherConfig)
-        {
-            return _logger.Timed("Creating producer.")
-                .Execute(() => new ProducerBuilder<byte[], byte[]>(publisherConfig)
-                    .SetLogHandler((_, message) => HandleLogMessage(message))
-                    .SetErrorHandler((_, error) => HandleError(error))
                     .SetStatisticsHandler((_, message) => HandleStatistics(message))
                     .Build());
         }
@@ -103,7 +68,7 @@ namespace Kafka.Connect.Builders
         private void HandlePartitionAssigned(IConsumer<byte[], byte[]> consumer, IEnumerable<TopicPartition> partitions)
         {
             var topicPartitions = partitions as TopicPartition[] ?? partitions.ToArray();
-            OnPartitionAssigned?.Invoke(topicPartitions.ToList());
+            OnPartitionAssigned?.Invoke(topicPartitions);
             _logger.LogDebug("{@Log}",
                 new
                 {
