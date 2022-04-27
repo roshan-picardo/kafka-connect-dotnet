@@ -20,23 +20,23 @@ namespace Kafka.Connect.Background
         private readonly ILogger<FailOverMonitorService> _logger;
         private readonly IWorker _worker;
         private readonly ITokenHandler _tokenHandler;
-        private readonly IConfigurationProvider _configProvider;
+        private readonly IConfigurationProvider _configurationProvider;
         private readonly IKafkaClientBuilder _kafkaClientBuilder;
 
         public FailOverMonitorService(ILogger<FailOverMonitorService> logger, IWorker worker,
-            IServiceScopeFactory serviceScopeFactory, ITokenHandler tokenHandler, IConfigurationProvider configProvider)
+            IServiceScopeFactory serviceScopeFactory, ITokenHandler tokenHandler, IConfigurationProvider configurationProvider)
         {
             _logger = logger;
             _worker = worker;
             _tokenHandler = tokenHandler;
-            _configProvider = configProvider;
+            _configurationProvider = configurationProvider;
             _kafkaClientBuilder = serviceScopeFactory.CreateScope().ServiceProvider.GetService<IKafkaClientBuilder>();
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            var failOverConfig = _configProvider.GetFailOverConfig();
-            var connectorConfigs = _configProvider.GetConnectorConfigs();
+            var failOverConfig = _configurationProvider.GetFailOverConfig();
+            var connectorConfigs = _configurationProvider.GetConnectorConfigs();
             try
             {
                 if (!failOverConfig.Disabled)
@@ -44,7 +44,7 @@ namespace Kafka.Connect.Background
                     _logger.LogDebug("{@Log}", new {Message = "Starting fail over monitoring service..."});
                     await Task.Delay(failOverConfig.InitialDelayMs, stoppingToken);
                     var adminClient = _logger.Timed("Creating Kafka admin client")
-                        .Execute(() => _kafkaClientBuilder.GetAdminClient(_configProvider.GetConsumerConfig()));
+                        .Execute(() => _kafkaClientBuilder.GetAdminClient());
                     
                     var thresholds = connectorConfigs.Where(c => !c.Disabled)
                         .ToDictionary(c => c.Name, _ => failOverConfig.FailureThreshold);
