@@ -20,7 +20,6 @@ namespace Kafka.Connect.Connectors
     public class SinkTask : ISinkTask
     {
         private readonly ILogger<SinkTask> _logger;
-        private readonly IKafkaClientBuilder _kafkaClientBuilder;
         private IConsumer<byte[], byte[]> _consumer;
         private readonly ISinkConsumer _sinkConsumer;
         private readonly ISinkProcessor _sinkProcessor;
@@ -29,12 +28,12 @@ namespace Kafka.Connect.Connectors
         private readonly IRetriableHandler _retriableHandler;
         private readonly IConfigurationProvider _configurationProvider;
         private readonly IExecutionContext _executionContext;
+        private readonly Func<string, IConsumerBuilder> _consumerBuilderFactory;
 
-        public SinkTask(ILogger<SinkTask> logger, IKafkaClientBuilder kafkaClientBuilder, ISinkConsumer sinkConsumer, ISinkProcessor sinkProcessor,
-            IPartitionHandler partitionHandler, ISinkExceptionHandler sinkExceptionHandler, IRetriableHandler retriableHandler, IConfigurationProvider configurationProvider, IExecutionContext executionContext)
+        public SinkTask(ILogger<SinkTask> logger,  ISinkConsumer sinkConsumer, ISinkProcessor sinkProcessor,
+            IPartitionHandler partitionHandler, ISinkExceptionHandler sinkExceptionHandler, IRetriableHandler retriableHandler, IConfigurationProvider configurationProvider, IExecutionContext executionContext, Func<string, IConsumerBuilder> consumerBuilderFactory)
         {
             _logger = logger;
-            _kafkaClientBuilder = kafkaClientBuilder;
             _sinkConsumer = sinkConsumer;
             _sinkProcessor = sinkProcessor;
             _partitionHandler = partitionHandler;
@@ -42,6 +41,7 @@ namespace Kafka.Connect.Connectors
             _retriableHandler = retriableHandler;
             _configurationProvider = configurationProvider;
             _executionContext = executionContext;
+            _consumerBuilderFactory = consumerBuilderFactory;
         }
 
         public async Task Execute(string connector, int taskId, CancellationToken cancellationToken)
@@ -56,7 +56,7 @@ namespace Kafka.Connect.Connectors
             }
             
             _executionContext.Add(connector, taskId);
-            _kafkaClientBuilder.AttachPartitionChangeEvents(connector, taskId);
+            _consumerBuilderFactory(connector).AttachPartitionChangeEvents(connector, taskId);
             _consumer = _logger.Timed("Subscribing to the topics.").Execute(() => _sinkConsumer.Subscribe(connector));
             if (_consumer == null)
             {

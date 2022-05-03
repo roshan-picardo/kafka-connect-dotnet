@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Confluent.Kafka;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Connectors;
@@ -14,29 +13,23 @@ namespace Kafka.Connect.Builders
     public class KafkaClientBuilder : IKafkaClientBuilder
     {
         private readonly IExecutionContext _executionContext;
+        private readonly Func<string, IConsumerBuilder> _consumerBuilderFactory;
         private readonly ILogger<KafkaClientBuilder> _logger;
         private readonly IConfigurationProvider _configurationProvider;
         private Action<IEnumerable<TopicPartition>> OnPartitionAssigned { get; set; }
         private Action<IEnumerable<TopicPartition>> OnPartitionRevoked { get; set; }
 
-        public KafkaClientBuilder(ILogger<KafkaClientBuilder> logger, IExecutionContext executionContext, IConfigurationProvider configurationProvider)
+        public KafkaClientBuilder(ILogger<KafkaClientBuilder> logger, IExecutionContext executionContext, Func<string, IConsumerBuilder> consumerBuilderFactory, IConfigurationProvider configurationProvider)
         {
             _executionContext = executionContext;
+            _consumerBuilderFactory = consumerBuilderFactory;
             _logger = logger;
             _configurationProvider = configurationProvider;
         }
 
         public IConsumer<byte[], byte[]> GetConsumer(string connector)
         {
-            return _logger.Timed("Creating consumer.")
-                .Execute(() => new ConsumerBuilder<byte[], byte[]>(_configurationProvider.GetConsumerConfig(connector))
-                    .SetErrorHandler((_, error) => HandleError(error))
-                    .SetLogHandler((_, message) => HandleLogMessage(message))
-                    .SetStatisticsHandler((_, message) => HandleStatistics(message))
-                    .SetPartitionsAssignedHandler(HandlePartitionAssigned)
-                    .SetPartitionsRevokedHandler(HandlePartitionRevoked)
-                    .SetOffsetsCommittedHandler(HandleOffsetCommitted)
-                    .Build());
+            return _consumerBuilderFactory(connector).Create();
         }
 
         public IProducer<byte[], byte[]> GetProducer(string connector)
@@ -63,40 +56,6 @@ namespace Kafka.Connect.Builders
         {
             OnPartitionAssigned = partitions => _executionContext.AssignPartitions(connector, taskId, partitions);
             OnPartitionRevoked = partitions => _executionContext.RevokePartitions(connector, taskId, partitions);
-        }
-        
-        private void HandlePartitionAssigned(IConsumer<byte[], byte[]> consumer, IEnumerable<TopicPartition> partitions)
-        {
-            var topicPartitions = partitions as TopicPartition[] ?? partitions.ToArray();
-            OnPartitionAssigned?.Invoke(topicPartitions);
-            _logger.LogDebug("{@Log}",
-                new
-                {
-                    Message = "Topic partitions assigned.",
-                    Partitions = topicPartitions.Select(p => new {p.Topic, Partition = p.Partition.Value})
-                });
-        }  
-        
-        private void HandlePartitionRevoked(IConsumer<byte[], byte[]> consumer, IEnumerable<TopicPartitionOffset> offsets)
-        {
-            var topicPartitionOffsets = offsets as TopicPartitionOffset[] ?? offsets.ToArray();
-            OnPartitionRevoked?.Invoke( topicPartitionOffsets.Select(o=>o.TopicPartition));
-            _logger.LogDebug("{@Log}",
-                new
-                {
-                    Message = "Topic partitions revoked.",
-                    Partitions = topicPartitionOffsets.Select(p => new {p.Topic, Partition = p.Partition.Value, Offset = p.Offset.Value})
-                });
-        }
-
-        private void HandleOffsetCommitted(IConsumer<byte[], byte[]> consumer, CommittedOffsets offsets)
-        {
-            _logger.LogDebug("{@Log}",
-                new
-                {
-                    Message = "Offsets committed.",
-                    Offsets = offsets.Offsets.Select(o => new {o.Topic, Partition = o.Partition.Value, Offset = o.Offset.Value, o.Error.Code})
-                });
         }
 
         private void HandleStatistics(string stats)
