@@ -7,7 +7,6 @@ using Confluent.Kafka;
 using Confluent.SchemaRegistry;
 using Confluent.SchemaRegistry.Serdes;
 using Kafka.Connect.Builders;
-using Kafka.Connect.Configurations;
 using Kafka.Connect.Connectors;
 using Kafka.Connect.Converters;
 using Kafka.Connect.Handlers;
@@ -23,6 +22,7 @@ using Kafka.Connect.Schemas;
 using Kafka.Connect.Tokens;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 using Serilog;
 using ConfigurationProvider = Kafka.Connect.Configurations.ConfigurationProvider;
@@ -62,6 +62,12 @@ namespace Kafka.Connect.Utilities
                 .AddScoped<IProcessor, BlacklistFieldProjector>()
                 .AddScoped<IProcessor, WhitelistFieldProjector>()
                 .AddScoped<IProcessor, FieldRenamer>()
+                .AddScoped<Func<string, IConsumerBuilder>>(provider =>
+                {
+                    return connector => new ConsumerBuilder(provider.GetService<ILogger<ConsumerBuilder>>(),
+                        provider.GetService<IConfigurationProvider>(), provider.GetService<IExecutionContext>(),
+                        connector);
+                })
                 .AddScoped<IAsyncDeserializer<GenericRecord>>(provider =>
                 {
                     var client = provider.GetServices<ISchemaRegistryClient>()

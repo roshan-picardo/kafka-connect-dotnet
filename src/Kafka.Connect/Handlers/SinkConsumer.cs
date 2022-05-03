@@ -16,19 +16,19 @@ namespace Kafka.Connect.Handlers
     public class SinkConsumer : ISinkConsumer
     {
         private readonly ILogger<SinkConsumer> _logger;
-        private readonly IKafkaClientBuilder _kafkaClientBuilder;
         private readonly IExecutionContext _executionContext;
         private readonly IRetriableHandler _retriableHandler;
         private readonly IConfigurationProvider _configurationProvider;
+        private readonly Func<string, IConsumerBuilder> _consumerBuilderFactory;
 
-        public SinkConsumer(ILogger<SinkConsumer> logger, IKafkaClientBuilder kafkaClientBuilder, IExecutionContext executionContext,
-            IRetriableHandler retriableHandler, IConfigurationProvider configurationProvider)
+        public SinkConsumer(ILogger<SinkConsumer> logger, IExecutionContext executionContext,
+            IRetriableHandler retriableHandler, IConfigurationProvider configurationProvider, Func<string, IConsumerBuilder> consumerBuilderFactory)
         {
             _logger = logger;
-            _kafkaClientBuilder = kafkaClientBuilder;
             _executionContext = executionContext;
             _retriableHandler = retriableHandler;
             _configurationProvider = configurationProvider;
+            _consumerBuilderFactory = consumerBuilderFactory;
         }
 
         public IConsumer<byte[], byte[]> Subscribe(string connector)
@@ -37,7 +37,7 @@ namespace Kafka.Connect.Handlers
             if (!(topics?.Any(t => !string.IsNullOrWhiteSpace(t)) ?? false)) return null;
             try
             {
-                var consumer = _logger.Timed("Creating the consumer.").Execute(() => _kafkaClientBuilder.GetConsumer(connector));
+                var consumer = _logger.Timed("Creating the consumer.").Execute(() => _consumerBuilderFactory(connector).Create());
                 _logger.Timed("Subscribing to the topics.").Execute(() => consumer.Subscribe(topics));
                 return consumer;
             }
