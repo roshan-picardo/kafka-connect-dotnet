@@ -102,7 +102,7 @@ namespace Kafka.Connect.Tests.Builders
             
             _consumerBuilder.PartitionsAssignedHandler.Invoke(consumer, partitions);
             
-            _logger.Received().Log(LogLevel.Debug, "{@Log}", new { Message="Assigned partitions.", Partitions = partitions.Select(p=>$"{{Topic:{p.Topic}}} - {{Partition:{p.Partition.Value}}}")});
+            _logger.Received().Log(LogLevel.Debug, "{@Log}", new { Message="Assigned partitions.", Partitions = partitions.Select(p=>$"{{Topic:{p.Topic}}} - {{Partition:{p.Partition.Value}}}").ToList()});
         }
         
         [Fact]
@@ -114,7 +114,7 @@ namespace Kafka.Connect.Tests.Builders
             
             _consumerBuilder.PartitionsAssignedHandler.Invoke(consumer, partitions);
             
-            _logger.Received().Log(LogLevel.Debug, "{@Log}", new { Message="Assigned partitions.", Partitions = partitions.Select(p=>$"{{Topic:{p.Topic}}} - {{Partition:{p.Partition.Value}}}")});
+            _logger.Received().Log(LogLevel.Debug, "{@Log}", new { Message="Assigned partitions.", Partitions = partitions.Select(p=>$"{{Topic:{p.Topic}}} - {{Partition:{p.Partition.Value}}}").ToList()});
             _executionContext.Received().AssignPartitions("test-connector", 1, partitions);
         }
         
@@ -136,7 +136,7 @@ namespace Kafka.Connect.Tests.Builders
 
             _consumerBuilder.PartitionsRevokedHandler.Invoke(consumer, offsets);
             
-            _logger.Received().Log(LogLevel.Debug, "{@Log}", new { Message="Revoked partitions.", Partitions = offsets.Select(p=> $"{{topic={p.Topic}}} - {{partition={p.Partition.Value}}} - {{offset:{p.Offset.Value}}}")});
+            _logger.Received().Log(LogLevel.Debug, "{@Log}", new { Message="Revoked partitions.", Partitions = offsets.Select(p=> $"{{topic={p.Topic}}} - {{partition={p.Partition.Value}}} - {{offset:{p.Offset.Value}}}").ToList()});
         }
         
         [Fact]
@@ -149,7 +149,7 @@ namespace Kafka.Connect.Tests.Builders
             _consumerBuilder.PartitionsRevokedHandler.Invoke(consumer, offsets);
 
             _executionContext.Received().RevokePartitions("test-connector", 1, Arg.Any<IEnumerable<TopicPartition>>());
-            _logger.Received().Log(LogLevel.Debug, "{@Log}", new { Message="Revoked partitions.", Partitions = offsets.Select(p=> $"{{topic={p.Topic}}} - {{partition={p.Partition.Value}}} - {{offset:{p.Offset.Value}}}")});
+            _logger.Received().Log(LogLevel.Debug, "{@Log}", new { Message="Revoked partitions.", Partitions = offsets.Select(p=> $"{{topic={p.Topic}}} - {{partition={p.Partition.Value}}} - {{offset:{p.Offset.Value}}}").ToList()});
             
         }
         
@@ -171,7 +171,18 @@ namespace Kafka.Connect.Tests.Builders
             var error = new Error(ErrorCode.OffsetOutOfRange, "commit failed");
             _consumerBuilder.OffsetsCommittedHandler.Invoke(consumer, new CommittedOffsets(new List<TopicPartitionOffsetError>(), error));
             
-            _logger.Received().Log(LogLevel.Warning, "{@Log}", new { Message = "Error committing offsets.", Reason=error, Offsets = new List<TopicPartitionOffsetError>().Select(p=> $"{{topic={p.Topic}}} - {{partition={p.Partition.Value}}} - {{offset:{p.Offset.Value}}}") });
+            _logger.Received().Log(LogLevel.Warning, "{@Log}", new { Message = "Error committing offsets.", Reason=error, Offsets = new List<TopicPartitionOffsetError>().Select(p=> $"{{topic={p.Topic}}} - {{partition={p.Partition.Value}}} - {{offset:{p.Offset.Value}}}").ToList()});
+        }
+        
+        [Fact]
+        public void Build_OffsetsCommittedHandlerReturningExpectedLogs_WhenCommitErroredWithOffsets()
+        {
+            var consumer = BuildConsumer();
+
+            var error = new Error(ErrorCode.OffsetOutOfRange, "commit failed");
+            _consumerBuilder.OffsetsCommittedHandler.Invoke(consumer, new CommittedOffsets(new List<TopicPartitionOffsetError> { new("topic", 1, 1000, error) }, error));
+            
+            _logger.Received().Log(LogLevel.Warning, "{@Log}", new { Message = "Error committing offsets.", Reason=error, Offsets = new List<TopicPartitionOffsetError>().Select(p=> $"{{topic={p.Topic}}} - {{partition={p.Partition.Value}}} - {{offset:{p.Offset.Value}}}").ToList()});
         }
         
         [Fact]
@@ -183,7 +194,7 @@ namespace Kafka.Connect.Tests.Builders
             
             _consumerBuilder.OffsetsCommittedHandler.Invoke(consumer, offsets);
             
-            _logger.Received().Log(LogLevel.Debug, "{@Log}", new { Message="Offsets committed.", Offsets = offsets.Offsets.Select(p=> $"{{topic={p.Topic}}} - {{partition={p.Partition.Value}}} - {{offset:{p.Offset.Value}}}")});
+            _logger.Received().Log(LogLevel.Debug, "{@Log}", new { Message="Offsets committed.", Offsets = offsets.Offsets.Select(p=> $"{{topic={p.Topic}}} - {{partition={p.Partition.Value}}} - {{offset:{p.Offset.Value}}}").ToList()});
         }
         
         private IConsumer<byte[], byte[]> BuildConsumer()
