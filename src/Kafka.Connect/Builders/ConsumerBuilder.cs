@@ -108,7 +108,7 @@ namespace Kafka.Connect.Builders
                 new
                 {
                     Message = "Assigned partitions.",
-                    Partitions = partitions.Select(p => $"{{topic:{p.Topic}}} - {{partition:{p.Partition.Value}}}")
+                    Partitions = partitions.Select(p => $"{{topic:{p.Topic}}} - {{partition:{p.Partition.Value}}}").ToList()
                 });
         }  
         
@@ -119,12 +119,12 @@ namespace Kafka.Connect.Builders
                 _logger.LogTrace("{@Log}", new {Message = "No partitions revoked."});
                 return;
             }
-            OnPartitionRevoked?.Invoke(offsets.Select(o => o.TopicPartition));
+            OnPartitionRevoked?.Invoke(offsets.Select(o => o.TopicPartition).ToList());
             _logger.LogDebug("{@Log}",
                 new
                 {
                     Message = "Revoked partitions.",
-                    Partitions = offsets.Select(p => $"{{topic={p.Topic}}} - {{partition={p.Partition.Value}}} - {{offset:{p.Offset.Value}}}")
+                    Partitions = offsets.Select(p => $"{{topic={p.Topic}}} - {{partition={p.Partition.Value}}} - {{offset:{p.Offset.Value}}}").ToList()
                 });
         }
 
@@ -137,7 +137,7 @@ namespace Kafka.Connect.Builders
                     {
                         Message = "Error committing offsets.", Reason = offsets.Error,
                         Offsets = offsets.Offsets?.Select(o =>
-                            $"{{topic={o.Topic}}} - {{partition={o.Partition.Value}}} - {{offset:{o.Offset.Value}}} - {{status:{o.Error.Code}}}")
+                            $"{{topic={o.Topic}}} - {{partition={o.Partition.Value}}} - {{offset:{o.Offset.Value}}} - {{status:{o.Error.Code}}}").ToList()
                     });
                 return;
             }
@@ -152,7 +152,7 @@ namespace Kafka.Connect.Builders
                 new
                 {
                     Message = "Offsets committed.",
-                    Offsets = offsets.Offsets.Select(o => $"{{topic={o.Topic}}} - {{partition={o.Partition.Value}}} - {{offset:{o.Offset.Value}}} - {{status:{o.Error.Code}}}")
+                    Offsets = offsets.Offsets.Select(o => $"{{topic={o.Topic}}} - {{partition={o.Partition.Value}}} - {{offset:{o.Offset.Value}}} - {{status:{o.Error.Code}}}").ToList()
                 });
         }
     }
