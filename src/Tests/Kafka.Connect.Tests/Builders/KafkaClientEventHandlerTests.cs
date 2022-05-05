@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Confluent.Kafka;
 using Kafka.Connect.Builders;
-using Kafka.Connect.Configurations;
 using Kafka.Connect.Connectors;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
@@ -10,33 +9,25 @@ using Xunit;
 
 namespace Kafka.Connect.Tests.Builders
 {
-    public class ConsumerBuilderTests
+    public class KafkaClientEventHandlerTests
     {
-        private readonly ILogger<ConsumerBuilder> _logger;
+        private readonly ILogger<KafkaClientEventHandler> _logger;
         private readonly IExecutionContext _executionContext;
-        private readonly IConfigurationProvider _configurationProvider;
-        private ConsumerBuilder _consumerBuilder;
+        private readonly KafkaClientEventHandler _kafkaClientEventHandler;
 
-        public ConsumerBuilderTests()
+        public KafkaClientEventHandlerTests()
         {
-            _logger = Substitute.For<MockLogger<ConsumerBuilder>>();
+            _logger = Substitute.For<MockLogger<KafkaClientEventHandler>>();
             _executionContext = Substitute.For<IExecutionContext>();
-            _configurationProvider = Substitute.For<IConfigurationProvider>();
-        }
 
-        [Fact]
-        public void Build_ReturnsValidConsumer()
-        {
-            Assert.NotNull(BuildConsumer());
+            _kafkaClientEventHandler = new KafkaClientEventHandler(_logger, _executionContext);
         }
-
+        
         [Theory]
         [MemberData(nameof(GetErrors))]
-        public void Build_ErrorHandlerReturningExpectedLogs(LogLevel level, Error error)
+        public void HandleError_ReturningExpectedLogs(LogLevel level, Error error)
         {
-            var consumer = BuildConsumer();
-            
-            _consumerBuilder.ErrorHandler.Invoke(consumer, error);
+            _kafkaClientEventHandler.HandleError(error);
             
             _logger.Received().Log(level, "{@Log}", error);
         }
@@ -63,92 +54,63 @@ namespace Kafka.Connect.Tests.Builders
         [InlineData(SyslogLevel.Info, LogLevel.Information)]
         [InlineData(SyslogLevel.Debug, LogLevel.Debug)]
         [InlineData((SyslogLevel)10, LogLevel.Warning)]
-        public void Build_LogHandlerReturningExpectedLogs(SyslogLevel syslogLevel, LogLevel logLevel)
+        public void HandleLogMessage_ReturningExpectedLogs(SyslogLevel syslogLevel, LogLevel logLevel)
         {
-            var consumer = BuildConsumer();
             var log = new LogMessage("Test", syslogLevel, "tests", "Unit tests logs");
             
-            _consumerBuilder.LogHandler.Invoke(consumer, log);
+            _kafkaClientEventHandler.HandleLogMessage(log);
             
             _logger.Received().Log(logLevel, "{@Log}", log);
         }
         
         [Fact]
-        public void Build_StatisticsHandlerReturningExpectedLogs()
+        public void HandleStatistics_ReturningExpectedLogs()
         {
-            var consumer = BuildConsumer();
             const string log = "unit test stats";
             
-            _consumerBuilder.StatisticsHandler.Invoke(consumer, log);
+            _kafkaClientEventHandler.HandleStatistics(log);
             
             _logger.Received().Log(LogLevel.Debug, "{@Log}", new { Message = "Statistics", Stats = log });
         }
         
         [Fact]
-        public void Build_PartitionAssignedHandlerReturningExpectedLogs_WhenNoPartitionsSet()
+        public void HandlePartitionAssigned_WhenNoPartitionsSet()
         {
-            var consumer = BuildConsumer();
             
-            _consumerBuilder.PartitionsAssignedHandler.Invoke(consumer, new List<TopicPartition>());
+            _kafkaClientEventHandler.HandlePartitionAssigned("connector", 1, new List<TopicPartition>());
             
             _logger.Received().Log(LogLevel.Trace, "{@Log}", new { Message = "No partitions assigned." });
+            _executionContext.DidNotReceive().AssignPartitions(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<List<TopicPartition>>());
         }
         
+        
         [Fact]
-        public void Build_PartitionAssignedHandlerReturningExpectedLogs_WhenPartitionListIsSet()
+        public void HandlePartitionAssigned_InvokesOnPartitionAssigned()
         {
-            var consumer = BuildConsumer();
             var partitions = new List<TopicPartition> {new("test-one", 0), new("test-one", 1), new("test-2", 0)};
             
-            _consumerBuilder.PartitionsAssignedHandler.Invoke(consumer, partitions);
+            _kafkaClientEventHandler.HandlePartitionAssigned("connector", 1, partitions);
             
             _logger.Received().Log(LogLevel.Debug, "{@Log}", new { Message="Assigned partitions.", Partitions = partitions.Select(p=>$"{{Topic:{p.Topic}}} - {{Partition:{p.Partition.Value}}}").ToList()});
+            _executionContext.Received().AssignPartitions("connector", 1, partitions);
         }
         
         [Fact]
-        public void Build_PartitionAssignedHandlerReturningExpectedLogs_InvokesOnPartitionAssigned()
+        public void HandlePartitionRevoked_WhenNoPartitionsSet()
         {
-            var consumer = BuildConsumer();
-            _consumerBuilder.AttachPartitionChangeEvents("test-connector", 1);
-            var partitions = new List<TopicPartition> {new("test-one", 0), new("test-one", 1), new("test-2", 0)};
-            
-            _consumerBuilder.PartitionsAssignedHandler.Invoke(consumer, partitions);
-            
-            _logger.Received().Log(LogLevel.Debug, "{@Log}", new { Message="Assigned partitions.", Partitions = partitions.Select(p=>$"{{Topic:{p.Topic}}} - {{Partition:{p.Partition.Value}}}").ToList()});
-            _executionContext.Received().AssignPartitions("test-connector", 1, partitions);
-        }
-        
-        [Fact]
-        public void Build_PartitionRevokedHandlerReturningExpectedLogs_WhenNoPartitionsSet()
-        {
-            var consumer = BuildConsumer();
-            
-            _consumerBuilder.PartitionsRevokedHandler.Invoke(consumer, new List<TopicPartitionOffset>());
+            _kafkaClientEventHandler.HandlePartitionRevoked("connector", 1, new List<TopicPartitionOffset>());
             
             _logger.Received().Log(LogLevel.Trace, "{@Log}", new { Message = "No partitions revoked." });
+            _executionContext.DidNotReceive().RevokePartitions(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<List<TopicPartition>>());
         }
         
         [Fact]
-        public void Build_PartitionRevokedHandlerReturningExpectedLogs_WhenPartitionListIsSet()
+        public void HandlePartitionRevoked_InvokesOnPartitionRevoked()
         {
-            var consumer = BuildConsumer();
             var offsets = new List<TopicPartitionOffset> {new("test-one", 0, 1122), new("test-one", 1, 98192), new("test-2", 0, 0)};
+            _kafkaClientEventHandler.HandlePartitionRevoked("connector", 1, offsets);
 
-            _consumerBuilder.PartitionsRevokedHandler.Invoke(consumer, offsets);
-            
-            _logger.Received().Log(LogLevel.Debug, "{@Log}", new { Message="Revoked partitions.", Partitions = offsets.Select(p=> $"{{topic={p.Topic}}} - {{partition={p.Partition.Value}}} - {{offset:{p.Offset.Value}}}").ToList()});
-        }
-        
-        [Fact]
-        public void Build_PartitionRevokedHandlerReturningExpectedLogs_InvokesOnPartitionRevoked()
-        {
-            var consumer = BuildConsumer();
-            var offsets = new List<TopicPartitionOffset> {new("test-one", 0, 1122), new("test-one", 1, 98192), new("test-2", 0, 0)};
-            _consumerBuilder.AttachPartitionChangeEvents("test-connector", 1);
-
-            _consumerBuilder.PartitionsRevokedHandler.Invoke(consumer, offsets);
-
-            _executionContext.Received().RevokePartitions("test-connector", 1, Arg.Any<IEnumerable<TopicPartition>>());
+            _executionContext.Received().RevokePartitions("connector", 1, Arg.Any<IEnumerable<TopicPartition>>());
             _logger.Received().Log(LogLevel.Debug, "{@Log}", new { Message="Revoked partitions.", Partitions = offsets.Select(p=> $"{{topic={p.Topic}}} - {{partition={p.Partition.Value}}} - {{offset:{p.Offset.Value}}}").ToList()});
             
         }
@@ -156,9 +118,7 @@ namespace Kafka.Connect.Tests.Builders
         [Fact]
         public void Build_OffsetsCommittedHandlerReturningExpectedLogs_WhenNoOffsets()
         {
-            var consumer = BuildConsumer();
-
-            _consumerBuilder.OffsetsCommittedHandler.Invoke(consumer, new CommittedOffsets(new List<TopicPartitionOffsetError>(), ErrorCode.NoError));
+            _kafkaClientEventHandler.HandleOffsetCommitted(new CommittedOffsets(new List<TopicPartitionOffsetError>(), ErrorCode.NoError));
             
             _logger.Received().Log(LogLevel.Trace, "{@Log}", new { Message = "No offsets committed." });
         }
@@ -166,10 +126,8 @@ namespace Kafka.Connect.Tests.Builders
         [Fact]
         public void Build_OffsetsCommittedHandlerReturningExpectedLogs_WhenCommitErrored()
         {
-            var consumer = BuildConsumer();
-
             var error = new Error(ErrorCode.OffsetOutOfRange, "commit failed");
-            _consumerBuilder.OffsetsCommittedHandler.Invoke(consumer, new CommittedOffsets(new List<TopicPartitionOffsetError>(), error));
+            _kafkaClientEventHandler.HandleOffsetCommitted(new CommittedOffsets(new List<TopicPartitionOffsetError>(), error));
             
             _logger.Received().Log(LogLevel.Warning, "{@Log}", new { Message = "Error committing offsets.", Reason=error, Offsets = new List<TopicPartitionOffsetError>().Select(p=> $"{{topic={p.Topic}}} - {{partition={p.Partition.Value}}} - {{offset:{p.Offset.Value}}}").ToList()});
         }
@@ -177,10 +135,8 @@ namespace Kafka.Connect.Tests.Builders
         [Fact]
         public void Build_OffsetsCommittedHandlerReturningExpectedLogs_WhenCommitErroredWithOffsets()
         {
-            var consumer = BuildConsumer();
-
             var error = new Error(ErrorCode.OffsetOutOfRange, "commit failed");
-            _consumerBuilder.OffsetsCommittedHandler.Invoke(consumer, new CommittedOffsets(new List<TopicPartitionOffsetError> { new("topic", 1, 1000, error) }, error));
+            _kafkaClientEventHandler.HandleOffsetCommitted(new CommittedOffsets(new List<TopicPartitionOffsetError> { new("topic", 1, 1000, error) }, error));
             
             _logger.Received().Log(LogLevel.Warning, "{@Log}", new { Message = "Error committing offsets.", Reason=error, Offsets = new List<TopicPartitionOffsetError>().Select(p=> $"{{topic={p.Topic}}} - {{partition={p.Partition.Value}}} - {{offset:{p.Offset.Value}}}").ToList()});
         }
@@ -188,21 +144,12 @@ namespace Kafka.Connect.Tests.Builders
         [Fact]
         public void Build_PartitionRevokedHandlerReturningExpectedLogs_WhenOffsetsCommitted()
         {
-            var consumer = BuildConsumer();
             var offsets =
                 new CommittedOffsets(new List<TopicPartitionOffsetError> {new("topic", 0, 1123, ErrorCode.NoError), new("topic", 5, 1123, ErrorCode.NoError)}, ErrorCode.NoError);
             
-            _consumerBuilder.OffsetsCommittedHandler.Invoke(consumer, offsets);
+            _kafkaClientEventHandler.HandleOffsetCommitted(offsets);
             
             _logger.Received().Log(LogLevel.Debug, "{@Log}", new { Message="Offsets committed.", Offsets = offsets.Offsets.Select(p=> $"{{topic={p.Topic}}} - {{partition={p.Partition.Value}}} - {{offset:{p.Offset.Value}}}").ToList()});
-        }
-        
-        private IConsumer<byte[], byte[]> BuildConsumer()
-        {
-            _configurationProvider.GetConsumerConfig(Arg.Any<string>())
-                .Returns(new ConsumerConfig() {BootstrapServers = "localhost:9092", GroupId = "test-group"});
-            _consumerBuilder = new ConsumerBuilder(_logger, _configurationProvider, _executionContext, "");
-            return _consumerBuilder.Create();
         }
     }
 }

@@ -1,53 +1,24 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using Confluent.Kafka;
-using Kafka.Connect.Configurations;
 using Kafka.Connect.Connectors;
-using Kafka.Connect.Plugin.Logging;
 using Microsoft.Extensions.Logging;
 
 namespace Kafka.Connect.Builders
 {
-    public class ConsumerBuilder : ConsumerBuilder<byte[], byte[]>, IConsumerBuilder
+    public class KafkaClientEventHandler : IKafkaClientEventHandler
     {
-        private readonly ILogger<ConsumerBuilder> _logger;
+        private readonly ILogger<KafkaClientEventHandler> _logger;
         private readonly IExecutionContext _executionContext;
-        private Action<IEnumerable<TopicPartition>> OnPartitionAssigned { get; set; }
-        private Action<IEnumerable<TopicPartition>> OnPartitionRevoked { get; set; }
 
-        public ConsumerBuilder(ILogger<ConsumerBuilder> logger, IConfigurationProvider configurationProvider, IExecutionContext executionContext, string connector) : base(configurationProvider.GetConsumerConfig(connector))
+        public KafkaClientEventHandler(ILogger<KafkaClientEventHandler> logger, IExecutionContext executionContext)
         {
             _logger = logger;
             _executionContext = executionContext;
         }
-
-        public IConsumer<byte[], byte[]> Create()
-        {
-            return _logger.Timed("Creating consumer.")
-                .Execute(() => SetErrorHandler(HandleError)
-                    .SetLogHandler(HandleLogMessage)
-                    .SetStatisticsHandler(HandleStatistics)
-                    .SetPartitionsAssignedHandler(HandlePartitionAssigned)
-                    .SetPartitionsRevokedHandler(HandlePartitionRevoked)
-                    .SetOffsetsCommittedHandler(HandleOffsetCommitted)
-                    .Build());
-        }
-
-        public void AttachPartitionChangeEvents(string connector, int taskId)
-        {
-            OnPartitionAssigned = partitions => _executionContext.AssignPartitions(connector, taskId, partitions);
-            OnPartitionRevoked = partitions => _executionContext.RevokePartitions(connector, taskId, partitions);
-        }
-
-        internal new Action<IConsumer<byte[], byte[]>, Error> ErrorHandler => base.ErrorHandler;
-        internal new Action<IConsumer<byte[], byte[]>, LogMessage> LogHandler => base.LogHandler;
-        internal new Action<IConsumer<byte[], byte[]>, string> StatisticsHandler => base.StatisticsHandler;
-        internal new Func<IConsumer<byte[], byte[]>, List<TopicPartition>, IEnumerable<TopicPartitionOffset>> PartitionsAssignedHandler => base.PartitionsAssignedHandler;
-        internal new Func<IConsumer<byte[], byte[]>, List<TopicPartitionOffset>, IEnumerable<TopicPartitionOffset>> PartitionsRevokedHandler => base.PartitionsRevokedHandler;
-        internal new Action<IConsumer<byte[], byte[]>, CommittedOffsets> OffsetsCommittedHandler => base.OffsetsCommittedHandler;
-
-        private void HandleError(IConsumer<byte[], byte[]> consumer, Error error)
+        
+        
+        public void HandleError(Error error)
         {
             if (error.IsFatal)
             {
@@ -62,8 +33,8 @@ namespace Kafka.Connect.Builders
                 _logger.LogDebug("{@Log}", error);
             }
         }
-        
-        private void HandleLogMessage(IConsumer<byte[], byte[]> consumer,LogMessage log)
+
+        public void HandleLogMessage(LogMessage log)
         {
             switch (log.Level)
             {
@@ -90,36 +61,36 @@ namespace Kafka.Connect.Builders
                     break;
             }
         }
-        
-        private void HandleStatistics(IConsumer<byte[], byte[]> consumer, string stats)
+
+        public void HandleStatistics(string stats)
         {
             _logger.LogDebug("{@Log}", new {Message = "Statistics", Stats = stats});
         }
-        
-        private void HandlePartitionAssigned(IConsumer<byte[], byte[]> consumer, IList<TopicPartition> partitions)
+
+        public void HandlePartitionAssigned(string connector, int taskId, IList<TopicPartition> partitions)
         {
             if (!(partitions?.Any() ?? false))
             {
                 _logger.LogTrace("{@Log}", new {Message = "No partitions assigned."});
                 return;
             }
-            OnPartitionAssigned?.Invoke(partitions);
+            _executionContext.AssignPartitions(connector, taskId, partitions);
             _logger.LogDebug("{@Log}",
                 new
                 {
                     Message = "Assigned partitions.",
                     Partitions = partitions.Select(p => $"{{topic:{p.Topic}}} - {{partition:{p.Partition.Value}}}").ToList()
                 });
-        }  
-        
-        private void HandlePartitionRevoked(IConsumer<byte[], byte[]> consumer, IList<TopicPartitionOffset> offsets)
+        }
+
+        public void HandlePartitionRevoked(string connector, int taskId, IList<TopicPartitionOffset> offsets)
         {
             if (!(offsets?.Any() ?? false))
             {
                 _logger.LogTrace("{@Log}", new {Message = "No partitions revoked."});
                 return;
             }
-            OnPartitionRevoked?.Invoke(offsets.Select(o => o.TopicPartition).ToList());
+            _executionContext.RevokePartitions(connector, taskId, offsets.Select(o=>o.TopicPartition).ToList());
             _logger.LogDebug("{@Log}",
                 new
                 {
@@ -128,7 +99,7 @@ namespace Kafka.Connect.Builders
                 });
         }
 
-        private void HandleOffsetCommitted(IConsumer<byte[], byte[]> consumer, CommittedOffsets offsets)
+        public void HandleOffsetCommitted(CommittedOffsets offsets)
         {
             if (offsets.Error?.Code != ErrorCode.NoError)
             {

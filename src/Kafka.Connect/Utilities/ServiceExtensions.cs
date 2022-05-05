@@ -41,6 +41,7 @@ namespace Kafka.Connect.Utilities
                 .AddScoped<IConnector, Connector>()
                 .AddScoped<ISinkTask, SinkTask>()
                 .AddScoped<IKafkaClientBuilder, KafkaClientBuilder>()
+                .AddScoped<IKafkaClientEventHandler, KafkaClientEventHandler>()
                 .AddScoped<IRetriableHandler, RetriableHandler>()
 
                 .AddScoped<IConnectDeadLetter, ConnectDeadLetter>()
@@ -62,12 +63,7 @@ namespace Kafka.Connect.Utilities
                 .AddScoped<IProcessor, BlacklistFieldProjector>()
                 .AddScoped<IProcessor, WhitelistFieldProjector>()
                 .AddScoped<IProcessor, FieldRenamer>()
-                .AddScoped<Func<string, IConsumerBuilder>>(provider =>
-                {
-                    return connector => new ConsumerBuilder(provider.GetService<ILogger<ConsumerBuilder>>(),
-                        provider.GetService<IConfigurationProvider>(), provider.GetService<IExecutionContext>(),
-                        connector);
-                })
+                
                 .AddScoped<IAsyncDeserializer<GenericRecord>>(provider =>
                 {
                     var client = provider.GetServices<ISchemaRegistryClient>()

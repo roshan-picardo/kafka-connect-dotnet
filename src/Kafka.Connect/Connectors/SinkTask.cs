@@ -4,7 +4,6 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Confluent.Kafka;
-using Kafka.Connect.Builders;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Handlers;
 using Kafka.Connect.Plugin.Logging;
@@ -28,10 +27,9 @@ namespace Kafka.Connect.Connectors
         private readonly IRetriableHandler _retriableHandler;
         private readonly IConfigurationProvider _configurationProvider;
         private readonly IExecutionContext _executionContext;
-        private readonly Func<string, IConsumerBuilder> _consumerBuilderFactory;
 
         public SinkTask(ILogger<SinkTask> logger,  ISinkConsumer sinkConsumer, ISinkProcessor sinkProcessor,
-            IPartitionHandler partitionHandler, ISinkExceptionHandler sinkExceptionHandler, IRetriableHandler retriableHandler, IConfigurationProvider configurationProvider, IExecutionContext executionContext, Func<string, IConsumerBuilder> consumerBuilderFactory)
+            IPartitionHandler partitionHandler, ISinkExceptionHandler sinkExceptionHandler, IRetriableHandler retriableHandler, IConfigurationProvider configurationProvider, IExecutionContext executionContext)
         {
             _logger = logger;
             _sinkConsumer = sinkConsumer;
@@ -41,7 +39,6 @@ namespace Kafka.Connect.Connectors
             _retriableHandler = retriableHandler;
             _configurationProvider = configurationProvider;
             _executionContext = executionContext;
-            _consumerBuilderFactory = consumerBuilderFactory;
         }
 
         public async Task Execute(string connector, int taskId, CancellationToken cancellationToken)
@@ -56,8 +53,7 @@ namespace Kafka.Connect.Connectors
             }
             
             _executionContext.Add(connector, taskId);
-            _consumerBuilderFactory(connector).AttachPartitionChangeEvents(connector, taskId);
-            _consumer = _logger.Timed("Subscribing to the topics.").Execute(() => _sinkConsumer.Subscribe(connector));
+            _consumer = _logger.Timed("Subscribing to the topics.").Execute(() => _sinkConsumer.Subscribe(connector, taskId));
             if (_consumer == null)
             {
                 _logger.LogWarning("{@Log}", new {Message = "Failed to create the consumer, exiting from the sink task."});
