@@ -20,6 +20,8 @@ namespace Kafka.Connect.Connectors
         int GetNextPollIndex();
         void AddToCount(int records);
         dynamic GetFullDetails();
+        void Shutdown();
+        CancellationTokenSource GetToken();
 
         BatchPollContext GetOrSetBatchContext(string connector, int taskId, CancellationToken token = default);
     }

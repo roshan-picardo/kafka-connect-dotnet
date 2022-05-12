@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Kafka.Connect.Connectors;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -10,11 +11,13 @@ namespace Kafka.Connect.Background
     {
         private readonly ILogger<WorkerService> _logger;
         private readonly IWorker _worker;
+        private readonly IExecutionContext _executionContext;
 
-        public WorkerService(ILogger<WorkerService> logger, IWorker worker)
+        public WorkerService(ILogger<WorkerService> logger, IWorker worker, IExecutionContext executionContext)
         {
             _logger = logger;
             _worker = worker;
+            _executionContext = executionContext;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -37,6 +40,7 @@ namespace Kafka.Connect.Background
             finally
             {
                 _logger.LogDebug("{@Log}", new {Message = "Stopping background worker process..."});
+                _executionContext.Shutdown();
             }
         }
     }

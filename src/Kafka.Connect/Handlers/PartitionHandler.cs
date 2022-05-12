@@ -12,7 +12,6 @@ using Kafka.Connect.Utilities;
 using Microsoft.Extensions.Logging;
 using Serilog.Context;
 using Serilog.Core.Enrichers;
-using ConnectorConfig = Kafka.Connect.Config.ConnectorConfig;
 
 namespace Kafka.Connect.Handlers
 {

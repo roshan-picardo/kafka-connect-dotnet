@@ -7,7 +7,6 @@ using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Providers;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
-using ConverterConfig = Kafka.Connect.Config.Models.ConverterConfig;
 
 namespace Kafka.Connect.Serializers
 {
@@ -37,25 +36,8 @@ namespace Kafka.Connect.Serializers
                         .Deserialize(consumed.Message.Value, new SerializationContext(MessageComponentType.Value, consumed.Topic, consumed.Message?.Headers), consumed.Message.Value == null || consumed.Message.Value.Length == 0));
             return (keyToken, valueToken);
         }
-        
-        public async Task<(JToken, JToken)> Deserialize(ConverterConfig converterConfig,
-            ConsumeResult<byte[], byte[]> consumed)
-        {
-            var keyConfig = converterConfig.Overrides?.SingleOrDefault(d => d.Topic == consumed.Topic)?.Key ??
-                            converterConfig.Key;
-            var valueConfig = converterConfig.Overrides?.SingleOrDefault(d => d.Topic == consumed.Topic)?.Value ??
-                            converterConfig.Value;
-            var keyToken =
-                await _logger.Timed($"Deserializing record key using {keyConfig}")
-                    .Execute(async () => await _processorServiceProvider.GetDeserializer(keyConfig)
-                        .Deserialize(consumed.Message.Key, new SerializationContext(MessageComponentType.Key, consumed.Topic, consumed.Message?.Headers), consumed.Message.Key == null || consumed.Message.Key.Length == 0));
-            var valueToken = 
-                await _logger.Timed($"Deserializing record value using {valueConfig}")
-                    .Execute(async () => await _processorServiceProvider.GetDeserializer(valueConfig)
-                        .Deserialize(consumed.Message.Value, new SerializationContext(MessageComponentType.Value, consumed.Topic, consumed.Message?.Headers), consumed.Message.Value == null || consumed.Message.Value.Length == 0));
-            return (keyToken, valueToken);
-        }
 
+        /* TODO: may need to port it to somewhere else
         public async Task<Message<byte[], byte[]>> Serialize(ConverterConfig converterConfig, TopicConfig topicConfig, JToken key, JToken value)
         {
             var keyConfig = converterConfig.Overrides?.SingleOrDefault(d => d.Topic == topicConfig.Name)?.Key ??
@@ -73,6 +55,6 @@ namespace Kafka.Connect.Serializers
                         .Serialize(value, SerializationContext.Empty, topicConfig.GetValueSchemaSubjectOrId()))
             };
             return message;
-        }
+        } */
     }
 }

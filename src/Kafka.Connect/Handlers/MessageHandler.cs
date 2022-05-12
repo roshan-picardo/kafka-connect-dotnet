@@ -7,7 +7,6 @@ using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Providers;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
-using ConnectorConfig = Kafka.Connect.Config.ConnectorConfig;
 
 namespace Kafka.Connect.Handlers
 {
