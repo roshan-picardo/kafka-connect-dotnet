@@ -37,12 +37,11 @@ namespace Kafka.Connect
 
         public async Task Execute(CancellationToken cancellationToken)
         {
+            _configurationProvider.Validate();
             var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken); // from here-on use this token to track
             var restartsConfig = _configurationProvider.GetRestartsConfig();
             
             _logger.LogDebug("{@Log}", new {Message = "Starting the worker."});
-            //_logger.Timed("Initializing and verifying the configurations.")
-              //  .Execute(() => _workerConfig.MergeAndVerify(_logger));
             
             _executionContext.Name(_configurationProvider.GetWorkerName()); // or you could put this in exec context
             var stopwatch = Stopwatch.StartNew();

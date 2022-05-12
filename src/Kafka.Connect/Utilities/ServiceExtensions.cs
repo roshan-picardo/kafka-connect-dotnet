@@ -22,12 +22,9 @@ using Kafka.Connect.Schemas;
 using Kafka.Connect.Tokens;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 using Serilog;
-using ConfigurationProvider = Kafka.Connect.Configurations.ConfigurationProvider;
-using IConfigurationProvider = Kafka.Connect.Configurations.IConfigurationProvider;
-using WorkerConfig = Kafka.Connect.Config.WorkerConfig;
+using Kafka.Connect.Configurations;
 
 namespace Kafka.Connect.Utilities
 {
@@ -102,14 +99,13 @@ namespace Kafka.Connect.Utilities
 
                 //.Configure<SchemaRegistryConfig>(configuration.GetSection("worker:schemaRegistry"))
                 .Configure<WorkerConfig>(configuration.GetSection("worker"))
-                .Configure<Kafka.Connect.Configurations.WorkerConfig>(configuration.GetSection("worker"))
                 
                 .Configure<List<ConnectorConfig<IDictionary<string, string>>>>(configuration.GetSection("worker:connectors"))
                 .Configure<List<ConnectorConfig<IList<string>>>>(configuration.GetSection("worker:connectors"))
                 .Configure<ConnectorConfig<IDictionary<string, string>>>(configuration.GetSection("worker:shared"))
                 .Configure<ConnectorConfig<IList<string>>>(configuration.GetSection("worker:shared"))
                 
-                .AddSingleton<IConfigurationProvider, ConfigurationProvider>()
+                .AddSingleton<Configurations.IConfigurationProvider, Configurations.ConfigurationProvider>()
                 .AddSingleton<IExecutionContext, ExecutionContext>()
                 .AddSingleton<IWorker, Worker>()
                 .AddControllers();

@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Linq;
-using Kafka.Connect.Config.Models;
 using Kafka.Connect.Plugin.Processors;
 using Kafka.Connect.Plugin.Serializers;
 using Microsoft.Extensions.Logging;
@@ -28,20 +27,6 @@ namespace Kafka.Connect.Providers
         public IEnumerable<IProcessor> GetProcessors()
         {
             return _processors;
-        }
-
-        public IDeserializer GetKeyDeserializer(ConverterConfig config)
-        {
-            var deserializer = _deserializers.SingleOrDefault(d => d.IsOfType(config.Key));
-            _logger.LogTrace("{@Log}", new {Message = $"Key deserializer{deserializer?.GetType().FullName}"});
-            return deserializer;
-        }
-
-        public IDeserializer GetValueDeserializer(ConverterConfig config)
-        {
-            var deserializer = _deserializers.SingleOrDefault(d => d.IsOfType(config.Value));
-            _logger.LogTrace("{@Log}", new {Message = $"Value deserializer{deserializer?.GetType().FullName}"});
-            return deserializer;
         }
 
         public IDeserializer GetDeserializer(string typeName)

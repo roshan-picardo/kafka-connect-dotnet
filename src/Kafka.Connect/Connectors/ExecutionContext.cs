@@ -18,6 +18,7 @@ namespace Kafka.Connect.Connectors
         private readonly WorkerContext _workerContext;
         private int _topicPollIndex;
         private int _recordsCount;
+        private readonly CancellationTokenSource _cancellationToken;
 
         public ExecutionContext(IEnumerable<IPluginInitializer> plugins, IEnumerable<IProcessor> processors,
             IEnumerable<ISinkHandler> handlers, IEnumerable<IDeserializer> deserializers)
@@ -33,6 +34,7 @@ namespace Kafka.Connect.Connectors
             };
             _topicPollIndex = 0;
             _recordsCount = 0;
+            _cancellationToken = new CancellationTokenSource();
         }
 
         public void Name(string worker) => _workerContext.Name = worker;
@@ -165,6 +167,19 @@ namespace Kafka.Connect.Connectors
         public void AddToCount(int records)
         {
             Interlocked.Add(ref _recordsCount, records);
+        }
+
+        public CancellationTokenSource GetToken()
+        {
+            return _cancellationToken;
+        }
+
+        public void Shutdown()
+        {
+            if (_cancellationToken is {IsCancellationRequested: false})
+            {
+                _cancellationToken.Cancel();
+            }
         }
 
         private dynamic GetTaskStatus(TaskContext taskContext)

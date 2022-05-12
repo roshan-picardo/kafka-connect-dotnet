@@ -25,5 +25,6 @@ namespace Kafka.Connect.Configurations
         bool IsDeadLetterEnabled(string connector);
         (bool enableAutoCommit, bool enableAutoOffsetStore) GetAutoCommitConfig();
         string GetGroupId(string connector);
+        void Validate();
     }
 }

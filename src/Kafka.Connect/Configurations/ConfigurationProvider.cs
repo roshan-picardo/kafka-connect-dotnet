@@ -2,19 +2,16 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Confluent.Kafka;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Kafka.Connect.Configurations
 {
     public class ConfigurationProvider : IConfigurationProvider
     {
-        private readonly ILogger<IConfigurationProvider> _logger;
         private readonly WorkerConfig _workerConfig;
-        public ConfigurationProvider(IOptions<WorkerConfig> options, ILogger<IConfigurationProvider> logger)
+        public ConfigurationProvider(IOptions<WorkerConfig> options)
         {
-            _logger = logger;
-            _workerConfig = Build(options);
+            _workerConfig = options?.Value ?? throw new ArgumentNullException(nameof(options));
         }
 
         public FailOverConfig GetFailOverConfig()
@@ -152,13 +149,41 @@ namespace Kafka.Connect.Configurations
             return (_workerConfig.EnableAutoCommit ?? false, _workerConfig.EnableAutoOffsetStore ?? false);
         }
 
-        private WorkerConfig Build(IOptions<WorkerConfig> options)
+        public void Validate()
         {
-            var workerConfig = options?.Value ?? throw new ArgumentNullException(nameof(options));
-            //1. Log Configs
-            _logger.LogCritical("{@Log}", workerConfig);
-            return workerConfig;
+            if (string.IsNullOrWhiteSpace(_workerConfig.BootstrapServers))
+            {
+                throw new ArgumentException($"Bootstrap Servers isn't configured for worker.");
+            }
+            if (!(_workerConfig.Connectors?.Any() ?? false))
+            {
+                throw new ArgumentException($"At least one connector is required for the worker to start.");
+            }
+            
+            if (!(_workerConfig.Plugins?.Any() ?? false))
+            {
+                throw new ArgumentException($"At least one plugin is required for the worker to start.");
+            }
+            var hash = new HashSet<string>();
+            hash.Clear();
+            if (!_workerConfig.Connectors.All(c => hash.Add(c.Name) && !string.IsNullOrEmpty(c.Name)))
+            {
+                throw new ArgumentException("Connector Name configuration property must be specified and must be unique.");
+            }
+            hash.Clear();
+            if (!_workerConfig.Plugins.All(p => hash.Add(p.Name) && !string.IsNullOrEmpty(p.Name)))
+            {
+                throw new ArgumentException("Plugin Name configuration property must be specified and must be unique.");
+            }
+
+            foreach (var connector in _workerConfig.Connectors)
+            {
+                if (!_workerConfig.Plugins.Select(p => p.Name).Contains(connector.Plugin))
+                {
+                    throw new ArgumentException(
+                        $"Connector: {connector.Name} is not associated to any of the available Plugins: [ {string.Join(", ", _workerConfig.Plugins.Select(p => p.Name))} ].");
+                }
+            }
         }
-        
     }
 }

@@ -7,7 +7,8 @@ using System.Threading;
 using System.Threading.Tasks;
  using Kafka.Connect.Background;
 using Kafka.Connect.Config.Models;
-using Kafka.Connect.Plugin;
+ using Kafka.Connect.Connectors;
+ using Kafka.Connect.Plugin;
 using Kafka.Connect.Utilities;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
@@ -118,12 +119,15 @@ using Serilog.Context;
                  // time this
                  var configuration = LoadConfiguration(Arguments.Parse(args));
                  // time this
-                 LoadPlugins(configuration);
+                 configuration.LoadPlugins();
                  
-                 _cts = new CancellationTokenSource();
-
                  AppDomain.CurrentDomain.ProcessExit += (_, _) => { _cts.Cancel(); };
 
+                 Log.ForContext<Worker>().Verbose("{@Log}", new {Message = "Initializing the web host."});
+
+                 var host = ConfigureHostBuilder(args, configuration).Build();
+                 _cts = host.Services.GetService<IExecutionContext>()?.GetToken() ?? new CancellationTokenSource();
+                 
                  Console.CancelKeyPress += (_, eventArgs) =>
                  {
                      Log.ForContext<Worker>().Debug("{@Log}", new {Message = "Worker shutdown initiated."});
@@ -131,16 +135,11 @@ using Serilog.Context;
                      eventArgs.Cancel = true;
                  };
 
-                 Log.ForContext<Worker>().Verbose("{@Log}", new {Message = "Initializing the web host."});
-
-                 var host = ConfigureHostBuilder(args, configuration).Build();
-
                  await host.RunAsync(_cts.Token).ContinueWith(t =>
                  {
                      if (!t.IsFaulted) return;
                      if (t.Exception?.InnerException is OperationCanceledException)
                      {
-
                          Log.ForContext<Worker>().Warning("{@Log}",
                              new
                              {
