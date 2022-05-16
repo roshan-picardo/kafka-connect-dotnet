@@ -1,6 +1,5 @@
 using System.Threading;
 using System.Threading.Tasks;
-using Kafka.Connect.Config;
 
 namespace Kafka.Connect.Connectors
 {

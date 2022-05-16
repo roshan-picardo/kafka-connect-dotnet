@@ -1,22 +1,16 @@
 ﻿﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Reflection;
-using System.Threading;
+ using System.IO;
+ using System.Threading;
 using System.Threading.Tasks;
  using Kafka.Connect.Background;
-using Kafka.Connect.Config.Models;
  using Kafka.Connect.Connectors;
- using Kafka.Connect.Plugin;
-using Kafka.Connect.Utilities;
+ using Kafka.Connect.Utilities;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Serilog;
-using Serilog.Context;
  using Serilog.Formatting.Json;
 
  namespace Kafka.Connect
@@ -24,56 +18,6 @@ using Serilog.Context;
      internal static class Startup
      {
          private static CancellationTokenSource _cts;
-
-         private static void LoadPlugins(IConfiguration configuration)
-         {
-             var plugins = configuration.GetSection("worker:plugins").Get<IEnumerable<PluginConfig>>();
-             if (plugins == null)
-             {
-                 Log.ForContext<Worker>().Debug("{@Log}", new {Message = "No plugins registered. Please verify the configuration."});
-                 return;
-             }
-             foreach (var plugin in plugins)
-             {
-                 using (LogContext.PushProperty("Plugin", plugin?.Name))
-                 {
-                     if (plugin?.Initializers == null || !plugin.Initializers.Any()) continue;
-                     foreach (var initializer in plugin.Initializers)
-                     {
-                         if (!(initializer.Assembly?.EndsWith(".dll") ?? true))
-                         {
-                             initializer.Assembly = $"{initializer.Assembly}.dll";
-                         }
-
-                         Log.ForContext<Worker>().Verbose("{@Log}", new {Message = $"Loading Plugin: {plugin.Name}."});
-                         var pluginLocation =
-                             $"{AppDomain.CurrentDomain.BaseDirectory}{plugin.Directory}{Path.DirectorySeparatorChar}{initializer.Assembly}";
-
-                         if (!File.Exists(pluginLocation))
-                         {
-                             Log.ForContext<Worker>().Warning("{@Log}", new {Message = $"No assembly found at {plugin.Directory}"});
-                             continue;
-                         }
-
-                         var loadContext = new PluginLoadContext(pluginLocation);
-                         var assembly = loadContext.LoadFromAssemblyName(AssemblyName.GetAssemblyName(pluginLocation));
-
-                         var type = assembly.GetType(initializer.Type);
-                         if (type != null && Activator.CreateInstance(type) is IPluginInitializer instance)
-                         {
-                             ServiceExtensions.AddPluginServices +=
-                                 collection => instance.AddServices(collection, configuration, plugin.Name);
-                         }
-                         else
-                         {
-                             Log.ForContext<Worker>().Warning( "{@Log}", new { Message = $"Failed to instantiate the initializer: {initializer.Type}"});
-                             continue;
-                         }
-                         Log.ForContext<Worker>().Debug("{@Log}", new {Message = $"Plugin Initialized: {plugin.Name}({initializer.Type})."});
-                     }
-                 }
-             }
-         }
 
          private static IHostBuilder ConfigureHostBuilder(string[] args, IConfiguration configuration) =>
              Host.CreateDefaultBuilder(args)

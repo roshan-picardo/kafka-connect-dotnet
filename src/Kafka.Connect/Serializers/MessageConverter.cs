@@ -1,7 +1,6 @@
 using System.Linq;
 using System.Threading.Tasks;
 using Confluent.Kafka;
-using Kafka.Connect.Config.Models;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Providers;

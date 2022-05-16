@@ -15,7 +15,7 @@ namespace Kafka.Connect.Configurations
         }
 
         public IList<ConnectorConfig> Connectors { get; set; }
-        public IList<PluginConfig> Plugins { get; init; }
+        public PluginConfig Plugins { get; init; }
         public HealthWatchConfig HealthWatch { get; init; }
         public SharedConfig Shared { get; init; }
     }

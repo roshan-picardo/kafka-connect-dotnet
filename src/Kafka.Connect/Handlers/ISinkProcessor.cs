@@ -1,5 +1,4 @@
 using System.Threading.Tasks;
-using Kafka.Connect.Config;
 using Kafka.Connect.Plugin.Models;
 
 namespace Kafka.Connect.Handlers

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using Kafka.Connect.Config.Models;
+using Kafka.Connect.Configurations;
 using Kafka.Connect.Plugin;
 using Microsoft.Extensions.Configuration;
 using Serilog;
@@ -15,51 +15,54 @@ namespace Kafka.Connect.Utilities
     {
         public static void LoadPlugins(this IConfiguration configuration)
         {
-            var plugins = configuration.GetSection("worker:plugins").Get<IEnumerable<PluginConfig>>();
+            var plugins = configuration.GetSection("worker:plugins").Get<PluginConfig>();
              if (plugins == null)
              {
                  Log.ForContext<Worker>().Debug("{@Log}", new {Message = "No plugins registered. Please verify the configuration."});
                  return;
              }
-             foreach (var plugin in plugins)
+             plugins.Location = Directory.Exists(plugins.Location)? plugins.Location : $"{AppDomain.CurrentDomain.BaseDirectory}{plugins.Location}";
+             string pluginLocation = null;
+             foreach (var (name, initializer) in plugins.Initializers)
              {
-                 using (LogContext.PushProperty("Plugin", plugin?.Name))
+                 Log.ForContext<Worker>().Debug("{@Log}", new {Message = $"Loading plugin - {name}"});
+                 var assemblyFiles = Directory.EnumerateFiles(plugins.Location, $"*{initializer.Assembly}", SearchOption.AllDirectories).ToList();
+                 if (!assemblyFiles.Any())
                  {
-                     if (plugin?.Initializers == null || !plugin.Initializers.Any()) continue;
-                     foreach (var initializer in plugin.Initializers)
-                     {
-                         if (!(initializer.Assembly?.EndsWith(".dll") ?? true))
-                         {
-                             initializer.Assembly = $"{initializer.Assembly}.dll";
-                         }
-
-                         Log.ForContext<Worker>().Verbose("{@Log}", new {Message = $"Loading Plugin: {plugin.Name}."});
-                         var pluginLocation =
-                             $"{AppDomain.CurrentDomain.BaseDirectory}{plugin.Directory}{Path.DirectorySeparatorChar}{initializer.Assembly}";
-
-                         if (!File.Exists(pluginLocation))
-                         {
-                             Log.ForContext<Worker>().Warning("{@Log}", new {Message = $"No assembly found at {plugin.Directory}"});
-                             continue;
-                         }
-
-                         var loadContext = new PluginLoadContext(pluginLocation);
-                         var assembly = loadContext.LoadFromAssemblyName(AssemblyName.GetAssemblyName(pluginLocation));
-
-                         var type = assembly.GetType(initializer.Type);
-                         if (type != null && Activator.CreateInstance(type) is IPluginInitializer instance)
-                         {
-                             ServiceExtensions.AddPluginServices +=
-                                 collection => instance.AddServices(collection, configuration, plugin.Name);
-                         }
-                         else
-                         {
-                             Log.ForContext<Worker>().Warning( "{@Log}", new { Message = $"Failed to instantiate the initializer: {initializer.Type}"});
-                             continue;
-                         }
-                         Log.ForContext<Worker>().Debug("{@Log}", new {Message = $"Plugin Initialized: {plugin.Name}({initializer.Type})."});
-                     }
+                     Log.ForContext<Worker>().Warning("{@Log}", new {Message = $"Assembly not found. {initializer.Assembly}"});
+                     continue;
                  }
+
+                 if (assemblyFiles.Count > 1)
+                 {
+                     // try locating based on prefix
+                     var prefixedAssemblyFiles = assemblyFiles.Where(af => af.EndsWith($"{initializer.Prefix}{Path.DirectorySeparatorChar}{initializer.Assembly}")).ToList();
+                     if (!prefixedAssemblyFiles.Any() || prefixedAssemblyFiles.Count > 1)
+                     {
+                         Log.ForContext<Worker>().Error("{@Log}", new {Message = $"More than one matching assembly found. {initializer.Assembly}:{assemblyFiles.Count}"});
+                         continue;
+                     }
+
+                     pluginLocation = prefixedAssemblyFiles.Single();
+                 }
+
+                 pluginLocation ??= assemblyFiles.Single();
+                 
+                 var loadContext = new PluginLoadContext(pluginLocation);
+                 var assembly = loadContext.LoadFromAssemblyName(AssemblyName.GetAssemblyName(pluginLocation));
+
+                 var type = assembly.GetType(initializer.Class);
+                 if (type != null && Activator.CreateInstance(type) is IPluginInitializer instance)
+                 {
+                     ServiceExtensions.AddPluginServices +=
+                         collection => instance.AddServices(collection, configuration, name);
+                 }
+                 else
+                 {
+                     Log.ForContext<Worker>().Warning( "{@Log}", new { Message = $"Failed to instantiate the initializer: {initializer.Class}"});
+                     continue;
+                 }
+                 Log.ForContext<Worker>().Debug("{@Log}", new {Message = $"Plugin Initialized: {name}."});
              }
         }
     }
