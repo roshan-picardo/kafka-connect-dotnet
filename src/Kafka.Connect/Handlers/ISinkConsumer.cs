@@ -1,8 +1,5 @@
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using Confluent.Kafka;
-using Kafka.Connect.Config;
-using Kafka.Connect.Models;
 using Kafka.Connect.Plugin.Models;
 
 namespace Kafka.Connect.Handlers

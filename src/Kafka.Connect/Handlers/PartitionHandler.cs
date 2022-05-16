@@ -52,29 +52,6 @@ namespace Kafka.Connect.Handlers
                 }
             }
         }
-        
-        public void CommitOffsets(SinkRecordBatch batch, IConsumer<byte[], byte[]> consumer, ConsumerConfig taskConfig)
-        {
-            var offsets = batch.GetCommitReadyOffsets().ToList();
-            if (!offsets.Any())
-            {
-                return;
-            }
-
-            var maxOffsets = GetMaxOffsets(offsets);
-
-            if (!(taskConfig.EnableAutoCommit ?? false))
-            {
-                consumer.Commit(maxOffsets);
-            }
-            else if (!(taskConfig.EnableAutoOffsetStore ?? false))
-            {
-                foreach (var commitOffset in maxOffsets)
-                {
-                    consumer.StoreOffset(commitOffset);
-                }
-            }
-        }
 
         public async Task NotifyEndOfPartition(SinkRecordBatch batch, string connector, int taskId)
         {

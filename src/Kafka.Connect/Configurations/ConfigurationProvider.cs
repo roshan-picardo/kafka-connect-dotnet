@@ -153,16 +153,16 @@ namespace Kafka.Connect.Configurations
         {
             if (string.IsNullOrWhiteSpace(_workerConfig.BootstrapServers))
             {
-                throw new ArgumentException($"Bootstrap Servers isn't configured for worker.");
+                throw new ArgumentException("Bootstrap Servers isn't configured for worker.");
             }
             if (!(_workerConfig.Connectors?.Any() ?? false))
             {
-                throw new ArgumentException($"At least one connector is required for the worker to start.");
+                throw new ArgumentException("At least one connector is required for the worker to start.");
             }
             
-            if (!(_workerConfig.Plugins?.Any() ?? false))
+            if (!(_workerConfig.Plugins?.Initializers?.Any() ?? false))
             {
-                throw new ArgumentException($"At least one plugin is required for the worker to start.");
+                throw new ArgumentException("At least one plugin is required for the worker to start.");
             }
             var hash = new HashSet<string>();
             hash.Clear();
@@ -171,17 +171,17 @@ namespace Kafka.Connect.Configurations
                 throw new ArgumentException("Connector Name configuration property must be specified and must be unique.");
             }
             hash.Clear();
-            if (!_workerConfig.Plugins.All(p => hash.Add(p.Name) && !string.IsNullOrEmpty(p.Name)))
+            if (!_workerConfig.Plugins.Initializers.All(p => hash.Add(p.Key) && !string.IsNullOrEmpty(p.Key)))
             {
                 throw new ArgumentException("Plugin Name configuration property must be specified and must be unique.");
             }
 
             foreach (var connector in _workerConfig.Connectors)
             {
-                if (!_workerConfig.Plugins.Select(p => p.Name).Contains(connector.Plugin))
+                if (!_workerConfig.Plugins.Initializers.Select(p => p.Key).Contains(connector.Plugin))
                 {
                     throw new ArgumentException(
-                        $"Connector: {connector.Name} is not associated to any of the available Plugins: [ {string.Join(", ", _workerConfig.Plugins.Select(p => p.Name))} ].");
+                        $"Connector: {connector.Name} is not associated to any of the available Plugins: [ {string.Join(", ", _workerConfig.Plugins.Initializers.Select(p => p.Key))} ].");
                 }
             }
         }
