@@ -9,6 +9,7 @@ using Kafka.Connect.Builders;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Connectors;
 using Kafka.Connect.Plugin.Tokens;
+using Kafka.Connect.Providers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NSubstitute;

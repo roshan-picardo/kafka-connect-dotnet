@@ -2,9 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Confluent.Kafka;
+using Kafka.Connect.Configurations;
 using Microsoft.Extensions.Options;
 
-namespace Kafka.Connect.Configurations
+namespace Kafka.Connect.Providers
 {
     public class ConfigurationProvider : IConfigurationProvider
     {

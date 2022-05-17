@@ -1,6 +1,6 @@
 using Confluent.Kafka;
 using Kafka.Connect.Builders;
-using Kafka.Connect.Configurations;
+using Kafka.Connect.Providers;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using Xunit;

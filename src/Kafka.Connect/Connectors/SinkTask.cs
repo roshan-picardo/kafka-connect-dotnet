@@ -1,19 +1,17 @@
 using System;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Confluent.Kafka;
-using Kafka.Connect.Configurations;
 using Kafka.Connect.Handlers;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
+using Kafka.Connect.Providers;
 using Kafka.Connect.Utilities;
 using Microsoft.Extensions.Logging;
 using Serilog.Context;
 using Serilog.Core.Enrichers;
 
-[assembly:InternalsVisibleTo("Kafka.Connect.Tests")]
 namespace Kafka.Connect.Connectors
 {
     public class SinkTask : ISinkTask

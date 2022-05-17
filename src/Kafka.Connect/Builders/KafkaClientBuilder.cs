@@ -1,8 +1,6 @@
-using System;
 using Confluent.Kafka;
-using Kafka.Connect.Configurations;
-using Kafka.Connect.Connectors;
 using Kafka.Connect.Plugin.Logging;
+using Kafka.Connect.Providers;
 using Microsoft.Extensions.Logging;
 
 namespace Kafka.Connect.Builders

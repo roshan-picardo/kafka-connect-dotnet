@@ -1,7 +1,8 @@
 using System.Collections.Generic;
 using Confluent.Kafka;
+using Kafka.Connect.Configurations;
 
-namespace Kafka.Connect.Configurations
+namespace Kafka.Connect.Providers
 {
     public interface IConfigurationProvider
     {
