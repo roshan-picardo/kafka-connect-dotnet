@@ -6,6 +6,7 @@ using Kafka.Connect.Configurations;
 using Kafka.Connect.Connectors;
 using Kafka.Connect.Models;
 using Kafka.Connect.Plugin.Tokens;
+using Kafka.Connect.Providers;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using Xunit;

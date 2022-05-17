@@ -7,7 +7,7 @@ using Kafka.Connect.Plugin.Models;
 using Microsoft.Extensions.Logging;
 using Serilog.Context;
 using Serilog.Core.Enrichers;
-using Kafka.Connect.Configurations;
+using Kafka.Connect.Providers;
 
 namespace Kafka.Connect.Handlers
 {

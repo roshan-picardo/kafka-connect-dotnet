@@ -105,7 +105,7 @@ namespace Kafka.Connect.Utilities
                 .Configure<ConnectorConfig<IDictionary<string, string>>>(configuration.GetSection("worker:shared"))
                 .Configure<ConnectorConfig<IList<string>>>(configuration.GetSection("worker:shared"))
                 
-                .AddSingleton<Configurations.IConfigurationProvider, Configurations.ConfigurationProvider>()
+                .AddSingleton<Providers.IConfigurationProvider, Providers.ConfigurationProvider>()
                 .AddSingleton<IExecutionContext, ExecutionContext>()
                 .AddSingleton<IWorker, Worker>()
                 .AddControllers();
