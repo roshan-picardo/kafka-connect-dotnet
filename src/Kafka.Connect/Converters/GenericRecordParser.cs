@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Linq;
 using Avro;
 using Avro.Generic;
+using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Utilities;
 using Newtonsoft.Json.Linq;
 
@@ -12,6 +13,7 @@ namespace Kafka.Connect.Converters
 {
     public class GenericRecordParser : IGenericRecordParser
     {
+        [OperationLog("Parsing generic record.")]
         public JToken Parse(GenericRecord genericRecord)
         {
             return ParseRecord(genericRecord);

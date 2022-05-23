@@ -4,7 +4,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Confluent.Kafka;
 using Kafka.Connect.Handlers;
-using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Providers;
 using Kafka.Connect.Utilities;
@@ -51,7 +50,7 @@ namespace Kafka.Connect.Connectors
             }
             
             _executionContext.Add(connector, taskId);
-            _consumer = _logger.Timed("Subscribing to the topics.").Execute(() => _sinkConsumer.Subscribe(connector, taskId));
+            _consumer = _sinkConsumer.Subscribe(connector, taskId);
             if (_consumer == null)
             {
                 _logger.LogWarning("{@Log}", new {Message = "Failed to create the consumer, exiting from the sink task."});
@@ -71,12 +70,12 @@ namespace Kafka.Connect.Connectors
                     {
                         try
                         {
-                            batch = await _logger.Timed("Invoking consume.").Execute(() => _sinkConsumer.Consume(_consumer, connector, taskId));
+                            batch = await _sinkConsumer.Consume(_consumer, connector, taskId);
                             batch = await _retriableHandler.Retry(b => ProcessAndSinkInternal(connector, b, Cancel), batch, connector);
                         }
                         catch (Exception ex)
                         {
-                            _logger.Timed("Handle processing errors.").Execute(() => _sinkExceptionHandler.Handle(ex, Cancel));
+                            _sinkExceptionHandler.Handle(ex, Cancel);
                         }
                         finally
                         {
@@ -93,22 +92,22 @@ namespace Kafka.Connect.Connectors
                 _executionContext.Stop(connector, taskId);
             }
         }
-
+        
         private async Task<SinkRecordBatch> ProcessAndSinkInternal(string connector, SinkRecordBatch batch, Action cancelToken)
         {
             if (batch == null || !batch.Any()) return batch;
             try
             {
-                await _logger.Timed("Processing the batch.").Execute(() => _sinkProcessor.Process(batch, connector));
-                await _logger.Timed("Sinking the batch.").Execute(() => _sinkProcessor.Sink(batch, connector));
+                await _sinkProcessor.Process(batch, connector);
+                await _sinkProcessor.Sink(batch, connector);
                 batch.MarkAllCommitReady();
             }
             catch (Exception ex)
             {
                 if (_configurationProvider.IsErrorTolerated(connector) && batch.IsLastAttempt)
                 {
-                    _logger.Timed("Handle processing errors.").Execute(() => _sinkExceptionHandler.Handle(ex,cancelToken));
-                    await _logger.Timed("Handover to dead-letter.").Execute(() => _sinkExceptionHandler.HandleDeadLetter(batch, ex, connector));
+                    _sinkExceptionHandler.Handle(ex,cancelToken);
+                    await _sinkExceptionHandler.HandleDeadLetter(batch, ex, connector);
                     batch.MarkAllCommitReady(true);
                 }
                 else
@@ -126,7 +125,7 @@ namespace Kafka.Connect.Connectors
             {
                 if (batch.GetCommitReadyOffsets().Any())
                 {
-                    _logger.Timed("Committing offsets.").Execute(() => _partitionHandler.CommitOffsets(batch, _consumer));
+                    _partitionHandler.CommitOffsets(batch, _consumer);
                 }
 
                 foreach (var record in batch)
@@ -139,7 +138,7 @@ namespace Kafka.Connect.Connectors
                         _logger.LogInformation("{@Record}", record.GetLogs());
                     }
                 } 
-                await _logger.Timed("Notify end of the partition.").Execute(async () =>  await _partitionHandler.NotifyEndOfPartition(batch, connector, taskId));
+                await _partitionHandler.NotifyEndOfPartition(batch, connector, taskId);
             }
             _logger.LogDebug("{@Log}",
                 new

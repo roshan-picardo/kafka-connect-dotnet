@@ -3,6 +3,7 @@ using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 using Confluent.Kafka;
+using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Serializers;
 using Newtonsoft.Json.Linq;
 
@@ -12,6 +13,7 @@ namespace Kafka.Connect.Serializers
     {
         private const int HeaderSize = sizeof(int) + sizeof(byte);
         
+        [OperationLog("Deserializing the record using string deserializer.")]
         public override async Task<JToken> Deserialize(ReadOnlyMemory<byte> data, SerializationContext context, bool isNull = false)
         {
             string strData;

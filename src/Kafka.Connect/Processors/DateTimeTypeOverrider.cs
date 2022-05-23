@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Confluent.Kafka;
 using Kafka.Connect.Plugin.Exceptions;
+using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Plugin.Processors;
 using Microsoft.Extensions.Options;
@@ -17,7 +18,8 @@ namespace Kafka.Connect.Processors
         public DateTimeTypeOverrider(IOptions<List<ConnectorConfig<IDictionary<string, string>>>> options, IOptions<ConnectorConfig<IDictionary<string, string>>> shared) : base(options, shared)
         {
         }
-
+        
+        [OperationLog("Applying datetime type overrider.")]
         protected override Task<(bool, IDictionary<string, object>)> Apply(IDictionary<string, object> flattened, IDictionary<string, string> settings)
         {
             return Task.FromResult(ApplyInternal(flattened,

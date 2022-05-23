@@ -22,17 +22,17 @@ namespace Kafka.Connect.Serializers
             _configurationProvider = configurationProvider;
         }
 
+        [OperationLog("Deserializing the message.")]
         public async Task<(JToken, JToken)> Deserialize(ConsumeResult<byte[], byte[]> consumed, string connector)
         {
             var (keyConfig, valueConfig) = _configurationProvider.GetMessageConverters(connector, consumed.Topic);
             var keyToken =
-                await _logger.Timed($"Deserializing record key using {keyConfig}")
-                    .Execute(() => _processorServiceProvider.GetDeserializer(keyConfig)
-                        .Deserialize(consumed.Message.Key, new SerializationContext(MessageComponentType.Key, consumed.Topic, consumed.Message?.Headers), consumed.Message.Key == null || consumed.Message.Key.Length == 0));
+                await _processorServiceProvider.GetDeserializer(keyConfig).Deserialize(consumed.Message.Key,
+                        new SerializationContext(MessageComponentType.Key, consumed.Topic, consumed.Message?.Headers),
+                        consumed.Message.Key == null || consumed.Message.Key.Length == 0);
             var valueToken = 
-                await _logger.Timed($"Deserializing record value using {valueConfig}")
-                    .Execute(() => _processorServiceProvider.GetDeserializer(valueConfig)
-                        .Deserialize(consumed.Message.Value, new SerializationContext(MessageComponentType.Value, consumed.Topic, consumed.Message?.Headers), consumed.Message.Value == null || consumed.Message.Value.Length == 0));
+                await _processorServiceProvider.GetDeserializer(valueConfig)
+                        .Deserialize(consumed.Message.Value, new SerializationContext(MessageComponentType.Value, consumed.Topic, consumed.Message?.Headers), consumed.Message.Value == null || consumed.Message.Value.Length == 0);
             return (keyToken, valueToken);
         }
 

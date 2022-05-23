@@ -26,6 +26,7 @@ namespace Kafka.Connect.Connectors
             _configurationProvider = configurationProvider;
         }
 
+        [OperationLog("Sending message to dead letter queue.")]
         public async Task Send(IEnumerable<SinkRecord> sinkRecords, Exception exception, string connector)
         {
             var topic = _configurationProvider.GetErrorsConfig(connector).Topic;
@@ -42,9 +43,7 @@ namespace Kafka.Connect.Connectors
                         record.Consumed.Message.Headers.Add("_sourceContext",
                             ByteConvert.Serialize(new MessageContext(record.TopicPartitionOffset)));
 
-                        var delivered = await _logger.Timed("Delivering errored message.")
-                            .Execute(async () =>
-                                await producer.ProduceAsync(topic, record.Consumed.Message));
+                        var delivered = await producer.ProduceAsync(topic, record.Consumed.Message);
                         _logger.LogInformation("{@Log}", new
                         {
                             Message = "Error message delivered.",

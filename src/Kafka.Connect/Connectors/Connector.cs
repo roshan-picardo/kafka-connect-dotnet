@@ -53,7 +53,7 @@ namespace Kafka.Connect.Connectors
 
             if (sinkHandler != null)
             {
-                await _logger.Timed("Running sink handler startup script.").Execute(async () => await sinkHandler.Startup(connectorConfig.Name));
+                await sinkHandler.Startup(connectorConfig.Name);
             }
 
             while (!cts.IsCancellationRequested) 
@@ -133,7 +133,7 @@ namespace Kafka.Connect.Connectors
 
             if (sinkHandler != null)
             {
-                await _logger.Timed("Running sink handler cleanup script.").Execute(async () => await sinkHandler.Cleanup(connectorConfig.Name));
+                await sinkHandler.Cleanup(connectorConfig.Name);
             }
         }
 

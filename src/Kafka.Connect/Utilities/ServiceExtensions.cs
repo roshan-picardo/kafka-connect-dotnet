@@ -25,6 +25,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json.Linq;
 using Serilog;
 using Kafka.Connect.Configurations;
+using Kafka.Connect.Logging;
+using Kafka.Connect.Plugin.Logging;
 
 namespace Kafka.Connect.Utilities
 {
@@ -35,31 +37,32 @@ namespace Kafka.Connect.Utilities
         internal static IServiceCollection AddServices(this IServiceCollection services, IConfiguration configuration)
         {
             services
+                .AddSingleton<ILogDecorator, LogDecorator>()
                 .AddScoped<IConnector, Connector>()
                 .AddScoped<ISinkTask, SinkTask>()
-                .AddScoped<IKafkaClientBuilder, KafkaClientBuilder>()
+                .AddScopedWithLogging<IKafkaClientBuilder, KafkaClientBuilder>()
                 .AddScoped<IKafkaClientEventHandler, KafkaClientEventHandler>()
                 .AddScoped<IRetriableHandler, RetriableHandler>()
 
-                .AddScoped<IConnectDeadLetter, ConnectDeadLetter>()
+                .AddScopedWithLogging<IConnectDeadLetter, ConnectDeadLetter>()
                 .AddScoped<ITokenHandler, TokenHandler>()
 
                 .AddScoped<IProcessorServiceProvider, ProcessorServiceProvider>()
                 .AddScoped<ISinkHandlerProvider, SinkHandlerProvider>()
 
-                .AddScoped<IGenericRecordParser, GenericRecordParser>()
-                .AddScoped<IRecordFlattener, JsonRecordFlattener>()
-                .AddScoped<IMessageHandler, MessageHandler>()
-                .AddScoped<ISinkConsumer, SinkConsumer>()
-                .AddScoped<ISinkProcessor, SinkProcessor>()
-                .AddScoped<IPartitionHandler, PartitionHandler>()
-                .AddScoped<ISinkExceptionHandler, SinkExceptionHandler>()
+                .AddScopedWithLogging<IGenericRecordParser, GenericRecordParser>()
+                .AddScopedWithLogging<IRecordFlattener, JsonRecordFlattener>()
+                .AddScopedWithLogging<IMessageHandler, MessageHandler>()
+                .AddScopedWithLogging<ISinkConsumer, SinkConsumer>()
+                .AddScopedWithLogging<ISinkProcessor, SinkProcessor>()
+                .AddScopedWithLogging<IPartitionHandler, PartitionHandler>()
+                .AddScopedWithLogging<ISinkExceptionHandler, SinkExceptionHandler>()
 
-                .AddScoped<IProcessor, JsonTypeOverrider>()
-                .AddScoped<IProcessor, DateTimeTypeOverrider>()
-                .AddScoped<IProcessor, BlacklistFieldProjector>()
-                .AddScoped<IProcessor, WhitelistFieldProjector>()
-                .AddScoped<IProcessor, FieldRenamer>()
+                .AddScopedWithLogging<IProcessor, JsonTypeOverrider>()
+                .AddScopedWithLogging<IProcessor, DateTimeTypeOverrider>()
+                .AddScopedWithLogging<IProcessor, BlacklistFieldProjector>()
+                .AddScopedWithLogging<IProcessor, WhitelistFieldProjector>()
+                .AddScopedWithLogging<IProcessor, FieldRenamer>()
                 
                 .AddScoped<IAsyncDeserializer<GenericRecord>>(provider =>
                 {
@@ -90,12 +93,12 @@ namespace Kafka.Connect.Utilities
                         .Get<SchemaRegistryConfig>() ?? configuration.GetSection("worker:schemaRegistry").Get<SchemaRegistryConfig>();
                     return string.IsNullOrEmpty(config?.Url) ? null : new ProducerCachedSchemaRegistryClient(config);
                 })
-                .AddScoped<IDeserializer, AvroDeserializer>()
-                .AddScoped<IDeserializer, JsonDeserializer>()
-                .AddScoped<IDeserializer, JsonSchemaDeserializer>()
-                .AddScoped<IDeserializer, StringDeserializer>()
-                .AddScoped<IDeserializer, IgnoreDeserializer>()
-                .AddScoped<IMessageConverter, MessageConverter>()
+                .AddScopedWithLogging<IDeserializer, AvroDeserializer>()
+                .AddScopedWithLogging<IDeserializer, JsonDeserializer>()
+                .AddScopedWithLogging<IDeserializer, JsonSchemaDeserializer>()
+                .AddScopedWithLogging<IDeserializer, StringDeserializer>()
+                .AddScopedWithLogging<IDeserializer, IgnoreDeserializer>()
+                .AddScopedWithLogging<IMessageConverter, MessageConverter>()
 
                 //.Configure<SchemaRegistryConfig>(configuration.GetSection("worker:schemaRegistry"))
                 .Configure<WorkerConfig>(configuration.GetSection("worker"))

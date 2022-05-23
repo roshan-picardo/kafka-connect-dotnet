@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Plugin.Processors;
 using Microsoft.Extensions.Options;
@@ -14,6 +15,7 @@ namespace Kafka.Connect.Processors
         {
         }
         
+        [OperationLog("Applying whitelist field projector.")]
         protected override Task<(bool, IDictionary<string, object>)> Apply(IDictionary<string, object> flattened, IList<string> settings)
         {
             return Task.FromResult(ApplyInternal(flattened, settings?.Select(ProcessorHelper.PrefixValue)));

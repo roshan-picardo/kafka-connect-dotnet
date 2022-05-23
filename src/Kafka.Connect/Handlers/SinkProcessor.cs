@@ -31,6 +31,7 @@ namespace Kafka.Connect.Handlers
             _configurationProvider = configurationProvider;
         }
 
+        [OperationLog("Processing the batch.")]
         public async Task Process(SinkRecordBatch batch, string connector)
         {
             foreach (var topicBatch in batch.BatchByTopicPartition)
@@ -43,12 +44,10 @@ namespace Kafka.Connect.Handlers
                         using (LogContext.PushProperty("Offset", record.Offset))
                         {
                             record.Status = SinkStatus.Processing;
-                            var (keyToken, valueToken) = await _logger.Timed("Deserializing the message.")
-                                .Execute(() => _messageConverter.Deserialize(record.Consumed, connector));
+                            var (keyToken, valueToken) = await _messageConverter.Deserialize(record.Consumed, connector);
                             record.Parsed(keyToken, valueToken);
                             record.LogDocument();
-                            (record.Skip, record.Data) = await _logger.Timed("Processing the message.")
-                                .Execute(() => _messageHandler.Process(record, connector));
+                            (record.Skip, record.Data) = await _messageHandler.Process(record, connector);
                             record.Status = SinkStatus.Processed;
                         }
                     }, (record, exception) => exception.SetLogContext(record), _configurationProvider.GetBatchConfig(connector).Parallelism);
@@ -56,6 +55,7 @@ namespace Kafka.Connect.Handlers
             }
         }
 
+        [OperationLog("Sinking the batch.")]
         public async Task Sink(SinkRecordBatch batch, string connector)
         {
             var config = _configurationProvider.GetSinkConfig(connector);
@@ -70,7 +70,7 @@ namespace Kafka.Connect.Handlers
                 batch.SkipAll();
                 return;
             }
-            await _logger.Timed($"Invoking put using {config.Handler}.").Execute(() => sinkHandler.Put(batch));
+            await sinkHandler.Put(batch);
         }
     }
 }

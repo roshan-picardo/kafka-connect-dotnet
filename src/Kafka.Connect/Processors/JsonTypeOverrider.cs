@@ -25,6 +25,7 @@ namespace Kafka.Connect.Processors
             _logger = logger;
         }
 
+        [OperationLog("Applying json type overrider.")]
         protected override Task<(bool, IDictionary<string, object>)> Apply(IDictionary<string, object> flattened, IList<string> settings)
         {
             return Task.FromResult(ApplyInternal(flattened, settings?.Select(ProcessorHelper.PrefixValue)));
@@ -55,7 +56,7 @@ namespace Kafka.Connect.Processors
 
                 if (jObject == null) continue;
                 flattened.Remove(key);
-                foreach (var (k, v) in _logger.Timed("Flattening the record.").Execute(() => _recordFlattener.Flatten(jObject)))
+                foreach (var (k, v) in  _recordFlattener.Flatten(jObject))
                 {
                     flattened.Add(jObject is JObject ? $"{key}.{k}" : $"{key}{k}", v);
                 }
