@@ -1,12 +1,20 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Kafka.Connect.Plugin.Logging
 {
     public static class LoggerExtensions
     {
-        public static TimedLogBuilder Timed(this ILogger logger, string message)
+        public static IServiceCollection AddScopedWithLogging<TService, TImplementation>(this IServiceCollection services)
+            where TService : class
+            where TImplementation : class, TService
         {
-            return new TimedLogBuilder(logger, message);
+            return services
+                .AddScoped<TImplementation>()
+                .AddScoped(provider =>
+                    provider.GetService<ILogDecorator>()?.Build<TService>(
+                        provider.GetService<TImplementation>(),
+                        provider.GetService<ILoggerFactory>()?.CreateLogger<TImplementation>()));
         }
     }
 }

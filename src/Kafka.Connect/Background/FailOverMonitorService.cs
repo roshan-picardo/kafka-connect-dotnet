@@ -43,8 +43,7 @@ namespace Kafka.Connect.Background
                 {
                     _logger.LogDebug("{@Log}", new {Message = "Starting fail over monitoring service..."});
                     await Task.Delay(failOverConfig.InitialDelayMs, stoppingToken);
-                    var adminClient = _logger.Timed("Creating Kafka admin client")
-                        .Execute(() => _kafkaClientBuilder.GetAdminClient());
+                    var adminClient =  _kafkaClientBuilder.GetAdminClient();
                     
                     var thresholds = connectorConfigs.Where(c => !c.Disabled)
                         .ToDictionary(c => c.Name, _ => failOverConfig.FailureThreshold);
@@ -63,8 +62,8 @@ namespace Kafka.Connect.Background
                                     {
                                         using (LogContext.PushProperty("Topic", topic))
                                         {
-                                            return _logger.Timed("Obtaining the topic metadata.")
-                                                .Execute(() => adminClient.GetMetadata(topic, TimeSpan.FromSeconds(2)));
+                                            // TODO: how to time this?
+                                            return adminClient.GetMetadata(topic, TimeSpan.FromSeconds(2));
                                         }
                                     }).ToList();
 
@@ -115,8 +114,7 @@ namespace Kafka.Connect.Background
                         {
                             if (thresholds.All(t => t.Value <= 0))
                             {
-                                await _logger.Timed("Broker failure detected. Restarting the worker.")
-                                    .Execute(async () => await _worker.RestartAsync(failOverConfig.RestartDelayMs));
+                                await _worker.RestartAsync(failOverConfig.RestartDelayMs);
                             }
                             else
                             {
@@ -126,10 +124,7 @@ namespace Kafka.Connect.Background
                                 {
                                     using (LogContext.PushProperty("Connector", connector.Name))
                                     {
-                                        await _logger
-                                            .Timed("Broker failure detected. Restarting the connector.")
-                                            .Execute(async () =>
-                                                await connector.Connector.Restart(failOverConfig.RestartDelayMs, null));
+                                        await connector.Connector.Restart(failOverConfig.RestartDelayMs, null);
                                     }
                                 }
                             }

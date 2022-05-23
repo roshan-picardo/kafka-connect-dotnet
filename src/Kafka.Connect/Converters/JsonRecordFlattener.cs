@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Kafka.Connect.Plugin.Converters;
+using Kafka.Connect.Plugin.Logging;
 using Newtonsoft.Json.Linq;
 
 namespace Kafka.Connect.Converters
@@ -11,12 +12,16 @@ namespace Kafka.Connect.Converters
         private readonly Regex _regexFieldNameSeparator =
             new Regex(@"('([^']*)')|(?!\.)([^.^\[\]]+)|(?!\[)(\d+)(?=\])", RegexOptions.Compiled);
 
+        [OperationLog("Flattening the record.")]
         public IDictionary<string, object> Flatten(JToken record) => FlattenInternal(record as JContainer);
 
+        [OperationLog("Unflattening the record.")]
         public JToken Unflatten(IDictionary<string, object> dictionary) => UnflattenInternal(dictionary);
 
+        [OperationLog("Unflatten to object.")]
         public T ToObject<T>(IDictionary<string, object> dictionary) => UnflattenInternal(dictionary).ToObject<T>();
 
+        [OperationLog("Flatten from object.")]
         public IDictionary<string, object> Flatten<T>(T data) => FlattenInternal(JToken.FromObject(data) as JContainer);
 
         private static IDictionary<string, object>

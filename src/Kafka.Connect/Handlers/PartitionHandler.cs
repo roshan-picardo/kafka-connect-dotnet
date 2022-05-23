@@ -28,7 +28,7 @@ namespace Kafka.Connect.Handlers
             _configurationProvider = configurationProvider;
         }
 
-        
+        [OperationLog("Committing offsets.")]
         public void CommitOffsets(SinkRecordBatch batch, IConsumer<byte[], byte[]> consumer)
         {
             var (enableAutoCommit, enableAutoOffsetStore) = _configurationProvider.GetAutoCommitConfig();
@@ -53,6 +53,7 @@ namespace Kafka.Connect.Handlers
             }
         }
 
+        [OperationLog("Notify end of the partition.")]
         public async Task NotifyEndOfPartition(SinkRecordBatch batch, string connector, int taskId)
         {
             var eofSignal = _configurationProvider.GetEofSignalConfig(connector);
@@ -90,8 +91,8 @@ namespace Kafka.Connect.Handlers
                                 })
                             };
 
-                            var delivered = await _logger.Timed("Producing EOF message.")
-                                .Execute(async () => await producer.ProduceAsync(eofSignal.Topic, message));
+                            //TODO: time this as well
+                            var delivered = await producer.ProduceAsync(eofSignal.Topic, message);
                             _logger.LogInformation("{Log}", new
                             {
                                 Message = "EOF message delivered.",

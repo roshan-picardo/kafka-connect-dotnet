@@ -31,14 +31,16 @@ namespace Kafka.Connect.Handlers
             _kafkaClientBuilder = kafkaClientBuilder;
         }
 
+        [OperationLog("Subscribing to the topics.")]
         public IConsumer<byte[], byte[]> Subscribe(string connector, int taskId)
         {
             var topics = _configurationProvider.GetTopics(connector);
             if (!(topics?.Any(t => !string.IsNullOrWhiteSpace(t)) ?? false)) return null;
             try
             {
-                var consumer = _logger.Timed("Creating the consumer.").Execute(() => _kafkaClientBuilder.GetConsumer(connector, taskId));
-                _logger.Timed("Subscribing to the topics.").Execute(() => consumer.Subscribe(topics));
+                var consumer = _kafkaClientBuilder.GetConsumer(connector, taskId);
+                // TODO: Should we time this as well??
+                consumer.Subscribe(topics);
                 return consumer;
             }
             catch (Exception ex)
@@ -50,6 +52,7 @@ namespace Kafka.Connect.Handlers
         }
 
 
+        [OperationLog("Consuming messages.")]
         public async Task<SinkRecordBatch> Consume(IConsumer<byte[], byte[]> consumer, string connector, int taskId)
         {
             var retryConfig = _configurationProvider.GetRetriesConfig(connector);
@@ -79,8 +82,8 @@ namespace Kafka.Connect.Handlers
                     });
                 do
                 {
-                    var consumed = await Task.Run(() =>
-                        _logger.Timed("Consuming messages.").Execute(() => consumer.Consume(batchPollContext.Token)));
+                    //TODO: Should we time this?
+                    var consumed = await Task.Run(() => consumer.Consume(batchPollContext.Token));
                     batchPollContext.StartTiming();
                     if (consumed == null)
                     {

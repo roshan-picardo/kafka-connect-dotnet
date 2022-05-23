@@ -19,12 +19,11 @@ namespace Kafka.Connect.Serializers
             _logger = logger;
         }
 
+        [OperationLog("Deserializing the record using json schema deserializer.")]
         public override async Task<JToken> Deserialize(ReadOnlyMemory<byte> data, SerializationContext context,
             bool isNull = false)
         {
-            return Wrap(
-                await _logger.Timed("Deserializing the record.")
-                    .Execute(async () => await _deserializer.DeserializeAsync(data, isNull, context)), context);
+            return Wrap(await _deserializer.DeserializeAsync(data, isNull, context), context);
         }
     }
 }

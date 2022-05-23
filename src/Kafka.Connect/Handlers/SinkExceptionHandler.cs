@@ -27,6 +27,7 @@ namespace Kafka.Connect.Handlers
             _configurationProvider = configurationProvider;
         }
 
+        [OperationLog("Handle processing errors.")]
         public void Handle(Exception exception, Action cancel)
         {
             switch (exception)
@@ -90,13 +91,12 @@ namespace Kafka.Connect.Handlers
             }
         }
 
-
+        [OperationLog("Handle dead-letter.")]
         public async Task HandleDeadLetter(IEnumerable<SinkRecord> sinkRecords, Exception exception, string connector)
         {
             if (_configurationProvider.IsDeadLetterEnabled(connector))
             {
-                await _logger.Timed("Sending message to dead letter queue.")
-                    .Execute(() =>  _connectDeadLetter.Send(sinkRecords.Where(r => r.Status == SinkStatus.Failed), exception, connector));
+                await _connectDeadLetter.Send(sinkRecords.Where(r => r.Status == SinkStatus.Failed), exception, connector);
             }
         }
     }

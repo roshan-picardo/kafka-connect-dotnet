@@ -33,10 +33,6 @@
       </Content>
     </ItemGroup>
     
-    <ItemGroup>
-      <Folder Include="Config\Models" />
-    </ItemGroup>
-    
     <Choose>
         <When Condition="'$(Configuration)'=='Debug'">
             <ItemGroup>

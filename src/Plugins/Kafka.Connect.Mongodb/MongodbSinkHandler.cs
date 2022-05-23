@@ -10,7 +10,8 @@ using Kafka.Connect.Mongodb.Models;
 using Kafka.Connect.Plugin;
 using Kafka.Connect.Plugin.Exceptions;
 using Kafka.Connect.Plugin.Extensions;
-using Kafka.Connect.Plugin.Models;
+ using Kafka.Connect.Plugin.Logging;
+ using Kafka.Connect.Plugin.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Serilog.Context;
@@ -37,7 +38,7 @@ namespace Kafka.Connect.Mongodb
             _plugin = plugin;
         }
 
-
+        [OperationLog("Invoking put.")]
         public async Task<SinkRecordBatch> Put(SinkRecordBatch batches)
         {
             _logger.LogTrace("Building write models...");
@@ -119,12 +120,13 @@ namespace Kafka.Connect.Mongodb
             return batches;
         }
         
+        [OperationLog("Running mongodb sink handler startup script.")]
         public async Task Startup(string connector)
         {
-            _logger?.LogTrace("From Mongo sink handler initializer - lets do some startup tasks...");
             await _mongoWriter.CreateCollection(_mongoSinkConfigProvider.GetMongoSinkConfig(connector));
         }
         
+        [OperationLog("Running mongodb sink handler cleanup script.")]
         public Task Cleanup(string connector)
         {
             _logger?.LogTrace("From Mongo sink handler initializer - lets do some cleanup tasks...");

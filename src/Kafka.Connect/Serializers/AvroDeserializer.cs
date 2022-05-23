@@ -23,12 +23,12 @@ namespace Kafka.Connect.Serializers
             _logger = logger;
         }
 
+        [OperationLog("Deserializing the record using avro deserializer.")]
         public override async Task<JToken> Deserialize(ReadOnlyMemory<byte> data, SerializationContext context,
             bool isNull = false)
         {
-            var record = await _logger.Timed("Deserializing the record.")
-                .Execute(() => _deserializer.DeserializeAsync(data, isNull, context));
-            return Wrap(_logger.Timed("Parsing generic record.").Execute(() => _genericRecordParser.Parse(record)), context);
+            var record = await _deserializer.DeserializeAsync(data, isNull, context);
+            return Wrap(_genericRecordParser.Parse(record), context);
         }
     }
 }
