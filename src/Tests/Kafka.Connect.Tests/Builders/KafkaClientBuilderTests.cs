@@ -9,18 +9,17 @@ namespace Kafka.Connect.Tests.Builders
 {
     public class KafkaClientBuilderTests
     {
-        private readonly ILogger<KafkaClientBuilder> _logger;
         private readonly IConfigurationProvider _configurationProvider;
         private readonly IKafkaClientEventHandler _kafkaClientEventHandler;
         private readonly KafkaClientBuilder _kafkaClientBuilder;
 
         public KafkaClientBuilderTests()
         {
-            _logger = Substitute.For<ILogger<KafkaClientBuilder>>();
+            Substitute.For<ILogger<KafkaClientBuilder>>();
             _configurationProvider = Substitute.For<IConfigurationProvider>();
             _kafkaClientEventHandler = Substitute.For<IKafkaClientEventHandler>();
 
-            _kafkaClientBuilder = new KafkaClientBuilder(_logger, _configurationProvider, _kafkaClientEventHandler);
+            _kafkaClientBuilder = new KafkaClientBuilder(_configurationProvider, _kafkaClientEventHandler);
         }
 
         [Fact]

@@ -29,7 +29,6 @@
       <Compile Remove="Connectors\ConnectDeadLetterTests.cs" />
       <Compile Remove="Connectors\ConnectorTests.cs" />
       <Compile Remove="Connectors\SinkTaskTests.cs" />
-      <Compile Remove="Handlers\MessageHandlerTests.cs" />
       <Compile Remove="Handlers\PartitionHandlerTests.cs" />
       <Compile Remove="Handlers\RetriableHandlerTests.cs" />
       <Compile Remove="Handlers\SinkConsumerTests.cs" />
@@ -55,7 +54,6 @@
     <ItemGroup>
       <Folder Include="Connectors" />
       <Folder Include="Converters" />
-      <Folder Include="Handlers" />
       <Folder Include="Processors" />
       <Folder Include="Providers" />
       <Folder Include="Serializers" />
