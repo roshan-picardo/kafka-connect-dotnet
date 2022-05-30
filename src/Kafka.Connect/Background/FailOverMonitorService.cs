@@ -5,7 +5,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Confluent.Kafka;
 using Kafka.Connect.Builders;
-using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Tokens;
 using Kafka.Connect.Providers;
 using Microsoft.Extensions.DependencyInjection;

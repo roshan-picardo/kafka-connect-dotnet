@@ -1,9 +1,8 @@
 using System.Collections.Generic;
-using System.Linq;
+using System.Collections.Immutable;
 using System.Threading.Tasks;
 using Confluent.Kafka;
-using Kafka.Connect.Config;
-using Kafka.Connect.Config.Models;
+using Kafka.Connect.Configurations;
 using Kafka.Connect.Handlers;
 using Kafka.Connect.Plugin.Converters;
 using Kafka.Connect.Plugin.Models;
@@ -18,22 +17,26 @@ namespace Kafka.Connect.Tests.Handlers
 {
     public class MessageHandlerTests
     {
+        private readonly ILogger<MessageHandler> _logger;
         private readonly IRecordFlattener _recordFlattener;
         private readonly IProcessorServiceProvider _processorServiceProvider;
+        private readonly IConfigurationProvider _configurationProvider;
         private readonly IMessageHandler _messageHandler;
+        private IProcessor _processor;
 
         public MessageHandlerTests()
         {
+            _logger = Substitute.For<MockLogger<MessageHandler>>();
             _recordFlattener = Substitute.For<IRecordFlattener>();
             _processorServiceProvider = Substitute.For<IProcessorServiceProvider>();
-            _messageHandler = new MessageHandler(Substitute.For<ILogger<MessageHandler>>(), _recordFlattener,
-                _processorServiceProvider);
+            _configurationProvider = Substitute.For<IConfigurationProvider>();
+            _messageHandler = new MessageHandler(_logger, _recordFlattener, _processorServiceProvider, _configurationProvider);
         }
 
         [Theory]
         [InlineData(true)]
         [InlineData(false)]
-        public async Task Process_When_EmptyProcessorConfigs(bool isNull)
+        public async Task Process_WhenConfigurationIsEmptyOrNull(bool isNull)
         {
             var sinkRecord = new SinkRecord(new ConsumeResult<byte[], byte[]>()
             {
@@ -41,29 +44,29 @@ namespace Kafka.Connect.Tests.Handlers
                 {
                     Headers = new Headers()
                 }
-            });
-            var flattened = new Dictionary<string, object>
+            })
             {
-                {"field", "test.value"}
+                Data = new JObject {{"field", "test.value"}},
+                Skip = true
             };
-            var unflattened = new JObject {{"field", "test.value"}};
-            _recordFlattener.Flatten(Arg.Any<JObject>()).Returns(flattened);
-            _recordFlattener.Unflatten(Arg.Any<IDictionary<string, object>>()).Returns(unflattened);
 
-            var (actualSkip, actualData) =
-                await _messageHandler.Process(sinkRecord, new ConnectorConfig());
+            _configurationProvider.GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>())
+                .Returns(isNull ? null : new List<ProcessorConfig>());
+
+            var (skip, data) = await _messageHandler.Process(sinkRecord, "");
             
-            Assert.Equal(sinkRecord.Skip, actualSkip);
-            Assert.Equal(sinkRecord.Data, actualData);
+            Assert.Equal(sinkRecord.Skip, skip);
+            Assert.Equal(sinkRecord.Data, data);
             _recordFlattener.DidNotReceive().Flatten(Arg.Any<JToken>());
             _recordFlattener.DidNotReceive().Unflatten(Arg.Any<IDictionary<string, object>>());
             _processorServiceProvider.DidNotReceive().GetProcessors();
+            _configurationProvider.Received().GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>());
         }
-
+        
         [Theory]
         [InlineData(true)]
         [InlineData(false)]
-        public async Task Process_When_ProcessorConfigsNutNoProcessorsRegistered(bool isNull)
+        public async Task Process_WhenProcessorsListIsEmptyOrNull(bool isNull)
         {
             var sinkRecord = new SinkRecord(new ConsumeResult<byte[], byte[]>()
             {
@@ -71,314 +74,217 @@ namespace Kafka.Connect.Tests.Handlers
                 {
                     Headers = new Headers()
                 }
-            });
-            var flattened = new Dictionary<string, object>
+            })
             {
-                {"field", "test.value"}
+                Data = new JObject {{"field", "test.value"}},
+                Skip = true
             };
-            var unflattened = new JObject {{"field", "test.value"}};
-            _recordFlattener.Flatten(Arg.Any<JObject>()).Returns(flattened);
-            _recordFlattener.Unflatten(Arg.Any<IDictionary<string, object>>()).Returns(unflattened);
+
+            _configurationProvider.GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>())
+                .Returns(new List<ProcessorConfig>() {new() {Name = "firstProcessor"}});
             _processorServiceProvider.GetProcessors().Returns(isNull ? null : new List<IProcessor>());
 
-            var (actualSkip, actualData) =
-                await _messageHandler.Process(sinkRecord, new ConnectorConfig());
+            var (skip, data) = await _messageHandler.Process(sinkRecord, "");
             
-            Assert.Equal(sinkRecord.Skip, actualSkip);
-            Assert.Equal(sinkRecord.Data, actualData);
+            Assert.Equal(sinkRecord.Skip, skip);
+            Assert.Equal(sinkRecord.Data, data);
             _recordFlattener.DidNotReceive().Flatten(Arg.Any<JToken>());
             _recordFlattener.DidNotReceive().Unflatten(Arg.Any<IDictionary<string, object>>());
             _processorServiceProvider.Received().GetProcessors();
+            _configurationProvider.Received().GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>());
         }
-
-
+        
         [Fact]
-        public async Task Process_When_TopicSpecificProcessorNotFound()
+        public async Task Process_WhenConfiguredProcessorIsNotRegistered()
         {
             var sinkRecord = new SinkRecord(new ConsumeResult<byte[], byte[]>()
             {
                 Message = new Message<byte[], byte[]>()
                 {
                     Headers = new Headers()
-                },
-                Topic = "TopicA"
-            });
-            var flattened = new Dictionary<string, object>
-            {
-                {"field", "test.value"}
-            };
-            var unflattened = new JObject {{"field", "test.value"}};
-            var processorConfigs = new[]
-            {
-                new ProcessorConfig()
-                {
-                    Topic = "TopicB"
                 }
+            })
+            {
+                Data = new JObject {{"field", "test.value"}},
+                Skip = true
             };
-            _recordFlattener.Flatten(Arg.Any<JObject>()).Returns(flattened);
-            _recordFlattener.Unflatten(Arg.Any<IDictionary<string, object>>()).Returns(unflattened);
-            _processorServiceProvider.GetProcessors().Returns(new[] {Substitute.For<IProcessor>()});
+            _processor = Substitute.For<IProcessor>();
+            _processor.IsOfType(Arg.Any<string>()).Returns(false);
+            _configurationProvider.GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>())
+                .Returns(new List<ProcessorConfig>() {new() {Name = "Kafka.Connect.Processors.Unknown"}});
+            _processorServiceProvider.GetProcessors().Returns( new List<IProcessor> {_processor});
+            _recordFlattener.Flatten(Arg.Any<JToken>()).Returns(ImmutableDictionary<string, object>.Empty);
+            _recordFlattener.Unflatten(Arg.Any<IDictionary<string, object>>()).Returns(sinkRecord.Data);
             
-            var (actualSkip, actualData) = await _messageHandler.Process(sinkRecord, new ConnectorConfig());
+            var (skip, data) = await _messageHandler.Process(sinkRecord, "");
             
-            Assert.Equal(sinkRecord.Skip, actualSkip);
-            Assert.Equal(unflattened, actualData);
+            Assert.False(skip);
+            Assert.Equal(sinkRecord.Data, data);
+            _processor.Received().IsOfType(Arg.Any<string>());
             _recordFlattener.Received().Flatten(Arg.Any<JToken>());
             _recordFlattener.Received().Unflatten(Arg.Any<IDictionary<string, object>>());
             _processorServiceProvider.Received().GetProcessors();
+            _configurationProvider.Received().GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>());
+            _logger.Received().Log(LogLevel.Trace, "{@Log}", new {Message = "Processor is not registered.", Processor = "Kafka.Connect.Processors.Unknown"});
         }
-
-
+        
         [Fact]
-        public async Task Process_When_TopicSpecificProcessorNotDefinedAndProcessorNotFound()
+        public async Task Process_ApplyAllProcessors()
         {
             var sinkRecord = new SinkRecord(new ConsumeResult<byte[], byte[]>()
             {
                 Message = new Message<byte[], byte[]>()
                 {
                     Headers = new Headers()
-                },
-                Topic = "TopicA"
-            });
-            var flattened = new Dictionary<string, object>
-            {
-                {"field", "test.value"}
-            };
-            var unflattened = new JObject {{"field", "test.value"}};
-            var processor = Substitute.For<IProcessor>();
-            var processorConfigs = new[]
-            {
-                new ProcessorConfig()
-            };
-            _recordFlattener.Flatten(Arg.Any<JObject>()).Returns(flattened);
-            _recordFlattener.Unflatten(Arg.Any<IDictionary<string, object>>()).Returns(unflattened);
-            _processorServiceProvider.GetProcessors().Returns(new[] {processor});
-            processor.IsOfType(Arg.Any<string>()).Returns(false);
-            
-            var (actualSkip, actualData) = await _messageHandler.Process(sinkRecord, null);
-            
-            Assert.Equal(sinkRecord.Skip, actualSkip);
-            Assert.Equal(unflattened, actualData);
-            _recordFlattener.Received().Flatten(Arg.Any<JToken>());
-            _recordFlattener.Received().Unflatten(Arg.Any<IDictionary<string, object>>());
-            processor.Received().IsOfType(Arg.Any<string>());
-            await processor.DidNotReceive().Apply(Arg.Any<IDictionary<string, object>>(),
-                @"Arg.Any<IEnumerable<string>>(),
-                Arg.Any<IDictionary<string, string>>()");
-        }
-
-        [Theory]
-        [InlineData(true, true)]
-        [InlineData(true, false)]
-        [InlineData(false, true)]
-        [InlineData(false, false)]
-        public async Task Process_When_ProcessorExistsOptionsMapsSetToNullOrEmpty(bool isOptionsNull,
-            bool isMapsNull)
-        {
-            var sinkRecord = new SinkRecord(new ConsumeResult<byte[], byte[]>()
-            {
-                Message = new Message<byte[], byte[]>()
-                {
-                    Headers = new Headers()
-                },
-                Topic = "TopicA"
-            });
-            var flattened = new Dictionary<string, object>
-            {
-                {"field", "test.value"}
-            };
-            var unflattened = new JObject {{"field", "test.value"}};
-            var processor = Substitute.For<IProcessor>();
-            var processorConfigs = new[]
-            {
-                new ProcessorConfig()
-                {
-                    //Options = isOptionsNull ? null : new List<string>(),
-                    //Maps = isMapsNull ? null : new Dictionary<string, string>()
                 }
+            })
+            {
+                Data = new JObject {{"field", "test.value"}},
+                Skip = true
             };
-            _recordFlattener.Flatten(Arg.Any<JObject>()).Returns(flattened);
-            _recordFlattener.Unflatten(Arg.Any<IDictionary<string, object>>()).Returns(unflattened);
-            _processorServiceProvider.GetProcessors().Returns(new[] {processor});
-            processor.IsOfType(Arg.Any<string>()).Returns(true);
-            //processor.Apply(Arg.Any<IDictionary<string, object>>(), Arg.Any<IEnumerable<string>>(),
-            //    Arg.Any<IDictionary<string, string>>()).Returns((sinkRecord.Skip, flattened));
-
-            var (actualSkip, actualData) = await _messageHandler.Process(sinkRecord, new ConnectorConfig());
-
-            Assert.Equal(sinkRecord.Skip, actualSkip);
-            Assert.Equal(unflattened, actualData);
+            _processor = Substitute.For<IProcessor>();
+            _processor.IsOfType(Arg.Any<string>()).Returns(true);
+            _configurationProvider.GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>())
+                .Returns(new List<ProcessorConfig> {new() {Name = "Kafka.Connect.Processors.One"}, new() {Name = "Kafka.Connect.Processors.Two"}});
+            _processorServiceProvider.GetProcessors().Returns( new List<IProcessor> {_processor});
+            _recordFlattener.Flatten(Arg.Any<JToken>()).Returns(ImmutableDictionary<string, object>.Empty);
+            _recordFlattener.Unflatten(Arg.Any<IDictionary<string, object>>()).Returns(sinkRecord.Data);
+            
+            var (skip, data) = await _messageHandler.Process(sinkRecord, "");
+            
+            Assert.False(skip);
+            Assert.Equal(sinkRecord.Data, data);
+            _processor.Received(2).IsOfType(Arg.Any<string>());
+            await _processor.Received(2).Apply(Arg.Any<IDictionary<string, object>>(), Arg.Any<string>());
             _recordFlattener.Received().Flatten(Arg.Any<JToken>());
             _recordFlattener.Received().Unflatten(Arg.Any<IDictionary<string, object>>());
-            processor.Received().IsOfType(Arg.Any<string>());
-            //await processor.Received().Apply(Arg.Any<IDictionary<string, object>>(),
-             //   isOptionsNull ? null : Arg.Any<IEnumerable<string>>(),
-             //   isMapsNull ? null : Arg.Any<IDictionary<string, string>>());
+            _processorServiceProvider.Received().GetProcessors();
+            _configurationProvider.Received().GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>());
         }
-
-        [Theory]
-        [InlineData("key.fieldName", "key.fieldName")]
-        [InlineData("value.fieldName", "value.fieldName")]
-        [InlineData("fieldName", "value.fieldName")]
-        public async Task Process_When_KeyPrefixApplied(string inputKey, string expectedKey)
-        {
-            var sinkRecord = new SinkRecord(new ConsumeResult<byte[], byte[]>()
-            {
-                Message = new Message<byte[], byte[]>()
-                {
-                    Headers = new Headers()
-                },
-                Topic = "TopicA"
-            });
-            var flattened = new Dictionary<string, object>
-            {
-                {"field", "test.value"}
-            };
-            var unflattened = new JObject {{"field", "test.value"}};
-            var processor = Substitute.For<IProcessor>();
-            var processorConfigs = new[]
-            {
-                new ProcessorConfig
-                {
-                    //Options = new[] {inputKey},
-                    //Maps = new Dictionary<string, string> {{inputKey, "SomeValue"}}
-                }
-            };
-            _recordFlattener.Flatten(Arg.Any<JObject>()).Returns(flattened);
-            _recordFlattener.Unflatten(Arg.Any<IDictionary<string, object>>()).Returns(unflattened);
-            _processorServiceProvider.GetProcessors().Returns(new[] {processor});
-            processor.IsOfType(Arg.Any<string>()).Returns(true);
-                //processor.Apply(Arg.Any<IDictionary<string, object>>(), Arg.Any<IEnumerable<string>>(),
-               // Arg.Any<IDictionary<string, string>>()).Returns((sinkRecord.Skip, flattened));
-
-            var (actualSkip, actualData) = await _messageHandler.Process(sinkRecord, null);
-
-            Assert.Equal(sinkRecord.Skip, actualSkip);
-            Assert.Equal(unflattened, actualData);
-            _recordFlattener.Received().Flatten(Arg.Any<JToken>());
-            _recordFlattener.Received().Unflatten(Arg.Any<IDictionary<string, object>>());
-            processor.Received().IsOfType(Arg.Any<string>());
-            //await processor.Received().Apply(Arg.Any<IDictionary<string, object>>(),
-            //    Arg.Is<IEnumerable<string>>(s => s.Contains(expectedKey)),
-             //   Arg.Is<IDictionary<string, string>>(d => d.ContainsKey(expectedKey)));
-        }
-
-        [Theory]
-        [InlineData(false, false, false, false)]
-        [InlineData(false, false, true, true)]
-        [InlineData(false, true, false, true)]
-        [InlineData(true, false, true, true)]
-        public async Task Process_When_MultipleProcessorsWithSkip(bool p1Skip, bool p2Skip, bool p3Skip,
-            bool expectedSkip)
-        {
-            var sinkRecord = new SinkRecord(new ConsumeResult<byte[], byte[]>()
-            {
-                Message = new Message<byte[], byte[]>()
-                {
-                    Headers = new Headers()
-                },
-                Topic = "TopicA"
-            });
-            var flattened = new Dictionary<string, object>
-            {
-                {"field", "test.value"}
-            };
-            var unflattened = new JObject {{"field", "test.value"}};
-            var processor1 = Substitute.For<IProcessor>();
-            var processor2 = Substitute.For<IProcessor>();
-            var processor3 = Substitute.For<IProcessor>();
-            var processorConfigs = new[]
-            {
-                new ProcessorConfig {Name = "processor1"},
-                new ProcessorConfig {Name = "processor2"},
-                new ProcessorConfig {Name = "processor3"}
-            };
-            _recordFlattener.Flatten(Arg.Any<JObject>()).Returns(flattened);
-            _recordFlattener.Unflatten(Arg.Any<IDictionary<string, object>>()).Returns(unflattened);
-            _processorServiceProvider.GetProcessors().Returns(new[] {processor1, processor2, processor3});
-            processor1.IsOfType("processor1").Returns(true);
-            processor2.IsOfType("processor2").Returns(true);
-            processor3.IsOfType("processor3").Returns(true);
-            /*processor1.Apply(Arg.Any<IDictionary<string, object>>(), Arg.Any<IEnumerable<string>>(),
-                Arg.Any<IDictionary<string, string>>()).Returns((p1Skip, flattened));
-            processor2.Apply(Arg.Any<IDictionary<string, object>>(), Arg.Any<IEnumerable<string>>(),
-                Arg.Any<IDictionary<string, string>>()).Returns((p2Skip, flattened));
-            processor3.Apply(Arg.Any<IDictionary<string, object>>(), Arg.Any<IEnumerable<string>>(),
-                Arg.Any<IDictionary<string, string>>()).Returns((p3Skip, flattened));*/
-
-            var (actualSkip, actualData) = await _messageHandler.Process(sinkRecord, null);
-
-            Assert.Equal(expectedSkip, actualSkip);
-            Assert.Equal(unflattened, actualData);
-            _recordFlattener.Received().Flatten(Arg.Any<JToken>());
-            _recordFlattener.Received().Unflatten(Arg.Any<IDictionary<string, object>>());
-            processor1.Received().IsOfType(Arg.Any<string>());
-            /*await processor1.Received(1).Apply(Arg.Any<IDictionary<string, object>>(),
-                Arg.Any<IEnumerable<string>>(),
-                Arg.Any<IDictionary<string, string>>());
-            await processor2.Received(p1Skip ? 0 : 1).Apply(Arg.Any<IDictionary<string, object>>(),
-                Arg.Any<IEnumerable<string>>(),
-                Arg.Any<IDictionary<string, string>>());
-            await processor3.Received(p1Skip || p2Skip ? 0 : 1).Apply(Arg.Any<IDictionary<string, object>>(),
-                Arg.Any<IEnumerable<string>>(),
-                Arg.Any<IDictionary<string, string>>());*/
-        }
-
-
+        
         [Fact]
-        public async Task Process_When_MultipleProcessorsWithTopicConfig()
+        public async Task Process_SkipsAfterFirst()
         {
             var sinkRecord = new SinkRecord(new ConsumeResult<byte[], byte[]>()
             {
                 Message = new Message<byte[], byte[]>()
                 {
                     Headers = new Headers()
-                },
-                Topic = "TopicA"
-            });
-            var flattened = new Dictionary<string, object>
+                }
+            })
             {
-                {"field", "test.value"}
+                Data = new JObject {{"field", "test.value"}},
+                Skip = true
             };
-            var unflattened = new JObject {{"field", "test.value"}};
-            var processor1 = Substitute.For<IProcessor>();
-            var processor2 = Substitute.For<IProcessor>();
-            var processor3 = Substitute.For<IProcessor>();
-            var processorConfigs = new[]
-            {
-                new ProcessorConfig {Name = "processor1"},
-                new ProcessorConfig {Name = "processor2", Topic = "TopicB"},
-                new ProcessorConfig {Name = "processor3", Topic = "TopicA"}
-            };
-            _recordFlattener.Flatten(Arg.Any<JObject>()).Returns(flattened);
-            _recordFlattener.Unflatten(Arg.Any<IDictionary<string, object>>()).Returns(unflattened);
-            _processorServiceProvider.GetProcessors().Returns(new[] {processor1, processor2, processor3});
-            processor1.IsOfType("processor1").Returns(true);
-            processor2.IsOfType("processor2").Returns(true);
-            processor3.IsOfType("processor3").Returns(true);
-            /*processor1.Apply(Arg.Any<IDictionary<string, object>>(), Arg.Any<IEnumerable<string>>(),
-                Arg.Any<IDictionary<string, string>>()).Returns((sinkRecord.Skip, flattened));
-            processor2.Apply(Arg.Any<IDictionary<string, object>>(), Arg.Any<IEnumerable<string>>(),
-                Arg.Any<IDictionary<string, string>>()).Returns((sinkRecord.Skip, flattened));
-            processor3.Apply(Arg.Any<IDictionary<string, object>>(), Arg.Any<IEnumerable<string>>(),
-                Arg.Any<IDictionary<string, string>>()).Returns((sinkRecord.Skip, flattened));*/
-
-            var (actualSkip, actualData) = await _messageHandler.Process(sinkRecord, null);
-
-            Assert.Equal(sinkRecord.Skip, actualSkip);
-            Assert.Equal(unflattened, actualData);
+            var pExecute = Substitute.For<IProcessor>();
+            var pSkip = Substitute.For<IProcessor>();
+            pExecute.IsOfType("Kafka.Connect.Processors.Execute").Returns(true);
+            pSkip.IsOfType("Kafka.Connect.Processors.Skip").Returns(true);
+            _configurationProvider.GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>())
+                .Returns(new List<ProcessorConfig> {new() {Name = "Kafka.Connect.Processors.Execute"}, new() {Name = "Kafka.Connect.Processors.Skip"}});
+            _processorServiceProvider.GetProcessors().Returns( new List<IProcessor> {pExecute, pSkip});
+            pExecute.Apply(Arg.Any<IDictionary<string, object>>(), Arg.Any<string>()).Returns((true, new Dictionary<string, object>()));
+            _recordFlattener.Flatten(Arg.Any<JToken>()).Returns(ImmutableDictionary<string, object>.Empty);
+            _recordFlattener.Unflatten(Arg.Any<IDictionary<string, object>>()).Returns(sinkRecord.Data);
+            
+            var (skip, data) = await _messageHandler.Process(sinkRecord, "");
+            
+            Assert.True(skip);
+            Assert.Equal(sinkRecord.Data, data);
+            await pExecute.Received().Apply(Arg.Any<IDictionary<string, object>>(), Arg.Any<string>());
+            await pSkip.DidNotReceive().Apply(Arg.Any<IDictionary<string, object>>(), Arg.Any<string>());
             _recordFlattener.Received().Flatten(Arg.Any<JToken>());
             _recordFlattener.Received().Unflatten(Arg.Any<IDictionary<string, object>>());
-            processor1.Received().IsOfType(Arg.Any<string>());
-            /*await processor1.Received().Apply(Arg.Any<IDictionary<string, object>>(),
-                Arg.Any<IEnumerable<string>>(),
-                Arg.Any<IDictionary<string, string>>());
-            await processor2.DidNotReceive().Apply(Arg.Any<IDictionary<string, object>>(),
-                Arg.Any<IEnumerable<string>>(),
-                Arg.Any<IDictionary<string, string>>());
-            await processor3.Received().Apply(Arg.Any<IDictionary<string, object>>(),
-                Arg.Any<IEnumerable<string>>(),
-                Arg.Any<IDictionary<string, string>>());*/
+            _processorServiceProvider.Received().GetProcessors();
+            _configurationProvider.Received().GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>());
+            _logger.Received().Log(LogLevel.Trace, "{@Log}", new {Message = "Message will be skipped from further processing."});
+        }
+        
+        
+        [Fact]
+        public async Task Process_LoopAll_ExecuteNotFoundAndSkip()
+        {
+            var sinkRecord = new SinkRecord(new ConsumeResult<byte[], byte[]>()
+            {
+                Message = new Message<byte[], byte[]>()
+                {
+                    Headers = new Headers()
+                }
+            })
+            {
+                Data = new JObject {{"field", "test.value"}},
+                Skip = true
+            };
+            var pNotFound = Substitute.For<IProcessor>();
+            var pExecute = Substitute.For<IProcessor>();
+            var pSkip = Substitute.For<IProcessor>();
+            pNotFound.IsOfType("Kafka.Connect.Processors.NotFound").Returns(false);
+            pExecute.IsOfType("Kafka.Connect.Processors.Execute").Returns(true);
+            pSkip.IsOfType("Kafka.Connect.Processors.Skip").Returns(true);
+            _configurationProvider.GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>())
+                .Returns(new List<ProcessorConfig> {new() {Name = "Kafka.Connect.Processors.NotFound"}, new() {Name = "Kafka.Connect.Processors.Execute"}, new() {Name="Kafka.Connect.Processors.Skip"}});
+            _processorServiceProvider.GetProcessors().Returns( new List<IProcessor> {pNotFound, pExecute, pSkip});
+            pExecute.Apply(Arg.Any<IDictionary<string, object>>(), Arg.Any<string>()).Returns((true, new Dictionary<string, object>()));
+            _recordFlattener.Flatten(Arg.Any<JToken>()).Returns(ImmutableDictionary<string, object>.Empty);
+            _recordFlattener.Unflatten(Arg.Any<IDictionary<string, object>>()).Returns(sinkRecord.Data);
+            
+            var (skip, data) = await _messageHandler.Process(sinkRecord, "");
+            
+            Assert.True(skip);
+            Assert.Equal(sinkRecord.Data, data);
+            await pExecute.Received().Apply(Arg.Any<IDictionary<string, object>>(), Arg.Any<string>());
+            await pNotFound.DidNotReceive().Apply(Arg.Any<IDictionary<string, object>>(), Arg.Any<string>());
+            await pSkip.DidNotReceive().Apply(Arg.Any<IDictionary<string, object>>(), Arg.Any<string>());
+            _recordFlattener.Received().Flatten(Arg.Any<JToken>());
+            _recordFlattener.Received().Unflatten(Arg.Any<IDictionary<string, object>>());
+            _processorServiceProvider.Received().GetProcessors();
+            _configurationProvider.Received().GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>());
+            _logger.Received().Log(LogLevel.Trace, "{@Log}", new {Message = "Message will be skipped from further processing."});
+            _logger.Received().Log(LogLevel.Trace, "{@Log}",
+                new {Message = "Processor is not registered.", Processor = "Kafka.Connect.Processors.NotFound"});
+        }
+        
+        
+        [Fact]
+        public async Task Process_LoopAll_MaintainsOrder()
+        {
+            var sinkRecord = new SinkRecord(new ConsumeResult<byte[], byte[]>()
+            {
+                Message = new Message<byte[], byte[]>()
+                {
+                    Headers = new Headers()
+                }
+            })
+            {
+                Data = new JObject {{"field", "test.value"}},
+                Skip = true
+            };
+            var pSecond = Substitute.For<IProcessor>();
+            var pFirst = Substitute.For<IProcessor>();
+            var pThird = Substitute.For<IProcessor>();
+            pSecond.IsOfType("Kafka.Connect.Processors.Second").Returns(true);
+            pThird.IsOfType("Kafka.Connect.Processors.Third").Returns(true);
+            pFirst.IsOfType("Kafka.Connect.Processors.First").Returns(true);
+            _configurationProvider.GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>())
+                .Returns(new List<ProcessorConfig> {new() {Name = "Kafka.Connect.Processors.Second", Order = 2}, new() {Name = "Kafka.Connect.Processors.Third", Order = 3}, new() {Name="Kafka.Connect.Processors.First", Order = 1}});
+            _processorServiceProvider.GetProcessors().Returns( new List<IProcessor> {pSecond, pThird, pFirst});
+            _recordFlattener.Flatten(Arg.Any<JToken>()).Returns(ImmutableDictionary<string, object>.Empty);
+            _recordFlattener.Unflatten(Arg.Any<IDictionary<string, object>>()).Returns(sinkRecord.Data);
+            
+            var (skip, data) = await _messageHandler.Process(sinkRecord, "");
+            
+            Assert.False(skip);
+            Assert.Equal(sinkRecord.Data, data);
+            Received.InOrder(() =>
+            {
+                pFirst.Apply(Arg.Any<IDictionary<string, object>>(), Arg.Any<string>());
+                pSecond.Apply(Arg.Any<IDictionary<string, object>>(), Arg.Any<string>());
+                pThird.Apply(Arg.Any<IDictionary<string, object>>(), Arg.Any<string>());
+            });
+            _recordFlattener.Received().Flatten(Arg.Any<JToken>());
+            _recordFlattener.Received().Unflatten(Arg.Any<IDictionary<string, object>>());
+            _processorServiceProvider.Received().GetProcessors();
+            _configurationProvider.Received().GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>());
         }
     }
 }

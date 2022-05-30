@@ -1,19 +1,16 @@
 using Confluent.Kafka;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Providers;
-using Microsoft.Extensions.Logging;
 
 namespace Kafka.Connect.Builders
 {
     public class KafkaClientBuilder : IKafkaClientBuilder
     {
-        private readonly ILogger<KafkaClientBuilder> _logger;
         private readonly IConfigurationProvider _configurationProvider;
         private readonly IKafkaClientEventHandler _kafkaClientEventHandler;
 
-        public KafkaClientBuilder(ILogger<KafkaClientBuilder> logger, IConfigurationProvider configurationProvider, IKafkaClientEventHandler kafkaClientEventHandler)
+        public KafkaClientBuilder(IConfigurationProvider configurationProvider, IKafkaClientEventHandler kafkaClientEventHandler)
         {
-            _logger = logger;
             _configurationProvider = configurationProvider;
             _kafkaClientEventHandler = kafkaClientEventHandler;
         }
