@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Confluent.Kafka;
 using Kafka.Connect.Builders;
+using Kafka.Connect.Configurations;
 using Kafka.Connect.Models;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
@@ -31,20 +32,20 @@ namespace Kafka.Connect.Handlers
         [OperationLog("Committing offsets.")]
         public void CommitOffsets(SinkRecordBatch batch, IConsumer<byte[], byte[]> consumer)
         {
-            var (enableAutoCommit, enableAutoOffsetStore) = _configurationProvider.GetAutoCommitConfig();
-                var offsets = batch.GetCommitReadyOffsets().ToList();
+            var offsets = batch.GetCommitReadyOffsets().ToList();
             if (!offsets.Any())
             {
                 return;
             }
+            var (enableAutoCommit, enableAutoOffsetStore) = _configurationProvider.GetAutoCommitConfig();
 
             var maxOffsets = GetMaxOffsets(offsets);
 
-            if (!enableAutoCommit) // true
+            if (!enableAutoCommit) 
             {
                 consumer.Commit(maxOffsets);
             }
-            else if (!enableAutoOffsetStore) // false
+            else if (!enableAutoOffsetStore) 
             {
                 foreach (var commitOffset in maxOffsets)
                 {
@@ -56,10 +57,20 @@ namespace Kafka.Connect.Handlers
         [OperationLog("Notify end of the partition.")]
         public async Task NotifyEndOfPartition(SinkRecordBatch batch, string connector, int taskId)
         {
-            var eofSignal = _configurationProvider.GetEofSignalConfig(connector);
+            [OperationLog("Producing EOF notification message.")]
+            Task<DeliveryResult<byte[], byte[]>> Produce(IProducer<byte[], byte[]> producer, string topic, Message<byte[], byte[]> message)
+            {
+                return producer.ProduceAsync(topic, message);
+            }
+
+            var eofSignal = _configurationProvider.GetEofSignalConfig(connector) ?? new EofConfig();
             if (eofSignal.Enabled && !string.IsNullOrWhiteSpace(eofSignal.Topic))
             {
                 var eofPartitions = batch.GetEofPartitions().ToList();
+                if (!eofPartitions.Any())
+                {
+                    return;
+                }
                 foreach (var commitReadyOffset in GetMaxOffsets(batch.GetCommitReadyOffsets()))
                 {
                     var eofPartition = eofPartitions.SingleOrDefault(o =>
@@ -91,8 +102,7 @@ namespace Kafka.Connect.Handlers
                                 })
                             };
 
-                            //TODO: time this as well
-                            var delivered = await producer.ProduceAsync(eofSignal.Topic, message);
+                            var delivered = await Produce(producer, eofSignal.Topic, message);
                             _logger.LogInformation("{Log}", new
                             {
                                 Message = "EOF message delivered.",
