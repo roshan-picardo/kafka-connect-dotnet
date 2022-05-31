@@ -29,7 +29,6 @@
       <Compile Remove="Connectors\ConnectDeadLetterTests.cs" />
       <Compile Remove="Connectors\ConnectorTests.cs" />
       <Compile Remove="Connectors\SinkTaskTests.cs" />
-      <Compile Remove="Handlers\PartitionHandlerTests.cs" />
       <Compile Remove="Handlers\RetriableHandlerTests.cs" />
       <Compile Remove="Handlers\SinkConsumerTests.cs" />
       <Compile Remove="Handlers\SinkExceptionHandlerTests.cs" />
