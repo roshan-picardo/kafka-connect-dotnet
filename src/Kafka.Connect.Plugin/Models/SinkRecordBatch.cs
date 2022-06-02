@@ -117,5 +117,21 @@ namespace Kafka.Connect.Plugin.Models
         }
         
         public bool IsLastAttempt { get; set; }
+
+        public void Started()
+        {
+            foreach (var record in this)
+            {
+                record.IsOperationCompleted = false;
+            }
+        }
+
+        public void Completed()
+        {
+            foreach (var record in this)
+            {
+                record.IsOperationCompleted = true;
+            }
+        }
     }
 }
