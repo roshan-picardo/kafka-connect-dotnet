@@ -99,5 +99,38 @@ namespace Kafka.Connect.Handlers
                 await _connectDeadLetter.Send(sinkRecords.Where(r => r.Status == SinkStatus.Failed), exception, connector);
             }
         }
+
+        public void LogRetryException(ConnectException connectException, int attempts)
+        {
+            var message = $"Message processing failed. Remaining retries: {attempts}";
+            switch (connectException)
+            {
+                case ConnectAggregateException cae:
+                    foreach (var ce in cae.GetConnectExceptions())
+                    {
+                        using (LogContext.Push(new PropertyEnricher("Topic", ce.Topic),
+                            new PropertyEnricher("Partition", ce.Partition), new PropertyEnricher("Offset", ce.Offset)))
+                        {
+                            _logger.LogError(ce,"{@Log}", new { Status = SinkStatus.Failed, Message = message});
+                        }
+                    }
+
+                    foreach (var oe in cae.GetNonConnectExceptions())
+                    {
+                        _logger.LogError(oe, "{@Log}", new { Status = SinkStatus.Failed, Message = message});
+                    }
+
+                    break;
+                default:
+                    using (LogContext.Push(new PropertyEnricher("Topic", connectException.Topic),
+                        new PropertyEnricher("Partition", connectException.Partition),
+                        new PropertyEnricher("Offset", connectException.Offset)))
+                    {
+                        _logger.LogError(connectException, "{@Log}", new { Status = SinkStatus.Failed, Message = message});
+                    }
+
+                    break;
+            }
+        }
     }
 }

@@ -1,11 +1,15 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Threading.Tasks;
 using Confluent.Kafka;
+using Kafka.Connect.Configurations;
 using Kafka.Connect.Handlers;
 using Kafka.Connect.Plugin.Exceptions;
 using Kafka.Connect.Plugin.Models;
+using Kafka.Connect.Providers;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using Xunit;
@@ -15,263 +19,209 @@ namespace Kafka.Connect.Tests.Handlers
     public class RetriableHandlerTests
     {
         private readonly ILogger<RetriableHandler> _logger;
+        private readonly IConfigurationProvider _configurationProvider;
+        private readonly ISinkExceptionHandler _sinkExceptionHandler;
         private readonly IRetriableHandler _retriableHandler;
 
         public RetriableHandlerTests()
         {
-            _logger = Substitute.For<ILogger<RetriableHandler>>();
-            _retriableHandler = new RetriableHandler(_logger);
+            _logger = Substitute.For<MockLogger<RetriableHandler>>();
+            _configurationProvider = Substitute.For<IConfigurationProvider>();
+            _sinkExceptionHandler = Substitute.For<ISinkExceptionHandler>();
+            _retriableHandler = new RetriableHandler(_logger, _sinkExceptionHandler, _configurationProvider);
         }
 
         [Fact]
-        public async Task Retry_SinkBatch_When_Returns_OK()
+        public async Task Retry_ConsumeReturnsSinkRecordBatch()
         {
+            _configurationProvider.GetRetriesConfig(Arg.Any<string>()).Returns(new RetryConfig {Attempts = 3, DelayTimeoutMs = 1});
             var sinkRecordBatch = new SinkRecordBatch("");
             Task<SinkRecordBatch> Consume() => Task.FromResult(sinkRecordBatch);
-            
-            var actual = await _retriableHandler.Retry(Consume   , 3, 1000);
+
+            var actual = await _retriableHandler.Retry(Consume, "connector");
             
             Assert.NotNull(actual);
             Assert.Equal(sinkRecordBatch, actual);
         }
 
         [Fact]
-        public async Task Retry_SinkBatch_Throws_ConnectAggregateException_WithNoInnerExceptions()
+        public async Task Retry_ThrowsSingleConnectAggregateException()
         {
-            var sinkRecordBatch = new SinkRecordBatch("");
-            static Task<Guid> Process(SinkRecordBatch batch) => throw new ConnectAggregateException(ErrorCode.Unknown);
+            _configurationProvider.GetRetriesConfig(Arg.Any<string>()).Returns(new RetryConfig {Attempts = 3, DelayTimeoutMs = 1});
+            Task<SinkRecordBatch> Process() => throw new ConnectAggregateException(ErrorCode.Unknown, new Exception());
 
-            await Assert.ThrowsAsync<ConnectToleranceExceededException>(async () =>
-                await _retriableHandler.Retry((b) => Process(sinkRecordBatch), sinkRecordBatch, 1, 1000));
+            await Assert.ThrowsAsync<ConnectToleranceExceededException>(() =>
+                _retriableHandler.Retry(_ => Process(), GetBatch(), "connector"));
+        }
+
+        [Fact]
+        public async Task Retry_ThrowsSingleConnectDataException()
+        {
+            _configurationProvider.GetRetriesConfig(Arg.Any<string>()).Returns(new RetryConfig {Attempts = 3, DelayTimeoutMs = 1});
+            Task<SinkRecordBatch> Process() => throw new ConnectDataException(ErrorCode.Unknown, new Exception());
+            
+            await Assert.ThrowsAsync<ConnectToleranceExceededException>(() =>
+                _retriableHandler.Retry(_ => Process(), GetBatch(), "connector"));
+        }
+
+        [Fact]
+        public async Task Retry_ThrowsSingleGenericException()
+        {
+            _configurationProvider.GetRetriesConfig(Arg.Any<string>()).Returns(new RetryConfig {Attempts = 3, DelayTimeoutMs = 1});
+            Task<SinkRecordBatch> Process() => throw new Exception();
+            
+            await Assert.ThrowsAsync<ConnectToleranceExceededException>(() =>
+                _retriableHandler.Retry(_ => Process(), GetBatch(), "connector"));
         }
         
         [Fact]
-        public async Task Retry_SinkBatch_Throws_ConnectAggregateException_WithRetriable_NoAttemptsLeft()
+        public async Task Retry_ThrowsSingleRetriableException()
         {
-            var sinkRecordBatch = new SinkRecordBatch("");
-
-            static Task<Guid> Process(SinkRecordBatch batch) =>
-                throw new ConnectAggregateException(ErrorCode.Unknown,
-                    new ConnectRetriableException(ErrorCode.Unknown, new Exception()));
-
-            await Assert.ThrowsAsync<ConnectToleranceExceededException>(async () =>
-                await _retriableHandler.Retry((b) => Process(sinkRecordBatch), sinkRecordBatch, 0, 1000));
+            _configurationProvider.GetRetriesConfig(Arg.Any<string>()).Returns(new RetryConfig {Attempts = 3, DelayTimeoutMs = 1});
+            Task<SinkRecordBatch> Process() => throw new ConnectRetriableException(ErrorCode.Unknown, new Exception());
+            
+            await Assert.ThrowsAsync<ConnectToleranceExceededException>(() =>
+                _retriableHandler.Retry(_ => Process(), GetBatch(), "connector"));
         }
         
-        [Fact]
-        public async Task Retry_SinkBatch_Throws_ConnectAggregateException_WithRetriable_SplitBatch()
+        [Theory]
+        [InlineData(2, new [] {"retriable-exception", "retriable-exception"}, 4, new[] { 3, 2, 1, 0})]
+        [InlineData(2, new [] {"retriable-exception", "data-exception"}, 4, new[] { 3, 2, 1, 0})]
+        [InlineData(2, new [] {"retriable-exception", "any-exception"}, 4, new[] { 3, 2, 1, 0})]
+        [InlineData(2, new [] {"retriable-exception", "no-exception"}, 4, new[] { 3, 2, 1, 0})]
+        [InlineData(2, new [] {"data-exception", "retriable-exception"}, 2, new[] {3} )]
+        [InlineData(2, new [] {"data-exception", "data-exception"}, 1, null)]
+        [InlineData(2, new [] {"data-exception", "any-exception"}, 1, null)]
+        [InlineData(2, new [] {"data-exception", "no-exception"}, 2, new[] {3})] 
+        [InlineData(2, new [] {"any-exception", "retriable-exception"}, 2, new[] {3} )]
+        [InlineData(2, new [] {"any-exception", "data-exception"}, 1, null)]
+        [InlineData(2, new [] {"any-exception", "any-exception"}, 1, null)]
+        [InlineData(2, new [] {"any-exception", "no-exception"}, 2, new[] {3})] 
+        [InlineData(2, new [] {"no-exception", "retriable-exception"}, 5, new[] {3, 2, 1, 0} )]
+        [InlineData(2, new [] {"no-exception", "data-exception"}, 3, new[] {3})]
+        [InlineData(2, new [] {"no-exception", "any-exception"}, 3, new[] {3})]
+        //[InlineData(2, new [] {"no-exception", "no-exception"}, 1, null)] //Doesn't seem correct??
+        public async Task Retry_ThrowsConnectAggregateException(int batchSize, string[] exceptions, int expectedCalls, int[] expectedLogAttempts)
         {
-            var sinkRecordBatch = new SinkRecordBatch("")
+            var sinkRecordBatch = GetBatch(batchSize, exceptions);
+            var callCounter = 0;
+            Task<SinkRecordBatch> Process(SinkRecordBatch batch)
             {
-                new SinkRecord(new ConsumeResult<byte[], byte[]>(){Message = new Message<byte[], byte[]>(){Headers = new Headers()}}),
-                new SinkRecord(new ConsumeResult<byte[], byte[]>(){Message = new Message<byte[], byte[]>(){Headers = new Headers()}}),
-            };
-
-            var counter = 0;
-
-            Task<Guid> Process(SinkRecordBatch batch)
-            {
-                ++counter;
-                throw new ConnectAggregateException(ErrorCode.Unknown, new ConnectRetriableException(ErrorCode.Unknown, new Exception()));
-            }
-
-            await Assert.ThrowsAsync<ConnectToleranceExceededException>(async () =>
-                await _retriableHandler.Retry(b => Process(sinkRecordBatch), sinkRecordBatch, 3, 1000));
-            Assert.Equal(4, counter);
-        }
-
-        [Fact]
-        public async Task Retry_SinkBatch_Throws_ConnectAggregateException_WithPartialRetry_SplitBatch()
-        {
-            var sinkRecordBatch = new SinkRecordBatch("")
-            {
-                new SinkRecord(new ConsumeResult<byte[], byte[]>()
-                    {Topic = "Retry", Message = new Message<byte[], byte[]>() {Headers = new Headers()}}),
-                new SinkRecord(new ConsumeResult<byte[], byte[]>()
-                    {Message = new Message<byte[], byte[]>() {Headers = new Headers()}}),
-            };
-
-            var counter = 0;
-
-            Task<Guid> Process(SinkRecordBatch batch)
-            {
-                ++counter;
-                if (batch.Count == 2)
+                ++callCounter;
+                var innerExceptions = new List<Exception>();
+                foreach (var record in batch)
                 {
-                    throw new ConnectAggregateException(ErrorCode.Unknown, false,
-                        new ConnectRetriableException(ErrorCode.Unknown, new Exception()),
-                        new ConnectDataException(ErrorCode.Unknown, new Exception()));
-                }
-                if (batch.First().Topic == "Retry")
-                {
-                    throw new ConnectAggregateException(ErrorCode.Unknown, false,
-                        new ConnectRetriableException(ErrorCode.Unknown, new Exception()));
-                }
-
-                throw new ConnectAggregateException(ErrorCode.Unknown, false,
-                    new ConnectDataException(ErrorCode.Unknown, new Exception()));
-            }
-
-            await Assert.ThrowsAsync<ConnectToleranceExceededException>(async () =>
-                await _retriableHandler.Retry(Process, sinkRecordBatch, 3, 1000));
-            Assert.Equal(3, counter);
-        }
-        
-        [Fact]
-        public async Task Retry_SinkBatch_Throws_ConnectAggregateException_WithPartialData_SplitBatch()
-        {
-            var sinkRecordBatch = new SinkRecordBatch("")
-            {
-                new SinkRecord(new ConsumeResult<byte[], byte[]>()
-                    {Topic = "Data", Message = new Message<byte[], byte[]>() {Headers = new Headers()}}),
-                new SinkRecord(new ConsumeResult<byte[], byte[]>()
-                    {Message = new Message<byte[], byte[]>() {Headers = new Headers()}}),
-            };
-
-            var counter = 0;
-
-            Task<Guid> Process(SinkRecordBatch batch)
-            {
-                ++counter;
-                if (batch.Count == 2)
-                {
-                    throw new ConnectAggregateException(ErrorCode.Unknown, false,
-                        new ConnectRetriableException(ErrorCode.Unknown, new Exception()),
-                        new ConnectDataException(ErrorCode.Unknown, new Exception()));
-                }
-                if (batch.First().Topic == "Data")
-                {
-                    throw new ConnectAggregateException(ErrorCode.Unknown, false,
-                        new ConnectDataException(ErrorCode.Unknown, new Exception()));
+                    switch (record.Topic)
+                    {
+                        case "retriable-exception":
+                            innerExceptions.Add(new ConnectRetriableException(ErrorCode.Unknown, new Exception()));
+                            break;
+                        case "data-exception":
+                            innerExceptions.Add(new ConnectDataException(ErrorCode.Unknown, new Exception()));
+                            break;
+                        case "any-exception":
+                            innerExceptions.Add(new Exception());
+                            break;
+                    }
                 }
 
-                throw new ConnectAggregateException(ErrorCode.Unknown, false,
-                    new ConnectRetriableException(ErrorCode.Unknown, new Exception()));
-            }
-
-            await Assert.ThrowsAsync<ConnectToleranceExceededException>(async () =>
-                await _retriableHandler.Retry(Process, sinkRecordBatch, 3, 1000));
-            Assert.Equal(2, counter);
-        }
-        
-        [Fact]
-        public async Task Retry_SinkBatch_Throws_ConnectAggregateException_WithData_NoSplit()
-        {
-            var sinkRecordBatch = new SinkRecordBatch("")
-            {
-                new SinkRecord(new ConsumeResult<byte[], byte[]>(){Message = new Message<byte[], byte[]>(){Headers = new Headers()}}) { Status = SinkStatus.Failed},
-                new SinkRecord(new ConsumeResult<byte[], byte[]>(){Message = new Message<byte[], byte[]>(){Headers = new Headers()}}) { Status = SinkStatus.Failed},
-            };
-
-            var counter = 0;
-
-            Task<Guid> Process(SinkRecordBatch batch)
-            {
-                ++counter;
-                throw new ConnectAggregateException(ErrorCode.Unknown, false, new ConnectDataException(ErrorCode.Unknown, new Exception()), new ConnectDataException(ErrorCode.Unknown, new Exception()));
-            }
-
-            await Assert.ThrowsAsync<ConnectToleranceExceededException>(async () =>
-                await _retriableHandler.Retry(b => Process(sinkRecordBatch), sinkRecordBatch, 3, 1000));
-            Assert.Equal(1, counter);
-        }
-        
-        [Fact]
-        public async Task Retry_SinkBatch_Throws_ConnectAggregateException_WithRetriableAndNonConnect_NoSplit()
-        {
-            var sinkRecordBatch = new SinkRecordBatch("")
-            {
-                new SinkRecord(new ConsumeResult<byte[], byte[]>(){Topic = "Retry", Message = new Message<byte[], byte[]>(){Headers = new Headers()}}),
-                new SinkRecord(new ConsumeResult<byte[], byte[]>(){Message = new Message<byte[], byte[]>(){Headers = new Headers()}}),
-            };
-
-            var counter = 0;
-
-            Task<Guid> Process(SinkRecordBatch batch)
-            {
-                ++counter;
-                if (batch.Count == 2)
+                if (innerExceptions.Any())
                 {
-                    throw new ConnectAggregateException(ErrorCode.Unknown, false,
-                        new ConnectRetriableException(ErrorCode.Unknown, new Exception()),
-                        new Exception());
-                }
-                if (batch.First().Topic == "Retry")
-                {
-                    throw new ConnectAggregateException(ErrorCode.Unknown, false,
-                        new ConnectRetriableException(ErrorCode.Unknown, new Exception()));
+                    throw new ConnectAggregateException(ErrorCode.Unknown, false, innerExceptions.ToArray());
                 }
 
-                throw new ConnectAggregateException(ErrorCode.Unknown, false,
-                    new Exception());
+                return Task.FromResult(batch);
             }
-
-            await Assert.ThrowsAsync<ConnectToleranceExceededException>(async () =>
-                await _retriableHandler.Retry(Process, sinkRecordBatch, 3, 1000));
-            Assert.Equal(3, counter);
+            
+            _configurationProvider.GetRetriesConfig(Arg.Any<string>()).Returns(new RetryConfig {Attempts = 3, DelayTimeoutMs = 1});
+            
+            await Assert.ThrowsAsync<ConnectToleranceExceededException>(() =>
+                _retriableHandler.Retry(Process, sinkRecordBatch, "connector"));
+            
+            Array.ForEach(expectedLogAttempts ?? Array.Empty<int>(),
+                (i) => _sinkExceptionHandler.Received(1).LogRetryException(Arg.Any<ConnectException>(), i));
+            Assert.Equal(expectedCalls, callCounter);
         }
         
         [Fact]
-        public async Task Retry_SinkBatch_Throws_ConnectRetriableException_WithRetries()
+        public async Task Retry_SuccessOnFirstAttempt()
         {
-            var sinkRecordBatch = new SinkRecordBatch("")
+            var sinkRecordBatch = GetBatch(2);
+            var callCounter = 0;
+            Task<SinkRecordBatch> Process(SinkRecordBatch batch)
             {
-                new SinkRecord(new ConsumeResult<byte[], byte[]>(){Message = new Message<byte[], byte[]>(){Headers = new Headers()}}),
-            };
-
-            var counter = 0;
-
-            Task<Guid> Process(SinkRecordBatch batch)
-            {
-                ++counter;
-                throw new ConnectRetriableException(ErrorCode.Unknown, new Exception());
+                ++callCounter;
+                return Task.FromResult(batch);
             }
-
-            await Assert.ThrowsAsync<ConnectToleranceExceededException>(async () =>
-                await _retriableHandler.Retry(Process, sinkRecordBatch, 3, 1000));
-            Assert.Equal(4, counter);
+            
+            _configurationProvider.GetRetriesConfig(Arg.Any<string>()).Returns(new RetryConfig {Attempts = 3, DelayTimeoutMs = 1});
+            
+            var actual = await _retriableHandler.Retry(Process, sinkRecordBatch, "connector");
+            
+            Assert.Same(sinkRecordBatch, actual);
+            _sinkExceptionHandler.DidNotReceive().LogRetryException(Arg.Any<ConnectException>(), Arg.Any<int>());
+            Assert.Equal(1, callCounter);
         }
-        
+
         [Fact]
-        public async Task Retry_SinkBatch_Throws_ConnectDataException()
+        public async Task Retry_SuccessAfterSplit()
         {
-            var sinkRecordBatch = new SinkRecordBatch("")
-            {
-                new SinkRecord(new ConsumeResult<byte[], byte[]>(){Message = new Message<byte[], byte[]>(){Headers = new Headers()}}),
-            };
+            var sinkRecordBatch = GetBatch(2, "retriable-exception", "data-exception");
+            var callCounter = 0;
 
-            var counter = 0;
-
-            Task<Guid> Process(SinkRecordBatch batch)
+            Task<SinkRecordBatch> Process(SinkRecordBatch batch)
             {
-                ++counter;
-                throw new ConnectDataException(ErrorCode.Unknown, new Exception());
+                ++callCounter;
+                var innerExceptions = new List<Exception>();
+                foreach (var record in batch)
+                {
+                    switch (record.Topic)
+                    {
+                        case "retriable-exception":
+                            innerExceptions.Add(new ConnectRetriableException(ErrorCode.Unknown, new Exception()));
+                            break;
+                        case "data-exception":
+                            innerExceptions.Add(new ConnectDataException(ErrorCode.Unknown, new Exception()));
+                            break;
+                        case "any-exception":
+                            innerExceptions.Add(new Exception());
+                            break;
+                    }
+                }
+
+                if (batch.Count > 1 && innerExceptions.Any())
+                {
+                    throw new ConnectAggregateException(ErrorCode.Unknown, false, innerExceptions.ToArray());
+                }
+
+                return Task.FromResult(batch);
             }
 
-            await Assert.ThrowsAsync<ConnectToleranceExceededException>(async () =>
-                await _retriableHandler.Retry(Process, sinkRecordBatch, 3, 1000));
-            Assert.Equal(1, counter);
+            _configurationProvider.GetRetriesConfig(Arg.Any<string>())
+                .Returns(new RetryConfig {Attempts = 3, DelayTimeoutMs = 1});
+
+
+            var actual = await _retriableHandler.Retry(Process, sinkRecordBatch, "connector");
+
+            Assert.Same(sinkRecordBatch, actual);
+            _sinkExceptionHandler.Received(1).LogRetryException(Arg.Any<ConnectException>(), 3);
+            Assert.Equal(3, callCounter);
         }
-        
-        [Fact]
-        public async Task Retry_SinkBatch_Throws_AnyException()
+
+
+
+        private static SinkRecordBatch GetBatch(int length = 2, params string[] topics)
         {
-            var sinkRecordBatch = new SinkRecordBatch("")
-            {
-                new SinkRecord(new ConsumeResult<byte[], byte[]>(){Message = new Message<byte[], byte[]>(){Headers = new Headers()}}),
-            };
+            var batch = new SinkRecordBatch("connector");
 
-            var counter = 0;
-
-            Task<Guid> Process(SinkRecordBatch batch)
+            for (var i = 0; i < length; i++)
             {
-                ++counter;
-                throw new Exception();
+                var topic = topics != null && topics.Length > i ? topics[i] : string.Empty;
+                batch.Add(new SinkRecord(new ConsumeResult<byte[], byte[]>
+                    {Topic = topic, Message = new Message<byte[], byte[]>() {Headers = new Headers()}}));
             }
 
-            await Assert.ThrowsAsync<ConnectToleranceExceededException>(async () =>
-                await _retriableHandler.Retry(Process, sinkRecordBatch, 3, 1000));
-            Assert.Equal(1, counter);
+            return batch;
         }
     }
 }

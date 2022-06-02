@@ -7,7 +7,7 @@ namespace Kafka.Connect.Configurations
 
         public int Attempts
         {
-            get => _attempts <= 0 ? 3 : _attempts;
+            get => _attempts < 0 ? 3 : _attempts;
             init => _attempts = value;
         }
 

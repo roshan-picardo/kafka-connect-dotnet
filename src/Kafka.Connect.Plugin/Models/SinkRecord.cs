@@ -190,5 +190,7 @@ namespace Kafka.Connect.Plugin.Models
         public bool IsSaved { get; private set; }
         public bool IsEnriched { get; private set; }
         public bool IsPublished { get; private set; }
+        
+        public bool IsOperationCompleted { get; set; }
     }
 }

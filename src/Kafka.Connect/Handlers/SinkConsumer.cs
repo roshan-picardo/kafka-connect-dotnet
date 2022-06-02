@@ -55,10 +55,8 @@ namespace Kafka.Connect.Handlers
         [OperationLog("Consuming messages.")]
         public async Task<SinkRecordBatch> Consume(IConsumer<byte[], byte[]> consumer, string connector, int taskId)
         {
-            var retryConfig = _configurationProvider.GetRetriesConfig(connector);
             var batch = await _retriableHandler.Retry(
-                async () => await ConsumeInternal(consumer, connector, taskId),
-                retryConfig.Attempts, retryConfig.DelayTimeoutMs);
+                async () => await ConsumeInternal(consumer, connector, taskId), connector);
             if (batch == null || batch.IsEmpty) return batch;
             foreach (var record in batch)
             {
