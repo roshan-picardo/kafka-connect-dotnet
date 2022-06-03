@@ -89,7 +89,7 @@ namespace Kafka.Connect.Handlers
                                     throw ThrowToleranceExceededException(cae.GetAllExceptions().ToArray());
                                 }
 
-                                if (aSplit)
+                                if (aSplit && batch?.Count > 1)
                                 {
                                     return (attempts, true, default);
                                 }
