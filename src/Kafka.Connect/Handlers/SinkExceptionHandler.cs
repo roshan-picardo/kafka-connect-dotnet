@@ -7,7 +7,6 @@ using Kafka.Connect.Plugin.Exceptions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Providers;
-using Kafka.Connect.Utilities;
 using Microsoft.Extensions.Logging;
 using Serilog.Context;
 using Serilog.Core.Enrichers;
@@ -30,6 +29,8 @@ namespace Kafka.Connect.Handlers
         [OperationLog("Handle processing errors.")]
         public void Handle(Exception exception, Action cancel)
         {
+            const string logToleranceExceeded = "Tolerance exceeded in error handler.";
+            const string logUnknownError = "Unknown error detected. Task will be shutdown.";
             switch (exception)
             {
                 case ConnectToleranceExceededException tee:
@@ -39,14 +40,14 @@ namespace Kafka.Connect.Handlers
                             new PropertyEnricher("Partition", ce.Partition), new PropertyEnricher("Offset", ce.Offset)))
                         {
                             _logger.LogError(ce.InnerException, "{@Log}",
-                                new {Status = SinkStatus.Failed, Message = "Tolerance exceeded in error handler"});
+                                new {Status = SinkStatus.Failed, Message = logToleranceExceeded});
                         }
                     }
 
                     foreach (var ex in tee.GetNonConnectExceptions())
                     {
                         _logger.LogError(ex, "{@Log}",
-                            new {Status = SinkStatus.Failed, Message = "Tolerance exceeded in error handler"});
+                            new {Status = SinkStatus.Failed, Message = logToleranceExceeded});
                     }
 
                     cancel();
@@ -58,14 +59,14 @@ namespace Kafka.Connect.Handlers
                             new PropertyEnricher("Partition", ce.Partition), new PropertyEnricher("Offset", ce.Offset)))
                         {
                             _logger.LogError(ce.InnerException, "{@Log}",
-                                new {Status = SinkStatus.Failed, Message = "Tolerance exceeded in error handler."});
+                                new {Status = SinkStatus.Failed, Message = logToleranceExceeded});
                         }
                     }
 
                     foreach (var ex in cae.GetNonConnectExceptions())
                     {
                         _logger.LogError(ex, "{@Log}",
-                            new {Status = SinkStatus.Failed, Message = "Tolerance exceeded in error handler"});
+                            new {Status = SinkStatus.Failed, Message = logToleranceExceeded});
                     }
 
                     cancel();
@@ -73,19 +74,26 @@ namespace Kafka.Connect.Handlers
                 case ConnectDataException cde:
                     if (cde.InnerException is OperationCanceledException oce)
                     {
-                        _logger.LogOperationCancelled(oce);
+                        if (oce.CancellationToken.IsCancellationRequested)
+                        {
+                            _logger.LogInformation("{@Log}",new {Status = SinkStatus.Failed, Message = "Worker shutdown initiated. Connector task will be shutdown."});
+                        }
+                        else
+                        {
+                            _logger.LogError(oce, "{@Log}",new {Status = SinkStatus.Failed, Message = "Unexpected error while shutting down the Worker."});
+                        }
                     }
                     else
                     {
                         _logger.LogError(cde.InnerException, "{@Log}",
-                            new {Status = SinkStatus.Failed, Message = "Unknown error detected. Task will be shutdown."});
+                            new {Status = SinkStatus.Failed, Message = logUnknownError});
                         cancel();
                     }
 
                     break;
                 default:
                     _logger.LogError(exception, "{@Log}",
-                        new {Status = SinkStatus.Failed, Message = "Unknown error detected. Task will be shutdown."});
+                        new {Status = SinkStatus.Failed, Message = logUnknownError});
                     cancel();
                     break;
             }

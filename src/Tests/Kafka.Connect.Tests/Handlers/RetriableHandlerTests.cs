@@ -207,9 +207,7 @@ namespace Kafka.Connect.Tests.Handlers
             _sinkExceptionHandler.Received(1).LogRetryException(Arg.Any<ConnectException>(), 3);
             Assert.Equal(3, callCounter);
         }
-
-
-
+        
         private static SinkRecordBatch GetBatch(int length = 2, params string[] topics)
         {
             var batch = new SinkRecordBatch("connector");
