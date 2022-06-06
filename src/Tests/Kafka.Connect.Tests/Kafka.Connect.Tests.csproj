@@ -29,7 +29,6 @@
       <Compile Remove="Connectors\ConnectDeadLetterTests.cs" />
       <Compile Remove="Connectors\ConnectorTests.cs" />
       <Compile Remove="Connectors\SinkTaskTests.cs" />
-      <Compile Remove="Handlers\SinkConsumerTests.cs" />
       <Compile Remove="Processors\BlacklistFieldProjectorTests.cs" />
       <Compile Remove="Processors\DateTimeTypeOverriderTests.cs" />
       <Compile Remove="Processors\FieldRenamerTests.cs" />

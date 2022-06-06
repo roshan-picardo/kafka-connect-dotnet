@@ -58,10 +58,7 @@ namespace Kafka.Connect.Handlers
         public async Task NotifyEndOfPartition(SinkRecordBatch batch, string connector, int taskId)
         {
             [OperationLog("Producing EOF notification message.")]
-            Task<DeliveryResult<byte[], byte[]>> Produce(IProducer<byte[], byte[]> producer, string topic, Message<byte[], byte[]> message)
-            {
-                return producer.ProduceAsync(topic, message);
-            }
+            Task<DeliveryResult<byte[], byte[]>> Produce(IProducer<byte[], byte[]> producer, string topic, Message<byte[], byte[]> message) => producer.ProduceAsync(topic, message);
 
             var eofSignal = _configurationProvider.GetEofSignalConfig(connector) ?? new EofConfig();
             if (eofSignal.Enabled && !string.IsNullOrWhiteSpace(eofSignal.Topic))
