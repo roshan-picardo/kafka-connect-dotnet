@@ -22,6 +22,7 @@ namespace Kafka.Connect.Models
 
         public void StartTiming()
         {
+            _timer ??= Stopwatch.StartNew();
             if (!_timer.IsRunning)
             {
                 _timer.Start();

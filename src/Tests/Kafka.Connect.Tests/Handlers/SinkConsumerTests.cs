@@ -1,16 +1,17 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Confluent.Kafka;
 using Kafka.Connect.Builders;
-using Kafka.Connect.Config;
-using Kafka.Connect.Config.Models;
+using Kafka.Connect.Configurations;
+using Kafka.Connect.Connectors;
 using Kafka.Connect.Handlers;
 using Kafka.Connect.Models;
+using Kafka.Connect.Plugin;
 using Kafka.Connect.Plugin.Exceptions;
 using Kafka.Connect.Plugin.Models;
+using Kafka.Connect.Providers;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
@@ -21,394 +22,334 @@ namespace Kafka.Connect.Tests.Handlers
 {
     public class SinkConsumerTests
     {
-        private readonly IKafkaClientBuilder _kafkaClientBuilder;
+        private readonly ILogger<SinkConsumer> _logger;
+        private readonly IExecutionContext _executionContext;
         private readonly IRetriableHandler _retriableHandler;
+        private readonly IConfigurationProvider _configurationProvider;
+        private readonly IKafkaClientBuilder _kafkaClientBuilder;
+        private readonly IConsumer<byte[], byte[]> _consumer;
         private readonly SinkConsumer _sinkConsumer;
-
+      
         public SinkConsumerTests()
         {
-            _kafkaClientBuilder = Substitute.For<IKafkaClientBuilder>();
+            _logger = Substitute.For<MockLogger<SinkConsumer>>();
+            _executionContext = Substitute.For<IExecutionContext>();
             _retriableHandler = Substitute.For<IRetriableHandler>();
-            var logger = Substitute.For<ILogger<SinkConsumer>>();
-            _sinkConsumer = new SinkConsumer(logger, _kafkaClientBuilder, _retriableHandler);
+            _configurationProvider = Substitute.For<IConfigurationProvider>();
+            _kafkaClientBuilder = Substitute.For<IKafkaClientBuilder>();
+            _consumer = Substitute.For<IConsumer<byte[], byte[]>>();
+            _sinkConsumer = new SinkConsumer(_logger, _executionContext, _retriableHandler, _configurationProvider, _kafkaClientBuilder);
         }
 
         [Fact]
-        public void Subscribe_When_ReturnsConsumer()
+        public void Subscribe_WhenReturnsConsumer()
         {
-            var config = new ConnectorConfig
-            {
-                BootstrapServers = "broker:1100",
-                Topics = new[] {"topicA"}
-            };
-            var consumer = Substitute.For<IConsumer<byte[], byte[]>>();
-            _kafkaClientBuilder.GetConsumer(Arg.Any<ConnectorConfig>()).Returns(consumer);
+            _configurationProvider.GetTopics(Arg.Any<string>()).Returns(new[] {"topic"});
+            _kafkaClientBuilder.GetConsumer(Arg.Any<string>(), Arg.Any<int>()).Returns(_consumer);
 
-            var actual = _sinkConsumer.Subscribe(config);
+            var actual = _sinkConsumer.Subscribe("connector", 1);
             
-            Assert.Equal(consumer, actual);
-            _kafkaClientBuilder.Received().GetConsumer(Arg.Any<ConnectorConfig>());
-            consumer.Received().Subscribe(Arg.Any<IList<string>>());
+            Assert.Equal(_consumer, actual);
+            _kafkaClientBuilder.Received().GetConsumer("connector", 1);
+            _consumer.Received().Subscribe(Arg.Any<IList<string>>());
         }
         
         [Fact]
-        public void Subscribe_When_ExceptionAtGetConsumer()
+        public void Subscribe_ThrowsExceptionAtGetConsumer()
         {
-            var config = new ConnectorConfig
-            {
-                BootstrapServers = "broker:1100",
-                Topics = new[] {"topicA"}
-            };
-            var consumer = Substitute.For<IConsumer<byte[], byte[]>>();
-            _kafkaClientBuilder.GetConsumer(Arg.Any<ConnectorConfig>()).Throws<Exception>();
+            _configurationProvider.GetTopics(Arg.Any<string>()).Returns(new[] {"topic"});
+            _kafkaClientBuilder.GetConsumer(Arg.Any<string>(), Arg.Any<int>()).Throws<Exception>();
 
-            var actual = _sinkConsumer.Subscribe(config);
+            var actual = _sinkConsumer.Subscribe("connector", 1);
             
             Assert.Null(actual);
-            _kafkaClientBuilder.Received().GetConsumer(Arg.Any<ConnectorConfig>());
-            consumer.DidNotReceive().Subscribe(Arg.Any<IList<string>>());
+            _kafkaClientBuilder.Received().GetConsumer("connector", 1);
+            _consumer.DidNotReceive().Subscribe(Arg.Any<IList<string>>());
+            _logger.Received().Log(LogLevel.Critical, Arg.Any<Exception>(), "{@Log}", new { Message = "Failed to establish the connection Kafka brokers."});
         }
         
         [Fact]
-        public void Subscribe_When_ExceptionAtSubscribe()
+        public void Subscribe_ThrowsExceptionAtSubscribe()
         {
-            var config = new ConnectorConfig
-            {
-                BootstrapServers = "broker:1100",
-                Topics = new[] {"topicA"}
-            };
-            var consumer = Substitute.For<IConsumer<byte[], byte[]>>();
-            _kafkaClientBuilder.GetConsumer(Arg.Any<ConnectorConfig>()).Returns(consumer);
-            consumer.When(c => c.Subscribe(Arg.Any<IList<string>>())).Throw<Exception>();
+            _configurationProvider.GetTopics(Arg.Any<string>()).Returns(new[] {"topic"});
+            _kafkaClientBuilder.GetConsumer(Arg.Any<string>(), Arg.Any<int>()).Returns(_consumer);
+            _consumer.When(c=> c.Subscribe(Arg.Any<string[]>())).Throw<Exception>();
 
-            var actual = _sinkConsumer.Subscribe(config);
+            var actual = _sinkConsumer.Subscribe("connector", 1);
             
             Assert.Null(actual);
-            _kafkaClientBuilder.Received().GetConsumer(Arg.Any<ConnectorConfig>());
-            consumer.Received().Subscribe(Arg.Any<IList<string>>());
+            _kafkaClientBuilder.Received().GetConsumer("connector", 1);
+            _consumer.Received().Subscribe(Arg.Any<IList<string>>());
+            _logger.Received().Log(LogLevel.Critical, Arg.Any<Exception>(), "{@Log}", new { Message = "Failed to establish the connection Kafka brokers."});
         }
-
         
         [Theory]
-        [InlineData(true, null, null)]
-        [InlineData(false, null, null)]
-        [InlineData(false, "", null)]
-        [InlineData(false, "broker:111", null)]
-        [InlineData(false, "broker:111", "")]
-        [InlineData(false, "broker:111", "  ")]
-        public void Subscribe_When_ConfigsAreNullOrEmpty(bool isNull, string brokers, string topics)
+        [InlineData(null)]
+        [InlineData(" ")]
+        [InlineData()]
+        public void Subscribe_WhenTopicsIsNullOrEmptyList(params string[] topics)
         {
-            var config = isNull
-                ? null
-                : new ConnectorConfig()
-                {
-                    BootstrapServers = brokers,
-                    Topics = topics == null ? null :
-                        topics == string.Empty ? new List<string>() : new List<string> {topics}
-                };
-            var consumer = Substitute.For<IConsumer<byte[], byte[]>>();
-            _kafkaClientBuilder.GetConsumer(Arg.Any<ConnectorConfig>()).Returns(consumer);
-            
-            var actual = _sinkConsumer.Subscribe(config);
+            _configurationProvider.GetTopics(Arg.Any<string>()).Returns(topics);
+
+            var actual = _sinkConsumer.Subscribe("connector", 1);
             
             Assert.Null(actual);
-            _kafkaClientBuilder.DidNotReceive().GetConsumer(Arg.Any<ConnectorConfig>());
-            consumer.DidNotReceive().Subscribe(Arg.Any<IList<string>>());
+            _kafkaClientBuilder.DidNotReceive().GetConsumer("connector", 1);
+            _consumer.DidNotReceive().Subscribe(Arg.Any<IList<string>>());
+            _logger.Received().Log(LogLevel.Warning, "{@Log}", new { Message = "No topics to subscribe."});
         }
-
-
+        
         [Theory]
         [InlineData(true)]
         [InlineData(false)]
-        public async Task Consume_When_ConsumedIsNullOrEmpty(bool isNull)
+        public async Task Consume_WhenConsumedIsNullOrEmpty(bool isNull)
         {
-            var consumer = Substitute.For<IConsumer<byte[], byte[]>>();
-            var batch = new SinkRecordBatch("unit-tests");
-            var config = new ConnectorConfig();
-            var pollContext = new BatchPollContext();
-            
-             _retriableHandler.Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(), Arg.Any<int>(), Arg.Any<int>())
-                .Returns(await Task.FromResult(isNull ?  null : new SinkRecordBatch("")));
+            var batch = isNull ?  null : new SinkRecordBatch("");
 
-             var actual = await _sinkConsumer.Consume(batch, consumer, config, pollContext);
+            _retriableHandler.Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(),  Arg.Any<string>())
+                .Returns(await Task.FromResult(batch));
+
+            var actual = await _sinkConsumer.Consume(_consumer, "connector", 1);
              
-             Assert.Equal(actual, batch);
-             await _retriableHandler.Received()
-                 .Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(), Arg.Any<int>(), Arg.Any<int>());
-             consumer.DidNotReceive().Consume(Arg.Any<CancellationToken>());
+            Assert.Equal(actual, batch);
+            await _retriableHandler.Received()
+                .Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(), Arg.Any<string>());
+            _consumer.DidNotReceive().Consume(Arg.Any<CancellationToken>());
+            _logger.Log(LogLevel.Debug, Constants.AtLog, new {Message="There aren't any messages in the batch to process."});
         }
+        
+        [Fact]
+        public async Task Consume_WhenConsumedReturnsABatch()
+        {
+            var record1 = new SinkRecord(new ConsumeResult<byte[], byte[]>() { Message = new Message<byte[], byte[]>()});
+            var record2 = new SinkRecord(new ConsumeResult<byte[], byte[]>() {Message = new Message<byte[], byte[]>()});
+            var batch = new SinkRecordBatch("") {record1, record2};
+            _retriableHandler.Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(),  Arg.Any<string>())
+                .Returns(await Task.FromResult(batch));
 
+            var actual = await _sinkConsumer.Consume(_consumer, "connector", 1);
+             
+            Assert.Equal(actual, batch);
+            await _retriableHandler.Received()
+                .Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(), Arg.Any<string>());
+            Assert.NotNull(record1.Consumed.Message.Headers);
+            Assert.NotNull(record2.Consumed.Message.Headers);
+            Assert.Contains(record1.Consumed.Message.Headers, h => h.Key == "_logTimestamp");
+            Assert.Contains(record2.Consumed.Message.Headers, h => h.Key == "_logTimestamp");
+        }
+        
         [Theory]
-        [InlineData(false, false, -1, 1)]
-        [InlineData(false, false, 0, 1)]
-        [InlineData(false, false, 1, 1)]
-        [InlineData(false, false, 10, 1)]
-        [InlineData(true, false, -1, 1)]
-        [InlineData(true, false, 0, 1)]
-        [InlineData(true, false, 1, 1)]
-        [InlineData(true, false, 10, 10)]
-        [InlineData(false, true, 0, 1)]
-        [InlineData(true, true, 0, 1)]
-        public async Task Consume_When_BatchSizeSetDifferently(bool eof, bool batchIsNull, int size,
-            int expectedCount)
+        [InlineData(-1, 100)]
+        [InlineData(0, 100)]
+        [InlineData(1, 1)]
+        [InlineData(10, 10)]
+        public async Task Consume_WhenBatchSizeSetDifferently(int size, int expectedCount)
         {
-            var consumer = Substitute.For<IConsumer<byte[], byte[]>>();
-            var batch = new SinkRecordBatch("unit-tests");
-            var config = new ConnectorConfig
-            {
-                EnablePartitionEof = eof,
-                Batch = batchIsNull ? null : new BatchConfig {Size = size}
-            };
-            var pollContext = new BatchPollContext();
+            var pollContext = new BatchPollContext {Iteration = 5};
+            var timestamp = new Timestamp(new DateTime(2022, 06, 01, 12, 12, 12));
             var consumed = new ConsumeResult<byte[], byte[]>()
             {
                 Message = new Message<byte[], byte[]>()
-                    {Headers = new Headers(), Timestamp = new Timestamp(DateTime.Now)}
+                    {Headers = new Headers(), Timestamp = timestamp},
+                Topic = "topic",
+                Partition = 0,
+                Offset = 0
             };
-            consumer.Consume(Arg.Any<CancellationToken>()).Returns(consumed);
+            _executionContext.GetOrSetBatchContext(Arg.Any<string>(), Arg.Any<int>()).Returns(pollContext);
+            _configurationProvider.GetBatchConfig(Arg.Any<string>()).Returns(new BatchConfig {Size = size});
+            _consumer.Consume(Arg.Any<CancellationToken>()).Returns(consumed);
+            Task<SinkRecordBatch> batch = null;
+            await _retriableHandler.Retry(
+                Arg.Do<Func<Task<SinkRecordBatch>>>(b => batch =  b.Invoke()), Arg.Any<string>());
 
-            SinkRecordBatch consumedBatch = null;
-            _retriableHandler.Retry(
-                Arg.Do<Func<Task<SinkRecordBatch>>>(async b => consumedBatch = await b.Invoke()),
-                Arg.Any<int>(), Arg.Any<int>()).Returns(consumedBatch);
-            consumer.Consume(Arg.Any<CancellationToken>());
-
-            await _sinkConsumer.Consume(batch, consumer, config, pollContext);
-
+            await _sinkConsumer.Consume(_consumer, "connector", 1);
+            var consumedBatch = await batch;
+            
             await _retriableHandler.Received()
-                .Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(), Arg.Any<int>(), Arg.Any<int>());
-            consumer.Received(expectedCount).Consume(Arg.Any<CancellationToken>());
+                .Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(), Arg.Any<string>());
+            _consumer.Received(expectedCount).Consume(Arg.Any<CancellationToken>());
             Assert.Equal(expectedCount, consumedBatch.Count);
+            _logger.Received().Log(LogLevel.Trace, Constants.AtLog, new {Message="Polling for messages. #00005"});
+            //_logger.Received().Log(LogLevel.Debug, Constants.AtLog, new {Message="Message consumed.", Topic = "topic", Partition = 0, Offset = 0, IsPartitionEOF = false, TimeStamp = timestamp.UtcDateTime });
         }
         
         [Fact]
-        public async Task Consume_When_Of5ConsumedOneIsNull()
+        public async Task Consume_When2MessagesAreNullOutOf5Expected()
         {
-            var consumer = Substitute.For<IConsumer<byte[], byte[]>>();
-            var batch = new SinkRecordBatch("unit-tests");
-            var config = new ConnectorConfig
-            {
-                EnablePartitionEof = true,
-                Batch = new BatchConfig(){Size = 5}
-            };
-            var pollContext = new BatchPollContext();
+            var pollContext = new BatchPollContext {Iteration = 5};
+            var timestamp = new Timestamp(new DateTime(2022, 06, 01, 12, 12, 12));
             var consumed = new ConsumeResult<byte[], byte[]>()
             {
                 Message = new Message<byte[], byte[]>()
-                    {Headers = new Headers(), Timestamp = new Timestamp(DateTime.Now)}
+                    {Headers = new Headers(), Timestamp = timestamp},
+                Topic = "topic",
+                Partition = 0,
+                Offset = 0
             };
-            consumer.Consume(Arg.Any<CancellationToken>()).Returns(consumed, consumed, null, consumed, consumed);
+            _executionContext.GetOrSetBatchContext(Arg.Any<string>(), Arg.Any<int>()).Returns(pollContext);
+            _configurationProvider.GetBatchConfig(Arg.Any<string>()).Returns(new BatchConfig {Size = 5});
+            _consumer.Consume(Arg.Any<CancellationToken>()).Returns(consumed, null, consumed, consumed, null);
+            Task<SinkRecordBatch> batch = null;
+            await _retriableHandler.Retry(
+                Arg.Do<Func<Task<SinkRecordBatch>>>(b => batch =  b.Invoke()), Arg.Any<string>());
 
-            SinkRecordBatch consumedBatch = null;
-            _retriableHandler.Retry(
-                Arg.Do<Func<Task<SinkRecordBatch>>>(async b => consumedBatch = await b.Invoke()),
-                Arg.Any<int>(), Arg.Any<int>()).Returns(consumedBatch);
-            consumer.Consume(Arg.Any<CancellationToken>());
-
-            await _sinkConsumer.Consume(batch, consumer, config, pollContext);
-
+            await _sinkConsumer.Consume(_consumer, "connector", 1);
+            var consumedBatch = await batch;
+            
             await _retriableHandler.Received()
-                .Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(), Arg.Any<int>(), Arg.Any<int>());
-            consumer.Received(5).Consume(Arg.Any<CancellationToken>());
-            Assert.Equal(4, consumedBatch.Count);
+                .Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(), Arg.Any<string>());
+            _consumer.Received(5).Consume(Arg.Any<CancellationToken>());
+            Assert.Equal(3, consumedBatch.Count);
+            _logger.Received().Log(LogLevel.Trace, Constants.AtLog, new {Message="Polling for messages. #00005"});
+            //_logger.Received().Log(LogLevel.Debug, Constants.AtLog, new {Message="Message consumed.", Topic = "topic", Partition = 0, Offset = 0, IsPartitionEOF = false, TimeStamp = timestamp.UtcDateTime });
         }
         
         [Fact]
-        public async Task Consume_When_OfConsumedOneIsEOF()
+        public async Task Consume_When3rdMessagesIsEOFOutOf5Expected()
         {
-            var consumer = Substitute.For<IConsumer<byte[], byte[]>>();
-            var batch = new SinkRecordBatch("unit-tests");
-            var config = new ConnectorConfig
-            {
-                EnablePartitionEof = true,
-                Batch = new BatchConfig(){Size = 5}
-            };
-            var pollContext = new BatchPollContext();
+            var pollContext = new BatchPollContext {Iteration = 5};
+            var timestamp = new Timestamp(new DateTime(2022, 06, 01, 12, 12, 12));
             var consumed = new ConsumeResult<byte[], byte[]>()
             {
                 Message = new Message<byte[], byte[]>()
-                    {Headers = new Headers(), Timestamp = new Timestamp(DateTime.Now)}
+                    {Headers = new Headers(), Timestamp = timestamp},
+                Topic = "topic",
+                Partition = 0,
+                Offset = 0
             };
             var consumedEof = new ConsumeResult<byte[], byte[]>()
             {
                 Message = new Message<byte[], byte[]>()
-                    {Headers = new Headers(), Timestamp = new Timestamp(DateTime.Now)},
-                IsPartitionEOF = true,
-                TopicPartitionOffset = new TopicPartitionOffset("TopicA", new Partition(1), new Offset(100))
+                    {Headers = new Headers(), Timestamp = timestamp},
+                Topic = "topic",
+                Partition = 0,
+                Offset = 3,
+                IsPartitionEOF = true
             };
-            consumer.Consume(Arg.Any<CancellationToken>()).Returns(consumed, consumed, consumedEof, consumed, consumed);
+            _executionContext.GetOrSetBatchContext(Arg.Any<string>(), Arg.Any<int>()).Returns(pollContext);
+            _configurationProvider.GetBatchConfig(Arg.Any<string>()).Returns(new BatchConfig {Size = 5});
+            _consumer.Consume(Arg.Any<CancellationToken>()).Returns(consumed, consumed, consumedEof, consumed, consumed);
+            Task<SinkRecordBatch> batch = null;
+            await _retriableHandler.Retry(
+                Arg.Do<Func<Task<SinkRecordBatch>>>(b => batch =  b.Invoke()), Arg.Any<string>());
 
-            SinkRecordBatch consumedBatch = null;
-            _retriableHandler.Retry(
-                Arg.Do<Func<Task<SinkRecordBatch>>>(async b => consumedBatch = await b.Invoke()),
-                Arg.Any<int>(), Arg.Any<int>()).Returns(consumedBatch);
-            consumer.Consume(Arg.Any<CancellationToken>());
-
-            await _sinkConsumer.Consume(batch, consumer, config, pollContext);
-
+            await _sinkConsumer.Consume(_consumer, "connector", 1);
+            var consumedBatch = await batch;
+            
             await _retriableHandler.Received()
-                .Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(), Arg.Any<int>(), Arg.Any<int>());
-            consumer.Received(3).Consume(Arg.Any<CancellationToken>());
+                .Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(), Arg.Any<string>());
+            _consumer.Received(3).Consume(Arg.Any<CancellationToken>());
             Assert.Equal(2, consumedBatch.Count);
-            Assert.NotNull(consumedBatch.GetEofPartitions().SingleOrDefault(tpo => tpo.Offset == 100));
+            Assert.Single(consumedBatch.GetEofPartitions());
+            Assert.Contains(consumedBatch.GetEofPartitions(), tpo => tpo.Topic == "topic" && tpo.Partition == 0 && tpo.Offset == 3);
+            _logger.Received().Log(LogLevel.Trace, Constants.AtLog, new {Message="Polling for messages. #00005"});
+            //_logger.Received().Log(LogLevel.Debug, Constants.AtLog, new {Message="Message consumed.", Topic = "topic", Partition = 0, Offset = 0, IsPartitionEOF = false, TimeStamp = timestamp.UtcDateTime });
         }
         
         [Fact]
-        public async Task Consume_When_ConsumeThrowsExceptionAfter2Messages()
+        public async Task Consume_WhenExceptionThrownAfter2Messages()
         {
-            var consumer = Substitute.For<IConsumer<byte[], byte[]>>();
-            var batch = new SinkRecordBatch("unit-tests");
-            var config = new ConnectorConfig
-            {
-                EnablePartitionEof = true,
-                Batch = new BatchConfig {Size = 5}
-            };
-            var pollContext = new BatchPollContext();
+            var pollContext = new BatchPollContext {Iteration = 5};
+            var timestamp = new Timestamp(new DateTime(2022, 06, 01, 12, 12, 12));
             var consumed = new ConsumeResult<byte[], byte[]>()
             {
                 Message = new Message<byte[], byte[]>()
-                    {Headers = new Headers(), Timestamp = new Timestamp(DateTime.Now)}
+                    {Headers = new Headers(), Timestamp = timestamp},
+                Topic = "topic",
+                Partition = 0,
+                Offset = 0
             };
+            _executionContext.GetOrSetBatchContext(Arg.Any<string>(), Arg.Any<int>()).Returns(pollContext);
+            _configurationProvider.GetBatchConfig(Arg.Any<string>()).Returns(new BatchConfig {Size = 5});
+            _consumer.Consume(Arg.Any<CancellationToken>()).Returns(_=> consumed, _=>  consumed, _=> throw new Exception());
+            Task<SinkRecordBatch> batch = null;
+            await _retriableHandler.Retry(
+                Arg.Do<Func<Task<SinkRecordBatch>>>(b => batch =  b.Invoke()), Arg.Any<string>());
 
-            consumer.Consume(Arg.Any<CancellationToken>())
-                .Returns(c => consumed, c => consumed, c => throw new Exception());
-
-            SinkRecordBatch consumedBatch = null;
-            _retriableHandler.Retry(
-                Arg.Do<Func<Task<SinkRecordBatch>>>(async b => consumedBatch = await b.Invoke()),
-                Arg.Any<int>(), Arg.Any<int>()).Returns(consumedBatch);
-
-            await _sinkConsumer.Consume(batch, consumer, config, pollContext);
-
+            await _sinkConsumer.Consume(_consumer, "connector", 1);
+            var consumedBatch = await batch;
+            
             await _retriableHandler.Received()
-                .Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(), Arg.Any<int>(), Arg.Any<int>());
-            consumer.Received(3).Consume(Arg.Any<CancellationToken>());
+                .Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(), Arg.Any<string>());
+            _consumer.Received(3).Consume(Arg.Any<CancellationToken>());
             Assert.Equal(2, consumedBatch.Count);
+            _logger.Received().Log(LogLevel.Trace, Constants.AtLog, new {Message="Polling for messages. #00005"});
+            _logger.Received().Log(LogLevel.Warning, Arg.Any<Exception>(), Constants.AtLog, new {Message="Consume failed. Part of the batch will be processed.", Count=2});
+            //_logger.Received().Log(LogLevel.Debug, Constants.AtLog, new {Message="Message consumed.", Topic = "topic", Partition = 0, Offset = 0, IsPartitionEOF = false, TimeStamp = timestamp.UtcDateTime });
         }
         
         [Fact]
-        public async Task Consume_When_ConsumeThrowsOperationCanceledException()
+        public async Task Consume_WhenConsumeThrowsOperationCanceledException()
         {
-            var consumer = Substitute.For<IConsumer<byte[], byte[]>>();
-            var batch = new SinkRecordBatch("unit-tests");
-            var config = new ConnectorConfig
-            {
-                EnablePartitionEof = true,
-                Batch = new BatchConfig {Size = 5}
-            };
-            var pollContext = new BatchPollContext();
-            var consumed = new ConsumeResult<byte[], byte[]>()
-            {
-                Message = new Message<byte[], byte[]>()
-                    {Headers = new Headers(), Timestamp = new Timestamp(DateTime.Now)}
-            };
+            var pollContext = new BatchPollContext {Iteration = 5};
+            _executionContext.GetOrSetBatchContext(Arg.Any<string>(), Arg.Any<int>()).Returns(pollContext);
+            _configurationProvider.GetBatchConfig(Arg.Any<string>()).Returns(new BatchConfig {Size = 5});
+            _consumer.Consume(Arg.Any<CancellationToken>()).Throws<OperationCanceledException>();
+            Task<SinkRecordBatch> batch = null;
+            await _retriableHandler.Retry(
+                Arg.Do<Func<Task<SinkRecordBatch>>>(b => batch =  b.Invoke()), Arg.Any<string>());
 
-            consumer.Consume(Arg.Any<CancellationToken>()).Throws<OperationCanceledException>();
-
-            SinkRecordBatch consumedBatch = null;
-            _retriableHandler.Retry(
-                Arg.Do<Func<Task<SinkRecordBatch>>>(async b => consumedBatch = await b.Invoke()),
-                Arg.Any<int>(), Arg.Any<int>()).Returns(consumedBatch);
-
-            await _sinkConsumer.Consume(batch, consumer, config, pollContext);
-
+            await _sinkConsumer.Consume(_consumer, "connector", 1);
+            var consumedBatch = await batch;
+            
             await _retriableHandler.Received()
-                .Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(), Arg.Any<int>(), Arg.Any<int>());
-            consumer.Received(1).Consume(Arg.Any<CancellationToken>());
+                .Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(), Arg.Any<string>());
+            _consumer.Received(1).Consume(Arg.Any<CancellationToken>());
             Assert.Empty(consumedBatch);
+            _logger.Received().Log(LogLevel.Trace, Constants.AtLog, new {Message="Polling for messages. #00005"});
+            _logger.Received().Log(LogLevel.Trace, Constants.AtLog, new {Message="Task has been cancelled. The consume operation will be terminated."});
+            //_logger.Received().Log(LogLevel.Debug, Constants.AtLog, new {Message="Message consumed.", Topic = "topic", Partition = 0, Offset = 0, IsPartitionEOF = false, TimeStamp = timestamp.UtcDateTime });
         }
         
         [Fact]
-        public async Task Consume_When_ConsumeThrowsConsumeException()
+        public async Task Consume_WhenConsumeThrowsConsumerException()
         {
-            var consumer = Substitute.For<IConsumer<byte[], byte[]>>();
-            var batch = new SinkRecordBatch("unit-tests");
-            var config = new ConnectorConfig
-            {
-                EnablePartitionEof = true,
-                Batch = new BatchConfig {Size = 5}
-            };
-            var pollContext = new BatchPollContext();
+            var pollContext = new BatchPollContext {Iteration = 5};
+            var timestamp = new Timestamp(new DateTime(2022, 06, 01, 12, 12, 12));
             var consumed = new ConsumeResult<byte[], byte[]>()
             {
                 Message = new Message<byte[], byte[]>()
-                    {Headers = new Headers(), Timestamp = new Timestamp(DateTime.Now)}
+                    {Headers = new Headers(), Timestamp = timestamp},
+                Topic = "topic",
+                Partition = 0,
+                Offset = 0
             };
+            _executionContext.GetOrSetBatchContext(Arg.Any<string>(), Arg.Any<int>()).Returns(pollContext);
+            _configurationProvider.GetBatchConfig(Arg.Any<string>()).Returns(new BatchConfig {Size = 5});
+            _consumer.Consume(Arg.Any<CancellationToken>()).Throws( _=> new ConsumeException(consumed, ErrorCode.Unknown));
+            Task<SinkRecordBatch> batch = null;
+            await _retriableHandler.Retry(
+                Arg.Do<Func<Task<SinkRecordBatch>>>(b => batch =  b.Invoke()), Arg.Any<string>());
 
-            consumer.Consume(Arg.Any<CancellationToken>())
-                .Throws(c => throw new ConsumeException(consumed, new Error(ErrorCode.Unknown)));
-
-            SinkRecordBatch consumedBatch = null;
-            _retriableHandler.Retry(
-                Arg.Do<Func<Task<SinkRecordBatch>>>(async b =>
-                    await Assert.ThrowsAsync<ConnectRetriableException>(async () => consumedBatch = await b.Invoke())),
-                Arg.Any<int>(), Arg.Any<int>()).Returns(consumedBatch);
-
-            await _sinkConsumer.Consume(batch, consumer, config, pollContext);
-
+            await _sinkConsumer.Consume(_consumer, "connector", 1);
+            await Assert.ThrowsAsync<ConnectRetriableException>( () =>  batch);
+            
             await _retriableHandler.Received()
-                .Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(), Arg.Any<int>(), Arg.Any<int>());
-            consumer.Received(1).Consume(Arg.Any<CancellationToken>());
-            Assert.Null(consumedBatch);
+                .Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(), Arg.Any<string>());
+            _consumer.Received(1).Consume(Arg.Any<CancellationToken>());
+            _logger.Received().Log(LogLevel.Trace, Constants.AtLog, new {Message="Polling for messages. #00005"});
+            //_logger.Received().Log(LogLevel.Debug, Constants.AtLog, new {Message="Message consumed.", Topic = "topic", Partition = 0, Offset = 0, IsPartitionEOF = false, TimeStamp = timestamp.UtcDateTime });
         }
         
         [Fact]
-        public async Task Consume_When_ConsumeThrowsAnyException()
+        public async Task Consume_WhenConsumeThrowsGenericException()
         {
-            var consumer = Substitute.For<IConsumer<byte[], byte[]>>();
-            var batch = new SinkRecordBatch("unit-tests");
-            var config = new ConnectorConfig
-            {
-                EnablePartitionEof = true,
-                Batch = new BatchConfig {Size = 5}
-            };
-            var pollContext = new BatchPollContext();
+            var pollContext = new BatchPollContext {Iteration = 5};
+            _executionContext.GetOrSetBatchContext(Arg.Any<string>(), Arg.Any<int>()).Returns(pollContext);
+            _configurationProvider.GetBatchConfig(Arg.Any<string>()).Returns(new BatchConfig {Size = 5});
+            _consumer.Consume(Arg.Any<CancellationToken>()).Throws<Exception>();
+            Task<SinkRecordBatch> batch = null;
+            await _retriableHandler.Retry(
+                Arg.Do<Func<Task<SinkRecordBatch>>>(b => batch =  b.Invoke()), Arg.Any<string>());
 
-            consumer.Consume(Arg.Any<CancellationToken>()).Throws<Exception>();
-
-            SinkRecordBatch consumedBatch = null;
-            _retriableHandler.Retry(
-                Arg.Do<Func<Task<SinkRecordBatch>>>(async b =>
-                    await Assert.ThrowsAsync<ConnectDataException>(async () => consumedBatch = await b.Invoke())),
-                Arg.Any<int>(), Arg.Any<int>()).Returns(consumedBatch);
-
-            await _sinkConsumer.Consume(batch, consumer, config, pollContext);
-
+            await _sinkConsumer.Consume(_consumer, "connector", 1);
+            await Assert.ThrowsAsync<ConnectDataException>( () =>  batch);
+            
             await _retriableHandler.Received()
-                .Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(), Arg.Any<int>(), Arg.Any<int>());
-            consumer.Received(1).Consume(Arg.Any<CancellationToken>());
-            Assert.Null(consumedBatch);
-        }
-        
-        [Fact]
-        public async Task Consume_When_RetryHandlerReturnsBatch()
-        {
-            var consumer = Substitute.For<IConsumer<byte[], byte[]>>();
-            var batch = new SinkRecordBatch("unit-tests");
-            var config = new ConnectorConfig
-            {
-                EnablePartitionEof = true,
-                Batch = new BatchConfig {Size = 5}
-            };
-            var pollContext = new BatchPollContext();
-            var consumed = new ConsumeResult<byte[], byte[]>()
-            {
-                Message = new Message<byte[], byte[]>()
-                    { Timestamp = new Timestamp(DateTime.Now.AddSeconds(-1))}
-            };
-
-            var consumedBatch = new SinkRecordBatch("consumed") { consumed };
-            _retriableHandler.Retry(
-                Arg.Any<Func<Task<SinkRecordBatch>>>(),
-                Arg.Any<int>(), Arg.Any<int>()).Returns(consumedBatch);
-
-            await _sinkConsumer.Consume(batch, consumer, config, pollContext);
-
-            await _retriableHandler.Received()
-                .Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(), Arg.Any<int>(), Arg.Any<int>());
-            Assert.NotNull(batch);
-            Assert.Equal(batch.First(), consumedBatch.First());
-            Assert.NotNull(batch.First().Consumed.Message.Headers.SingleOrDefault(h=>h.Key == "_logTimestamp"));
+                .Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(), Arg.Any<string>());
+            _consumer.Received(1).Consume(Arg.Any<CancellationToken>());
+            _logger.Received().Log(LogLevel.Trace, Constants.AtLog, new {Message="Polling for messages. #00005"});
+            //_logger.Received().Log(LogLevel.Debug, Constants.AtLog, new {Message="Message consumed.", Topic = "topic", Partition = 0, Offset = 0, IsPartitionEOF = false, TimeStamp = timestamp.UtcDateTime });
         }
     }
 }
