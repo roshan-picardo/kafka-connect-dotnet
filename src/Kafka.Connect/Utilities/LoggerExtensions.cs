@@ -16,7 +16,7 @@ namespace Kafka.Connect.Utilities
 
         public static void LogDocument(this SinkRecord sinkRecord)
         {
-            Log.ForContext<SinkRecord>().Debug("{@document}", new JObject
+            Log.ForContext<SinkRecord>().Debug("{@Document}", new JObject
             {
                 {
                     "Record", new JObject
