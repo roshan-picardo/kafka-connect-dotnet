@@ -106,7 +106,7 @@ namespace Kafka.Connect.Connectors
 
 
                 if (cts.IsCancellationRequested || _pauseTokenSource.IsPaused ||
-                    !restartsConfig.Enabled.HasFlag(RestartsLevel.Connector)) continue;
+                    !restartsConfig.EnabledFor.HasFlag(RestartsLevel.Connector)) continue;
                 if (retryAttempts < 0)
                 {
                     _logger.LogDebug("{@Log}", new {Message = "Attempting to restart the Connector.", Attempt = ++restarts});

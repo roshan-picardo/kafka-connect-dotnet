@@ -9,8 +9,9 @@ namespace Kafka.Connect.Configurations
         private readonly IList<string> _topics = new List<string>();
         private readonly string _groupId;
         private readonly string _clientId;
+        private readonly IDictionary<string, ProcessorConfig> _processors;
 
-        public string Name { get; init; }
+        public string Name { get; set; }
 
         public string GroupId
         {
@@ -31,18 +32,32 @@ namespace Kafka.Connect.Configurations
                 }
                 return _topics;
             }
-            init => _topics = value ?? new List<string>();
+            init => _topics = value?.ToList() ?? new List<string>();
         }
         public int MaxTasks { get; init; }
         public bool Paused { get; init; }
         public string Plugin { get; init; }
         public SinkConfig Sink { get; init; }
-        public ErrorsConfig Errors { get; init; }
         public RetryConfig Retries { get; init; }
-        public EofConfig EofSignal { get; init; }
-        public BatchConfig Batch { get; init; }
-        public ConverterConfig Deserializers { get; set; }
-        public IEnumerable<ProcessorConfig> Processors { get; set; }
+        public BatchConfig Batches { get; init; }
+        public IDictionary<string, ProcessorConfig> Processors {
+            get
+            {
+                if (_processors == null || !_processors.Any())
+                {
+                    return _processors;
+                }
+                foreach (var (name, processor) in _processors)
+                {
+                    if (processor != null && string.IsNullOrEmpty(processor.Name))
+                    {
+                        processor.Name = name;
+                    }
+                }
+                return _processors;
+            }
+            init => _processors = value;
+        }
 
         public string ClientId
         {

@@ -16,6 +16,7 @@ namespace Kafka.Connect.Configurations
             get => _delayTimeoutMs <= 0 ? 1000 : _delayTimeoutMs;
             init => _delayTimeoutMs = value;
         }
+        public ErrorsConfig Errors { get; init; }
     }
 }
 

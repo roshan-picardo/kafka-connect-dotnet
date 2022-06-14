@@ -4,12 +4,12 @@ namespace Kafka.Connect.Configurations
     {
         private readonly int _periodicDelayMs = 2000;
         private readonly int _retryWaitTimeMs = 30000;
-        public RestartsLevel Enabled { get; init; }
+        public RestartsLevel EnabledFor { get; init; }
         public int Attempts { get; init; }
 
         public int PeriodicDelayMs
         {
-            get => _periodicDelayMs <= 0 ? 2000 : +_periodicDelayMs;
+            get => _periodicDelayMs <= 0 ? 2000 : _periodicDelayMs;
             init => _periodicDelayMs = value;
         }
         public int RetryWaitTimeMs

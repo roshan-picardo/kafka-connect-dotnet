@@ -50,7 +50,6 @@
       <Folder Include="Connectors" />
       <Folder Include="Converters" />
       <Folder Include="Processors" />
-      <Folder Include="Providers" />
       <Folder Include="Serializers" />
     </ItemGroup>
 
