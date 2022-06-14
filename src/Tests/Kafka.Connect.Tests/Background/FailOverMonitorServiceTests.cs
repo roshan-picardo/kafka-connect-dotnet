@@ -55,7 +55,7 @@ namespace Kafka.Connect.Tests.Background
         public void ServiceEnabledButCancellationRequested_StopsService()
         {
             _configProvider.GetFailOverConfig().Returns(new FailOverConfig {Disabled = false, InitialDelayMs = 1, PeriodicDelayMs = 1});
-            _configProvider.GetConnectorConfigs().Returns(new List<ConnectorConfig>());
+            _configProvider.GetAllConnectorConfigs().Returns(new List<ConnectorConfig>());
             _failOverMonitorService = GetFailOverMonitorService();
             _failOverMonitorService.StartAsync(GetCancellationToken(1));
             while (!_failOverMonitorService.ExecuteTask.IsCompletedSuccessfully)
@@ -77,7 +77,7 @@ namespace Kafka.Connect.Tests.Background
         public void ExecuteAsync_MakeSureGetMetadataCalledPerTopic(string[] topics, string topic, int expected)
         {
             _configProvider.GetFailOverConfig().Returns(new FailOverConfig {FailureThreshold = 3, InitialDelayMs = 1, PeriodicDelayMs = 1, RestartDelayMs = 1});
-            _configProvider.GetConnectorConfigs().Returns(new List<ConnectorConfig>
+            _configProvider.GetAllConnectorConfigs().Returns(new List<ConnectorConfig>
             {
                 new()
                 {
@@ -105,7 +105,7 @@ namespace Kafka.Connect.Tests.Background
         {
             var failOverConfig = new FailOverConfig {InitialDelayMs = 1, FailureThreshold = 3, PeriodicDelayMs = 1, RestartDelayMs = 1};
             _configProvider.GetFailOverConfig().Returns(failOverConfig);
-            _configProvider.GetConnectorConfigs().Returns(new List<ConnectorConfig>
+            _configProvider.GetAllConnectorConfigs().Returns(new List<ConnectorConfig>
             {
                 new()
                 {
@@ -149,7 +149,7 @@ namespace Kafka.Connect.Tests.Background
         {
             var failOverConfig = new FailOverConfig {FailureThreshold = 3, InitialDelayMs = 1, PeriodicDelayMs = 1, RestartDelayMs = 1};
             _configProvider.GetFailOverConfig().Returns(failOverConfig);
-            _configProvider.GetConnectorConfigs().Returns(new List<ConnectorConfig>
+            _configProvider.GetAllConnectorConfigs().Returns(new List<ConnectorConfig>
             {
                 new()
                 {
@@ -201,7 +201,7 @@ namespace Kafka.Connect.Tests.Background
         {
             var failOverConfig = new FailOverConfig {FailureThreshold = 3, InitialDelayMs = 1, PeriodicDelayMs = 1, RestartDelayMs = 1};
             _configProvider.GetFailOverConfig().Returns(failOverConfig);
-            _configProvider.GetConnectorConfigs().Returns(new List<ConnectorConfig>
+            _configProvider.GetAllConnectorConfigs().Returns(new List<ConnectorConfig>
             {
                 new()
                 {
@@ -229,7 +229,7 @@ namespace Kafka.Connect.Tests.Background
         {
             var failOverConfig = new FailOverConfig {FailureThreshold = 3, InitialDelayMs = 1, PeriodicDelayMs = 1, RestartDelayMs = 1};
             _configProvider.GetFailOverConfig().Returns(failOverConfig);
-            _configProvider.GetConnectorConfigs().Returns(new List<ConnectorConfig>
+            _configProvider.GetAllConnectorConfigs().Returns(new List<ConnectorConfig>
             {
                 new()
                 {
@@ -264,7 +264,7 @@ namespace Kafka.Connect.Tests.Background
         {
             var failOverConfig = new FailOverConfig {FailureThreshold = 3, InitialDelayMs = 1, PeriodicDelayMs = 1, RestartDelayMs = 1};
             _configProvider.GetFailOverConfig().Returns(failOverConfig);
-            _configProvider.GetConnectorConfigs().Returns(new List<ConnectorConfig>
+            _configProvider.GetAllConnectorConfigs().Returns(new List<ConnectorConfig>
             {
                 new()
                 {
@@ -318,7 +318,7 @@ namespace Kafka.Connect.Tests.Background
         {
             var failOverConfig = new FailOverConfig {FailureThreshold = 3, InitialDelayMs = 1, PeriodicDelayMs = 1, RestartDelayMs = 1};
             _configProvider.GetFailOverConfig().Returns(failOverConfig);
-            _configProvider.GetConnectorConfigs().Returns(new List<ConnectorConfig>
+            _configProvider.GetAllConnectorConfigs().Returns(new List<ConnectorConfig>
             {
                 new()
                 {
@@ -356,7 +356,7 @@ namespace Kafka.Connect.Tests.Background
         {
             var failOverConfig = new FailOverConfig {FailureThreshold = 1, InitialDelayMs = 1, PeriodicDelayMs = 1, RestartDelayMs = 1};
             _configProvider.GetFailOverConfig().Returns(failOverConfig);
-            _configProvider.GetConnectorConfigs().Returns(new List<ConnectorConfig>
+            _configProvider.GetAllConnectorConfigs().Returns(new List<ConnectorConfig>
             {
                 new()
                 {
@@ -391,7 +391,7 @@ namespace Kafka.Connect.Tests.Background
         {
             var failOverConfig = new FailOverConfig {FailureThreshold = 1, InitialDelayMs = 1, PeriodicDelayMs = 1, RestartDelayMs = 1};
             _configProvider.GetFailOverConfig().Returns(failOverConfig);
-            _configProvider.GetConnectorConfigs().Returns(new List<ConnectorConfig>
+            _configProvider.GetAllConnectorConfigs().Returns(new List<ConnectorConfig>
             {
                 new()
                 {

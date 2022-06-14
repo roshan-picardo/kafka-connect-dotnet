@@ -35,7 +35,7 @@ namespace Kafka.Connect.Background
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             var failOverConfig = _configurationProvider.GetFailOverConfig();
-            var connectorConfigs = _configurationProvider.GetConnectorConfigs();
+            var connectorConfigs = _configurationProvider.GetAllConnectorConfigs();
             try
             {
                 if (!failOverConfig.Disabled)

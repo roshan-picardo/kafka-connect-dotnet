@@ -63,8 +63,8 @@ namespace Kafka.Connect
                 _connectors.Clear();
                 try
                 {
-                    _logger.LogDebug("{@Log}", new { Message = "Starting connectors.", _configurationProvider.GetConnectorConfigs().Count});
-                    var connectors = from job in _configurationProvider.GetConnectorConfigs().Select(s =>
+                    _logger.LogDebug("{@Log}", new { Message = "Starting connectors.", _configurationProvider.GetAllConnectorConfigs().Count});
+                    var connectors = from job in _configurationProvider.GetAllConnectorConfigs().Select(s =>
                             new {Name = s.Name, Scope = _serviceScopeFactory.CreateScope()})
                         let connector = job.Scope.ServiceProvider.GetService<IConnector>()
                         select new {Connector = connector, job.Name};
@@ -106,7 +106,7 @@ namespace Kafka.Connect
                 }
 
                 if (cts.IsCancellationRequested || _pauseTokenSource.IsPaused ||
-                    !restartsConfig.Enabled.HasFlag(RestartsLevel.Worker)) continue;
+                    !restartsConfig.EnabledFor.HasFlag(RestartsLevel.Worker)) continue;
                 
                 if (_retryAttempts < 0)
                 {

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Confluent.Kafka;
 using Kafka.Connect.Configurations;
+using Kafka.Connect.Plugin;
 using Microsoft.Extensions.Options;
 
 namespace Kafka.Connect.Providers
@@ -17,12 +18,18 @@ namespace Kafka.Connect.Providers
 
         public FailOverConfig GetFailOverConfig()
         {
-            return _workerConfig.HealthWatch?.FailOver ?? new FailOverConfig();
+            return _workerConfig.FailOver ?? new FailOverConfig();
         }
         
         public HealthCheckConfig GetHealthCheckConfig()
         {
-            return _workerConfig.HealthWatch?.HealthCheck ?? new HealthCheckConfig();
+            return _workerConfig.HealthCheck ?? new HealthCheckConfig();
+        }
+        
+        public ConnectorConfig GetConnectorConfig(string connector)
+        {
+            return _workerConfig.Connectors?.Values.SingleOrDefault(c => c.Name == connector) ??
+                   throw new ArgumentException($"{connector} isn't configured.");
         }
 
         public ConsumerConfig GetConsumerConfig(string connector = null)
@@ -43,15 +50,10 @@ namespace Kafka.Connect.Providers
             return new ProducerConfig(consumerConfig);
         }
 
-        public ConnectorConfig GetConnectorConfig(string connector)
+        public IList<ConnectorConfig> GetAllConnectorConfigs(bool includeDisabled = false)
         {
-            return _workerConfig.Connectors?.SingleOrDefault(c => c.Name == connector) ?? throw new ArgumentException($"{connector} isn't configured.");
-        }
-
-        public IList<ConnectorConfig> GetConnectorConfigs(bool includeDisabled = false)
-        {
-            _workerConfig.Connectors ??= new List<ConnectorConfig>();
-            return _workerConfig.Connectors.Where(c => includeDisabled || !c.Disabled).ToList();
+            return _workerConfig.Connectors?.Values.Where(c => includeDisabled || !c.Disabled).ToList() ??
+                   throw new ArgumentException("Connectors aren't configured.");
         }
 
         public string GetWorkerName()
@@ -61,27 +63,27 @@ namespace Kafka.Connect.Providers
 
         public RestartsConfig GetRestartsConfig()
         {
-            return _workerConfig.HealthWatch?.Restarts ?? new RestartsConfig();
+            return _workerConfig.Restarts ?? new RestartsConfig();
         }
 
         public ErrorsConfig GetErrorsConfig(string connector)
         {
-            return GetConnectorConfig(connector)?.Errors 
-                   ?? _workerConfig.Shared?.Errors 
+            return GetConnectorConfig(connector).Retries?.Errors 
+                   ?? _workerConfig.Retries?.Errors 
                    ?? new ErrorsConfig {Tolerance = ErrorTolerance.All};
         }
         
         public RetryConfig GetRetriesConfig(string connector)
         {
             return GetConnectorConfig(connector)?.Retries 
-                   ?? _workerConfig.Shared?.Retries 
+                   ?? _workerConfig.Retries 
                    ?? new RetryConfig();
         }
 
         public EofConfig GetEofSignalConfig(string connector)
         {
-            return GetConnectorConfig(connector)?.EofSignal
-                   ?? _workerConfig.Shared?.EofSignal
+            return GetConnectorConfig(connector)?.Batches?.EofSignal
+                   ?? _workerConfig.Batches?.EofSignal
                    ?? new EofConfig();
         }
 
@@ -92,8 +94,8 @@ namespace Kafka.Connect.Providers
                 return new BatchConfig {Size = 1, Parallelism = 1};
             }
 
-            return GetConnectorConfig(connector)?.Batch
-                   ?? _workerConfig.Shared?.Batch
+            return GetConnectorConfig(connector)?.Batches
+                   ?? _workerConfig.Batches
                    ?? new BatchConfig();
         }
 
@@ -102,10 +104,10 @@ namespace Kafka.Connect.Providers
             return GetConnectorConfig(connector).GroupId;
         }
 
-        public (string keyConverter, string valueConverter) GetMessageConverters(string connector, string topic)
+        public (string Key, string Value) GetMessageConverters(string connector, string topic)
         {
-            var shared = _workerConfig.Shared?.Deserializers;
-            var deserializers = GetConnectorConfig(connector).Deserializers;
+            var shared = _workerConfig.Batches?.Deserializers;
+            var deserializers = GetConnectorConfig(connector).Batches?.Deserializers;
             var keyConverter = deserializers?.Overrides?.SingleOrDefault(t => t.Topic == topic)?.Key 
                                ?? deserializers?.Key
                                ?? shared?.Overrides?.SingleOrDefault(t => t.Topic == topic)?.Key 
@@ -114,7 +116,7 @@ namespace Kafka.Connect.Providers
                                  ?? deserializers?.Value
                                  ?? shared?.Overrides?.SingleOrDefault(t => t.Topic == topic)?.Value 
                                  ?? shared?.Value;
-            return (keyConverter, valueConverter);
+            return (keyConverter ?? Constants.DefaultDeserializer, valueConverter ?? Constants.DefaultDeserializer);
         }
 
         public IList<string> GetTopics(string connector)
@@ -124,13 +126,14 @@ namespace Kafka.Connect.Providers
 
         public IList<ProcessorConfig> GetMessageProcessors(string connector, string topic)
         {
-            return GetConnectorConfig(connector).Processors?.Where(p=> p.Topics == null || p.Topics.Contains(topic)).ToList();
+            return GetConnectorConfig(connector).Processors?.Values.Where(p=> p.Topics == null || p.Topics.Contains(topic)).ToList() ?? new List<ProcessorConfig>();
         }
 
         public SinkConfig GetSinkConfig(string connector)
         {
-            var sinkConfig = GetConnectorConfig(connector).Sink ?? new SinkConfig();
-            sinkConfig.Plugin ??= GetConnectorConfig(connector).Plugin;
+            var connectorConfig = GetConnectorConfig(connector);
+            var sinkConfig = connectorConfig.Sink ?? new SinkConfig();
+            sinkConfig.Plugin ??= connectorConfig.Plugin;
             return sinkConfig;
         }
 
@@ -145,7 +148,7 @@ namespace Kafka.Connect.Providers
             return errors.Tolerance == ErrorTolerance.All && !string.IsNullOrWhiteSpace(errors.Topic);
         }
 
-        public (bool enableAutoCommit, bool enableAutoOffsetStore) GetAutoCommitConfig()
+        public (bool EnableAutoCommit, bool EnableAutoOffsetStore) GetAutoCommitConfig()
         {
             return (_workerConfig.EnableAutoCommit ?? false, _workerConfig.EnableAutoOffsetStore ?? false);
         }
@@ -161,23 +164,25 @@ namespace Kafka.Connect.Providers
                 throw new ArgumentException("At least one connector is required for the worker to start.");
             }
             
+            var hash = new HashSet<string>();
+            hash.Clear();
+            if (!_workerConfig.Connectors.Values.All(c => c!= null && hash.Add(c.Name) && !string.IsNullOrEmpty(c.Name)))
+            {
+                throw new ArgumentException("Connector Name configuration property must be specified and must be unique.");
+            }
+            
             if (!(_workerConfig.Plugins?.Initializers?.Any() ?? false))
             {
                 throw new ArgumentException("At least one plugin is required for the worker to start.");
             }
-            var hash = new HashSet<string>();
-            hash.Clear();
-            if (!_workerConfig.Connectors.All(c => hash.Add(c.Name) && !string.IsNullOrEmpty(c.Name)))
-            {
-                throw new ArgumentException("Connector Name configuration property must be specified and must be unique.");
-            }
+            
             hash.Clear();
             if (!_workerConfig.Plugins.Initializers.All(p => hash.Add(p.Key) && !string.IsNullOrEmpty(p.Key)))
             {
                 throw new ArgumentException("Plugin Name configuration property must be specified and must be unique.");
             }
 
-            foreach (var connector in _workerConfig.Connectors)
+            foreach (var connector in _workerConfig.Connectors?.Values)
             {
                 if (!_workerConfig.Plugins.Initializers.Select(p => p.Key).Contains(connector.Plugin))
                 {

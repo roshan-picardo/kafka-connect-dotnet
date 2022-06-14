@@ -101,12 +101,12 @@ namespace Kafka.Connect.Utilities
                 .AddScopedWithLogging<IMessageConverter, MessageConverter>()
 
                 //.Configure<SchemaRegistryConfig>(configuration.GetSection("worker:schemaRegistry"))
-                .Configure<WorkerConfig>(configuration.GetSection("worker"))
+                .Configure<WorkerConfig>(configuration.GetSection("worker"), options => options.BindNonPublicProperties = true)
                 
-                .Configure<List<ConnectorConfig<IDictionary<string, string>>>>(configuration.GetSection("worker:connectors"))
-                .Configure<List<ConnectorConfig<IList<string>>>>(configuration.GetSection("worker:connectors"))
-                .Configure<ConnectorConfig<IDictionary<string, string>>>(configuration.GetSection("worker:shared"))
-                .Configure<ConnectorConfig<IList<string>>>(configuration.GetSection("worker:shared"))
+                .Configure<List<ConnectorConfig<IDictionary<string, string>>>>(configuration.GetSection("worker:connectors"), options => options.BindNonPublicProperties = true)
+                .Configure<List<ConnectorConfig<IList<string>>>>(configuration.GetSection("worker:connectors"), options => options.BindNonPublicProperties = true)
+                .Configure<ConnectorConfig<IDictionary<string, string>>>(configuration.GetSection("worker:shared"), options => options.BindNonPublicProperties = true)
+                .Configure<ConnectorConfig<IList<string>>>(configuration.GetSection("worker:shared"), options => options.BindNonPublicProperties = true)
                 
                 .AddSingleton<Providers.IConfigurationProvider, Providers.ConfigurationProvider>()
                 .AddSingleton<IExecutionContext, ExecutionContext>()

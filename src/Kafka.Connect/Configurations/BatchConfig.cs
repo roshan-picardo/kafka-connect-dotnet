@@ -16,5 +16,8 @@ namespace Kafka.Connect.Configurations
             get => _parallelism <= 0 ? 10 : _parallelism;
             init => _parallelism = value;
         }
+        
+        public EofConfig EofSignal { get; init; }
+        public ConverterConfig Deserializers { get; init; }
     }
 }
