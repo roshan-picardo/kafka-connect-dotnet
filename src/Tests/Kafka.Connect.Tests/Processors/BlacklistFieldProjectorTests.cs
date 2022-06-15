@@ -1,6 +1,9 @@
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Processors;
+using Microsoft.Extensions.Options;
 using NSubstitute;
 using Xunit;
 
@@ -8,96 +11,466 @@ namespace Kafka.Connect.Tests.Processors
 {
     public class BlacklistFieldProjectorTests
     {
+        private readonly IOptions<List<ConnectorConfig<IList<string>>>> _options;
         private readonly BlacklistFieldProjector _blacklistFieldProjector;
 
         public BlacklistFieldProjectorTests()
         {
-            _blacklistFieldProjector = new BlacklistFieldProjector(null);
+            _options = Substitute.For<IOptions<List<ConnectorConfig<IList<string>>>>>();
+            var shared = Substitute.For<IOptions<ConnectorConfig<IList<string>>>>();
+            _blacklistFieldProjector = new BlacklistFieldProjector(_options, shared);
         }
 
-        [Fact]
-        public async Task Apply_Options()
+        [Theory]
+        [MemberData(nameof(ApplyTests))]
+        public async Task Apply_Tests(IDictionary<string, object> data, IList<ConnectorConfig<IList<string>>> options, string[] exists, string[] doesntExists)
         {
-            var (skip, flattened) = await _blacklistFieldProjector.Apply(
-                new Dictionary<string, object>
-                {
-                    {"key1", "value1"}, 
-                    {"key2", "value2"}}, 
-                ""
-                );
+            _options.Value.Returns(options);
+            var (skip, flattened) = await _blacklistFieldProjector.Apply(data, "connector-name");
             Assert.False(skip);
-            Assert.True(flattened.ContainsKey("key1"));
-            Assert.False(flattened.ContainsKey("key2"));
+            Assert.All(exists, key => Assert.True(flattened.ContainsKey(key)));
+            Assert.All(doesntExists, key => Assert.False(flattened.ContainsKey(key)));
         }
-        
-        [Fact]
-        public async Task Apply_Options_Elements()
+
+        public static IEnumerable<object[]> ApplyTests
         {
-            var (skip, flattened) = await _blacklistFieldProjector.Apply(
-                new Dictionary<string, object>
+            get
+            {
+                yield return new object[] // wrong connector-name
                 {
-                    {"key.sample.first", "sample1"}, 
-                    {"key.sample.second", "second"}, 
-                    {"key.between.remove", "sample1"}, 
-                    {"key.between.dont.remove", "data"},
-                    {"key.between.keep.this", "second"},
-                    {"key.between.keep", "second"},
-                    {"key.must.keep", "value2"}}, 
-                "new[] {\"key.sample.*\", \"key.*.remove\"}");
-            Assert.False(skip);
-            Assert.False(flattened.ContainsKey("key.sample.first"));
-            Assert.False(flattened.ContainsKey("key.sample.second"));
-            Assert.True(flattened.ContainsKey("key.must.keep"));
-            Assert.False(flattened.ContainsKey("key.between.remove"));
-            Assert.False(flattened.ContainsKey("key.between.dont.remove"));
-            Assert.True(flattened.ContainsKey("key.between.keep.this"));
-        }
-        
-        [Fact]
-        public async Task Apply_Options_Arrays()
-        {
-            var (skip, flattened) = await _blacklistFieldProjector.Apply(
-                new Dictionary<string, object>
+                    new Dictionary<string, object>()
+                        {{"key.simple.keep", ""}, {"value.simple.keep", ""}, {"none.simple.keep", ""}},
+                    new List<ConnectorConfig<IList<string>>>
+                    {
+                        new()
+                        {
+                            Name = "wrong-connector-name",
+                            Processors = new List<ProcessorConfig<IList<string>>>()
+                                {new() {Name = "", Settings = new List<string>()}}
+                        }
+                    },
+                    new[] {"key.simple.keep", "value.simple.keep", "none.simple.keep"},
+                    Array.Empty<string>()
+                };
+                yield return new object[] // Wrong processor
                 {
-                    {"key.array[0].field", "sample1"},
-                    {"key.array[1].field", "second"},
-                    {"key.array[1].keep", "second"},
-                    
-                    {"key.list[0].item.end1", "sample1"},
-                    {"key.list[1].item.end2", "data"},
-                    {"key.list[1].item1.end2", "data"},
-                    
-                    {"key.collection[0].item.between1.remove", "second"},
-                    {"key.collection[1].item.between2.remove", "second"},
-                    {"key.collection[1].item.between2.keep", "second"},
-                    {"key.collection[1].item1.between2.keep", "second"},
-                    
-                    {"key.remove.array[0]", "value2"},
-                    {"key.remove.array[1]", "value2"}
-                },
-                @"new[]
+                    new Dictionary<string, object>()
+                        {{"key.simple.keep", ""}, {"value.simple.keep", ""}, {"value.none.simple.keep", ""}},
+                    new List<ConnectorConfig<IList<string>>>
+                    {
+                        new()
+                        {
+                            Name = "connector-name",
+                            Processors = new List<ProcessorConfig<IList<string>>>()
+                            {
+                                new()
+                                {
+                                    Name = "Kafka.Connect.Processors.WhitelistFieldProjector",
+                                    Settings = new List<string>()
+                                }
+                            }
+                        }
+                    },
+                    new[] {"key.simple.keep", "value.simple.keep", "value.none.simple.keep"},
+                    Array.Empty<string>()
+                };
+                yield return new object[] // Remove matching key
                 {
-                    ""key.remove.array[*]"", 
-                    ""key.array[*].field"", 
-                    ""key.list[*].item.*"", 
-                    ""key.collection[*].item.*.remove""
-                }");
-            Assert.False(skip);
-            Assert.True(flattened.ContainsKey("key.array[1].keep"));
-            Assert.False(flattened.ContainsKey("key.array[0].field"));
-            Assert.False(flattened.ContainsKey("key.array[0].field"));
-            
-            Assert.True(flattened.ContainsKey("key.list[1].item1.end2"));
-            Assert.False(flattened.ContainsKey("key.list[0].item.end1"));
-            Assert.False(flattened.ContainsKey("key.list[1].item.end2"));
-            
-            Assert.True(flattened.ContainsKey("key.collection[1].item.between2.keep"));
-            Assert.True(flattened.ContainsKey("key.collection[1].item1.between2.keep"));
-            Assert.False(flattened.ContainsKey("key.collection[0].item.between1.remove"));
-            Assert.False(flattened.ContainsKey("key.collection[0].item.between2.remove"));
-            
-            Assert.False(flattened.ContainsKey("key.remove.array[0]"));
-            Assert.False(flattened.ContainsKey("key.remove.array[0]"));
+                    new Dictionary<string, object>()
+                    {
+                        {"key.simple.keep", ""}, {"key.simple.remove", ""}, {"value.simple.keep", ""},
+                        {"value.simple.remove", ""}, {"value.none.simple.keep", ""}, {"value.none.simple.remove", ""}
+                    },
+                    new List<ConnectorConfig<IList<string>>>
+                    {
+                        new()
+                        {
+                            Name = "connector-name",
+                            Processors = new List<ProcessorConfig<IList<string>>>()
+                            {
+                                new()
+                                {
+                                    Name = "Kafka.Connect.Processors.BlacklistFieldProjector",
+                                    Settings = new List<string>
+                                        {"key.simple.remove", "value.simple.remove", "none.simple.remove"}
+                                }
+                            }
+                        }
+                    },
+                    new[] {"key.simple.keep", "value.simple.keep", "value.none.simple.keep"},
+                    new[] {"key.simple.remove", "value.simple.remove", "value.none.simple.remove"}
+                };
+                yield return new object[] // Remove * in between 
+                {
+                    new Dictionary<string, object>()
+                    {
+                        {"key.simple.one.keep", ""}, {"key.simple.one.remove", ""}, {"key.simple.two.remove", ""},
+                        {"value.simple.one.keep", ""}, {"value.simple.one.remove", ""}, {"value.simple.two.remove", ""},
+                        {"value.none.simple.one.keep", ""}, {"value.none.simple.one.remove", ""},
+                        {"value.none.simple.two.remove", ""}
+                    },
+                    new List<ConnectorConfig<IList<string>>>
+                    {
+                        new()
+                        {
+                            Name = "connector-name",
+                            Processors = new List<ProcessorConfig<IList<string>>>()
+                            {
+                                new()
+                                {
+                                    Name = "Kafka.Connect.Processors.BlacklistFieldProjector",
+                                    Settings = new List<string>
+                                        {"key.simple.*.remove", "value.simple.*.remove", "none.simple.*.remove"}
+                                }
+                            }
+                        }
+                    },
+                    new[] {"key.simple.one.keep", "value.simple.one.keep", "value.none.simple.one.keep"},
+                    new[]
+                    {
+                        "key.simple.one.remove", "value.simple.one.remove", "value.none.simple.one.remove",
+                        "key.simple.two.remove", "value.simple.two.remove", "value.none.simple.two.remove"
+                    }
+                };
+                yield return new object[] // Remove * at the end 
+                {
+                    new Dictionary<string, object>()
+                    {
+                        {"key.simple.keep.one", ""}, {"key.simple.remove.one", ""}, {"key.simple.remove.two", ""},
+                        {"value.simple.keep.one", ""}, {"value.simple.remove.one", ""}, {"value.simple.remove.two", ""},
+                        {"value.none.simple.keep.one", ""}, {"value.none.simple.remove.one", ""},
+                        {"value.none.simple.remove.two", ""}
+                    },
+                    new List<ConnectorConfig<IList<string>>>
+                    {
+                        new()
+                        {
+                            Name = "connector-name",
+                            Processors = new List<ProcessorConfig<IList<string>>>()
+                            {
+                                new()
+                                {
+                                    Name = "Kafka.Connect.Processors.BlacklistFieldProjector",
+                                    Settings = new List<string>
+                                        {"key.simple.remove.*", "value.simple.remove.*", "none.simple.remove.*"}
+                                }
+                            }
+                        }
+                    },
+                    new[] {"key.simple.keep.one", "value.simple.keep.one", "value.none.simple.keep.one"},
+                    new[]
+                    {
+                        "key.simple.remove.one", "value.simple.remove.one", "value.none.simple.remove.one",
+                        "key.simple.remove.two", "value.simple.remove.two", "value.none.simple.remove.two"
+                    }
+                };
+                yield return new object[] // Remove multiple *'s
+                {
+                    new Dictionary<string, object>()
+                    {
+                        {"key.simple.star.keep.one", ""}, {"key.simple.one.remove.one", ""},
+                        {"key.simple.two.remove.two", ""},
+                        {"value.simple.star.keep.one", ""}, {"value.simple.one.remove.one", ""},
+                        {"value.simple.two.remove.two", ""},
+                        {"value.none.simple.star.keep.one", ""}, {"value.none.simple.one.remove.one", ""},
+                        {"value.none.simple.two.remove.two", ""}
+                    },
+                    new List<ConnectorConfig<IList<string>>>
+                    {
+                        new()
+                        {
+                            Name = "connector-name",
+                            Processors = new List<ProcessorConfig<IList<string>>>()
+                            {
+                                new()
+                                {
+                                    Name = "Kafka.Connect.Processors.BlacklistFieldProjector",
+                                    Settings = new List<string>
+                                        {"key.simple.*.remove.*", "value.simple.*.remove.*", "none.simple.*.remove.*"}
+                                }
+                            }
+                        }
+                    },
+                    new[] {"key.simple.star.keep.one", "value.simple.star.keep.one", "value.none.simple.star.keep.one"},
+                    new[]
+                    {
+                        "key.simple.one.remove.one", "value.simple.one.remove.one", "value.none.simple.one.remove.one",
+                        "key.simple.two.remove.two", "value.simple.two.remove.two", "value.none.simple.two.remove.two"
+                    }
+                };
+                yield return new object[] // Remove an element in array at the end 
+                {
+                    new Dictionary<string, object>()
+                    {
+                        {"key.simple.keep[0]", ""}, {"key.simple.remove[0]", ""}, {"key.simple.remove[1]", ""},
+                        {"value.simple.keep[0]", ""}, {"value.simple.remove[0]", ""}, {"value.simple.remove[1]", ""},
+                        {"value.none.simple.keep[0]", ""}, {"value.none.simple.remove[0]", ""},
+                        {"value.none.simple.remove[1]", ""}
+                    },
+                    new List<ConnectorConfig<IList<string>>>
+                    {
+                        new()
+                        {
+                            Name = "connector-name",
+                            Processors = new List<ProcessorConfig<IList<string>>>()
+                            {
+                                new()
+                                {
+                                    Name = "Kafka.Connect.Processors.BlacklistFieldProjector",
+                                    Settings = new List<string>
+                                        {"key.simple.remove[1]", "value.simple.remove[0]", "none.simple.remove[1]"}
+                                }
+                            }
+                        }
+                    },
+                    new[]
+                    {
+                        "key.simple.keep[0]", "value.simple.keep[0]", "value.none.simple.keep[0]",
+                        "key.simple.remove[0]", "value.none.simple.remove[0]", "value.simple.remove[1]"
+                    },
+                    new[] {"value.simple.remove[0]", "key.simple.remove[1]", "value.none.simple.remove[1]"}
+                };
+                yield return new object[] // Remove * in array at the end 
+                {
+                    new Dictionary<string, object>()
+                    {
+                        {"key.simple.keep[0]", ""}, {"key.simple.remove[0]", ""}, {"key.simple.two.remove[1]", ""},
+                        {"value.simple.keep[0]", ""}, {"value.simple.remove[0]", ""}, {"value.simple.remove[1]", ""},
+                        {"value.none.simple.keep[0]", ""}, {"value.none.simple.remove[0]", ""},
+                        {"value.none.simple.remove[1]", ""}
+                    },
+                    new List<ConnectorConfig<IList<string>>>
+                    {
+                        new()
+                        {
+                            Name = "connector-name",
+                            Processors = new List<ProcessorConfig<IList<string>>>()
+                            {
+                                new()
+                                {
+                                    Name = "Kafka.Connect.Processors.BlacklistFieldProjector",
+                                    Settings = new List<string>
+                                        {"key.simple.remove[*]", "value.simple.remove[*]", "none.simple.remove[*]"}
+                                }
+                            }
+                        }
+                    },
+                    new[] {"key.simple.keep[0]", "value.simple.keep[0]", "value.none.simple.keep[0]"},
+                    new[]
+                    {
+                        "key.simple.remove[0]", "value.simple.remove[0]", "value.none.simple.remove[0]",
+                        "key.simple.remove[1]", "value.simple.remove[1]", "value.none.simple.remove[1]"
+                    }
+                };
+                yield return new object[] // Remove * in array in between
+                {
+                    new Dictionary<string, object>()
+                    {
+                        {"key.simple.keep[0].child", ""}, {"key.simple.remove[0].child", ""},
+                        {"key.simple.remove[1].child", ""},
+                        {"value.simple.keep[0].child", ""}, {"value.simple.remove[0].child", ""},
+                        {"value.simple.remove[1].child", ""},
+                        {"value.none.simple.keep[0].child", ""}, {"value.none.simple.remove[0].child", ""},
+                        {"value.none.simple.remove[1].child", ""}
+                    },
+                    new List<ConnectorConfig<IList<string>>>
+                    {
+                        new()
+                        {
+                            Name = "connector-name",
+                            Processors = new List<ProcessorConfig<IList<string>>>()
+                            {
+                                new()
+                                {
+                                    Name = "Kafka.Connect.Processors.BlacklistFieldProjector",
+                                    Settings = new List<string>
+                                    {
+                                        "key.simple.remove[*].child", "value.simple.remove[*].child",
+                                        "none.simple.remove[*].child"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    new[] {"key.simple.keep[0].child", "value.simple.keep[0].child", "value.none.simple.keep[0].child"},
+                    new[]
+                    {
+                        "key.simple.remove[0].child", "value.simple.remove[0].child",
+                        "value.none.simple.remove[0].child", "key.simple.remove[1].child",
+                        "value.simple.remove[1].child", "value.none.simple.remove[1].child"
+                    }
+                };
+                yield return new object[] // Remove an element in array at the end 
+                {
+                    new Dictionary<string, object>()
+                    {
+                        {"key.simple.keep[0].keep", ""}, {"key.simple.remove[0].keep", ""},
+                        {"key.simple.remove[1].remove", ""}, {"key.simple.remove[2].remove", ""},
+                        {"value.simple.keep[0].keep", ""}, {"value.simple.remove[0].keep", ""},
+                        {"value.simple.remove[1].remove", ""}, {"value.simple.remove[2].remove", ""},
+                        {"value.none.simple.keep[0].keep", ""}, {"value.none.simple.remove[0].keep", ""},
+                        {"value.none.simple.remove[1].remove", ""}, {"value.none.simple.remove[2].remove", ""}
+                    },
+                    new List<ConnectorConfig<IList<string>>>
+                    {
+                        new()
+                        {
+                            Name = "connector-name",
+                            Processors = new List<ProcessorConfig<IList<string>>>()
+                            {
+                                new()
+                                {
+                                    Name = "Kafka.Connect.Processors.BlacklistFieldProjector",
+                                    Settings = new List<string>
+                                    {
+                                        "key.simple.remove[*].remove", "value.simple.remove[*].remove",
+                                        "none.simple.remove[*].remove"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    new[]
+                    {
+                        "key.simple.keep[0].keep", "value.simple.keep[0].keep", "value.none.simple.keep[0].keep",
+                        "key.simple.remove[0].keep", "value.none.simple.remove[0].keep", "value.simple.remove[0].keep"
+                    },
+                    new[]
+                    {
+                        "value.simple.remove[1].remove", "key.simple.remove[1].remove",
+                        "value.none.simple.remove[1].remove", "value.simple.remove[2].remove",
+                        "key.simple.remove[2].remove", "value.none.simple.remove[2].remove"
+                    }
+                };
+                yield return new object[] // Remove an element in array at the end 
+                {
+                    new Dictionary<string, object>()
+                    {
+                        {"key.simple.keep[0].keep", ""}, {"key.simple.remove[0].keep.this", ""},
+                        {"key.simple.remove[1].remove.this", ""}, {"key.simple.remove[2].remove.that", ""},
+                        {"value.simple.keep[0].keep", ""}, {"value.simple.remove[0].keep.this", ""},
+                        {"value.simple.remove[1].remove.this", ""}, {"value.simple.remove[2].remove.that", ""},
+                        {"value.none.simple.keep[0].keep", ""}, {"value.none.simple.remove[0].keep.this", ""},
+                        {"value.none.simple.remove[1].remove.this", ""}, {"value.none.simple.remove[2].remove.that", ""}
+                    },
+                    new List<ConnectorConfig<IList<string>>>
+                    {
+                        new()
+                        {
+                            Name = "connector-name",
+                            Processors = new List<ProcessorConfig<IList<string>>>()
+                            {
+                                new()
+                                {
+                                    Name = "Kafka.Connect.Processors.BlacklistFieldProjector",
+                                    Settings = new List<string>
+                                    {
+                                        "key.simple.remove[*].remove.*", "value.simple.remove[*].remove.*",
+                                        "none.simple.remove[*].remove.*"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    new[]
+                    {
+                        "key.simple.keep[0].keep", "value.simple.keep[0].keep", "value.none.simple.keep[0].keep",
+                        "key.simple.remove[0].keep.this", "value.none.simple.remove[0].keep.this", "value.simple.remove[0].keep.this"
+                    },
+                    new[]
+                    {
+                        "value.simple.remove[1].remove.this", "key.simple.remove[1].remove.this",
+                        "value.none.simple.remove[1].remove.this", "value.simple.remove[2].remove.that",
+                        "key.simple.remove[2].remove.that", "value.none.simple.remove[2].remove.that"
+                    }
+                };
+                
+                yield return new object[] // Remove an element in array at the end 
+                {
+                    new Dictionary<string, object>()
+                    {
+                        {"key.simple.keep[0].keep", ""}, {"key.simple.remove[0].star.this", ""},
+                        {"key.simple.remove[1].star.this", ""}, {"key.simple.remove[2].star.that", ""},
+                        {"value.simple.keep[0].keep", ""}, {"value.simple.remove[0].star.this", ""},
+                        {"value.simple.remove[1].star.this", ""}, {"value.simple.remove[2].star.that", ""},
+                        {"value.none.simple.keep[0].keep", ""}, {"value.none.simple.remove[0].star.this", ""},
+                        {"value.none.simple.remove[1].star.this", ""}, {"value.none.simple.remove[2].star.that", ""}
+                    },
+                    new List<ConnectorConfig<IList<string>>>
+                    {
+                        new()
+                        {
+                            Name = "connector-name",
+                            Processors = new List<ProcessorConfig<IList<string>>>()
+                            {
+                                new()
+                                {
+                                    Name = "Kafka.Connect.Processors.BlacklistFieldProjector",
+                                    Settings = new List<string>
+                                    {
+                                        "key.simple.remove[*].*.this", "value.simple.remove[*].*.this",
+                                        "none.simple.remove[*].*.this"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    new[]
+                    {
+                        "key.simple.keep[0].keep", "value.simple.keep[0].keep", "value.none.simple.keep[0].keep",
+                        "key.simple.remove[2].star.that", "value.none.simple.remove[2].star.that", "value.simple.remove[2].star.that"
+                    },
+                    new[]
+                    {
+                        "value.simple.remove[1].star.this", "key.simple.remove[1].star.this",
+                        "value.none.simple.remove[1].star.this", "value.simple.remove[0].star.this",
+                        "key.simple.remove[0].star.this", "value.none.simple.remove[0].star.this"
+                    }
+                };
+                
+                yield return new object[] // Remove an element in array at the end 
+                {
+                    new Dictionary<string, object>()
+                    {
+                        {"key.simple[0].keep[0].keep", ""}, {"key.simple[0].remove[0].star.this", ""},
+                        {"key.simple[0].remove[1].star.this", ""}, {"key.simple[0].remove[2].star.that", ""},
+                        {"value.simple[0].keep[0].keep", ""}, {"value.simple[0].remove[0].star.this", ""},
+                        {"value.simple[0].remove[1].star.this", ""}, {"value.simple[0].remove[2].star.that", ""},
+                        {"value.none.simple[0].keep[0].keep", ""}, {"value.none.simple[0].remove[0].star.this", ""},
+                        {"value.none.simple[0].remove[1].star.this", ""}, {"value.none.simple[0].remove[2].star.that", ""}
+                    },
+                    new List<ConnectorConfig<IList<string>>>
+                    {
+                        new()
+                        {
+                            Name = "connector-name",
+                            Processors = new List<ProcessorConfig<IList<string>>>()
+                            {
+                                new()
+                                {
+                                    Name = "Kafka.Connect.Processors.BlacklistFieldProjector",
+                                    Settings = new List<string>
+                                    {
+                                        "key.simple[*].remove[*].*.this", "value.simple[*].remove[*].*.this",
+                                        "none.simple[*].remove[*].*.this"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    new[]
+                    {
+                        "key.simple[0].keep[0].keep", "value.simple[0].keep[0].keep", "value.none.simple[0].keep[0].keep",
+                        "key.simple[0].remove[2].star.that", "value.none.simple[0].remove[2].star.that", "value.simple[0].remove[2].star.that"
+                    },
+                    new[]
+                    {
+                        "value.simple[0].remove[1].star.this", "key.simple[0].remove[1].star.this",
+                        "value.none.simple[0].remove[1].star.this", "value.simple[0].remove[0].star.this",
+                        "key.simple[0].remove[0].star.this", "value.none.simple[0].remove[0].star.this"
+                    }
+                };
+            }
         }
     }
 }
