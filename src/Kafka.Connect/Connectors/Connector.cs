@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -6,7 +5,6 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Kafka.Connect.Configurations;
-using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Providers;
 using Kafka.Connect.Tokens;
 using Microsoft.Extensions.DependencyInjection;
@@ -47,7 +45,7 @@ namespace Kafka.Connect.Connectors
 
             pts.Toggle(connectorConfig.Paused);
 
-            var sinkHandler = _sinkHandlerProvider.GetSinkHandler(connectorConfig.Plugin, connectorConfig.Sink.Handler);
+            var sinkHandler = _sinkHandlerProvider.GetSinkHandler(connectorConfig.Name);
             var stopwatch = Stopwatch.StartNew();
             var restarts = 0;
 

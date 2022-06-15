@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Linq;
-using Kafka.Connect.Configurations;
 using Kafka.Connect.Plugin;
 using Microsoft.Extensions.Logging;
 
@@ -18,18 +17,12 @@ namespace Kafka.Connect.Providers
             _sinkHandlers = sinkHandlers;
             _configurationProvider = configurationProvider;
         }
-        public ISinkHandler GetSinkHandler(string plugin, string handler)
-        {
-            var sinkHandler = _sinkHandlers.SingleOrDefault(s => s.IsOfType(plugin, handler));
-            _logger.LogTrace("{@Log}", new {Message = "Selected sink handler.", Plugin = plugin, Handler = sinkHandler?.GetType().FullName});
-            return sinkHandler;
-        }
-        
+
         public ISinkHandler GetSinkHandler(string connector)
         {
             var config = _configurationProvider.GetSinkConfig(connector);
-            var sinkHandler = _sinkHandlers.SingleOrDefault(s => s.IsOfType(config.Handler, config.Handler));
-            _logger.LogTrace("{@Log}", new {Message = "Selected sink handler.", Plugin = config.Plugin, Handler = sinkHandler?.GetType().FullName});
+            var sinkHandler = _sinkHandlers.SingleOrDefault(s => s.IsOfType(config.Plugin, config.Handler));
+            _logger.LogTrace("{@Log}", new {Message = "Selected sink handler.", config.Plugin, Handler = sinkHandler?.GetType().FullName});
             return sinkHandler;
         }
     }
