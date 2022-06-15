@@ -20,11 +20,10 @@ namespace Kafka.Connect.Processors
             return ReplaceBrackets(field).Replace("*", "([a-zA-Z0-9.]{0,})");
         }
 
-        public static IEnumerable<string> GetKeys(IDictionary<string, object> flattened,
-            IEnumerable<string> options)
+        public static IEnumerable<string> GetMatchingKeys(this IEnumerable<string> options, IDictionary<string, object> flattened)
         {
             var flattenedKeys = new List<string>();
-            foreach (var field in options)
+            foreach (var field in options ?? Enumerable.Empty<string>())
             {
                 if (ReplaceBrackets(field).Contains('*'))
                 {
@@ -40,9 +39,9 @@ namespace Kafka.Connect.Processors
             return flattenedKeys.Distinct().ToList();
         }
 
-        public static IDictionary<string, string> GetMaps(IDictionary<string, object> flattened,
-            IDictionary<string, string> maps, bool keyOnly = false)
+        public static IDictionary<string, string> GetMatchingMaps(this IDictionary<string, string> maps, IDictionary<string, object> flattened, bool keyOnly = false)
         {
+            maps ??= new Dictionary<string, string>();
             var flattenedMaps = new Dictionary<string, string>();
             var sb = new StringBuilder();
             foreach (var (key, value) in maps)
@@ -91,9 +90,11 @@ namespace Kafka.Connect.Processors
             return flattenedMaps;
         }
 
-        public static string PrefixValue(string key)
+        public static string Prefix(this string key)
         {
-            return !key.StartsWith($"{Constants.Key}.") || !key.StartsWith($"{Constants.Value}.") ? $"{Constants.Value}.{key}" : key;
+            return key.StartsWith($"{Constants.Key}.") || key.StartsWith($"{Constants.Value}.")
+                ? key
+                : $"{Constants.Value}.{key}";
         }
     }
 }

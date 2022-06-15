@@ -17,8 +17,8 @@ namespace Kafka.Connect.Logging
             (proxy as LogDispatchProxy<T>)?.SetParameters(decorated, logger);
             return (T)proxy;
         }
-        
-        private void SetParameters(T decorated, ILogger logger)
+
+        protected void SetParameters(T decorated, ILogger logger)
         {
             if (decorated == null)
             {
