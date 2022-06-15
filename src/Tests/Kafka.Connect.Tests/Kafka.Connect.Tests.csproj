@@ -34,11 +34,9 @@
       <Compile Remove="Processors\FieldRenamerTests.cs" />
       <Compile Remove="Processors\JsonTypeOverriderTests.cs" />
       <Compile Remove="Processors\WhitelistFieldProjectorTests.cs" />
-      <Compile Remove="Providers\SinkHandlerProviderTests.cs" />
       <Compile Remove="Serializers\MessageDeserializerTests.cs" />
       <Compile Remove="Converters\GenericRecordParserTests.cs" />
       <Compile Remove="Converters\JsonRecordFlattenerTests.cs" />
-      <Compile Remove="Providers\ProcessorServiceProviderTests.cs" />
       <Compile Remove="Serializers\AvroDeserializerTests.cs" />
       <Compile Remove="Serializers\IgnoreDeserializerTests.cs" />
       <Compile Remove="Serializers\JsonDeserializerTests.cs" />

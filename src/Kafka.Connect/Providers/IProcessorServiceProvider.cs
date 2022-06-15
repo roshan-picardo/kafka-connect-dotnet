@@ -8,7 +8,5 @@ namespace Kafka.Connect.Providers
     {
         IEnumerable<IProcessor> GetProcessors();
         IDeserializer GetDeserializer(string typeName);
-        ISerializer GetSerializer(string typeName);
-        IEnumerable<IEnricher> GetEnrichers();
     }
 }
