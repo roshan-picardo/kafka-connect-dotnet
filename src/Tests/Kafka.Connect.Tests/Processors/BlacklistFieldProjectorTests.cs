@@ -17,8 +17,7 @@ namespace Kafka.Connect.Tests.Processors
         public BlacklistFieldProjectorTests()
         {
             _options = Substitute.For<IOptions<List<ConnectorConfig<IList<string>>>>>();
-            var shared = Substitute.For<IOptions<ConnectorConfig<IList<string>>>>();
-            _blacklistFieldProjector = new BlacklistFieldProjector(_options, shared);
+            _blacklistFieldProjector = new BlacklistFieldProjector(_options, Substitute.For<IOptions<ConnectorConfig<IList<string>>>>());
         }
 
         [Theory]

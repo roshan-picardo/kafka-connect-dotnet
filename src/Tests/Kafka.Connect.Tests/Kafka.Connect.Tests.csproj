@@ -32,7 +32,6 @@
       <Compile Remove="Processors\DateTimeTypeOverriderTests.cs" />
       <Compile Remove="Processors\FieldRenamerTests.cs" />
       <Compile Remove="Processors\JsonTypeOverriderTests.cs" />
-      <Compile Remove="Processors\WhitelistFieldProjectorTests.cs" />
       <Compile Remove="Serializers\MessageDeserializerTests.cs" />
       <Compile Remove="Converters\GenericRecordParserTests.cs" />
       <Compile Remove="Converters\JsonRecordFlattenerTests.cs" />

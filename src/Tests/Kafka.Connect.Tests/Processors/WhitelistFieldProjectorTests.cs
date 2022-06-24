@@ -1,100 +1,67 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
+using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Processors;
+using Microsoft.Extensions.Options;
+using NSubstitute;
 using Xunit;
 
 namespace Kafka.Connect.Tests.Processors
 {
     public class WhitelistFieldProjectorTests
     {
+        private readonly IOptions<List<ConnectorConfig<IList<string>>>> _options;
         private readonly WhitelistFieldProjector _whitelistFieldProjector;
 
         public WhitelistFieldProjectorTests()
         {
-            _whitelistFieldProjector = new WhitelistFieldProjector(null);
+            _options = Substitute.For<IOptions<List<ConnectorConfig<IList<string>>>>>();
+            _whitelistFieldProjector = new WhitelistFieldProjector(_options, Substitute.For<IOptions<ConnectorConfig<IList<string>>>>());
+        }
+        
+        [Theory]
+        [InlineData(new []{ "simple.remove" }, new string[0], new string[0], "wrong-connector-name")]
+        [InlineData(new []{ "simple.remove" }, new string[0], new string[0], "connector-name", "Kafka.Connect.Processors.BlacklistFieldProjector")]
+        [InlineData(new []{ "simple.remove" }, new string[0], new string[0])]
+        [InlineData(new []{ "simple.remove", "simple.keep" }, new []{"simple.remove"}, new []{"simple.remove"})]
+        [InlineData(new []{ "simple.remove", "simple.keep.one", "simple.keep.two", "simple.keep.three.what" }, new []{"simple.keep.*"}, new []{"simple.keep.one", "simple.keep.two", "simple.keep.three.what"})]
+        [InlineData(new []{ "simple.remove", "simple.one.keep", "simple.two.keep" }, new []{"simple.*.keep"}, new []{"simple.one.keep", "simple.two.keep"})]
+        [InlineData(new []{ "simple.remove", "one.simple.keep", "two.simple.keep" }, new []{"*.simple.keep"}, new []{"one.simple.keep", "two.simple.keep"})]
+        [InlineData(new []{ "simple.one.remove.two.remove", "simple.one.keep.two.keep", "simple.three.keep.four.keep", "simple.one.keep.two.remove" }, new []{"simple.*.keep.*.keep"}, new []{"simple.one.keep.two.keep", "simple.three.keep.four.keep"})]
+        [InlineData(new []{ "simple.keep", "simple.one.keep", "simple.one.two.keep" }, new []{"*"}, new []{"simple.keep", "simple.one.keep", "simple.one.two.keep"})]
+        [InlineData(new []{ "simple.list[0].item", "simple.list[1].item" }, new []{"simple.list[1].item"}, new []{"simple.list[1].item"})]
+        [InlineData(new []{ "simple.list[0].item", "simple.list[1].item" }, new []{"simple.list[*].item"}, new []{"simple.list[0].item", "simple.list[1].item"})]
+        [InlineData(new []{ "simple.list[0]", "simple.list[1]" }, new []{"simple.list[*]"}, new []{"simple.list[0]", "simple.list[1]"})]
+        [InlineData(new []{ "simple.list[0].one.remove", "simple.list[1].two.keep",  "simple.list[2].three.keep"  }, new []{"simple.list[*].*.keep"}, new []{"simple.list[1].two.keep", "simple.list[2].three.keep"})]
+        [InlineData(new []{ "simple.list[0].one.remove", "simple.list[1].two.array[0].child.item",  "simple.list[2].three.array[0].another.item"  }, new []{"simple.list[*].*.array[*].*.item"}, new []{"simple.list[1].two.array[0].child.item", "simple.list[2].three.array[0].another.item"})]
+        [InlineData(new []{ "simple.list[0].one.remove", "simple.list[1].two.array[0].child.item",  "simple.list[2].three.array[0].another.item"  }, new []{"simple.list[1].*.array[*].*.item"}, new []{"simple.list[1].two.array[0].child.item"})]
+        public async Task Apply_Tests(string[] keys, string[] settings,  string[] expectedStays, string connector = "connector-name", string processor = "Kafka.Connect.Processors.WhitelistFieldProjector")
+        {
+            foreach (var prefix in new[] {"key.", "value.", ""})
+            {
+                var options = new List<ConnectorConfig<IList<string>>>
+                {
+                    new()
+                    {
+                        Name = connector,
+                        Processors = new List<ProcessorConfig<IList<string>>>()
+                            {new() {Name = processor, Settings = settings.Select(x => $"{prefix}{x}").ToList()}}
+                    }
+                };
+
+                var flattened = keys.ToDictionary(x => prefix == "" ? $"value.{x}" : $"{prefix}{x}", v => (object) "");
+                var stays = expectedStays.Select(x => prefix == "" ? $"value.{x}" : $"{prefix}{x}").ToArray();
+
+                _options.Value.Returns(options);
+                var (skip, actual) =
+                    await _whitelistFieldProjector.Apply(new Dictionary<string, object>(flattened), "connector-name");
+                Assert.False(skip);
+                Assert.Equal(stays.Length, actual.Count);
+                Assert.All(stays, key => Assert.True(actual.ContainsKey(key)));
+                Assert.All(flattened.Keys.Except(stays), key => Assert.False(actual.ContainsKey(key)));
+            }
         }
 
-        [Fact]
-        public async Task Apply_Options()
-        {
-            var (skip, flattened) = await _whitelistFieldProjector.Apply(
-                new Dictionary<string, object>
-                {
-                    {"key1", "value1"}, 
-                    {"key2", "value2"}}, 
-                "new[] {\"key.sample.*\", \"key2\", \"key.array[*]*\"}");
-            Assert.False(skip);
-            Assert.False(flattened.ContainsKey("key1"));
-            Assert.True(flattened.ContainsKey("key2"));
-        }
-        
-        [Fact]
-        public async Task Apply_Options_Elements()
-        {
-            var (skip, flattened) = await _whitelistFieldProjector.Apply(
-                new Dictionary<string, object>
-                {
-                    {"key.sample.first", "sample1"}, 
-                    {"key.sample.second", "second"}, 
-                    {"key.between.remove", "sample1"}, 
-                    {"key.between.dont.remove", "data"},
-                    {"key.between.keep.this", "second"},
-                    {"key.between.keep", "second"},
-                    {"key.must.keep", "value2"}}, 
-                "new[] {\"key.sample.*\", \"key.*.remove\"}");
-            Assert.False(skip);
-            Assert.True(flattened.ContainsKey("key.sample.first"));
-            Assert.True( flattened.ContainsKey("key.sample.second"));
-            Assert.False(flattened.ContainsKey("key.must.keep"));
-            Assert.True(flattened.ContainsKey("key.between.remove"));
-            Assert.True(flattened.ContainsKey("key.between.dont.remove"));
-            Assert.False(flattened.ContainsKey("key.between.keep.this"));
-        }
-        
-        [Fact]
-        public async Task Apply_Options_Arrays()
-        {
-            var (skip, flattened) = await _whitelistFieldProjector.Apply(
-                new Dictionary<string, object>
-                {
-                    {"key.array[0].field", "sample1"},
-                    {"key.array[1].field", "second"},
-                    {"key.array[1].keep", "second"},
-                    
-                    {"key.list[0].item.end1", "sample1"},
-                    {"key.list[1].item.end2", "data"},
-                    {"key.list[1].item1.end2", "data"},
-                    
-                    {"key.collection[0].item.between1.remove", "second"},
-                    {"key.collection[1].item.between2.remove", "second"},
-                    {"key.collection[1].item.between2.keep", "second"},
-                    {"key.collection[1].item1.between2.keep", "second"},
-                    
-                    {"key.remove.array[0]", "value2"},
-                    {"key.remove.array[1]", "value2"}
-                },
-                @"new[]
-                {
-                    ""key.remove.array[*]"", 
-                    ""key.array[*].field"", 
-                    ""key.list[*].item.*"", 
-                    ""key.collection[*].item.*.remove""
-                }");
-            Assert.False(skip);
-            Assert.False(flattened.ContainsKey("key.array[1].keep"));
-            Assert.True(flattened.ContainsKey("key.array[0].field"));
-            Assert.True(flattened.ContainsKey("key.array[0].field"));
-            
-            Assert.False(flattened.ContainsKey("key.list[1].item1.end2"));
-            Assert.True(flattened.ContainsKey("key.list[0].item.end1"));
-            Assert.True(flattened.ContainsKey("key.list[1].item.end2"));
-            
-            Assert.False(flattened.ContainsKey("key.collection[1].item.between2.keep"));
-            Assert.False(flattened.ContainsKey("key.collection[1].item1.between2.keep"));
-            Assert.True(flattened.ContainsKey("key.collection[0].item.between1.remove"));
-            
-            Assert.True(flattened.ContainsKey("key.remove.array[0]"));
-            Assert.True(flattened.ContainsKey("key.remove.array[0]"));
-        }
     }
 }
