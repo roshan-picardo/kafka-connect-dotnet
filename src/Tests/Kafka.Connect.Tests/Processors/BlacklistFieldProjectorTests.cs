@@ -1,8 +1,6 @@
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Google.Protobuf.WellKnownTypes;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Processors;
 using Microsoft.Extensions.Options;
@@ -58,7 +56,7 @@ namespace Kafka.Connect.Tests.Processors
 
                 _options.Value.Returns(options);
                 var (skip, actual) =
-                    await _blacklistFieldProjector.Apply( new Dictionary<string, object>(flattened), "connector-name");
+                    await _blacklistFieldProjector.Apply(new Dictionary<string, object>(flattened), "connector-name");
                 Assert.False(skip);
                 Assert.Equal(flattened.Count - removed.Length, actual.Count);
                 Assert.All(flattened.Keys.Except(removed), key => Assert.True(actual.ContainsKey(key)));
