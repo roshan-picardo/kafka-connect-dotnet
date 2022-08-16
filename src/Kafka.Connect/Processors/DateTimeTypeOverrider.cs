@@ -1,11 +1,8 @@
 using System;
 using System.Collections.Generic;
-using System.Data;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
-using Confluent.Kafka;
-using Kafka.Connect.Plugin.Exceptions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Plugin.Processors;
@@ -15,7 +12,7 @@ namespace Kafka.Connect.Processors
 {
     public class DateTimeTypeOverrider : Processor<IDictionary<string, string>>
     {
-        public DateTimeTypeOverrider(IOptions<List<ConnectorConfig<IDictionary<string, string>>>> options, IOptions<ConnectorConfig<IDictionary<string, string>>> shared) : base(options, shared)
+        public DateTimeTypeOverrider(IOptions<IList<ConnectorConfig<IDictionary<string, string>>>> options, IOptions<ConnectorConfig<IDictionary<string, string>>> shared) : base(options, shared)
         {
         }
         
@@ -23,13 +20,13 @@ namespace Kafka.Connect.Processors
         protected override Task<(bool, IDictionary<string, object>)> Apply(IDictionary<string, object> flattened, IDictionary<string, string> settings)
         {
             return Task.FromResult(ApplyInternal(flattened,
-                settings?.ToDictionary(k => ProcessorHelper.PrefixValue(k.Key), v => v.Value)));
+                settings?.ToDictionary(k => k.Key.Prefix(), v => v.Value)));
         }
 
         private static (bool, IDictionary<string, object>) ApplyInternal(IDictionary<string, object> flattened, IDictionary<string, string> maps = null)
         {
             maps ??= new Dictionary<string, string>();
-            foreach (var (key, value) in ProcessorHelper.GetMaps(flattened, maps, true))
+            foreach (var (key, value) in maps.GetMatchingMaps(flattened, true))
             {
                 if (flattened[key] == null || flattened[key] is not string s) continue;
                 if (!string.IsNullOrEmpty(value))

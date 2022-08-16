@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Kafka.Connect.Models;
 using Kafka.Connect.Plugin.Converters;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
@@ -18,7 +17,7 @@ namespace Kafka.Connect.Processors
         private readonly IRecordFlattener _recordFlattener;
         private readonly ILogger<JsonTypeOverrider> _logger;
 
-        public JsonTypeOverrider(IRecordFlattener recordFlattener, ILogger<JsonTypeOverrider> logger, IOptions<List<ConnectorConfig<IList<string>>>> options, IOptions<ConnectorConfig<IList<string>>> shared) 
+        public JsonTypeOverrider(IRecordFlattener recordFlattener, ILogger<JsonTypeOverrider> logger, IOptions<IList<ConnectorConfig<IList<string>>>> options, IOptions<ConnectorConfig<IList<string>>> shared) 
             : base(options, shared)
         {
             _recordFlattener = recordFlattener;
@@ -28,13 +27,13 @@ namespace Kafka.Connect.Processors
         [OperationLog("Applying json type overrider.")]
         protected override Task<(bool, IDictionary<string, object>)> Apply(IDictionary<string, object> flattened, IList<string> settings)
         {
-            return Task.FromResult(ApplyInternal(flattened, settings?.Select(ProcessorHelper.PrefixValue)));
+            return Task.FromResult(ApplyInternal(flattened, settings?.Select(s=> s.Prefix())));
         }
 
         private (bool, IDictionary<string, object>) ApplyInternal(IDictionary<string, object> flattened,
             IEnumerable<string> fields = null)
         {
-            foreach (var key in ProcessorHelper.GetKeys(flattened, fields).ToList())
+            foreach (var key in fields.GetMatchingKeys(flattened).ToList())
             {
                 JToken jObject = null;
                 if (!flattened.ContainsKey(key) || flattened[key] == null || flattened[key] is not string s) continue;

@@ -29,11 +29,9 @@
       <Compile Remove="Connectors\ConnectDeadLetterTests.cs" />
       <Compile Remove="Connectors\ConnectorTests.cs" />
       <Compile Remove="Connectors\SinkTaskTests.cs" />
-      <Compile Remove="Processors\BlacklistFieldProjectorTests.cs" />
       <Compile Remove="Processors\DateTimeTypeOverriderTests.cs" />
       <Compile Remove="Processors\FieldRenamerTests.cs" />
       <Compile Remove="Processors\JsonTypeOverriderTests.cs" />
-      <Compile Remove="Processors\WhitelistFieldProjectorTests.cs" />
       <Compile Remove="Serializers\MessageDeserializerTests.cs" />
       <Compile Remove="Converters\GenericRecordParserTests.cs" />
       <Compile Remove="Converters\JsonRecordFlattenerTests.cs" />
@@ -47,7 +45,6 @@
     <ItemGroup>
       <Folder Include="Connectors" />
       <Folder Include="Converters" />
-      <Folder Include="Processors" />
       <Folder Include="Serializers" />
     </ItemGroup>
 

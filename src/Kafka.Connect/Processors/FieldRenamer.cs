@@ -10,23 +10,23 @@ namespace Kafka.Connect.Processors
 {
     public class FieldRenamer : Processor<IDictionary<string, string>>
     {
-        public FieldRenamer(IOptions<List<ConnectorConfig<IDictionary<string, string>>>> options, IOptions<ConnectorConfig<IDictionary<string, string>>> shared) : base(options, shared)
+        public FieldRenamer(IOptions<IList<ConnectorConfig<IDictionary<string, string>>>> options, IOptions<ConnectorConfig<IDictionary<string, string>>> shared) : base(options, shared)
         {
         }
 
         protected override Task<(bool, IDictionary<string, object>)> Apply(IDictionary<string, object> flattened, IDictionary<string, string> settings)
         {
-            return Task.FromResult(ApplyInternal(flattened, settings?.ToDictionary(k => ProcessorHelper.PrefixValue(k.Key), v => v.Value)));
+            return Task.FromResult(ApplyInternal(flattened, settings?.ToDictionary(k => k.Key.Prefix(), v => v.Value)));
         }
 
         [OperationLog("Applying field renamer.")]
         private static (bool, IDictionary<string, object>) ApplyInternal(IDictionary<string, object> flattened, IDictionary<string, string> maps = null)
         {
             var renamed = new Dictionary<string, object>();
-            foreach (var (key, value) in ProcessorHelper.GetMaps(flattened, maps ?? new Dictionary<string, string>()).ToList())
+            foreach (var (key, value) in maps.GetMatchingMaps(flattened).ToList())
             {
                 if (flattened[key] == null || !(flattened[key] is { } o)) continue;
-                renamed.Add(ProcessorHelper.PrefixValue(value), o);
+                renamed.Add(value.Prefix(), o);
                 flattened.Remove(key);
             }
 

@@ -8,10 +8,10 @@ namespace Kafka.Connect.Plugin.Processors
 {
     public abstract class Processor<TSettings> : IProcessor where TSettings: class
     {
-        private readonly IOptions<List<ConnectorConfig<TSettings>>> _options;
+        private readonly IOptions<IList<ConnectorConfig<TSettings>>> _options;
         private readonly IOptions<ConnectorConfig<TSettings>> _shared;
 
-        public Processor(IOptions<List<ConnectorConfig<TSettings>>> options, IOptions<ConnectorConfig<TSettings>> shared)
+        protected Processor(IOptions<IList<ConnectorConfig<TSettings>>> options, IOptions<ConnectorConfig<TSettings>> shared)
         {
             _options = options;
             _shared = shared;
