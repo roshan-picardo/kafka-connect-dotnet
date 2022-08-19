@@ -131,10 +131,10 @@ namespace Kafka.Connect.Utilities
         {
             return logger.Enrich.WithProperty("Versions", new Dictionary<string, string>
                 {
-                    {"Dotnet", Environment.Version.ToString()},
-                    {"Librdkafka", Library.VersionString},
-                    {"Connector", Assembly.GetExecutingAssembly().GetName().Version?.ToString()},
-                    {"Application", Environment.GetEnvironmentVariable("APPLICATION_VERSION") ?? "0.0.0.0"}
+                    {"net", Environment.Version.ToString()},
+                    {"lib", Library.VersionString},
+                    {"base", Assembly.GetExecutingAssembly().GetName().Version?.ToString()},
+                    {"app", Environment.GetEnvironmentVariable("APPLICATION_VERSION") ?? "0.0.0.0"}
                 })
                 .Enrich.WithProperty("Environment", Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"))
                 .Enrich.WithProperty("Worker",
