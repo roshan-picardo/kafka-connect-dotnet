@@ -1,0 +1,851 @@
+{
+    "Key": null,
+    "Value": {
+        "type": "record",
+        "name": "CustomerConsentEvents",
+        "namespace": "au.com.commbank.customer.consent.event",
+        "doc": "This schema is defined for Customer-Consent-Events",
+        "fields": [
+            {
+                "name": "header",
+                "type": {
+                    "type": "record",
+                    "name": "KafkaEventHeader",
+                    "namespace": "au.com.cba.kafka.core",
+                    "fields": [
+                        {
+                            "name": "correlationId",
+                            "type": {
+                                "type": "string",
+                                "avro.java.string": "String"
+                            }
+                        },
+                        {
+                            "name": "processPath",
+                            "type": [
+                                "null",
+                                {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "record",
+                                        "name": "ProcessPathElement",
+                                        "fields": [
+                                            {
+                                                "name": "source",
+                                                "type": {
+                                                    "type": "string",
+                                                    "avro.java.string": "String"
+                                                }
+                                            },
+                                            {
+                                                "name": "timestamp",
+                                                "type": {
+                                                    "type": "string",
+                                                    "avro.java.string": "String"
+                                                }
+                                            }
+                                        ]
+                                    }
+                                }
+                            ],
+                            "default": null
+                        }
+                    ]
+                }
+            },
+            {
+                "name": "consentId",
+                "type": [
+                    "null",
+                    "string"
+                ],
+                "default": null
+            },
+            {
+                "name": "consentType",
+                "type": [
+                    "null",
+                    "string"
+                ],
+                "default": null
+            },
+            {
+                "name": "consentVersion",
+                "type": [
+                    "null",
+                    "string"
+                ],
+                "default": null
+            },
+            {
+                "name": "actionType",
+                "type": [
+                    "null",
+                    "string"
+                ],
+                "default": null
+            },
+            {
+                "name": "status",
+                "type": [
+                    "null",
+                    "string"
+                ],
+                "default": null
+            },
+            {
+                "name": "previousStatus",
+                "type": [
+                    "null",
+                    "string"
+                ],
+                "default": null
+            },
+            {
+                "name": "dependsOnConsent",
+                "type": [
+                    "null",
+                    {
+                        "type": "record",
+                        "name": "DependsOnConsent",
+                        "fields": [
+                            {
+                                "name": "consentId",
+                                "type": [
+                                    "null",
+                                    "string"
+                                ],
+                                "default": null
+                            },
+                            {
+                                "name": "consentVersion",
+                                "type": [
+                                    "null",
+                                    "string"
+                                ],
+                                "default": null
+                            }
+                        ]
+                    }
+                ],
+                "default": null
+            },
+            {
+                "name": "parentConsentId",
+                "type": [
+                    "null",
+                    "string"
+                ],
+                "default": null
+            },
+            {
+                "name": "consentLifeTimeExpiryDate",
+                "type": [
+                    "null",
+                    "string"
+                ],
+                "default": null
+            },
+            {
+                "name": "consentLifeTimeExpiryOffsetHours",
+                "type": [
+                    "null",
+                    "string"
+                ],
+                "default": null
+            },
+            {
+                "name": "createdDate",
+                "type": [
+                    "null",
+                    "string"
+                ],
+                "default": null
+            },
+            {
+                "name": "createdBy",
+                "type": [
+                    "null",
+                    {
+                        "type": "record",
+                        "name": "CreatedBy",
+                        "fields": [
+                            {
+                                "name": "userId",
+                                "type": [
+                                    "null",
+                                    "string"
+                                ],
+                                "default": null
+                            },
+                            {
+                                "name": "userIdType",
+                                "type": [
+                                    "null",
+                                    "string"
+                                ],
+                                "default": null
+                            },
+                            {
+                                "name": "userRole",
+                                "type": [
+                                    "null",
+                                    "string"
+                                ],
+                                "default": null
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "name": "modifiedDate",
+                "type": [
+                    "null",
+                    "string"
+                ],
+                "default": null
+            },
+            {
+                "name": "consentTranModifiedDate",
+                "type": [
+                    "null",
+                    "string"
+                ],
+                "default": null
+            },
+            {
+                "name": "consentTranId",
+                "type": [
+                    "null",
+                    "string"
+                ],
+                "default": null
+            },
+            {
+                "name": "isConsentStatuschanged",
+                "type": [
+                    "null",
+                    "string"
+                ],
+                "default": null
+            },
+            {
+                "name": "approvedDate",
+                "type": [
+                    "null",
+                    "string"
+                ],
+                "default": null
+            },
+            {
+                "name": "consentCorrelationId",
+                "type": [
+                    "null",
+                    "string"
+                ],
+                "default": null
+            },
+            {
+                "name": "transactionId",
+                "type": [
+                    "null",
+                    "string"
+                ],
+                "default": null
+            },
+            {
+                "name": "consentRequest",
+                "type": [
+                    "null",
+                    {
+                        "type": "record",
+                        "name": "ConsentRequest",
+                        "fields": [
+                            {
+                                "name": "consentMetadata",
+                                "type": [
+                                    "null",
+                                    {
+                                        "type": "record",
+                                        "name": "ConsentMetadata",
+                                        "fields": [
+                                            {
+                                                "name": "data",
+                                                "type": [
+                                                    "null",
+                                                    "string"
+                                                ],
+                                                "default": null
+                                            },
+                                            {
+                                                "name": "schemaVersion",
+                                                "type": [
+                                                    "null",
+                                                    "string"
+                                                ],
+                                                "default": null
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "name": "rule",
+                                "type": [
+                                    "null",
+                                    {
+                                        "type": "record",
+                                        "name": "Rule",
+                                        "fields": [
+                                            {
+                                                "name": "numberOfSignatures",
+                                                "type": [
+                                                    "null",
+                                                    "string"
+                                                ],
+                                                "default": null
+                                            },
+                                            {
+                                                "name": "numberOfDeclines",
+                                                "type": [
+                                                    "null",
+                                                    "string"
+                                                ],
+                                                "default": null
+                                            },
+                                            {
+                                                "name": "coolingOffHours",
+                                                "type": [
+                                                    "null",
+                                                    "string"
+                                                ],
+                                                "default": null
+                                            }
+                                        ]
+                                    }
+                                ],
+                                "default": null
+                            },
+                            {
+                                "name": "expirationDate",
+                                "type": [
+                                    "null",
+                                    "string"
+                                ],
+                                "default": null
+                            },
+                            {
+                                "name": "relatedOperation",
+                                "type": [
+                                    "null",
+                                    {
+                                        "type": "record",
+                                        "name": "RelatedOperation",
+                                        "fields": [
+                                            {
+                                                "name": "searchTags",
+                                                "type": [
+                                                    "null",
+                                                    {
+                                                        "type": "array",
+                                                        "items": "string"
+                                                    }
+                                                ],
+                                                "default": null
+                                            },
+                                            {
+                                                "name": "consentId",
+                                                "type": [
+                                                    "null",
+                                                    "string"
+                                                ],
+                                                "default": null
+                                            },
+                                            {
+                                                "name": "consentVersion",
+                                                "type": [
+                                                    "null",
+                                                    "string"
+                                                ],
+                                                "default": null
+                                            },
+                                            {
+                                                "name": "data",
+                                                "type": [
+                                                    "null",
+                                                    "string"
+                                                ],
+                                                "default": null
+                                            },
+                                            {
+                                                "name": "schemaVersion",
+                                                "type": [
+                                                    "null",
+                                                    "string"
+                                                ],
+                                                "default": null
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "name": "contactPreference",
+                                "type": [
+                                    "null",
+                                    {
+                                        "type": "record",
+                                        "name": "ContactPreference",
+                                        "fields": [
+                                            {
+                                                "name": "requestor",
+                                                "type": [
+                                                    "null",
+                                                    {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "record",
+                                                            "name": "ContactPreference",
+                                                            "namespace": "au.com.commbank.customer.consent.event.contactpreference",
+                                                            "fields": [
+                                                                {
+                                                                    "name": "contactMethod",
+                                                                    "type": [
+                                                                        "null",
+                                                                        "string"
+                                                                    ],
+                                                                    "default": null
+                                                                },
+                                                                {
+                                                                    "name": "CommSeeInteractionNoteRequired",
+                                                                    "type": [
+                                                                        "null",
+                                                                        "string"
+                                                                    ],
+                                                                    "default": null
+                                                                },
+                                                                {
+                                                                    "name": "CommSeeInteractionNote",
+                                                                    "type": [
+                                                                        "null",
+                                                                        "string"
+                                                                    ],
+                                                                    "default": null
+                                                                },
+                                                                {
+                                                                    "name": "templateId",
+                                                                    "type": [
+                                                                        "null",
+                                                                        "string"
+                                                                    ],
+                                                                    "default": null
+                                                                },
+                                                                {
+                                                                    "name": "priority",
+                                                                    "type": [
+                                                                        "null",
+                                                                        "string"
+                                                                    ],
+                                                                    "default": null
+                                                                }
+                                                            ]
+                                                        }
+                                                    }
+                                                ],
+                                                "default": null
+                                            },
+                                            {
+                                                "name": "approver",
+                                                "type": [
+                                                    {
+                                                        "type": "array",
+                                                        "items": "au.com.commbank.customer.consent.event.contactpreference.ContactPreference"
+                                                    },
+                                                    "null"
+                                                ],
+                                                "default": null
+                                            }
+                                        ]
+                                    }
+                                ],
+                                "default": null
+                            }
+                        ]
+                    }
+                ],
+                "default": null
+            },
+            {
+                "name": "consentParties",
+                "type": [
+                    "null",
+                    {
+                        "type": "record",
+                        "name": "ConsentParties",
+                        "fields": [
+                            {
+                                "name": "requestors",
+                                "type": [
+                                    "null",
+                                    {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "record",
+                                            "name": "Requestors",
+                                            "fields": [
+                                                {
+                                                    "name": "consentItemId",
+                                                    "type": [
+                                                        "null",
+                                                        "string"
+                                                    ],
+                                                    "default": null
+                                                },
+                                                {
+                                                    "name": "status",
+                                                    "type": [
+                                                        "null",
+                                                        "string"
+                                                    ],
+                                                    "default": null
+                                                },
+                                                {
+                                                    "name": "consentItemVersion",
+                                                    "type": [
+                                                        "null",
+                                                        "string"
+                                                    ],
+                                                    "default": null
+                                                },
+                                                {
+                                                    "name": "isConsentItemStatuschanged",
+                                                    "type": [
+                                                        "null",
+                                                        "string"
+                                                    ],
+                                                    "default": null
+                                                },
+                                                {
+                                                    "name": "consentItemPreviousStatus",
+                                                    "type": [
+                                                        "null",
+                                                        "string"
+                                                    ],
+                                                    "default": null
+                                                },
+                                                {
+                                                    "name": "involvedUsers",
+                                                    "type": [
+                                                        "null",
+                                                        {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "type": "record",
+                                                                "name": "InvolvedUsers",
+                                                                "fields": [
+                                                                    {
+                                                                        "name": "userId",
+                                                                        "type": [
+                                                                            "null",
+                                                                            "string"
+                                                                        ],
+                                                                        "default": null
+                                                                    },
+                                                                    {
+                                                                        "name": "userIdType",
+                                                                        "type": [
+                                                                            "null",
+                                                                            "string"
+                                                                        ],
+                                                                        "default": null
+                                                                    },
+                                                                    {
+                                                                        "name": "userRole",
+                                                                        "type": [
+                                                                            "null",
+                                                                            "string"
+                                                                        ],
+                                                                        "default": null
+                                                                    }
+                                                                ]
+                                                            }
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    "name": "createdDate",
+                                                    "type": [
+                                                        "null",
+                                                        "string"
+                                                    ],
+                                                    "default": null
+                                                },
+                                                {
+                                                    "name": "modifiedDate",
+                                                    "type": [
+                                                        "null",
+                                                        "string"
+                                                    ],
+                                                    "default": null
+                                                },
+                                                {
+                                                    "name": "modifiedBy",
+                                                    "type": [
+                                                        "null",
+                                                        {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "type": "record",
+                                                                "name": "ModifiedBy",
+                                                                "fields": [
+                                                                    {
+                                                                        "name": "userId",
+                                                                        "type": [
+                                                                            "null",
+                                                                            "string"
+                                                                        ],
+                                                                        "default": null
+                                                                    },
+                                                                    {
+                                                                        "name": "userIdType",
+                                                                        "type": [
+                                                                            "null",
+                                                                            "string"
+                                                                        ],
+                                                                        "default": null
+                                                                    },
+                                                                    {
+                                                                        "name": "userRole",
+                                                                        "type": [
+                                                                            "null",
+                                                                            "string"
+                                                                        ],
+                                                                        "default": null
+                                                                    }
+                                                                ]
+                                                            }
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    "name": "evidence",
+                                                    "type": [
+                                                        "null",
+                                                        {
+                                                            "type": "record",
+                                                            "name": "Evidence",
+                                                            "fields": [
+                                                                {
+                                                                    "name": "createdDate",
+                                                                    "type": [
+                                                                        "null",
+                                                                        "string"
+                                                                    ],
+                                                                    "default": null
+                                                                },
+                                                                {
+                                                                    "name": "createdById",
+                                                                    "type": [
+                                                                        "null",
+                                                                        "string"
+                                                                    ],
+                                                                    "default": null
+                                                                },
+                                                                {
+                                                                    "name": "createdByIdType",
+                                                                    "type": [
+                                                                        "null",
+                                                                        "string"
+                                                                    ],
+                                                                    "default": null
+                                                                },
+                                                                {
+                                                                    "name": "data",
+                                                                    "type": [
+                                                                        "null",
+                                                                        "string"
+                                                                    ],
+                                                                    "default": null
+                                                                },
+                                                                {
+                                                                    "name": "schemaVersion",
+                                                                    "type": [
+                                                                        "null",
+                                                                        "string"
+                                                                    ],
+                                                                    "default": null
+                                                                }
+                                                            ]
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    "name": "contact",
+                                                    "type": [
+                                                        "null",
+                                                        {
+                                                            "type": "record",
+                                                            "name": "Contact",
+                                                            "fields": [
+                                                                {
+                                                                    "name": "contactMethod",
+                                                                    "type": [
+                                                                        "null",
+                                                                        "string"
+                                                                    ],
+                                                                    "default": null
+                                                                },
+                                                                {
+                                                                    "name": "contactDetails",
+                                                                    "type": [
+                                                                        "null",
+                                                                        "string"
+                                                                    ],
+                                                                    "default": null
+                                                                }
+                                                            ]
+                                                        }
+                                                    ],
+                                                    "default": null
+                                                },
+                                                {
+                                                    "name": "contactPreference",
+                                                    "type": [
+                                                        {
+                                                            "type": "array",
+                                                            "items": "au.com.commbank.customer.consent.event.contactpreference.ContactPreference"
+                                                        },
+                                                        "null"
+                                                    ],
+                                                    "default": null
+                                                }
+                                            ]
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                "name": "approvers",
+                                "type": [
+                                    "null",
+                                    {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "record",
+                                            "name": "Approvers",
+                                            "fields": [
+                                                {
+                                                    "name": "consentItemId",
+                                                    "type": [
+                                                        "null",
+                                                        "string"
+                                                    ],
+                                                    "default": null
+                                                },
+                                                {
+                                                    "name": "status",
+                                                    "type": [
+                                                        "null",
+                                                        "string"
+                                                    ],
+                                                    "default": null
+                                                },
+                                                {
+                                                    "name": "consentItemVersionNo",
+                                                    "type": [
+                                                        "null",
+                                                        "string"
+                                                    ],
+                                                    "default": null
+                                                },
+                                                {
+                                                    "name": "isConsentItemStatuschanged",
+                                                    "type": [
+                                                        "null",
+                                                        "string"
+                                                    ],
+                                                    "default": null
+                                                },
+                                                {
+                                                    "name": "consentItemPreviousStatus",
+                                                    "type": [
+                                                        "null",
+                                                        "string"
+                                                    ],
+                                                    "default": null
+                                                },
+                                                {
+                                                    "name": "involvedUsers",
+                                                    "type": [
+                                                        {
+                                                            "type": "array",
+                                                            "items": "InvolvedUsers"
+                                                        },
+                                                        "null"
+                                                    ],
+                                                    "default": null
+                                                },
+                                                {
+                                                    "name": "createdDate",
+                                                    "type": [
+                                                        "null",
+                                                        "string"
+                                                    ],
+                                                    "default": null
+                                                },
+                                                {
+                                                    "name": "modifiedDate",
+                                                    "type": [
+                                                        "null",
+                                                        "string"
+                                                    ],
+                                                    "default": null
+                                                },
+                                                {
+                                                    "name": "modifiedBy",
+                                                    "type": [
+                                                        "ModifiedBy",
+                                                        "null"
+                                                    ]
+                                                },
+                                                {
+                                                    "name": "evidence",
+                                                    "type": [
+                                                        "Evidence",
+                                                        "null"
+                                                    ]
+                                                },
+                                                {
+                                                    "name": "contactPreference",
+                                                    "type": [
+                                                        {
+                                                            "type": "array",
+                                                            "items": "au.com.commbank.customer.consent.event.contactpreference.ContactPreference"
+                                                        },
+                                                        "null"
+                                                    ],
+                                                    "default": null
+                                                },
+                                                {
+                                                    "name": "contact",
+                                                    "type": [
+                                                        "null",
+                                                        "Contact"
+                                                    ],
+                                                    "default": null
+                                                }
+                                            ]
+                                        }
+                                    }
+                                ],
+                                "default": null
+                            }
+                        ]
+                    }
+                ],
+                "default": null
+            }
+        ]
+    }
+}
