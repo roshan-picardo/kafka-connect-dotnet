@@ -11,7 +11,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Serilog.Context;
 
-[assembly:InternalsVisibleTo("Kafka.Connect.Tests")]
+[assembly:InternalsVisibleTo("Kafka.Connect.UnitTests")]
 namespace Kafka.Connect.Connectors
 {
     public class Connector : IConnector

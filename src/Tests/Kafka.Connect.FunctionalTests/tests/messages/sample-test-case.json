@@ -1,0 +1,114 @@
+{
+  "records": [
+    {
+      "key": null,
+      "value": {
+        "header": {
+          "correlationId": "a5de7e83-eb3d-492d-8463-362923f209cc",
+          "processPath": [
+            {
+              "source": "CONSENT_PDA.CONSENT_TRANDATA",
+              "timestamp": "2020-05-04T04:09:56.000Z"
+            },
+            {
+              "source": "golden-scribe",
+              "timestamp": "2020-05-04T14:09:59.202Z"
+            },
+            {
+              "source": "ced-enricher-processor",
+              "timestamp": "2020-05-04T14:09:59+10:00"
+            }
+          ]
+        },
+        "consentId": "f00058f0-bf30-4e1a-8e6a-7b06369ac2bc",
+        "consentType": "DataSharingCdr",
+        "actionType": "Create",
+        "status": "Approved",
+        "consentLifeTimeExpiryDate": "2020-01-27T10:56:31.0000000+11:00",
+        "createdDate": "2019-10-30T10:39:26.0000000+11:00",
+        "createdBy": {
+          "userId": "831123",
+          "userIdType": "CIF",
+          "userRole": "PrimaryParty"
+        },
+        "modifiedDate": "2019-10-30T10:39:26.0000000+11:00",
+        "consentVersion": 1,
+        "consentRequest": {
+          "consentMetadata": {
+            "data": "{\"accessStartDateTime\":\"11:56 PM\",\"accessEndDateTime\":\"11:56 PM\",\"clientName\":\"Pocketbook\",\"organisationName\":\"Zip Co Pty Ltd\",\"createdDateTime\":\"Tuesday, 29 October 2019\"}",
+            "schemaVersion": 1
+          },
+          "rule": {
+            "numberOfSignatures": 1,
+            "numberOfDeclines": 1
+          },
+          "expirationDate": "2019-11-06T10:39:26.0000000+11:00",
+          "relatedOperation": {
+            "data": "{\"clientId\":\"PBOOK.ID\",\"clientName\":\"Pocketbook\",\"organisationName\":\"Zip Co Pty Ltd\",\"scopes\":[\"bank:transactions:read\",\"bank:balances:read\"],\"accessStartDateTime\":\"2020-01-26T23:56:31Z\",\"isOneOffShare\":false,\"profileName\":\"\",\"profileCifCode\":\"\",\"profileType\":\"\"}",
+            "schemaVersion": 1
+          }
+        },
+        "consentParties": {
+          "requestors": [
+            {
+              "consentItemId": "b6b80156-081d-4bab-bf87-d46d0f9e2ac0",
+              "status": "Approved",
+              "involvedUsers": [
+                {
+                  "userId": "831123",
+                  "userIdType": "CIF",
+                  "userRole": "PrimaryParty"
+                }
+              ],
+              "createdDate": "2019-10-30T10:39:26.0000000+11:00",
+              "modifiedDate": "2019-10-30T10:39:26.0000000+11:00",
+              "evidence": {
+                "createdDate": "2019-10-30T10:39:26.0000000+11:00",
+                "createdById": "831123",
+                "createdByIdType": "CIF",
+                "data": "{\"netBankId\":\"27206958\",\"correlationId\":\"ee66cb5c-02ef-49fa-b2b9-506932852aa4\",\"clientIpAddress\":\"127.0.0.1\",\"cifCode\":\"831123\",\"userType\":\"NetBank\",\"sessionId\":\"\"}",
+                "schemaVersion": 1
+              },
+              "consentItemVersion": 1
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "sink": {
+    "type": "mongodb",
+    "destination": "consentCollection",
+    "setup": [{
+      "consentId": "f00058f0-bf30-4e1a-8e6a-7b06369ac2bc",
+      "actionType": "Create",
+      "clientId": "PBOOK.ID",
+      "consentType": "DataSharingCdr",
+      "customerId": "831123",
+      "expiryDate": "2020-01-26T23:56:31.000+00:00",
+      "scopes": [
+        "bank:transactions:read",
+        "bank:balances:read"
+      ],
+      "status": "Approved",
+      "timestamp": "2019-10-29T23:39:26.000+00:00"
+    }],
+    "expected":  {
+          "consentId": "f00058f0-bf30-4e1a-8e6a-7b06369ac2bc",
+          "actionType": "Create",
+          "clientId": "PBOOK.ID",
+          "consentType": "DataSharingCdr",
+          "customerId": "831123",
+          "expiryDate": "2020-01-26T23:56:31.000+00:00",
+          "scopes": [
+            "bank:transactions:read",
+            "bank:balances:read"
+          ],
+          "status": "Approved",
+          "timestamp": "2019-10-29T23:39:26.000+00:00"
+      },
+    "cleanup": [{
+      "consentId": "f00058f0-bf30-4e1a-8e6a-7b06369ac2bc"
+    }]
+  }
+}
