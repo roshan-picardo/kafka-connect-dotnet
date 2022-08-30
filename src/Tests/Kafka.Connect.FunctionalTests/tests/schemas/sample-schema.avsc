@@ -3,7 +3,7 @@
     "Value": {
         "type": "record",
         "name": "CustomerConsentEvents",
-        "namespace": "au.com.commbank.customer.consent.event",
+        "namespace": "my.domain.customer.consent.event",
         "doc": "This schema is defined for Customer-Consent-Events",
         "fields": [
             {
@@ -11,7 +11,7 @@
                 "type": {
                     "type": "record",
                     "name": "KafkaEventHeader",
-                    "namespace": "au.com.cba.kafka.core",
+                    "namespace": "my.domain.kafka.core",
                     "fields": [
                         {
                             "name": "correlationId",
@@ -407,7 +407,7 @@
                                                         "items": {
                                                             "type": "record",
                                                             "name": "ContactPreference",
-                                                            "namespace": "au.com.commbank.customer.consent.event.contactpreference",
+                                                            "namespace": "my.domain.customer.consent.event.contactpreference",
                                                             "fields": [
                                                                 {
                                                                     "name": "contactMethod",
@@ -460,7 +460,7 @@
                                                 "type": [
                                                     {
                                                         "type": "array",
-                                                        "items": "au.com.commbank.customer.consent.event.contactpreference.ContactPreference"
+                                                        "items": "my.domain.customer.consent.event.contactpreference.ContactPreference"
                                                     },
                                                     "null"
                                                 ],
@@ -714,7 +714,7 @@
                                                     "type": [
                                                         {
                                                             "type": "array",
-                                                            "items": "au.com.commbank.customer.consent.event.contactpreference.ContactPreference"
+                                                            "items": "my.domain.customer.consent.event.contactpreference.ContactPreference"
                                                         },
                                                         "null"
                                                     ],
@@ -821,7 +821,7 @@
                                                     "type": [
                                                         {
                                                             "type": "array",
-                                                            "items": "au.com.commbank.customer.consent.event.contactpreference.ContactPreference"
+                                                            "items": "my.domain.customer.consent.event.contactpreference.ContactPreference"
                                                         },
                                                         "null"
                                                     ],
