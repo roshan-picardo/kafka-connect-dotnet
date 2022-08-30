@@ -1,0 +1,7 @@
+[
+  {
+    "topic" : "sample-topic",
+    "schema": "/schemas/sample-schema.avsc",
+    "folder": "/messages"
+  }
+]

@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net6.0</TargetFramework>
+        <IsPackable>false</IsPackable>
+        <LangVersion>10</LangVersion>
+    </PropertyGroup>
+    
+    <ItemGroup>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.0.0" />
+        <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
+        <PackageReference Include="NSubstitute" Version="4.3.0" />
+        <PackageReference Include="xunit" Version="2.4.1" />
+        <PackageReference Include="xunit.runner.visualstudio" Version="2.4.3">
+          <PrivateAssets>all</PrivateAssets>
+          <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="coverlet.collector" Version="3.1.2">
+          <PrivateAssets>all</PrivateAssets>
+          <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\..\Kafka.Connect\Kafka.Connect.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Compile Remove="Connectors\ConnectDeadLetterTests.cs" />
+      <Compile Remove="Connectors\ConnectorTests.cs" />
+      <Compile Remove="Connectors\SinkTaskTests.cs" />
+      <Compile Remove="Processors\FieldRenamerTests.cs" />
+      <Compile Remove="Processors\JsonTypeOverriderTests.cs" />
+      <Compile Remove="Serializers\MessageDeserializerTests.cs" />
+      <Compile Remove="Converters\GenericRecordParserTests.cs" />
+      <Compile Remove="Converters\JsonRecordFlattenerTests.cs" />
+      <Compile Remove="Serializers\AvroDeserializerTests.cs" />
+      <Compile Remove="Serializers\IgnoreDeserializerTests.cs" />
+      <Compile Remove="Serializers\JsonDeserializerTests.cs" />
+      <Compile Remove="Serializers\JsonSchemaDeserializerTests.cs" />
+      <Compile Remove="Serializers\StringDeserializerTests.cs" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="Connectors" />
+      <Folder Include="Converters" />
+      <Folder Include="Serializers" />
+    </ItemGroup>
+
+</Project>

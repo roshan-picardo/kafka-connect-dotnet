@@ -18,6 +18,11 @@ namespace Kafka.Connect.Logging
             return (T)proxy;
         }
 
+        public string GetTypeName()
+        {
+            return _decorated.GetType().FullName;
+        }
+
         protected void SetParameters(T decorated, ILogger logger)
         {
             if (decorated == null)

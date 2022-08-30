@@ -21,8 +21,13 @@ namespace Kafka.Connect.Utilities
                  Log.ForContext<Worker>().Debug("{@Log}", new {Message = "No plugins registered. Please verify the configuration."});
                  return;
              }
-             plugins.Location = Directory.Exists(plugins.Location)? plugins.Location : $"{AppDomain.CurrentDomain.BaseDirectory}{plugins.Location}";
+             plugins.Location = Directory.Exists(plugins.Location) ? plugins.Location : $"{AppDomain.CurrentDomain.BaseDirectory}{plugins.Location}";
              string pluginLocation = null;
+             if (!Directory.Exists(plugins.Location))
+             {
+                 Log.ForContext<Worker>().Debug("{@Log}", new {Message = "Plugins directory is empty. Continuing without loading any plugins."});
+                 return;
+             }
              foreach (var (name, initializer) in plugins.Initializers)
              {
                  Log.ForContext<Worker>().Debug("{@Log}", new {Message = $"Loading plugin - {name}"});
