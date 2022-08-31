@@ -29,7 +29,6 @@
       <Compile Remove="Connectors\ConnectDeadLetterTests.cs" />
       <Compile Remove="Connectors\ConnectorTests.cs" />
       <Compile Remove="Connectors\SinkTaskTests.cs" />
-      <Compile Remove="Processors\FieldRenamerTests.cs" />
       <Compile Remove="Processors\JsonTypeOverriderTests.cs" />
       <Compile Remove="Serializers\MessageDeserializerTests.cs" />
       <Compile Remove="Converters\GenericRecordParserTests.cs" />
