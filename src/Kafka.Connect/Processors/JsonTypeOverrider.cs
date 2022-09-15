@@ -35,29 +35,29 @@ namespace Kafka.Connect.Processors
         {
             foreach (var key in fields.GetMatchingKeys(flattened).ToList())
             {
-                JToken jObject = null;
-                if (!flattened.ContainsKey(key) || flattened[key] == null || flattened[key] is not string s) continue;
+                JToken jToken = null;
+                if (flattened[key] == null || flattened[key] is not string s) continue;
                 try
                 {
                     if (s.Trim().StartsWith("{") && s.Trim().EndsWith("}"))
                     {
-                        jObject = JObject.Parse(s);
+                        jToken = JObject.Parse(s);
                     }
                     else if (s.Trim().StartsWith("[") && s.Trim().EndsWith("]"))
                     {
-                        jObject = JArray.Parse(s);
+                        jToken = JArray.Parse(s);
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "{@Log}", new {Message = "Error while parsing JSON data."});
+                    _logger.LogWarning(ex, "{@Log}", new {Message = $"Error while parsing JSON for key: {key}."});
                 }
 
-                if (jObject == null) continue;
+                if (jToken == null) continue;
                 flattened.Remove(key);
-                foreach (var (k, v) in  _recordFlattener.Flatten(jObject))
+                foreach (var (k, v) in  _recordFlattener.Flatten(jToken))
                 {
-                    flattened.Add(jObject is JObject ? $"{key}.{k}" : $"{key}{k}", v);
+                    flattened.Add(jToken is JObject ? $"{key}.{k}" : $"{key}{k}", v);
                 }
             }
 
