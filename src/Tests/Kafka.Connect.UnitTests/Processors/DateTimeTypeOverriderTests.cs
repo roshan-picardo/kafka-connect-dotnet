@@ -2,9 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Kafka.Connect.Plugin.Models;
+using Kafka.Connect.Plugin.Providers;
 using Kafka.Connect.Processors;
-using Microsoft.Extensions.Options;
 using NSubstitute;
 using Xunit;
 
@@ -12,13 +11,13 @@ namespace Kafka.Connect.UnitTests.Processors
 {
     public class DateTimeTypeOverriderTests
     {
-        private readonly IOptions<List<ConnectorConfig<IDictionary<string, string>>>> _options;
         private readonly DateTimeTypeOverrider _dateTimeTypeOverrider;
+        private readonly IConfigurationProvider _configurationProvider;
 
         public DateTimeTypeOverriderTests()
         {
-            _options = Substitute.For<IOptions<List<ConnectorConfig<IDictionary<string, string>>>>>();
-            _dateTimeTypeOverrider = new DateTimeTypeOverrider(_options, Substitute.For<IOptions<ConnectorConfig<IDictionary<string, string>>>>());
+            _configurationProvider = Substitute.For<IConfigurationProvider>();
+            _dateTimeTypeOverrider = new DateTimeTypeOverrider(_configurationProvider);
         }
         
         [Theory]
@@ -43,28 +42,13 @@ namespace Kafka.Connect.UnitTests.Processors
         {
             foreach (var prefix in new[] { "key.", "value.", "" })
             {
-                var options = new List<ConnectorConfig<IDictionary<string, string>>>
-                {
-                    new()
-                    {
-                        Name = connector,
-                        Processors = new List<ProcessorConfig<IDictionary<string, string>>>()
-                        {
-                            new()
-                            {
-                                Name = processor,
-                                Settings = settings.ToDictionary(s => $"{prefix}{s.Split(':')[0]}",
-                                    s => s.Split(':')[1])
-                            }
-                        }
-                    }
-                };
+                _configurationProvider.GetProcessorSettings<IDictionary<string, string>>(connector, processor).Returns(
+                    settings.ToDictionary(s => $"{prefix}{s.Split(':')[0]}", s => s.Split(':')[1]));
                 
                 var flattened =
                     data.ToDictionary(x => prefix == "" ? $"value.{x.Split(':')[0]}" : $"{prefix}{x.Split(':')[0]}",
                         v => v.Split(':')[1] == "100" ? 100 : (object)v.Split(':')[1]);
 
-                _options.Value.Returns(options);
                 var (skip, actual) =
                     await _dateTimeTypeOverrider.Apply(new Dictionary<string, object>(flattened), "connector-name");
                 Assert.False(skip);

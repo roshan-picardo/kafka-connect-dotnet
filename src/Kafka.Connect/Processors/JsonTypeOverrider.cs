@@ -4,10 +4,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using Kafka.Connect.Plugin.Converters;
 using Kafka.Connect.Plugin.Logging;
-using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Plugin.Processors;
+using Kafka.Connect.Plugin.Providers;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Newtonsoft.Json.Linq;
 
 namespace Kafka.Connect.Processors
@@ -17,8 +16,7 @@ namespace Kafka.Connect.Processors
         private readonly IRecordFlattener _recordFlattener;
         private readonly ILogger<JsonTypeOverrider> _logger;
 
-        public JsonTypeOverrider(IRecordFlattener recordFlattener, ILogger<JsonTypeOverrider> logger, IOptions<IList<ConnectorConfig<IList<string>>>> options, IOptions<ConnectorConfig<IList<string>>> shared) 
-            : base(options, shared)
+        public JsonTypeOverrider(ILogger<JsonTypeOverrider> logger, IRecordFlattener recordFlattener, IConfigurationProvider configurationProvider) : base(configurationProvider)
         {
             _recordFlattener = recordFlattener;
             _logger = logger;

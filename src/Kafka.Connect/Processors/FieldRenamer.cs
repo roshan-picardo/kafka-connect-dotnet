@@ -2,15 +2,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Kafka.Connect.Plugin.Logging;
-using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Plugin.Processors;
-using Microsoft.Extensions.Options;
+using Kafka.Connect.Plugin.Providers;
 
 namespace Kafka.Connect.Processors
 {
     public class FieldRenamer : Processor<IDictionary<string, string>>
     {
-        public FieldRenamer(IOptions<IList<ConnectorConfig<IDictionary<string, string>>>> options, IOptions<ConnectorConfig<IDictionary<string, string>>> shared) : base(options, shared)
+        public FieldRenamer(IConfigurationProvider configurationProvider) : base(configurationProvider)
         {
         }
 

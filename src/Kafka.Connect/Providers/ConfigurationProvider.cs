@@ -4,15 +4,18 @@ using System.Linq;
 using Confluent.Kafka;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Plugin;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 
 namespace Kafka.Connect.Providers
 {
-    public class ConfigurationProvider : IConfigurationProvider
+    public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugin.Providers.IConfigurationProvider
     {
+        private readonly IConfiguration _configuration;
         private readonly WorkerConfig _workerConfig;
-        public ConfigurationProvider(IOptions<WorkerConfig> options)
+        public ConfigurationProvider(IOptions<WorkerConfig> options, IConfiguration configuration)
         {
+            _configuration = configuration;
             _workerConfig = options?.Value ?? throw new ArgumentNullException(nameof(options));
         }
 
@@ -153,7 +156,15 @@ namespace Kafka.Connect.Providers
             return (_workerConfig.EnableAutoCommit ?? false, _workerConfig.EnableAutoOffsetStore ?? false);
         }
 
-        public void Validate()
+        public T GetProcessorSettings<T>(string connector, string processor)
+        {
+            var connectors = _configuration.GetSection("worker:connectors").Get<IList<ConnectorConfig<T>>>();
+            var config = connectors?.SingleOrDefault(c => c.Name == connector)
+                             ?.Processors?.SingleOrDefault(p => p.Value != null && p.Value.Name == processor).Value;
+            return config != null ? config.Settings : default;
+        }
+
+        public void Validate()  
         {
             if (string.IsNullOrWhiteSpace(_workerConfig.BootstrapServers))
             {
@@ -182,7 +193,7 @@ namespace Kafka.Connect.Providers
                 throw new ArgumentException("Plugin Name configuration property must be specified and must be unique.");
             }
 
-            foreach (var connector in _workerConfig.Connectors?.Values)
+            foreach (var connector in _workerConfig.Connectors?.Values ?? new List<ConnectorConfig>())
             {
                 if (!_workerConfig.Plugins.Initializers.Select(p => p.Key).Contains(connector.Plugin))
                 {
