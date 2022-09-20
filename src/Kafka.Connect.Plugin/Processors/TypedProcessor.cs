@@ -1,8 +1,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Kafka.Connect.Plugin.Converters;
-using Kafka.Connect.Plugin.Models;
-using Microsoft.Extensions.Options;
+using Kafka.Connect.Plugin.Providers;
 
 namespace Kafka.Connect.Plugin.Processors
 {
@@ -10,8 +9,7 @@ namespace Kafka.Connect.Plugin.Processors
     {
         private readonly IRecordFlattener _recordFlattener;
 
-        protected TypedProcessor(IRecordFlattener recordFlattener, IOptions<List<ConnectorConfig<TSettings>>> options,
-            IOptions<ConnectorConfig<TSettings>> shared) : base(options, shared)
+        protected TypedProcessor(IRecordFlattener recordFlattener, IConfigurationProvider configurationProvider) : base(configurationProvider)
         {
             _recordFlattener = recordFlattener;
         }

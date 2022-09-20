@@ -3,10 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Kafka.Connect.Plugin.Converters;
-using Kafka.Connect.Plugin.Models;
+using Kafka.Connect.Plugin.Providers;
 using Kafka.Connect.Processors;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Newtonsoft.Json.Linq;
 using NSubstitute;
 using Xunit;
@@ -18,15 +17,14 @@ namespace Kafka.Connect.UnitTests.Processors
         private readonly JsonTypeOverrider _jsonTypeOverrider;
         private readonly IRecordFlattener _recordFlattener;
         private readonly ILogger<JsonTypeOverrider> _logger;
-        private readonly IOptions<List<ConnectorConfig<IList<string>>>> _options;
-
+        private readonly IConfigurationProvider _configurationProvider;
 
         public JsonTypeOverriderTests()
         {
             _recordFlattener = Substitute.For<IRecordFlattener>();
             _logger = Substitute.For<MockLogger<JsonTypeOverrider>>();
-            _options = Substitute.For<IOptions<List<ConnectorConfig<IList<string>>>>>();
-            _jsonTypeOverrider = new JsonTypeOverrider(_recordFlattener, _logger, _options, Substitute.For<IOptions<ConnectorConfig<IList<string>>>>());
+            _configurationProvider = Substitute.For<IConfigurationProvider>();
+            _jsonTypeOverrider = new JsonTypeOverrider(_logger, _recordFlattener, _configurationProvider);
         }
         
         [Theory]
@@ -83,15 +81,8 @@ namespace Kafka.Connect.UnitTests.Processors
 
             foreach (var prefix in new[] {"key.", "value.", ""})
             {
-                var options = new List<ConnectorConfig<IList<string>>>
-                {
-                    new()
-                    {
-                        Name = connector,
-                        Processors = new List<ProcessorConfig<IList<string>>>()
-                            {new() {Name = processor, Settings = settings.Select(x => $"{prefix}{x}").ToList()}}
-                    }
-                };
+                _configurationProvider.GetProcessorSettings<IList<string>>(connector, processor)
+                    .Returns(settings.Select(x => $"{prefix}{x}").ToList());
 
                 var flattened = data.ToDictionary(
                     x => prefix == "" ? $"value.{x.Split(':')[0]}" : $"{prefix}{x.Split(':')[0]}",
@@ -104,7 +95,6 @@ namespace Kafka.Connect.UnitTests.Processors
                     .When(x => x.Flatten(Arg.Any<JToken>()))
                     .Do(x => actualJsons.Add(x.Arg<JToken>()));
                 
-                _options.Value.Returns(options);
                 var (skip, actual) =
                     await _jsonTypeOverrider.Apply(new Dictionary<string, object>(flattened), "connector-name");
                 Assert.False(skip);

@@ -1,9 +1,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Kafka.Connect.Plugin.Models;
+using Kafka.Connect.Plugin.Providers;
 using Kafka.Connect.Processors;
-using Microsoft.Extensions.Options;
 using NSubstitute;
 using Xunit;
 
@@ -11,13 +10,13 @@ namespace Kafka.Connect.UnitTests.Processors
 {
     public class WhitelistFieldProjectorTests
     {
-        private readonly IOptions<List<ConnectorConfig<IList<string>>>> _options;
+        private readonly IConfigurationProvider _configurationProvider;
         private readonly WhitelistFieldProjector _whitelistFieldProjector;
 
         public WhitelistFieldProjectorTests()
         {
-            _options = Substitute.For<IOptions<List<ConnectorConfig<IList<string>>>>>();
-            _whitelistFieldProjector = new WhitelistFieldProjector(_options, Substitute.For<IOptions<ConnectorConfig<IList<string>>>>());
+            _configurationProvider = Substitute.For<IConfigurationProvider>();
+            _whitelistFieldProjector = new WhitelistFieldProjector(_configurationProvider);
         }
         
         [Theory]
@@ -40,20 +39,12 @@ namespace Kafka.Connect.UnitTests.Processors
         {
             foreach (var prefix in new[] {"key.", "value.", ""})
             {
-                var options = new List<ConnectorConfig<IList<string>>>
-                {
-                    new()
-                    {
-                        Name = connector,
-                        Processors = new List<ProcessorConfig<IList<string>>>()
-                            {new() {Name = processor, Settings = settings.Select(x => $"{prefix}{x}").ToList()}}
-                    }
-                };
+                _configurationProvider.GetProcessorSettings<IList<string>>(connector, processor)
+                    .Returns(settings.Select(x => $"{prefix}{x}").ToList());
 
-                var flattened = keys.ToDictionary(x => prefix == "" ? $"value.{x}" : $"{prefix}{x}", v => (object) "");
+                var flattened = keys.ToDictionary(x => prefix == "" ? $"value.{x}" : $"{prefix}{x}", _ => (object) "");
                 var stays = expectedStays.Select(x => prefix == "" ? $"value.{x}" : $"{prefix}{x}").ToArray();
 
-                _options.Value.Returns(options);
                 var (skip, actual) =
                     await _whitelistFieldProjector.Apply(new Dictionary<string, object>(flattened), "connector-name");
                 Assert.False(skip);

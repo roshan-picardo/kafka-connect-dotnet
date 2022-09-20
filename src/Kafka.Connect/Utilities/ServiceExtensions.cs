@@ -11,7 +11,6 @@ using Kafka.Connect.Connectors;
 using Kafka.Connect.Converters;
 using Kafka.Connect.Handlers;
 using Kafka.Connect.Plugin.Converters;
-using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Processors;
 using Kafka.Connect.Serializers;
 using Kafka.Connect.Plugin.Processors;
@@ -103,12 +102,8 @@ namespace Kafka.Connect.Utilities
                 //.Configure<SchemaRegistryConfig>(configuration.GetSection("worker:schemaRegistry"))
                 .Configure<WorkerConfig>(configuration.GetSection("worker"), options => options.BindNonPublicProperties = true)
                 
-                .Configure<List<ConnectorConfig<IDictionary<string, string>>>>(configuration.GetSection("worker:connectors"), options => options.BindNonPublicProperties = true)
-                .Configure<List<ConnectorConfig<IList<string>>>>(configuration.GetSection("worker:connectors"), options => options.BindNonPublicProperties = true)
-                .Configure<ConnectorConfig<IDictionary<string, string>>>(configuration.GetSection("worker:shared"), options => options.BindNonPublicProperties = true)
-                .Configure<ConnectorConfig<IList<string>>>(configuration.GetSection("worker:shared"), options => options.BindNonPublicProperties = true)
-                
                 .AddSingleton<Providers.IConfigurationProvider, Providers.ConfigurationProvider>()
+                .AddSingleton<Plugin.Providers.IConfigurationProvider, Providers.ConfigurationProvider>()
                 .AddSingleton<IExecutionContext, ExecutionContext>()
                 .AddSingleton<IWorker, Worker>()
                 .AddControllers();

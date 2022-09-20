@@ -4,11 +4,12 @@ using System.Linq;
 using Confluent.Kafka;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Plugin;
-using Kafka.Connect.Providers;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using Xunit;
+using ConfigurationProvider = Kafka.Connect.Providers.ConfigurationProvider;
 
 namespace Kafka.Connect.UnitTests.Providers
 {
@@ -410,7 +411,7 @@ namespace Kafka.Connect.UnitTests.Providers
         {
             var options = Substitute.For<IOptions<WorkerConfig>>();
             options.Value.Returns(config);
-            return new ConfigurationProvider(options);
+            return new ConfigurationProvider(options, Substitute.For<IConfiguration>());
         }
 
         public static IEnumerable<object[]> FailOverConfigTests

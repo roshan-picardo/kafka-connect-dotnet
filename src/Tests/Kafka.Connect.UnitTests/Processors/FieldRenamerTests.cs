@@ -1,9 +1,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Kafka.Connect.Plugin.Models;
+using Kafka.Connect.Plugin.Providers;
 using Kafka.Connect.Processors;
-using Microsoft.Extensions.Options;
 using NSubstitute;
 using Xunit;
 
@@ -11,12 +10,12 @@ namespace Kafka.Connect.UnitTests.Processors
 {
     public class FieldRenamerTests
     {
-        private readonly IOptions<List<ConnectorConfig<IDictionary<string, string>>>> _options;
+        private readonly IConfigurationProvider _configurationProvider;
         private readonly FieldRenamer _fieldRenamer;
         public FieldRenamerTests()
         {
-            _options = Substitute.For<IOptions<List<ConnectorConfig<IDictionary<string, string>>>>>();
-            _fieldRenamer = new FieldRenamer(_options, Substitute.For<IOptions<ConnectorConfig<IDictionary<string, string>>>>());
+            _configurationProvider = Substitute.For<IConfigurationProvider>();
+            _fieldRenamer = new FieldRenamer(_configurationProvider);
         }
         
         
@@ -40,20 +39,11 @@ namespace Kafka.Connect.UnitTests.Processors
         {
             foreach (var prefix in new[] {"key.", "value.", ""})
             {
-                var options = new List<ConnectorConfig<IDictionary<string, string>>>
-                {
-                    new()
-                    {
-                        Name = connector,
-                        Processors = new List<ProcessorConfig<IDictionary<string, string>>>()
-                            {new() {Name = processor, Settings = settings.ToDictionary(s => $"{prefix}{s.Split(':')[0]}",
-                                s => $"{prefix}{s.Split(':')[1]}")}}
-                    }
-                };
+                _configurationProvider.GetProcessorSettings<IDictionary<string, string>>(connector, processor).Returns(
+                    settings.ToDictionary(s => $"{prefix}{s.Split(':')[0]}", s => $"{prefix}{s.Split(':')[1]}"));
 
-                var flattened = keys.ToDictionary(x => prefix == "" ? $"value.{x}" : $"{prefix}{x}", v => (object) "");
+                var flattened = keys.ToDictionary(x => prefix == "" ? $"value.{x}" : $"{prefix}{x}", _ => (object) "");
 
-                _options.Value.Returns(options);
                 var (skip, actual) =
                     await _fieldRenamer.Apply(new Dictionary<string, object>(flattened), "connector-name");
                 Assert.False(skip);

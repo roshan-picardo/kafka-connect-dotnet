@@ -2,16 +2,15 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Kafka.Connect.Plugin.Logging;
-using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Plugin.Processors;
-using Microsoft.Extensions.Options;
+using Kafka.Connect.Plugin.Providers;
 
 namespace Kafka.Connect.Processors
 {
     public class WhitelistFieldProjector : Processor<IList<string>>
     {
 
-        public WhitelistFieldProjector(IOptions<IList<ConnectorConfig<IList<string>>>> options, IOptions<ConnectorConfig<IList<string>>> shared) : base(options, shared)
+        public WhitelistFieldProjector(IConfigurationProvider configurationProvider) : base(configurationProvider)
         {
         }
         
