@@ -18,7 +18,7 @@
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>
         </PackageReference>
-        <PackageReference Include="MongoDB.Driver" Version="2.14.1" />
+        <PackageReference Include="MongoDB.Driver" Version="2.19.0" />
         <PackageReference Include="Serilog.Extensions.Logging" Version="3.1.0">
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>
