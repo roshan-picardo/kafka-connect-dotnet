@@ -29,20 +29,13 @@
       <Compile Remove="Connectors\ConnectDeadLetterTests.cs" />
       <Compile Remove="Connectors\ConnectorTests.cs" />
       <Compile Remove="Connectors\SinkTaskTests.cs" />
-      <Compile Remove="Serializers\MessageDeserializerTests.cs" />
       <Compile Remove="Converters\GenericRecordParserTests.cs" />
       <Compile Remove="Converters\JsonRecordFlattenerTests.cs" />
-      <Compile Remove="Serializers\AvroDeserializerTests.cs" />
-      <Compile Remove="Serializers\IgnoreDeserializerTests.cs" />
-      <Compile Remove="Serializers\JsonDeserializerTests.cs" />
-      <Compile Remove="Serializers\JsonSchemaDeserializerTests.cs" />
-      <Compile Remove="Serializers\StringDeserializerTests.cs" />
     </ItemGroup>
 
     <ItemGroup>
       <Folder Include="Connectors" />
       <Folder Include="Converters" />
-      <Folder Include="Serializers" />
     </ItemGroup>
 
 </Project>

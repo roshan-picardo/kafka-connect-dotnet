@@ -29,10 +29,10 @@ namespace Kafka.Connect.Serializers
             var keyToken =
                 await _processorServiceProvider.GetDeserializer(keyConfig).Deserialize(consumed.Message.Key,
                         new SerializationContext(MessageComponentType.Key, consumed.Topic, consumed.Message?.Headers),
-                        consumed.Message.Key == null || consumed.Message.Key.Length == 0);
+                        consumed.Message?.Key == null || consumed.Message.Key.Length == 0);
             var valueToken = 
                 await _processorServiceProvider.GetDeserializer(valueConfig)
-                        .Deserialize(consumed.Message.Value, new SerializationContext(MessageComponentType.Value, consumed.Topic, consumed.Message?.Headers), consumed.Message.Value == null || consumed.Message.Value.Length == 0);
+                        .Deserialize(consumed.Message?.Value, new SerializationContext(MessageComponentType.Value, consumed.Topic, consumed.Message?.Headers), consumed.Message.Value == null || consumed.Message.Value.Length == 0);
             return (keyToken, valueToken);
         }
 
