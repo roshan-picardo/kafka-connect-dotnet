@@ -1,7 +1,6 @@
 using System;
 using System.Threading.Tasks;
 using Confluent.Kafka;
-using Kafka.Connect.Config.Models;
 using Kafka.Connect.Plugin.Serializers;
 using Kafka.Connect.Providers;
 using Kafka.Connect.Serializers;
@@ -10,20 +9,22 @@ using Newtonsoft.Json.Linq;
 using NSubstitute;
 using Xunit;
 
-namespace Kafka.Connect.Tests.Serializers
+namespace Kafka.Connect.UnitTests.Serializers
 {
-    public class MessageDeserializerTests
+    public class MessageConverterTests
     {
         private readonly IProcessorServiceProvider _processorServiceProvider;
         private readonly IMessageConverter _messageConverter;
+        private readonly IConfigurationProvider _configurationProvider;
         private readonly IDeserializer _deserializer;
 
-        public MessageDeserializerTests()
+        public MessageConverterTests()
         {
             _processorServiceProvider = Substitute.For<IProcessorServiceProvider>();
             _deserializer = Substitute.For<IDeserializer>();
+            _configurationProvider = Substitute.For<IConfigurationProvider>();
             _messageConverter = new MessageConverter(Substitute.For<ILogger<MessageConverter>>(),
-                _processorServiceProvider);
+                _processorServiceProvider, _configurationProvider);
         }
 
         [Fact]
@@ -31,14 +32,14 @@ namespace Kafka.Connect.Tests.Serializers
         {
             var keyToken = new JObject {{"json", "this is a key token sample!"}};
             var valueToken = new JObject {{"json", "this is a value token sample!"}};
-            //new JObject {{"json", "this is a test sample!"}}
+            _configurationProvider.GetMessageConverters(Arg.Any<string>(), Arg.Any<string>()).Returns(("key", "value"));
             _processorServiceProvider.GetDeserializer(Arg.Any<string>()).Returns(_deserializer);
             _processorServiceProvider.GetDeserializer(Arg.Any<string>()).Returns(_deserializer);
             _deserializer.Deserialize(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<SerializationContext>(), Arg.Any<bool>())
                 .Returns(d => keyToken, d => valueToken);
 
-            var (expectedKey, expectedValue) = await _messageConverter.Deserialize(new ConverterConfig(),
-                new ConsumeResult<byte[], byte[]> {Message = new Message<byte[], byte[]>()});
+            var (expectedKey, expectedValue) = await _messageConverter.Deserialize(
+                new ConsumeResult<byte[], byte[]> {Message = new Message<byte[], byte[]>()}, "");
 
             Assert.Equal(keyToken, expectedKey);
             Assert.Equal(valueToken, expectedValue);

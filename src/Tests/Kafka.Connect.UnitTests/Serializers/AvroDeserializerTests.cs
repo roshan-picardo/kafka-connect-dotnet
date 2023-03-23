@@ -8,7 +8,7 @@ using Newtonsoft.Json.Linq;
 using NSubstitute;
 using Xunit;
 
-namespace Kafka.Connect.Tests.Serializers
+namespace Kafka.Connect.UnitTests.Serializers
 {
     public class AvroDeserializerTests
     {
@@ -26,7 +26,7 @@ namespace Kafka.Connect.Tests.Serializers
             
         }
 
-        //[Fact]
+        [Fact]
         public async Task AvroDeserializer_TestAsIs()
         {
             var expected = new JObject {{"value", "this is a test sample!"}};
@@ -38,8 +38,6 @@ namespace Kafka.Connect.Tests.Serializers
                 Arg.Any<SerializationContext>());
             _parser.Received().Parse(Arg.Any<GenericRecord>());
             Assert.Equal(expected, actual);
-
         }
-
     }
 }
