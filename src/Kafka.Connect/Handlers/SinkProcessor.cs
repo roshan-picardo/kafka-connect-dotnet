@@ -74,7 +74,7 @@ namespace Kafka.Connect.Handlers
                 batch.SkipAll();
                 return;
             }
-            await sinkHandler.Put(batch);
+            await sinkHandler.Put(batch, connector, _configurationProvider.GetBatchConfig(connector).Parallelism);
         }
     }
 }

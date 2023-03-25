@@ -150,11 +150,11 @@ namespace Kafka.Connect.UnitTests.Handlers
         {
             var batch = GetBatch();
             _sinkHandlerProvider.GetSinkHandler(Arg.Any<string>()).Returns(_sinkHandler);
+            _configurationProvider.GetBatchConfig(Arg.Any<string>()).Returns(new BatchConfig() { Parallelism = 1 });
 
             await _sinkProcessor.Sink(batch, "connector");
-
             _sinkHandlerProvider.Received().GetSinkHandler(Arg.Any<string>());
-            await _sinkHandler.Received().Put(Arg.Any<SinkRecordBatch>());
+            await _sinkHandler.Received().Put(Arg.Any<SinkRecordBatch>(), Arg.Any<string>(), Arg.Any<int>());
             _logger.DidNotReceive().Log(LogLevel.Warning, "{@Log}", new {Message = "Sink handler is not specified. Check if the handler is configured properly, and restart the connector."});
         } 
         

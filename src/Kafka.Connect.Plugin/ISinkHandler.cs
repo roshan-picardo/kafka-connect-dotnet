@@ -5,7 +5,7 @@ namespace Kafka.Connect.Plugin
 {
     public interface ISinkHandler
     {
-        Task<SinkRecordBatch> Put(SinkRecordBatch sinkRecordBatch);
+        Task<SinkRecordBatch> Put(SinkRecordBatch sinkRecordBatch, string connector = null, int parallelism = 100);
 
         Task Startup(string connector);
 

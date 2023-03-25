@@ -24,82 +24,28 @@ namespace Kafka.Connect.Mongodb.Collections
             _logger = logger;
         }
 
-        public async Task WriteMany(IList<MongoSinkRecord> batch, MongoSinkConfig mongoSinkConfig)
+        public async Task WriteMany(IList<MongoSinkRecord> batch, MongoSinkConfig mongoSinkConfig, string connector)
         {
-            if (!mongoSinkConfig.HasTopicOverrides())
-            {
-                await Write(batch.Select(s => s.SinkRecord), mongoSinkConfig.Properties.Collection.Name,
-                    BuildWriteModels(batch), mongoSinkConfig);
-            }
-            else
-            {
-                foreach (var (collection, topics) in mongoSinkConfig.GetCollectionTopicMaps(batch.Select(t => t.Topic)
-                    .Distinct()))
-                {
-                    var records = batch.Where(b => topics.Contains(b.Topic)).Select(r => r.SinkRecord);
-                    var writeModels = batch.Where(b => topics.Contains(b.Topic))
-                        .SelectMany(wm => wm.WriteModels);
-                    await Write(records, collection, writeModels, mongoSinkConfig);
-                }
-            }
+                await Write(batch.Select(s => s.SinkRecord), BuildWriteModels(batch), mongoSinkConfig, connector);
         }
 
-        public async Task CreateCollection(MongoSinkConfig config)
-        {
-            if (config.Properties?.Definition?.Create ?? false)
-            {
-                var mongoDatabase = _mongoClientProvider.GetMongoClient(config.Connector)
-                    .GetDatabase(config.Properties.Database);
-                var collectionName = (await mongoDatabase.ListCollectionNamesAsync(new ListCollectionNamesOptions
-                    {Filter = new BsonDocument {{"name", config.Properties.Definition.Collection}}})).FirstOrDefault();
-
-                if (string.IsNullOrEmpty(collectionName))
-                {
-                    _logger.LogInformation(
-                        $"Attempting to create collection: {config.Properties.Definition.Collection}");
-                    await mongoDatabase.CreateCollectionAsync(config.Properties.Definition.Collection);
-                }
-
-                var collection = mongoDatabase.GetCollection<BsonDocument>(config.Properties.Definition.Collection);
-
-                var indexes = new List<CreateIndexModel<BsonDocument>>();
-
-                foreach (var collectionIndex in config.Properties.Definition.Indexes)
-                {
-                    var bson = new BsonDocument();
-                    foreach (var collectionIndexField in collectionIndex.Fields)
-                    {
-                        bson.Add(new BsonElement(collectionIndexField.Name, collectionIndexField.Order));
-                    }
-
-                    indexes.Add(new CreateIndexModel<BsonDocument>(bson,
-                        new CreateIndexOptions {Unique = collectionIndex.Unique}));
-
-                }
-
-                await collection.Indexes.CreateManyAsync(indexes);
-                _logger.LogInformation(
-                    $"MongoDB collection '{config.Properties.Definition.Collection}' is setup and ready to use.");
-            }
-        }
-
-        private async Task Write(IEnumerable<SinkRecord> records, string collectionName, IEnumerable<WriteModel<BsonDocument>> writeModels, MongoSinkConfig mongoSinkConfig)
+        private async Task Write(IEnumerable<SinkRecord> records, IEnumerable<WriteModel<BsonDocument>> writeModels, MongoSinkConfig mongoSinkConfig, string connector)
         {
             var models = writeModels?.ToList();
             if (models == null || !models.Any())
             {
                 return;
             }
-            using (LogContext.Push(new PropertyEnricher("database", mongoSinkConfig.Properties.Database),
-                new PropertyEnricher("collection", mongoSinkConfig.Properties.Collection)))
+            using (LogContext.Push(new PropertyEnricher("database", mongoSinkConfig.Database),
+                new PropertyEnricher("collection", mongoSinkConfig.Collection)))
             {
                 try
                 {
-                    var collection = _mongoClientProvider.GetMongoClient(mongoSinkConfig.Connector)
-                        .GetDatabase(mongoSinkConfig.Properties.Database)
-                        .GetCollection<BsonDocument>(collectionName);
+                    var collection = _mongoClientProvider.GetMongoClient(connector)
+                        .GetDatabase(mongoSinkConfig.Database)
+                        .GetCollection<BsonDocument>(mongoSinkConfig.Collection);
                     var bulkWriteResult = await collection.BulkWriteAsync(models,
-                        new BulkWriteOptions {IsOrdered = mongoSinkConfig.Properties.WriteStrategy.IsWriteOrdered});
+                        new BulkWriteOptions {IsOrdered = mongoSinkConfig.WriteStrategy.IsWriteOrdered});
                     _logger.LogDebug("{@debug}",
                         new
                         {

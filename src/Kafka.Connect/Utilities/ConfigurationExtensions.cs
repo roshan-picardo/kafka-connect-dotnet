@@ -7,7 +7,6 @@ using Kafka.Connect.Configurations;
 using Kafka.Connect.Plugin;
 using Microsoft.Extensions.Configuration;
 using Serilog;
-using Serilog.Context;
 
 namespace Kafka.Connect.Utilities
 {
@@ -57,10 +56,14 @@ namespace Kafka.Connect.Utilities
                  var assembly = loadContext.LoadFromAssemblyName(AssemblyName.GetAssemblyName(pluginLocation));
 
                  var type = assembly.GetType(initializer.Class);
+                 
+
                  if (type != null && Activator.CreateInstance(type) is IPluginInitializer instance)
                  {
+                     var connectors = configuration.GetSection("worker:connectors").Get<IList<ConnectorConfig>>();
                      ServiceExtensions.AddPluginServices +=
-                         collection => instance.AddServices(collection, configuration, name);
+                         collection =>
+                             instance.AddServices(collection, configuration, name, connectors.Select(c => c.Name));
                  }
                  else
                  {

@@ -1,47 +1,34 @@
-using System.Collections.Generic;
-using System.Linq;
-using Confluent.Kafka;
-using Kafka.Connect.Plugin.Exceptions;
-using MongoDB.Driver;
+using System;
+using System.Text;
+using System.Web;
 
 namespace Kafka.Connect.Mongodb.Models
 {
     public class MongoSinkConfig
     {
-        internal string Connector { get; set; }
-        public Properties Properties { get; set; } 
-        public BatchConfig Batch { get; set; }
-        
-        public bool HasTopicOverrides()
+        private string _connectionUri;
+
+        public string ConnectionUri
         {
-            if (Properties?.Collection == null)
-            {
-                throw new ConnectDataException(ErrorCode.InvalidConfig, new MongoConfigurationException("No collection defined to sink the data."));
-            }
-            return Properties.Collection.Overrides != null && Properties.Collection.Overrides.Any();
+            get => _connectionUri == null
+                ? null
+                : string.Format(_connectionUri, Username,
+                    Password == null
+                        ? Password
+                        : HttpUtility.UrlEncode(Encoding.UTF8.GetString(Convert.FromBase64String(Password))),
+                    Database);
+            set => _connectionUri = value;
         }
 
-        public IEnumerable<(string Collection, string[] Topics)> GetCollectionTopicMaps(IEnumerable<string> topics)
-        {
-            if (Properties.Collection.Overrides == null || !Properties.Collection.Overrides.Any())
-            {
-                return topics.Select(r => (r, new[] {Properties.Collection.Name})).ToList();
-            }
+        public string Database { get; set; }
 
-            var overrides = Properties.Collection.Overrides.SelectMany(m =>
-                m.Value.Select(s => new {topic = m.Key, collection = s})).ToList();
+        public string Collection { get; set; }
 
-            foreach (var topic in topics)
-            {
-                if (overrides.All(o => o.topic != topic))
-                {
-                    overrides.Add(new {topic, collection = Properties.Collection.Name});
-                }
-            }
+        public string Username { get; set; }
 
-            return overrides.GroupBy(o => o.collection,
-                    (c, group) => new {Collection = c, Topics = group.Select(g => g.topic).ToArray()})
-                .Select(s => (s.Collection, s.Topics)).ToList();
-        }
+        public string Password { get; set; }
+
+        public Definition Definition { get; set; }
+        public WriteStrategy WriteStrategy { get; set; }
     }
 }

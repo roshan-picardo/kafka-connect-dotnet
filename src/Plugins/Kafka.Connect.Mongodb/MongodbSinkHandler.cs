@@ -1,4 +1,4 @@
-﻿﻿using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,10 +10,10 @@ using Kafka.Connect.Mongodb.Models;
 using Kafka.Connect.Plugin;
 using Kafka.Connect.Plugin.Exceptions;
 using Kafka.Connect.Plugin.Extensions;
- using Kafka.Connect.Plugin.Logging;
- using Kafka.Connect.Plugin.Models;
+using Kafka.Connect.Plugin.Logging;
+using Kafka.Connect.Plugin.Models;
+using Kafka.Connect.Plugin.Providers;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Serilog.Context;
 using Serilog.Core.Enrichers;
 
@@ -23,26 +23,27 @@ namespace Kafka.Connect.Mongodb
     {
         private readonly ILogger<MongodbSinkHandler> _logger;
         private readonly IEnumerable<IWriteModelStrategyProvider> _writeModelStrategyProviders;
-        private readonly IMongoSinkConfigProvider _mongoSinkConfigProvider;
+        private readonly IConfigurationProvider _configurationProvider;
         private readonly IMongoWriter _mongoWriter;
         private readonly string _plugin;
 
         public MongodbSinkHandler(ILogger<MongodbSinkHandler> logger,
-            IEnumerable<IWriteModelStrategyProvider> writeModelStrategyProviders, IMongoSinkConfigProvider mongoSinkConfigProvider,
+            IEnumerable<IWriteModelStrategyProvider> writeModelStrategyProviders, IConfigurationProvider configurationProvider,
             IMongoWriter mongoWriter, string plugin = "")
         {
             _logger = logger;
             _writeModelStrategyProviders = writeModelStrategyProviders;
-            _mongoSinkConfigProvider = mongoSinkConfigProvider;
+            _configurationProvider = configurationProvider;
             _mongoWriter = mongoWriter;
             _plugin = plugin;
         }
 
         [OperationLog("Invoking put.")]
-        public async Task<SinkRecordBatch> Put(SinkRecordBatch batches)
+        public async Task<SinkRecordBatch> Put(SinkRecordBatch batches, string connector = null, int parallelism = 100)
         {
-            _logger.LogTrace("Building write models...");
-            var mongoSinkConfig = _mongoSinkConfigProvider.GetMongoSinkConfig(batches.Connector);
+            connector ??= batches.Connector;
+            var mongoSinkConfig = _configurationProvider.GetSinkConfigProperties<MongoSinkConfig>(connector);
+            
 
             var toWrite = new BlockingCollection<MongoSinkRecord>();
             foreach (var batch in batches.BatchByTopicPartition)
@@ -54,7 +55,7 @@ namespace Kafka.Connect.Mongodb
                         {
                             if (record.IsSaved)
                             {
-                                _logger.LogDebug("{@debug}", new {message = "Record already saved to mongodb."});
+                                _logger.LogDebug("{@Log}", new {message = "Record already saved to mongodb."});
                                 return;
                             }
 
@@ -62,8 +63,7 @@ namespace Kafka.Connect.Mongodb
                             if (!record.Skip)
                             {
                                 var strategy =
-                                    _writeModelStrategyProviders.GetWriteModelStrategy(mongoSinkConfig.Properties
-                                        .WriteStrategy, sinkRecord);
+                                    _writeModelStrategyProviders.GetWriteModelStrategy(mongoSinkConfig.WriteStrategy, sinkRecord);
                                 if (strategy == null)
                                 {
                                     sinkRecord.Status = SinkStatus.Failed;
@@ -74,7 +74,7 @@ namespace Kafka.Connect.Mongodb
                                         .SetLogContext(record);
                                 }
                                 (sinkRecord.Status, sinkRecord.WriteModels) = await strategy.CreateWriteModels(record);
-                                _logger.LogTrace("{@debug}",
+                                _logger.LogTrace("{@Log}",
                                     new
                                     {
                                         message =
@@ -85,7 +85,7 @@ namespace Kafka.Connect.Mongodb
                             {
                                 sinkRecord.Status = SinkStatus.Skipping;
                             }
-                            _logger.LogTrace("{@debug}",
+                            _logger.LogTrace("{@Log}",
                                 new
                                 {
                                     models = sinkRecord.ReadyToWrite ? sinkRecord.WriteModels.Count() : 0,
@@ -97,7 +97,7 @@ namespace Kafka.Connect.Mongodb
                             toWrite.Add(sinkRecord);
                         },
                         (record, exception) => exception.SetLogContext(record),
-                        mongoSinkConfig.Batch?.Parallelism ?? 100);
+                        parallelism);
                 }
             }
 
@@ -108,7 +108,7 @@ namespace Kafka.Connect.Mongodb
                         .OrderBy(s => s.Topic)
                         .ThenBy(s => s.Partition)
                         .ThenBy(s => s.Offset).ToList(),
-                    mongoSinkConfig); //lets preserve the order
+                    mongoSinkConfig, connector); //lets preserve the order
             }
 
             foreach (var mongoSinkRecord in toWrite)
@@ -119,17 +119,14 @@ namespace Kafka.Connect.Mongodb
 
             return batches;
         }
-        
-        [OperationLog("Running mongodb sink handler startup script.")]
-        public async Task Startup(string connector)
+
+        public Task Startup(string connector)
         {
-            await _mongoWriter.CreateCollection(_mongoSinkConfigProvider.GetMongoSinkConfig(connector));
+            return Task.CompletedTask;
         }
-        
-        [OperationLog("Running mongodb sink handler cleanup script.")]
+
         public Task Cleanup(string connector)
         {
-            _logger?.LogTrace("From Mongo sink handler initializer - lets do some cleanup tasks...");
             return Task.CompletedTask;
         }
 
