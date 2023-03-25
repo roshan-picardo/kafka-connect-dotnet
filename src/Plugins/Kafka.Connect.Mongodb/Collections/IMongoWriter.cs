@@ -6,8 +6,6 @@ namespace Kafka.Connect.Mongodb.Collections
 {
     public interface IMongoWriter
     {
-        Task WriteMany(IList<MongoSinkRecord> batch, MongoSinkConfig mongoSinkConfig);
-
-        Task CreateCollection(MongoSinkConfig mongoSinkConfig);
+        Task WriteMany(IList<MongoSinkRecord> batch, MongoSinkConfig mongoSinkConfig, string connector);
     }
 }
