@@ -158,16 +158,16 @@ namespace Kafka.Connect.Providers
 
         public T GetProcessorSettings<T>(string connector, string processor)
         {
-            var connectors = _configuration.GetSection("worker:connectors").Get<IList<ConnectorConfig<T>>>();
-            var config = connectors?.SingleOrDefault(c => c.Name == connector)
+            var connectors = _configuration.GetSection("worker:connectors").Get<IDictionary<string, ConnectorConfig<T>>>();
+            var config = connectors?.SingleOrDefault(c => (c.Value.Name ?? c.Key) == connector).Value
                              ?.Processors?.SingleOrDefault(p => p.Value != null && p.Value.Name == processor).Value;
             return config != null ? config.Settings : default;
         }
 
         public T GetSinkConfigProperties<T>(string connector, string plugin = null)
         {
-            var connectors = _configuration.GetSection("worker:connectors").Get<IList<ConnectorSinkConfig<T>>>();
-            var config = connectors?.SingleOrDefault(c => c.Name == connector && (!string.IsNullOrWhiteSpace(plugin) || c.Plugin == plugin))?.Sink;
+            var connectors = _configuration.GetSection("worker:connectors").Get<IDictionary<string, ConnectorSinkConfig<T>>>();
+            var config = connectors?.SingleOrDefault(c => (c.Value.Name ?? c.Key) == connector && (!string.IsNullOrWhiteSpace(plugin) || c.Value.Plugin == plugin)).Value?.Sink;
             return config != null ? config.Properties : default;
         }
 

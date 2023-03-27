@@ -60,10 +60,11 @@ namespace Kafka.Connect.Utilities
 
                  if (type != null && Activator.CreateInstance(type) is IPluginInitializer instance)
                  {
-                     var connectors = configuration.GetSection("worker:connectors").Get<IList<ConnectorConfig>>();
+                     var connectors = configuration.GetSection("worker:connectors").Get<IDictionary<string, ConnectorConfig>>()
+                         .Where(c => c.Value.Plugin == name).Select(c => c.Value.Name ?? c.Key);
                      ServiceExtensions.AddPluginServices +=
                          collection =>
-                             instance.AddServices(collection, configuration, name, connectors.Select(c => c.Name));
+                             instance.AddServices(collection, configuration, (name, connectors));
                  }
                  else
                  {

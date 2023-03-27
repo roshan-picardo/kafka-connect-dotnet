@@ -13,7 +13,7 @@ namespace Kafka.Connect.Mongodb
 {
     public abstract class PluginInitializer : IPluginInitializer
     {
-        public void AddServices(IServiceCollection collection, IConfiguration configuration, string plugin, IEnumerable<string> connectors)
+        public void AddServices(IServiceCollection collection, IConfiguration configuration, (string Plugin, IEnumerable<string> Connectors) pluginConfig)
         {
             try
             {
@@ -22,7 +22,7 @@ namespace Kafka.Connect.Mongodb
                         provider.GetService<ILogger<MongodbSinkHandler>>(),
                         provider.GetService<IEnumerable<IWriteModelStrategyProvider>>(),
                         provider.GetService<Plugin.Providers.IConfigurationProvider>(),
-                        provider.GetService<IMongoWriter>(), plugin))
+                        provider.GetService<IMongoWriter>(), pluginConfig.Plugin))
                     .AddScoped<IPluginInitializer, DefaultPluginInitializer>()
                     .AddScoped<IMongoClientProvider, MongoClientProvider>()
                     .AddScoped<IWriteModelStrategyProvider, WriteModelStrategyProvider>()
@@ -30,7 +30,7 @@ namespace Kafka.Connect.Mongodb
                     .AddScoped<IWriteModelStrategy, DefaultWriteModelStrategy>()
                     .AddScoped<IWriteModelStrategy, TopicSkipWriteModelStrategy>()
                     .AddScoped<IMongoWriter, MongoWriter>();
-                AddMongoClients(collection, plugin, connectors);
+                AddMongoClients(collection, pluginConfig.Plugin, pluginConfig.Connectors);
                 AddAdditionalServices(collection, configuration);
             }
             catch (Exception ex)
