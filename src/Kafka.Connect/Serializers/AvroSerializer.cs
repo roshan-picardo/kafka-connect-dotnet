@@ -8,8 +8,8 @@ using Confluent.Kafka;
 using Confluent.SchemaRegistry;
 using Kafka.Connect.Converters;
 using Kafka.Connect.Plugin.Exceptions;
+using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Serializers;
-using Kafka.Connect.Schemas;
 using Newtonsoft.Json.Linq;
 
 namespace Kafka.Connect.Serializers
@@ -25,8 +25,8 @@ namespace Kafka.Connect.Serializers
         {
             _serializer = serializer;
             _genericRecordBuilder = genericRecordBuilder;
-            _schemaRegistryClient =
-                schemaRegistryClients.FirstOrDefault(client => client is ProducerCachedSchemaRegistryClient);
+           /* _schemaRegistryClient =
+                schemaRegistryClients.FirstOrDefault(client => client is ProducerCachedSchemaRegistryClient);*/
         }
 
         public override async Task<byte[]> Serialize<T>(JToken data, SerializationContext context, T schema)

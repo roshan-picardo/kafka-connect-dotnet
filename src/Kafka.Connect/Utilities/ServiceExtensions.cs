@@ -17,7 +17,6 @@ using Kafka.Connect.Plugin.Processors;
 using Kafka.Connect.Plugin.Serializers;
 using Kafka.Connect.Plugin.Tokens;
 using Kafka.Connect.Providers;
-using Kafka.Connect.Schemas;
 using Kafka.Connect.Tokens;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -64,34 +63,12 @@ namespace Kafka.Connect.Utilities
                 .AddScopedWithLogging<IProcessor, WhitelistFieldProjector>(trace)
                 .AddScopedWithLogging<IProcessor, FieldRenamer>()
                 
-                .AddScoped<IAsyncDeserializer<GenericRecord>>(provider =>
-                {
-                    var client = provider.GetServices<ISchemaRegistryClient>()
-                        .FirstOrDefault(c => c is ConsumerCachedSchemaRegistryClient);
-                    return new AvroDeserializer<GenericRecord>(client);
-                })
-                .AddScoped<IAsyncSerializer<GenericRecord>>(provider =>
-                {
-                    var client = provider.GetServices<ISchemaRegistryClient>()
-                        .FirstOrDefault(c => c is ProducerCachedSchemaRegistryClient);
-                    return new AvroSerializer<GenericRecord>(client);
-                })
-                .AddScoped<IAsyncDeserializer<JObject>>(provider =>
-                {
-                    var client = provider.GetServices<ISchemaRegistryClient>()
-                        .FirstOrDefault(c => c is ConsumerCachedSchemaRegistryClient);
-                    return new AvroDeserializer<JObject>(client);
-                })
+                .AddScoped<IAsyncDeserializer<GenericRecord>, AvroDeserializer<GenericRecord>>()
+                .AddScoped<IAsyncDeserializer<JObject>, AvroDeserializer<JObject>>()
                 .AddScoped<ISchemaRegistryClient>(_ =>
                 {
                     var config = configuration.GetSection("worker:schemaRegistry").Get<SchemaRegistryConfig>();
-                    return string.IsNullOrEmpty(config?.Url) ? null : new ConsumerCachedSchemaRegistryClient(config);
-                })
-                .AddScoped<ISchemaRegistryClient>(_ =>
-                {
-                    var config = configuration.GetSection("worker:publisher:schemaRegistry")
-                        .Get<SchemaRegistryConfig>() ?? configuration.GetSection("worker:schemaRegistry").Get<SchemaRegistryConfig>();
-                    return string.IsNullOrEmpty(config?.Url) ? null : new ProducerCachedSchemaRegistryClient(config);
+                    return string.IsNullOrEmpty(config?.Url) ? null : new CachedSchemaRegistryClient(config);
                 })
                 .AddScopedWithLogging<IDeserializer, AvroDeserializer>(trace)
                 .AddScopedWithLogging<IDeserializer, JsonDeserializer>(trace)
@@ -100,7 +77,6 @@ namespace Kafka.Connect.Utilities
                 .AddScopedWithLogging<IDeserializer, IgnoreDeserializer>(trace)
                 .AddScopedWithLogging<IMessageConverter, MessageConverter>(trace)
 
-                //.Configure<SchemaRegistryConfig>(configuration.GetSection("worker:schemaRegistry"))
                 .Configure<WorkerConfig>(configuration.GetSection("worker"), options => options.BindNonPublicProperties = true)
                 
                 .AddSingleton<Providers.IConfigurationProvider, Providers.ConfigurationProvider>()
