@@ -3,6 +3,8 @@ using System.Linq;
 using Confluent.Kafka;
 using Kafka.Connect.Connectors;
 using Microsoft.Extensions.Logging;
+using Microsoft.VisualBasic;
+using Microsoft.VisualBasic.CompilerServices;
 
 namespace Kafka.Connect.Builders
 {
@@ -48,7 +50,10 @@ namespace Kafka.Connect.Builders
                     break;
                 case SyslogLevel.Notice:
                 case SyslogLevel.Warning:
-                    _logger.LogWarning("{@Log}", log);
+                    var info = LikeOperator.LikeString(log.Message,
+                        "* Configuration property * is a consumer property and will be ignored by this producer instance",
+                        CompareMethod.Text);
+                    _logger.Log(info ? LogLevel.Trace : LogLevel.Warning, "{@Log}", log);
                     break;
                 case SyslogLevel.Info:
                     _logger.LogInformation("{@Log}", log);
