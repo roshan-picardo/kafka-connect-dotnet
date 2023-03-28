@@ -167,7 +167,7 @@ namespace Kafka.Connect.Providers
         public T GetSinkConfigProperties<T>(string connector, string plugin = null)
         {
             var connectors = _configuration.GetSection("worker:connectors").Get<IDictionary<string, ConnectorSinkConfig<T>>>();
-            var config = connectors?.SingleOrDefault(c => (c.Value.Name ?? c.Key) == connector && (!string.IsNullOrWhiteSpace(plugin) || c.Value.Plugin == plugin)).Value?.Sink;
+            var config = connectors?.SingleOrDefault(c => (c.Value.Name ?? c.Key) == connector && (string.IsNullOrWhiteSpace(plugin) || c.Value.Plugin == plugin)).Value?.Sink;
             return config != null ? config.Properties : default;
         }
 

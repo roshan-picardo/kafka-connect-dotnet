@@ -41,6 +41,9 @@
 
     <ItemGroup>
       <None Include="bin\Debug\net6.0\appsettings.json" />
+      <None Update="appsettings.json">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
     </ItemGroup>
 
     <ItemGroup>
