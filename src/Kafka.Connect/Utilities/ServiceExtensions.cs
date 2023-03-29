@@ -36,6 +36,7 @@ namespace Kafka.Connect.Utilities
         {
             var trace = configuration.GetSection("worker").Get<WorkerConfig>()?.Trace ?? false;
             services
+                .AddScoped(typeof(ILogger<>), typeof(Logger<>))
                 .AddSingleton<ILogDecorator, LogDecorator>()
                 .AddScoped<IConnector, Connector>()
                 .AddScoped<ISinkTask, SinkTask>()

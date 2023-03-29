@@ -7,14 +7,14 @@ using Microsoft.Extensions.Logging;
 
 namespace Kafka.Connect.Logging
 {
-    public class TimedLog : IDisposable
+    public class OperationLog : IDisposable
     {
         private readonly ILogger _logger;
         private readonly IList<(string key, object value)> _data;
         private readonly Stopwatch _stopwatch;
         private bool _success;
 
-        public TimedLog(ILogger logger, string message, string[] data)
+        public OperationLog(ILogger logger, string message, string[] data)
         {
             _logger = logger;
             _stopwatch = Stopwatch.StartNew();
@@ -55,7 +55,7 @@ namespace Kafka.Connect.Logging
             dataList.Add("Operation", _stopwatch.IsRunning ? "Started" : _success ? "Completed" : "Failed");
             if (!_stopwatch.IsRunning)
             {
-                dataList.Add("Duration", decimal.Round(decimal.Divide(_stopwatch.ElapsedTicks, TimeSpan.TicksPerMillisecond * 100), 2));
+                dataList.Add("Duration", decimal.Round(decimal.Divide(_stopwatch.ElapsedTicks, TimeSpan.TicksPerMillisecond * 100), 3));
             }
 
             return dataList;

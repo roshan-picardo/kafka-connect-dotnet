@@ -22,13 +22,13 @@ namespace Kafka.Connect.Logging
              object result = null;
              if (!IsAsyncMethod(methodInfo))
              {
-                 using var timed = new TimedLog(logger,  message, data);
+                 using var timed = new OperationLog(logger,  message, data);
                  result = methodInfo.Invoke(obj, args);
                  timed.Complete();
              }
              else
              {
-                 var timed = new TimedLog(logger, message, data);
+                 var timed = new OperationLog(logger, message, data);
 
                  result = methodInfo.Invoke(obj, args);
 

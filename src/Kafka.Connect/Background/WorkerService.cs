@@ -2,8 +2,8 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Kafka.Connect.Connectors;
+using Kafka.Connect.Logging;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 
 namespace Kafka.Connect.Background
 {
@@ -25,13 +25,13 @@ namespace Kafka.Connect.Background
             var cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
             try
             {
-                _logger.LogDebug("{@Log}", new {Message = "Starting background worker process..."});
+                _logger.Debug("Starting background worker process...");
 
                 await _worker.Execute(cts.Token);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "{@Log}", new {Message = "Worker service failed to start."});
+                _logger.Error("Worker service failed to start.", ex);
                 if (!cts.IsCancellationRequested)
                 {
                     cts.Cancel();
@@ -39,7 +39,7 @@ namespace Kafka.Connect.Background
             }
             finally
             {
-                _logger.LogDebug("{@Log}", new {Message = "Stopping background worker process..."});
+                _logger.Debug("Stopping background worker process...");
                 _executionContext.Shutdown();
             }
         }
