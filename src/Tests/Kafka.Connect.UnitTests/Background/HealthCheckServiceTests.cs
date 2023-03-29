@@ -15,7 +15,7 @@ namespace Kafka.Connect.UnitTests.Background
 {
     public class HealthCheckServiceTests
     {
-        private readonly ILogger<HealthCheckService> _logger;
+        private readonly Connect.Logging.ILogger<HealthCheckService> _logger;
         private readonly IConfigurationProvider _configurationProvider;
         private readonly IExecutionContext _executionContext;
         private readonly ITokenHandler _tokenHandler;
@@ -23,7 +23,7 @@ namespace Kafka.Connect.UnitTests.Background
 
         public HealthCheckServiceTests()
         {
-            _logger = Substitute.For<MockLogger<HealthCheckService>>();
+            _logger = Substitute.For<Connect.Logging.ILogger<HealthCheckService>>();
             _configurationProvider = Substitute.For<IConfigurationProvider>();
             _executionContext = Substitute.For<IExecutionContext>();
             _tokenHandler = Substitute.For<ITokenHandler>();
@@ -38,8 +38,8 @@ namespace Kafka.Connect.UnitTests.Background
 
             _healthCheckService.StartAsync(GetCancellationToken(1));
             
-            _logger.DidNotReceive().Log(LogLevel.Debug, "{@Log}", new {Message = "Starting the health check service..."});
-            _logger.Received().Log(LogLevel.Debug, "{@Log}", new {Message = "Health check service is disabled..."});
+            _logger.DidNotReceive().Debug("Starting the health check service...");
+            _logger.Received().Debug("Health check service is disabled...");
         }
         
         [Fact]
@@ -58,9 +58,9 @@ namespace Kafka.Connect.UnitTests.Background
                 // wait for the task to complete
             }
             
-            _logger.Received().Log(LogLevel.Debug, "{@Log}", new {Message = "Starting the health check service..."});
-            _logger.Received().Log(LogLevel.Information, "{@Health}", new {Worker = log});
-            _logger.Received().Log(LogLevel.Debug, "{@Log}", new {Message = "Stopping the health check service..."});
+            _logger.Received().Debug("Starting the health check service...");
+            _logger.Received().Info("HealthCheck", data:log);
+            _logger.Received().Debug("Stopping the health check service...");
         }
         
         [Theory]
@@ -80,10 +80,19 @@ namespace Kafka.Connect.UnitTests.Background
             {
                 // wait for the task to complete
             }
-            
-            _logger.Received().Log(LogLevel.Debug, "{@Log}", new {Message = "Starting the health check service..."});
-            _logger.Received().Log(expectedLevel, Arg.Any<Exception>(), "{@Log}", new {Message = expectedMessage});
-            _logger.Received().Log(LogLevel.Debug, "{@Log}", new {Message = "Stopping the health check service..."});
+
+            _logger.Received().Debug("Starting the health check service...");
+            switch (expectedLevel)
+            {
+                case LogLevel.Error:
+                    _logger.Received().Error(expectedMessage, Arg.Any<Exception>());
+                    break;
+                case LogLevel.Trace:
+                    _logger.Received().Trace(expectedMessage, Arg.Any<Exception>());
+                    break;
+            }
+
+            _logger.Received().Debug("Stopping the health check service...");
         }
         
         private CancellationToken GetCancellationToken(int loop)

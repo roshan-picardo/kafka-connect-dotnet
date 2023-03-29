@@ -2,10 +2,10 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Kafka.Connect.Connectors;
+using Kafka.Connect.Logging;
 using Kafka.Connect.Plugin.Tokens;
 using Kafka.Connect.Providers;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 
 namespace Kafka.Connect.Background
 {
@@ -27,17 +27,17 @@ namespace Kafka.Connect.Background
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            _logger.LogInformation("{@Log}",  new {Log = _executionContext.GetFullDetails()});
+            _logger.Info("Context information",  _executionContext.GetFullDetails() as object);
             var config = _configurationProvider.GetHealthCheckConfig();
             try
             {
                 if (!config.Disabled)
                 {
-                    _logger.LogDebug("{@Log}", new {Message = "Starting the health check service..."});
+                    _logger.Debug("Starting the health check service...");
                     await Task.Delay(config.InitialDelayMs, stoppingToken);
                     while (!stoppingToken.IsCancellationRequested)
                     {
-                        _logger.LogInformation("{@Health}", new {Worker = _executionContext.GetStatus()});
+                        _logger.Info("HealthCheck", _executionContext.GetStatus() as object);
                         await Task.Delay(config.PeriodicDelayMs, stoppingToken);
                         _tokenHandler.DoNothing();
                     }
@@ -47,25 +47,18 @@ namespace Kafka.Connect.Background
             {
                 if (ex is TaskCanceledException or OperationCanceledException)
                 {
-                    _logger.LogTrace(ex,"{@Log}",
-                        new {Message = "Task has been cancelled. Health check service will be terminated."});
+                    _logger.Trace("Task has been cancelled. Health check service will be terminated.", ex);
                 }
                 else
                 {
-                    _logger.LogError(ex, "{@Log}",
-                        new
-                        {
-                            Message =
-                                "Health check service reported errors / hasn't started. Please use '/workers/status' Rest API to get the worker status."
-                        });
+                    _logger.Error( "Health check service reported errors / hasn't started. Please use '/workers/status' Rest API to get the worker status.", ex);
                 }
             }
             finally
             {
-                _logger.LogDebug("{@Log}",
-                    config.Disabled
-                        ? new {Message = "Health check service is disabled..."}
-                        : new {Message = "Stopping the health check service..."});
+                _logger.Debug(config.Disabled
+                    ? "Health check service is disabled..."
+                    : "Stopping the health check service...");
             }
         }
     }

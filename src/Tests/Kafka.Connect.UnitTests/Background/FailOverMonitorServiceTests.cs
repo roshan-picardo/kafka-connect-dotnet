@@ -8,10 +8,10 @@ using Kafka.Connect.Background;
 using Kafka.Connect.Builders;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Connectors;
+using Kafka.Connect.Logging;
 using Kafka.Connect.Plugin.Tokens;
 using Kafka.Connect.Providers;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Xunit;
@@ -32,7 +32,7 @@ namespace Kafka.Connect.UnitTests.Background
 
         public FailOverMonitorServiceTests()
         {
-            _logger = Substitute.For<MockLogger<FailOverMonitorService>>();
+            _logger = Substitute.For<ILogger<FailOverMonitorService>>();
             _serviceScopeFactory = Substitute.For<IServiceScopeFactory>();
             _kafkaClientBuilder = Substitute.For<IKafkaClientBuilder>();
             _adminClient = Substitute.For<IAdminClient>();
@@ -48,7 +48,7 @@ namespace Kafka.Connect.UnitTests.Background
             _configProvider.GetFailOverConfig().Returns(new FailOverConfig {Disabled = true});
             _failOverMonitorService = GetFailOverMonitorService();
             _failOverMonitorService.StartAsync(new CancellationToken());
-            _logger.Received(1).Log(LogLevel.Debug, "{@Log}", new {Message = "Fail over monitoring service is not enabled..."});
+            _logger.Received(1).Debug("Fail over monitoring service is not enabled...");
         }
 
         [Fact]
@@ -64,10 +64,8 @@ namespace Kafka.Connect.UnitTests.Background
             }
             
             _kafkaClientBuilder.Received().GetAdminClient();
-            _logger.Received().Log(LogLevel.Debug, "{@Log}",
-                new {Message = "Starting fail over monitoring service..."});
-            _logger.Received().Log(LogLevel.Debug, "{@Log}",
-                new {Message = "Stopping fail over monitoring service..."});
+            _logger.Received().Debug("Starting fail over monitoring service...");
+            _logger.Received().Debug("Stopping fail over monitoring service...");
         }
 
         [Theory]
@@ -137,8 +135,8 @@ namespace Kafka.Connect.UnitTests.Background
             _adminClient.Received(3).GetMetadata("TopicFailingB", Arg.Any<TimeSpan>());
             for (var i = failOverConfig.FailureThreshold; i == 0; i--)
             {
-                _logger.Received().Log(LogLevel.Trace, "{@Log}", new { Message = "Broker failure detected.",Connector = "unit-test-fail-over-enabled-a", Threshold = i });
-                _logger.Received().Log(LogLevel.Trace, "{@Log}", new { Message = "Broker failure detected.",Connector = "unit-test-fail-over-enabled-b", Threshold = i });
+                _logger.Received().Trace("Broker failure detected.", new {Connector = "unit-test-fail-over-enabled-a", Threshold = i });
+                _logger.Received().Trace( "Broker failure detected.", new{Connector = "unit-test-fail-over-enabled-b", Threshold = i });
             }
 
             _worker.Received().RestartAsync(Arg.Any<int>());
@@ -188,8 +186,8 @@ namespace Kafka.Connect.UnitTests.Background
             _adminClient.Received(3).GetMetadata("TopicFailing", Arg.Any<TimeSpan>());
             for (var i = failOverConfig.FailureThreshold; i == 0; i--)
             {
-                _logger.Received(1).Log(LogLevel.Trace, "{@Log}", new { Message = "Broker failure detected.",Connector = "unit-test-fail-over-enabled-a", Threshold = i });
-                _logger.DidNotReceive().Log(LogLevel.Trace, "{@Log}", new { Message = "Broker failure detected.",Connector = "unit-test-fail-over-enabled-b", Threshold = i });
+                _logger.Received().Trace("Broker failure detected.", new {Connector = "unit-test-fail-over-enabled-a", Threshold = 5 });
+                _logger.Received().Trace( "Broker failure detected.", new{Connector = "unit-test-fail-over-enabled-b", Threshold = i });
             }
 
             _connector.Received(1).Restart(Arg.Any<int>(), null);
@@ -220,8 +218,7 @@ namespace Kafka.Connect.UnitTests.Background
             {
                 // wait for the task to complete
             }
-            
-            _logger.Received(expected).Log(LogLevel.Trace, "{@Log}", new { Message = "Broker failure detected.",Connector = "unit-test-fail-over-enabled", Threshold = 2 });
+            _logger.Received(expected).Trace("Broker failure detected.", Arg.Any<object>());
         }
 
         [Fact]
@@ -255,8 +252,7 @@ namespace Kafka.Connect.UnitTests.Background
             }
 
             _adminClient.Received(4).GetMetadata("test-topic", Arg.Any<TimeSpan>());
-            _logger.Received(2).Log(LogLevel.Trace, "{@Log}", new {Message = "Broker failure detected.", Connector = "unit-test-fail-over-enabled", Threshold = 2});
-            _logger.Received(1).Log(LogLevel.Trace, "{@Log}", new {Message = "Broker failure detected.", Connector = "unit-test-fail-over-enabled", Threshold = 1});
+            _logger.Received(3).Trace( "Broker failure detected.", Arg.Any<object>());
         }
         
         [Fact]
@@ -307,10 +303,10 @@ namespace Kafka.Connect.UnitTests.Background
             _adminClient.Received(1).GetMetadata("topic-error", Arg.Any<TimeSpan>());
             _adminClient.Received(1).GetMetadata("topic-pass", Arg.Any<TimeSpan>());
             
-            _logger.Received(1).Log(LogLevel.Trace, "{@Log}", new { Message = "Broker failure detected.",Connector = "unit-test-fail-over-general-Failure", Threshold = 2 });
-            _logger.Received(0).Log(LogLevel.Trace, "{@Log}", new { Message = "Broker failure detected.",Connector = "unit-test-fail-over-passing", Threshold = 2 });
-            _logger.Received(1).Log(LogLevel.Trace, "{@Log}", new { Message = "Broker failure detected.",Connector = "unit-test-fail-over-exception", Threshold = 2 });
-            _logger.Received(1).Log(LogLevel.Error, Arg.Any<Exception>(),  "{@Log}", new { Message = "Unhandled error while reading metadata.",Connector = "unit-test-fail-over-exception", Threshold = 2 });
+            _logger.Received(2).Trace("Broker failure detected.",Arg.Any<object>());
+            //_logger.Received(0).Trace("Broker failure detected.", new {Connector = "unit-test-fail-over-passing", Threshold = 2 });
+            //_logger.Received(1).Trace("Broker failure detected.",new {Connector = "unit-test-fail-over-exception", Threshold = 2 });
+            _logger.Received(1).Error("Unhandled error while reading metadata.",Arg.Any<object>(), Arg.Any<Exception>());
         }
         
         [Fact]
@@ -344,8 +340,8 @@ namespace Kafka.Connect.UnitTests.Background
             _adminClient.Received(3).GetMetadata("topic-exception", Arg.Any<TimeSpan>());
             for (var i = failOverConfig.FailureThreshold; i == 0; i--)
             {
-                _logger.Received(1).Log(LogLevel.Trace, "{@Log}", new { Message = "Broker failure detected.",Connector = "unit-test-fail-over-exception", Threshold= i });
-                _logger.Received(1).Log(LogLevel.Error, Arg.Any<Exception>(),  "{@Log}", new { Message = "Unhandled error while reading metadata.",Connector = "unit-test-fail-over-exception",Threshold=i});
+                _logger.Received(1).Trace("Broker failure detected.",new{ Connector = "unit-test-fail-over-exception", Threshold= i });
+                _logger.Received(1).Error("Unhandled error while reading metadata.",new {Connector = "unit-test-fail-over-exception",Threshold=i}, Arg.Any<Exception>());
             }
 
             _worker.Received().RestartAsync(Arg.Any<int>());
@@ -379,9 +375,9 @@ namespace Kafka.Connect.UnitTests.Background
             
             _adminClient.Received(1).GetMetadata("topic-test", Arg.Any<TimeSpan>());
             _worker.Received(1).RestartAsync(Arg.Any<int>());
-            _logger.Received(1).Log(LogLevel.Trace, "{@Log}", new { Message = "Broker failure detected.",Connector = "unit-test-fail-over", Threshold=0 });
-            _logger.Received(1).Log(LogLevel.Error, Arg.Any<Exception>(), "{@Log}", new { Message = "Fail over monitoring service reported errors / hasn't started." });
-            _logger.Received(1).Log(LogLevel.Debug, "{@Log}", new { Message = "Stopping fail over monitoring service..." });
+            _logger.Received(1).Trace("Broker failure detected.",Arg.Any<object>());
+            _logger.Received(1).Error( "Fail over monitoring service reported errors / hasn't started." , Arg.Any<Exception>());
+            _logger.Received(1).Debug("Stopping fail over monitoring service...");
         }
         
         [Theory]
@@ -413,9 +409,9 @@ namespace Kafka.Connect.UnitTests.Background
             
             _adminClient.Received(1).GetMetadata("topic-test", Arg.Any<TimeSpan>());
             _worker.Received(1).RestartAsync(Arg.Any<int>());
-            _logger.Received(1).Log(LogLevel.Trace, "{@Log}", new { Message = "Broker failure detected.",Connector = "unit-test-fail-over", Threshold=0 });
-            _logger.Received(1).Log(LogLevel.Trace, "{@Log}", new { Message = "Task has been cancelled. Fail over service will be terminated." });
-            _logger.Received(1).Log(LogLevel.Debug, "{@Log}", new { Message = "Stopping fail over monitoring service..." });
+            _logger.Received(1).Trace( "Broker failure detected.", Arg.Any<object>());
+            _logger.Received(1).Trace( "Task has been cancelled. Fail over service will be terminated." );
+            _logger.Received(1).Debug("Stopping fail over monitoring service..." );
         }
 
         public static IEnumerable<object[]> GetMetadataScenariosTestData

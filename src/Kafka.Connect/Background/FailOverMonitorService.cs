@@ -5,11 +5,12 @@ using System.Threading;
 using System.Threading.Tasks;
 using Confluent.Kafka;
 using Kafka.Connect.Builders;
+using Kafka.Connect.Logging;
 using Kafka.Connect.Plugin.Tokens;
 using Kafka.Connect.Providers;
+using Kafka.Connect.Utilities;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Serilog.Context;
 
 namespace Kafka.Connect.Background
@@ -40,7 +41,7 @@ namespace Kafka.Connect.Background
             {
                 if (!failOverConfig.Disabled)
                 {
-                    _logger.LogDebug("{@Log}", new {Message = "Starting fail over monitoring service..."});
+                    _logger.Debug("Starting fail over monitoring service...");
                     await Task.Delay(failOverConfig.InitialDelayMs, stoppingToken);
                     var adminClient =  _kafkaClientBuilder.GetAdminClient();
                     
@@ -81,27 +82,20 @@ namespace Kafka.Connect.Background
                                     else
                                     {
                                         thresholds[connector.Name]--;
-                                        _logger.LogTrace("{@Log}", new
-                                        {
-                                            Message = "Broker failure detected.",
-                                            Connector = connector.Name,
-                                            Threshold = thresholds[connector.Name]
-                                        });
+                                        _logger.Trace("Broker failure detected.",  data:new { Connector = connector.Name, Threshold = thresholds[connector.Name] });
                                     }
                                 }
                                 catch (Exception ex)
                                 {
                                     thresholds[connector.Name]--;
-                                    _logger.LogError(ex, "{@Log}",
+                                    _logger.Error( "Unhandled error while reading metadata.", 
                                         new
                                         {
-                                            Message = "Unhandled error while reading metadata.",
                                             Connector = connector.Name,
                                             Threshold = thresholds[connector.Name]
-                                        });
-                                    _logger.LogTrace("{@Log}", new
+                                        }, ex);
+                                    _logger.Trace("Broker failure detected.", new
                                     {
-                                        Message = "Broker failure detected.",
                                         Connector = connector.Name,
                                         Threshold = thresholds[connector.Name]
                                     });
@@ -139,19 +133,16 @@ namespace Kafka.Connect.Background
             {
                 if (ex is TaskCanceledException or OperationCanceledException)
                 {
-                    _logger.LogTrace("{@Log}", new {Message = "Task has been cancelled. Fail over service will be terminated."});
+                    _logger.Trace("Task has been cancelled. Fail over service will be terminated.");
                 }
                 else
                 {
-                    _logger.LogError(ex, "{@Log}", new { Message = "Fail over monitoring service reported errors / hasn't started." });
+                    _logger.Error("Fail over monitoring service reported errors / hasn't started.", ex);
                 }
             }
             finally
             {
-                _logger.LogDebug("{@Log}",
-                    failOverConfig.Disabled
-                        ? new {Message = "Fail over monitoring service is not enabled..."}
-                        :  new {Message = "Stopping fail over monitoring service..."});
+                _logger.Debug(failOverConfig.Disabled ? "Fail over monitoring service is not enabled..." :  "Stopping fail over monitoring service...");
             }
         }
     }

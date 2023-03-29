@@ -3,7 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Kafka.Connect.Background;
 using Kafka.Connect.Connectors;
-using Microsoft.Extensions.Logging;
+using Kafka.Connect.Logging;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Xunit;
@@ -19,7 +19,7 @@ namespace Kafka.Connect.UnitTests.Background
 
         public WorkerServiceTests()
         {
-            _logger = Substitute.For<MockLogger<WorkerService>>();
+            _logger = Substitute.For<ILogger<WorkerService>>();
             _worker = Substitute.For<IWorker>();
             _executionContext = Substitute.For<IExecutionContext>();
 
@@ -31,8 +31,8 @@ namespace Kafka.Connect.UnitTests.Background
         {
             _workerService.StartAsync(CancellationToken.None);
             
-            _logger.Received().Log(LogLevel.Debug, "{@Log}", new {Message = "Starting background worker process..."});
-            _logger.Received().Log(LogLevel.Debug, "{@Log}", new {Message = "Stopping background worker process..."});
+            _logger.Received().Debug("Starting background worker process...");
+            _logger.Received().Debug("Stopping background worker process...");
             _executionContext.Received().Shutdown();
         }
         
@@ -44,9 +44,9 @@ namespace Kafka.Connect.UnitTests.Background
             
             await _workerService.StartAsync(cts.Token);
             
-            _logger.Received().Log(LogLevel.Debug, "{@Log}", new {Message = "Starting background worker process..."});
-            _logger.Received().Log(LogLevel.Error, Arg.Any<Exception>(),  "{@Log}", new {Message = "Worker service failed to start."});
-            _logger.Received().Log(LogLevel.Debug, "{@Log}", new {Message = "Stopping background worker process..."});
+            _logger.Received().Debug("Starting background worker process...");
+            _logger.Received().Error( "Worker service failed to start.", Arg.Any<Exception>());
+            _logger.Received().Debug("Stopping background worker process...");
             _executionContext.Received().Shutdown();
         }
         
@@ -62,9 +62,9 @@ namespace Kafka.Connect.UnitTests.Background
             await _workerService.StartAsync(cts.Token);
             
             Assert.True(cts.IsCancellationRequested);
-            _logger.Received().Log(LogLevel.Debug, "{@Log}", new {Message = "Starting background worker process..."});
-            _logger.Received().Log(LogLevel.Error, Arg.Any<Exception>(),  "{@Log}", new {Message = "Worker service failed to start."});
-            _logger.Received().Log(LogLevel.Debug, "{@Log}", new {Message = "Stopping background worker process..."});
+            _logger.Received().Debug( "Starting background worker process...");
+            _logger.Received().Error( "Worker service failed to start.", Arg.Any<Exception>());
+            _logger.Received().Debug("Stopping background worker process...");
             _executionContext.Received().Shutdown();
         }
     }
