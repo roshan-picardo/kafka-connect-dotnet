@@ -5,10 +5,10 @@ using Kafka.Connect.Configurations;
 using Kafka.Connect.Handlers;
 using Kafka.Connect.Plugin;
 using Kafka.Connect.Plugin.Exceptions;
+using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Providers;
 using Kafka.Connect.Serializers;
-using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
@@ -29,7 +29,7 @@ namespace Kafka.Connect.UnitTests.Handlers
 
         public SinkProcessorTests()
         {
-            _logger = Substitute.For<MockLogger<SinkProcessor>>();
+            _logger = Substitute.For<ILogger<SinkProcessor>>();
             _messageConverter = Substitute.For<IMessageConverter>();
             _messageHandler = Substitute.For<IMessageHandler>();
             _sinkHandlerProvider = Substitute.For<ISinkHandlerProvider>();
@@ -127,7 +127,7 @@ namespace Kafka.Connect.UnitTests.Handlers
 
             _sinkHandlerProvider.DidNotReceive().GetSinkHandler(Arg.Any<string>());
             await _sinkHandler.DidNotReceive().Put(Arg.Any<SinkRecordBatch>());
-            _logger.DidNotReceive().Log(LogLevel.Warning, "{@Log}", new {Message = "Sink handler is not specified. Check if the handler is configured properly, and restart the connector."});
+            _logger.DidNotReceive().Warning("Sink handler is not specified. Check if the handler is configured properly, and restart the connector.");
         } 
         
         [Fact]
@@ -140,7 +140,7 @@ namespace Kafka.Connect.UnitTests.Handlers
 
             _sinkHandlerProvider.Received().GetSinkHandler(Arg.Any<string>());
             await _sinkHandler.DidNotReceive().Put(Arg.Any<SinkRecordBatch>());
-            _logger.Received().Log(LogLevel.Warning, "{@Log}", new {Message = "Sink handler is not specified. Check if the handler is configured properly, and restart the connector."});
+            _logger.Received().Warning("Sink handler is not specified. Check if the handler is configured properly, and restart the connector.");
             Assert.True(batch.All(r=>r.Skip));
             Assert.True(batch.All(r=>r.Status == SinkStatus.Skipped));
         } 
@@ -155,7 +155,7 @@ namespace Kafka.Connect.UnitTests.Handlers
             await _sinkProcessor.Sink(batch, "connector");
             _sinkHandlerProvider.Received().GetSinkHandler(Arg.Any<string>());
             await _sinkHandler.Received().Put(Arg.Any<SinkRecordBatch>(), Arg.Any<string>(), Arg.Any<int>());
-            _logger.DidNotReceive().Log(LogLevel.Warning, "{@Log}", new {Message = "Sink handler is not specified. Check if the handler is configured properly, and restart the connector."});
+            _logger.DidNotReceive().Warning("Sink handler is not specified. Check if the handler is configured properly, and restart the connector.");
         } 
         
         private static SinkRecordBatch GetBatch(int length = 1, params (string topic, int partition)[] topicPartitions)

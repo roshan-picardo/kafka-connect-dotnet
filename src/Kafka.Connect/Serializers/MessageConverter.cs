@@ -1,10 +1,7 @@
-using System.Linq;
 using System.Threading.Tasks;
 using Confluent.Kafka;
-using Kafka.Connect.Configurations;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Providers;
-using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 
 namespace Kafka.Connect.Serializers
@@ -22,18 +19,23 @@ namespace Kafka.Connect.Serializers
             _configurationProvider = configurationProvider;
         }
 
-        [OperationLog("Deserializing the message.")]
         public async Task<(JToken, JToken)> Deserialize(ConsumeResult<byte[], byte[]> consumed, string connector)
         {
-            var (keyConfig, valueConfig) = _configurationProvider.GetMessageConverters(connector, consumed.Topic);
-            var keyToken =
-                await _processorServiceProvider.GetDeserializer(keyConfig).Deserialize(consumed.Message.Key,
+            using (_logger.Track("Deserializing the message."))
+            {
+                var (keyConfig, valueConfig) = _configurationProvider.GetMessageConverters(connector, consumed.Topic);
+                var keyToken =
+                    await _processorServiceProvider.GetDeserializer(keyConfig).Deserialize(consumed.Message.Key,
                         new SerializationContext(MessageComponentType.Key, consumed.Topic, consumed.Message?.Headers),
                         consumed.Message?.Key == null || consumed.Message.Key.Length == 0);
-            var valueToken = 
-                await _processorServiceProvider.GetDeserializer(valueConfig)
-                        .Deserialize(consumed.Message?.Value, new SerializationContext(MessageComponentType.Value, consumed.Topic, consumed.Message?.Headers), consumed.Message.Value == null || consumed.Message.Value.Length == 0);
-            return (keyToken, valueToken);
+                var valueToken =
+                    await _processorServiceProvider.GetDeserializer(valueConfig)
+                        .Deserialize(consumed.Message?.Value,
+                            new SerializationContext(MessageComponentType.Value, consumed.Topic,
+                                consumed.Message?.Headers),
+                            consumed.Message.Value == null || consumed.Message.Value.Length == 0);
+                return (keyToken, valueToken);
+            }
         }
 
         /* TODO: may need to port it to somewhere else

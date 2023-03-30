@@ -6,13 +6,11 @@ using System.Threading.Tasks;
 using Confluent.Kafka;
 using Kafka.Connect.Builders;
 using Kafka.Connect.Connectors;
-using Kafka.Connect.Plugin;
 using Kafka.Connect.Plugin.Exceptions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Providers;
 using Kafka.Connect.Utilities;
-using Microsoft.Extensions.Logging;
 
 namespace Kafka.Connect.Handlers
 {
@@ -34,67 +32,79 @@ namespace Kafka.Connect.Handlers
             _kafkaClientBuilder = kafkaClientBuilder;
         }
 
-        [OperationLog("Validate and subscribe to the topics.")]
         public IConsumer<byte[], byte[]> Subscribe(string connector, int taskId)
         {
-            [OperationLog("Subscribing to the topics.")]
-            void SubscribeInternal(IConsumer<byte[], byte[]> consumer, IEnumerable<string> topics) => consumer.Subscribe(topics);
-            
-            var topics = _configurationProvider.GetTopics(connector);
-            if (!(topics?.Any(t => !string.IsNullOrWhiteSpace(t)) ?? false))
+            using (_logger.Track("Validate and subscribe to the topics."))
             {
-                _logger.LogWarning(Constants.AtLog, new {Message="No topics to subscribe."});
-            }
-            else
-            {
-                try
+                void SubscribeInternal(IConsumer<byte[], byte[]> consumer, IEnumerable<string> topics)
                 {
-                    var consumer = _kafkaClientBuilder.GetConsumer(connector, taskId);
-                    SubscribeInternal(consumer, topics);
-                    return consumer;
+                    using (_logger.Track("Subscribing to the topics."))
+                    {
+                        consumer.Subscribe(topics);
+                    }
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogCritical(ex, Constants.AtLog,new { Message = "Failed to establish the connection Kafka brokers."});
-                }
-            }
 
-            return null;
+                var topics = _configurationProvider.GetTopics(connector);
+                if (!(topics?.Any(t => !string.IsNullOrWhiteSpace(t)) ?? false))
+                {
+                    _logger.Warning("No topics to subscribe.");
+                }
+                else
+                {
+                    try
+                    {
+                        var consumer = _kafkaClientBuilder.GetConsumer(connector, taskId);
+                        SubscribeInternal(consumer, topics);
+                        return consumer;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Critical("Failed to establish the connection Kafka brokers.", ex);
+                    }
+                }
+                return null;
+            }
         }
 
 
-        [OperationLog("Consume and batch messages.")]
         public async Task<SinkRecordBatch> Consume(IConsumer<byte[], byte[]> consumer, string connector, int taskId)
         {
-            var batch = await _retriableHandler.Retry(() => ConsumeInternal(consumer, connector, taskId), connector);
-            if (batch == null || batch.IsEmpty)
+            using (_logger.Track("Consume and batch messages."))
             {
-                _logger.LogDebug(Constants.AtLog, new {Message="There aren't any messages in the batch to process."});
+                var batch = await _retriableHandler.Retry(() => ConsumeInternal(consumer, connector, taskId),
+                    connector);
+                if (batch == null || batch.IsEmpty)
+                {
+                    _logger.Debug("There aren't any messages in the batch to process.");
+                    return batch;
+                }
+
+                foreach (var record in batch)
+                {
+                    record.Consumed.Message.Headers ??= new Headers();
+                    record.Consumed.Message.Headers.StartTiming(record.Consumed.Message.Timestamp.UnixTimestampMs);
+                }
+
                 return batch;
             }
-            foreach (var record in batch)
-            {
-                record.Consumed.Message.Headers ??= new Headers();
-                record.Consumed.Message.Headers.StartTiming(record.Consumed.Message.Timestamp.UnixTimestampMs);
-            }
-            return batch;
         }
 
         private async Task<SinkRecordBatch> ConsumeInternal(IConsumer<byte[], byte[]> consumer, string connector, int taskId)
         {
-            [OperationLog("Consuming message.")]
-            ConsumeResult<byte[], byte[]> Consuming(IConsumer<byte[], byte[]> consumerInternal, CancellationToken token) => consumerInternal.Consume(token);
+            ConsumeResult<byte[], byte[]> Consuming(IConsumer<byte[], byte[]> consumerInternal, CancellationToken token)
+            {
+                using (_logger.Track("Consuming message."))
+                {
+                    return consumerInternal.Consume(token);
+                }
+            }
             
             var batch = new SinkRecordBatch("internal");
             var batchPollContext = _executionContext.GetOrSetBatchContext(connector, taskId);
             try
             {
                 var maxBatchSize = _configurationProvider.GetBatchConfig(connector).Size;
-                _logger.LogTrace(Constants.AtLog,
-                    new
-                    {
-                        Message = $"Polling for messages. #{batchPollContext.Iteration:00000}"
-                    });
+                _logger.Trace("Polling for messages.", new { batchPollContext.Iteration });
                 do
                 {
                     var consumed = await Task.Run(() => Consuming(consumer, batchPollContext.Token));
@@ -105,9 +115,8 @@ namespace Kafka.Connect.Handlers
                         continue;
                     }
 
-                    _logger.LogDebug(Constants.AtLog, new
+                    _logger.Debug("Message consumed.", new
                     {
-                        Message = "Message consumed.",
                         consumed.Topic,
                         Partition = consumed.Partition.Value,
                         Offset = consumed.TopicPartitionOffset.Offset.Value,
@@ -129,14 +138,13 @@ namespace Kafka.Connect.Handlers
                 if (!batch.IsEmpty)
                 {
                     //if batch already got a few records lets process them before failing.
-                    _logger.LogWarning(ex, Constants.AtLog,
-                        new {Message = "Consume failed. Part of the batch will be processed.", batch.Count});
+                    _logger.Warning("Consume failed. Part of the batch will be processed.", new {batch.Count}, ex);
                 }
                 else
                 {
                     if (ex is OperationCanceledException)
                     {
-                        _logger.LogTrace("{@Log}",new {Message = "Task has been cancelled. The consume operation will be terminated."});
+                        _logger.Trace( "Task has been cancelled. The consume operation will be terminated.", ex);
                     }
                     else
                     {

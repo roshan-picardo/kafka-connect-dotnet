@@ -5,10 +5,10 @@ using Confluent.Kafka;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Handlers;
 using Kafka.Connect.Plugin.Converters;
+using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Plugin.Processors;
 using Kafka.Connect.Providers;
-using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 using NSubstitute;
 using Xunit;
@@ -26,7 +26,7 @@ namespace Kafka.Connect.UnitTests.Handlers
 
         public MessageHandlerTests()
         {
-            _logger = Substitute.For<MockLogger<MessageHandler>>();
+            _logger = Substitute.For<ILogger<MessageHandler>>();
             _recordFlattener = Substitute.For<IRecordFlattener>();
             _processorServiceProvider = Substitute.For<IProcessorServiceProvider>();
             _configurationProvider = Substitute.For<IConfigurationProvider>();
@@ -125,7 +125,7 @@ namespace Kafka.Connect.UnitTests.Handlers
             _recordFlattener.Received().Unflatten(Arg.Any<IDictionary<string, object>>());
             _processorServiceProvider.Received().GetProcessors();
             _configurationProvider.Received().GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>());
-            _logger.Received().Log(LogLevel.Trace, "{@Log}", new {Message = "Processor is not registered.", Processor = "Kafka.Connect.Processors.Unknown"});
+            _logger.Received().Trace("Processor is not registered.", Arg.Any<object>());
         }
         
         [Fact]
@@ -197,7 +197,7 @@ namespace Kafka.Connect.UnitTests.Handlers
             _recordFlattener.Received().Unflatten(Arg.Any<IDictionary<string, object>>());
             _processorServiceProvider.Received().GetProcessors();
             _configurationProvider.Received().GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>());
-            _logger.Received().Log(LogLevel.Trace, "{@Log}", new {Message = "Message will be skipped from further processing."});
+            _logger.Received().Trace("Message will be skipped from further processing.");
         }
         
         
@@ -239,9 +239,8 @@ namespace Kafka.Connect.UnitTests.Handlers
             _recordFlattener.Received().Unflatten(Arg.Any<IDictionary<string, object>>());
             _processorServiceProvider.Received().GetProcessors();
             _configurationProvider.Received().GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>());
-            _logger.Received().Log(LogLevel.Trace, "{@Log}", new {Message = "Message will be skipped from further processing."});
-            _logger.Received().Log(LogLevel.Trace, "{@Log}",
-                new {Message = "Processor is not registered.", Processor = "Kafka.Connect.Processors.NotFound"});
+            _logger.Received().Trace("Message will be skipped from further processing.");
+            _logger.Received().Trace("Processor is not registered.", Arg.Any<object>());
         }
         
         

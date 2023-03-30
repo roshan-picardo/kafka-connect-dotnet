@@ -4,9 +4,9 @@ using Kafka.Connect.Mongodb.Collections;
 using Kafka.Connect.Mongodb.Models;
 using Kafka.Connect.Mongodb.Strategies;
 using Kafka.Connect.Plugin;
+using Kafka.Connect.Plugin.Logging;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
 
 namespace Kafka.Connect.Mongodb

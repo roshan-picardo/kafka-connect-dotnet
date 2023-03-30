@@ -4,10 +4,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using Confluent.Kafka;
 using Kafka.Connect.Handlers;
+using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Providers;
 using Kafka.Connect.Utilities;
-using Microsoft.Extensions.Logging;
 using Serilog.Context;
 using Serilog.Core.Enrichers;
 
@@ -53,7 +53,7 @@ namespace Kafka.Connect.Connectors
             _consumer = _sinkConsumer.Subscribe(connector, taskId);
             if (_consumer == null)
             {
-                _logger.LogWarning("{@Log}", new {Message = "Failed to create the consumer, exiting from the sink task."});
+                _logger.Warning("Failed to create the consumer, exiting from the sink task.");
                 return;
             }
             
@@ -135,18 +135,17 @@ namespace Kafka.Connect.Connectors
                         new PropertyEnricher("Offset", record.Offset)))
                     {
                         record.AddLog("Timing", record.Headers.EndTiming(batch.Count));
-                        _logger.LogInformation("{@Record}", record.GetLogs());
+                        _logger.Info("Record Details", record.GetLogs());
                     }
                 } 
                 await _partitionHandler.NotifyEndOfPartition(batch, connector, taskId);
             }
-            _logger.LogDebug("{@Log}",
+            _logger.Debug("Finished processing the batch.",
                 new
                 {
                     Records = batch?.Count ?? 0,
                     Duration = _executionContext.GetOrSetBatchContext(connector, taskId).Timer.EndTiming(),
-                    Message = "Finished processing the batch.",
-                    Status = batch?.GetBatchStatus()
+                    Stats = batch?.GetBatchStatus()
                 });
         }
         

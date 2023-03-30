@@ -8,7 +8,7 @@ using Kafka.Connect.Background;
 using Kafka.Connect.Builders;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Connectors;
-using Kafka.Connect.Logging;
+using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Tokens;
 using Kafka.Connect.Providers;
 using Microsoft.Extensions.DependencyInjection;

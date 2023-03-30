@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using Avro.Generic;
 using Confluent.Kafka;
 using Kafka.Connect.Converters;
+using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Serializers;
 using Newtonsoft.Json.Linq;
 using NSubstitute;
@@ -22,7 +23,7 @@ namespace Kafka.Connect.UnitTests.Serializers
             _deserializer = Substitute.For<IAsyncDeserializer<GenericRecord>>();
             _parser = Substitute.For<IGenericRecordParser>();
             
-            _avroDeserializer = new AvroDeserializer(_deserializer, _parser, null);
+            _avroDeserializer = new AvroDeserializer(Substitute.For<ILogger<AvroDeserializer>>(), _deserializer, _parser);
             
         }
 

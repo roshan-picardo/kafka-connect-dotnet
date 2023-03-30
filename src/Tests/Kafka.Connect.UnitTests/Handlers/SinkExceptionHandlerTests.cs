@@ -17,7 +17,7 @@ namespace Kafka.Connect.UnitTests.Handlers
 {
     public class SinkExceptionHandlerTests
     {
-        private readonly ILogger<SinkExceptionHandler> _logger;
+        private readonly Plugin.Logging.ILogger<SinkExceptionHandler> _logger;
         private readonly IConnectDeadLetter _connectDeadLetter;
         private readonly IConfigurationProvider _configurationProvider;
 
@@ -25,7 +25,7 @@ namespace Kafka.Connect.UnitTests.Handlers
 
         public SinkExceptionHandlerTests()
         {
-            _logger = Substitute.For<MockLogger<SinkExceptionHandler>>();
+            _logger = Substitute.For<Plugin.Logging.ILogger<SinkExceptionHandler>>();
             _connectDeadLetter = Substitute.For<IConnectDeadLetter>();
             _configurationProvider = Substitute.For<IConfigurationProvider>();
 
@@ -61,7 +61,7 @@ namespace Kafka.Connect.UnitTests.Handlers
             var token = new CancellationTokenSource();
             _sinkExceptionHandler.Handle(connectToleranceExceededException, () => { token.Cancel(); });
             
-            _logger.Received(expected).Log(LogLevel.Error, Arg.Any<Exception>(), "{@Log}", new {Status = SinkStatus.Failed, Message = "Tolerance exceeded in error handler."});
+            _logger.Received(expected).Error("Tolerance exceeded in error handler.", Arg.Any<object>(), Arg.Any<Exception>());
             Assert.True(token.IsCancellationRequested);
         }
         
@@ -94,7 +94,7 @@ namespace Kafka.Connect.UnitTests.Handlers
             var token = new CancellationTokenSource();
             _sinkExceptionHandler.Handle(connectToleranceExceededException, () => { token.Cancel(); });
             
-            _logger.Received(expected).Log(LogLevel.Error, Arg.Any<Exception>(), "{@Log}", new {Status = SinkStatus.Failed, Message = "Tolerance exceeded in error handler."});
+            _logger.Received(expected).Error("Tolerance exceeded in error handler.", Arg.Any<object>(), Arg.Any<Exception>());
             Assert.True(token.IsCancellationRequested);
         }
         
@@ -123,9 +123,9 @@ namespace Kafka.Connect.UnitTests.Handlers
             var connectDataException = new ConnectDataException(ErrorCode.Unknown, innerException);
             var token = new CancellationTokenSource();
             _sinkExceptionHandler.Handle(connectDataException, () => { token.Cancel(); });
-            
-            _logger.Received(level == LogLevel.Information ? 0 : 1).Log(LogLevel.Error, Arg.Any<Exception>(), "{@Log}", new {Status = SinkStatus.Failed, Message = logMessage});
-            _logger.Received(level == LogLevel.Error ? 0 : 1).Log(LogLevel.Information, "{@Log}", new {Status = SinkStatus.Failed, Message = logMessage});
+
+            _logger.Received(level == LogLevel.Information ? 0 : 1).Error(logMessage, Arg.Any<object>(), Arg.Any<Exception>());
+            _logger.Received(level == LogLevel.Error ? 0 : 1).Info(logMessage, Arg.Any<object>(), Arg.Any<Exception>());
 
             Assert.Equal(innerException  is not OperationCanceledException,  token.IsCancellationRequested);
         }
@@ -136,8 +136,7 @@ namespace Kafka.Connect.UnitTests.Handlers
             var token = new CancellationTokenSource();
             _sinkExceptionHandler.Handle(new Exception(), () => { token.Cancel(); });
 
-            _logger.Received().Log(LogLevel.Error, Arg.Any<Exception>(), "{@Log}",
-                new {Status = SinkStatus.Failed, Message = "Unknown error detected. Task will be shutdown."});
+            _logger.Received().Error("Unknown error detected. Task will be shutdown.",Arg.Any<object>(), Arg.Any<Exception>());
 
             Assert.True(token.IsCancellationRequested);
         }
@@ -189,7 +188,7 @@ namespace Kafka.Connect.UnitTests.Handlers
             var connectToleranceExceededException = new ConnectAggregateException(ErrorCode.Unknown, innerExceptions:innerExceptions.ToArray());
             _sinkExceptionHandler.LogRetryException(connectToleranceExceededException, attempts);
             
-            _logger.Received(expected).Log(LogLevel.Error, Arg.Any<Exception>(), "{@Log}", new {Status = SinkStatus.Failed, Message = $"Message processing failed. Remaining retries: {attempts}"});
+            _logger.Received(expected).Error($"Message processing failed. Remaining retries: {attempts}", Arg.Any<object>(), Arg.Any<Exception>());
         }
         
         [Theory]
@@ -206,8 +205,7 @@ namespace Kafka.Connect.UnitTests.Handlers
             };
             _sinkExceptionHandler.LogRetryException(connectException, attempts);
 
-            _logger.Received().Log(LogLevel.Error, connectException, "{@Log}",
-                new {Status = SinkStatus.Failed, Message = $"Message processing failed. Remaining retries: {attempts}"});
+            _logger.Received().Error( $"Message processing failed. Remaining retries: {attempts}",Arg.Any<object>(), Arg.Any<Exception>());
         }
         
         private static SinkRecordBatch GetBatch(int length = 2, int failed = 1)

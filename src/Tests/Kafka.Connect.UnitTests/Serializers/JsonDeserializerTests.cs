@@ -1,8 +1,10 @@
 using System.IO;
 using System.Threading.Tasks;
 using Confluent.Kafka;
+using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Serializers;
 using Newtonsoft.Json.Linq;
+using NSubstitute;
 using Xunit;
 
 namespace Kafka.Connect.UnitTests.Serializers
@@ -12,7 +14,7 @@ namespace Kafka.Connect.UnitTests.Serializers
         private JsonDeserializer _jsonDeserializer;
         public JsonDeserializerTests()
         {
-            _jsonDeserializer = new JsonDeserializer();
+            _jsonDeserializer = new JsonDeserializer(Substitute.For<ILogger<JsonDeserializer>>());
         }
 
         [Theory]

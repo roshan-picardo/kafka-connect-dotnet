@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Kafka.Connect.Plugin;
-using Microsoft.Extensions.Logging;
+using Kafka.Connect.Plugin.Logging;
 
 namespace Kafka.Connect.Providers
 {
@@ -22,7 +22,7 @@ namespace Kafka.Connect.Providers
         {
             var config = _configurationProvider.GetSinkConfig(connector);
             var sinkHandler = _sinkHandlers.SingleOrDefault(s => s.IsOfType(config.Plugin, config.Handler));
-            _logger.LogTrace("{@Log}", new {Message = "Selected sink handler.", config.Plugin, Handler = sinkHandler?.GetType().FullName});
+            _logger.Trace("Selected sink handler.", new { config.Plugin, Handler = sinkHandler?.GetType().FullName });
             return sinkHandler;
         }
     }

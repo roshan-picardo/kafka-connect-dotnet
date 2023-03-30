@@ -10,9 +10,9 @@ using Kafka.Connect.Handlers;
 using Kafka.Connect.Models;
 using Kafka.Connect.Plugin;
 using Kafka.Connect.Plugin.Exceptions;
+using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Providers;
-using Microsoft.Extensions.Logging;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Xunit;
@@ -32,7 +32,7 @@ namespace Kafka.Connect.UnitTests.Handlers
       
         public SinkConsumerTests()
         {
-            _logger = Substitute.For<MockLogger<SinkConsumer>>();
+            _logger = Substitute.For<ILogger<SinkConsumer>>();
             _executionContext = Substitute.For<IExecutionContext>();
             _retriableHandler = Substitute.For<IRetriableHandler>();
             _configurationProvider = Substitute.For<IConfigurationProvider>();
@@ -65,7 +65,7 @@ namespace Kafka.Connect.UnitTests.Handlers
             Assert.Null(actual);
             _kafkaClientBuilder.Received().GetConsumer("connector", 1);
             _consumer.DidNotReceive().Subscribe(Arg.Any<IList<string>>());
-            _logger.Received().Log(LogLevel.Critical, Arg.Any<Exception>(), "{@Log}", new { Message = "Failed to establish the connection Kafka brokers."});
+            _logger.Received().Critical("Failed to establish the connection Kafka brokers.", Arg.Any<Exception>());
         }
         
         [Fact]
@@ -80,7 +80,7 @@ namespace Kafka.Connect.UnitTests.Handlers
             Assert.Null(actual);
             _kafkaClientBuilder.Received().GetConsumer("connector", 1);
             _consumer.Received().Subscribe(Arg.Any<IList<string>>());
-            _logger.Received().Log(LogLevel.Critical, Arg.Any<Exception>(), "{@Log}", new { Message = "Failed to establish the connection Kafka brokers."});
+            _logger.Received().Critical("Failed to establish the connection Kafka brokers.", Arg.Any<Exception>());
         }
         
         [Theory]
@@ -96,7 +96,7 @@ namespace Kafka.Connect.UnitTests.Handlers
             Assert.Null(actual);
             _kafkaClientBuilder.DidNotReceive().GetConsumer("connector", 1);
             _consumer.DidNotReceive().Subscribe(Arg.Any<IList<string>>());
-            _logger.Received().Log(LogLevel.Warning, "{@Log}", new { Message = "No topics to subscribe."});
+            _logger.Received().Warning("No topics to subscribe.");
         }
         
         [Theory]
@@ -115,7 +115,7 @@ namespace Kafka.Connect.UnitTests.Handlers
             await _retriableHandler.Received()
                 .Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(), Arg.Any<string>());
             _consumer.DidNotReceive().Consume(Arg.Any<CancellationToken>());
-            _logger.Log(LogLevel.Debug, Constants.AtLog, new {Message="There aren't any messages in the batch to process."});
+            _logger.Debug("There aren't any messages in the batch to process.");
         }
         
         [Fact]
@@ -169,7 +169,7 @@ namespace Kafka.Connect.UnitTests.Handlers
                 .Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(), Arg.Any<string>());
             _consumer.Received(expectedCount).Consume(Arg.Any<CancellationToken>());
             Assert.Equal(expectedCount, consumedBatch.Count);
-            _logger.Received().Log(LogLevel.Trace, Constants.AtLog, new {Message="Polling for messages. #00005"});
+            _logger.Received().Trace("Polling for messages.", Arg.Any<object>());
             //_logger.Received().Log(LogLevel.Debug, Constants.AtLog, new {Message="Message consumed.", Topic = "topic", Partition = 0, Offset = 0, IsPartitionEOF = false, TimeStamp = timestamp.UtcDateTime });
         }
         
@@ -200,7 +200,7 @@ namespace Kafka.Connect.UnitTests.Handlers
                 .Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(), Arg.Any<string>());
             _consumer.Received(5).Consume(Arg.Any<CancellationToken>());
             Assert.Equal(3, consumedBatch.Count);
-            _logger.Received().Log(LogLevel.Trace, Constants.AtLog, new {Message="Polling for messages. #00005"});
+            _logger.Received().Trace("Polling for messages.", Arg.Any<object>());
             //_logger.Received().Log(LogLevel.Debug, Constants.AtLog, new {Message="Message consumed.", Topic = "topic", Partition = 0, Offset = 0, IsPartitionEOF = false, TimeStamp = timestamp.UtcDateTime });
         }
         
@@ -242,7 +242,7 @@ namespace Kafka.Connect.UnitTests.Handlers
             Assert.Equal(2, consumedBatch.Count);
             Assert.Single(consumedBatch.GetEofPartitions());
             Assert.Contains(consumedBatch.GetEofPartitions(), tpo => tpo.Topic == "topic" && tpo.Partition == 0 && tpo.Offset == 3);
-            _logger.Received().Log(LogLevel.Trace, Constants.AtLog, new {Message="Polling for messages. #00005"});
+            _logger.Received().Trace("Polling for messages.", Arg.Any<object>());
             //_logger.Received().Log(LogLevel.Debug, Constants.AtLog, new {Message="Message consumed.", Topic = "topic", Partition = 0, Offset = 0, IsPartitionEOF = false, TimeStamp = timestamp.UtcDateTime });
         }
         
@@ -273,8 +273,9 @@ namespace Kafka.Connect.UnitTests.Handlers
                 .Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(), Arg.Any<string>());
             _consumer.Received(3).Consume(Arg.Any<CancellationToken>());
             Assert.Equal(2, consumedBatch.Count);
-            _logger.Received().Log(LogLevel.Trace, Constants.AtLog, new {Message="Polling for messages. #00005"});
-            _logger.Received().Log(LogLevel.Warning, Arg.Any<Exception>(), Constants.AtLog, new {Message="Consume failed. Part of the batch will be processed.", Count=2});
+            _logger.Received().Trace("Polling for messages.", Arg.Any<object>());
+            _logger.Received().Warning("Consume failed. Part of the batch will be processed.", Arg.Any<object>(),
+                Arg.Any<Exception>());
             //_logger.Received().Log(LogLevel.Debug, Constants.AtLog, new {Message="Message consumed.", Topic = "topic", Partition = 0, Offset = 0, IsPartitionEOF = false, TimeStamp = timestamp.UtcDateTime });
         }
         
@@ -296,8 +297,8 @@ namespace Kafka.Connect.UnitTests.Handlers
                 .Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(), Arg.Any<string>());
             _consumer.Received(1).Consume(Arg.Any<CancellationToken>());
             Assert.Empty(consumedBatch);
-            _logger.Received().Log(LogLevel.Trace, Constants.AtLog, new {Message="Polling for messages. #00005"});
-            _logger.Received().Log(LogLevel.Trace, Constants.AtLog, new {Message="Task has been cancelled. The consume operation will be terminated."});
+            _logger.Received().Trace("Polling for messages.", Arg.Any<object>());
+            //_logger.Received().Trace("Task has been cancelled. The consume operation will be terminated.", Arg.Any<object>);
             //_logger.Received().Log(LogLevel.Debug, Constants.AtLog, new {Message="Message consumed.", Topic = "topic", Partition = 0, Offset = 0, IsPartitionEOF = false, TimeStamp = timestamp.UtcDateTime });
         }
         
@@ -327,7 +328,7 @@ namespace Kafka.Connect.UnitTests.Handlers
             await _retriableHandler.Received()
                 .Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(), Arg.Any<string>());
             _consumer.Received(1).Consume(Arg.Any<CancellationToken>());
-            _logger.Received().Log(LogLevel.Trace, Constants.AtLog, new {Message="Polling for messages. #00005"});
+            _logger.Received().Trace("Polling for messages.", Arg.Any<object>());
             //_logger.Received().Log(LogLevel.Debug, Constants.AtLog, new {Message="Message consumed.", Topic = "topic", Partition = 0, Offset = 0, IsPartitionEOF = false, TimeStamp = timestamp.UtcDateTime });
         }
         
@@ -348,7 +349,7 @@ namespace Kafka.Connect.UnitTests.Handlers
             await _retriableHandler.Received()
                 .Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(), Arg.Any<string>());
             _consumer.Received(1).Consume(Arg.Any<CancellationToken>());
-            _logger.Received().Log(LogLevel.Trace, Constants.AtLog, new {Message="Polling for messages. #00005"});
+            _logger.Received().Trace("Polling for messages.", Arg.Any<object>());
             //_logger.Received().Log(LogLevel.Debug, Constants.AtLog, new {Message="Message consumed.", Topic = "topic", Partition = 0, Offset = 0, IsPartitionEOF = false, TimeStamp = timestamp.UtcDateTime });
         }
     }

@@ -3,7 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Kafka.Connect.Background;
 using Kafka.Connect.Connectors;
-using Kafka.Connect.Logging;
+using Kafka.Connect.Plugin.Logging;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Xunit;

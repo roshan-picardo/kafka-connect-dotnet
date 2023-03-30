@@ -11,15 +11,20 @@ namespace Kafka.Connect.Processors
 {
     public class DateTimeTypeOverrider : Processor<IDictionary<string, string>>
     {
-        public DateTimeTypeOverrider(IConfigurationProvider configurationProvider) : base(configurationProvider)
+        private readonly ILogger<DateTimeTypeOverrider> _logger;
+
+        public DateTimeTypeOverrider(ILogger<DateTimeTypeOverrider> logger, IConfigurationProvider configurationProvider) : base(configurationProvider)
         {
+            _logger = logger;
         }
         
-        [OperationLog("Applying datetime type overrider.")]
         protected override Task<(bool, IDictionary<string, object>)> Apply(IDictionary<string, object> flattened, IDictionary<string, string> settings)
         {
-            return Task.FromResult(ApplyInternal(flattened,
-                settings?.ToDictionary(k => k.Key.Prefix(), v => v.Value)));
+            using (_logger.Track("Applying datetime type overrider."))
+            {
+                return Task.FromResult(ApplyInternal(flattened,
+                    settings?.ToDictionary(k => k.Key.Prefix(), v => v.Value)));
+            }
         }
 
         private static (bool, IDictionary<string, object>) ApplyInternal(IDictionary<string, object> flattened, IDictionary<string, string> maps = null)

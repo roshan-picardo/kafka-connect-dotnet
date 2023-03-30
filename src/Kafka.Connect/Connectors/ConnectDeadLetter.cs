@@ -7,7 +7,6 @@ using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Providers;
 using Kafka.Connect.Utilities;
-using Microsoft.Extensions.Logging;
 using Serilog.Context;
 using Serilog.Core.Enrichers;
 
@@ -26,31 +25,32 @@ namespace Kafka.Connect.Connectors
             _configurationProvider = configurationProvider;
         }
 
-        [OperationLog("Sending message to dead letter queue.")]
         public async Task Send(IEnumerable<SinkRecord> sinkRecords, Exception exception, string connector)
         {
-            var topic = _configurationProvider.GetErrorsConfig(connector).Topic;
-            using var producer = _kafkaClientBuilder.GetProducer(connector);
+            using (_logger.Track("Sending message to dead letter queue."))
             {
-                foreach (var record in sinkRecords)
+                var topic = _configurationProvider.GetErrorsConfig(connector).Topic;
+                using var producer = _kafkaClientBuilder.GetProducer(connector);
                 {
-                    using (LogContext.Push(new PropertyEnricher("Topic", record.Topic),
-                        new PropertyEnricher("Partition", record.Partition),
-                        new PropertyEnricher("Offset", record.Offset)))
+                    foreach (var record in sinkRecords)
                     {
-                        record.Consumed.Message.Headers.Add("_errorContext",
-                            ByteConvert.Serialize(exception.ToString()));
-                        record.Consumed.Message.Headers.Add("_sourceContext",
-                            ByteConvert.Serialize(new MessageContext(record.TopicPartitionOffset)));
-
-                        var delivered = await producer.ProduceAsync(topic, record.Consumed.Message);
-                        _logger.LogInformation("{@Log}", new
+                        using (LogContext.Push(new PropertyEnricher("Topic", record.Topic),
+                                   new PropertyEnricher("Partition", record.Partition),
+                                   new PropertyEnricher("Offset", record.Offset)))
                         {
-                            Message = "Error message delivered.",
-                            delivered.Topic,
-                            Partition = delivered.Partition.Value,
-                            Offset = delivered.Offset.Value
-                        });
+                            record.Consumed.Message.Headers.Add("_errorContext",
+                                ByteConvert.Serialize(exception.ToString()));
+                            record.Consumed.Message.Headers.Add("_sourceContext",
+                                ByteConvert.Serialize(new MessageContext(record.TopicPartitionOffset)));
+
+                            var delivered = await producer.ProduceAsync(topic, record.Consumed.Message);
+                            _logger.Info("Error message delivered.", new
+                            {
+                                delivered.Topic,
+                                Partition = delivered.Partition.Value,
+                                Offset = delivered.Offset.Value
+                            });
+                        }
                     }
                 }
             }

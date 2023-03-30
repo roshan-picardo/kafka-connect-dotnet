@@ -11,34 +11,42 @@ namespace Kafka.Connect.Serializers
 {
     public class StringDeserializer : Deserializer
     {
+        private readonly ILogger<StringDeserializer> _logger;
+
+        public StringDeserializer(ILogger<StringDeserializer> logger)
+        {
+            _logger = logger;
+        }
         private const int HeaderSize = sizeof(int) + sizeof(byte);
         
-        [OperationLog("Deserializing the record using string deserializer.")]
         public override async Task<JToken> Deserialize(ReadOnlyMemory<byte> data, SerializationContext context, bool isNull = false)
         {
-            string strData;
-
-            if (isNull || data.IsEmpty) return Wrap(null, context);
-            try
+            using (_logger.Track("Deserializing the record using string deserializer."))
             {
-                var array = data.ToArray();
+                string strData;
 
-                if (array.Length < 5)
+                if (isNull || data.IsEmpty) return Wrap(null, context);
+                try
                 {
-                    throw new InvalidDataException(
-                        $"Expecting data framing of length 5 bytes or more but total data size is {array.Length} bytes");
+                    var array = data.ToArray();
+
+                    if (array.Length < 5)
+                    {
+                        throw new InvalidDataException(
+                            $"Expecting data framing of length 5 bytes or more but total data size is {array.Length} bytes");
+                    }
+
+                    await using var stream = new MemoryStream(array, HeaderSize, array.Length - HeaderSize);
+                    using var sr = new StreamReader(stream, Encoding.UTF8);
+                    strData = await sr.ReadToEndAsync();
+                }
+                catch (AggregateException ae)
+                {
+                    throw ae.InnerException ?? ae;
                 }
 
-                await using var stream = new MemoryStream(array, HeaderSize, array.Length - HeaderSize);
-                using var sr = new StreamReader(stream, Encoding.UTF8);
-                strData = await sr.ReadToEndAsync();
+                return Wrap(strData, context);
             }
-            catch (AggregateException ae)
-            {
-                throw ae.InnerException ?? ae;
-            }
-
-            return Wrap(strData, context);
         }
     }
 }

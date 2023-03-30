@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Providers;
 using Kafka.Connect.Processors;
 using NSubstitute;
@@ -16,7 +17,7 @@ namespace Kafka.Connect.UnitTests.Processors
         public WhitelistFieldProjectorTests()
         {
             _configurationProvider = Substitute.For<IConfigurationProvider>();
-            _whitelistFieldProjector = new WhitelistFieldProjector(_configurationProvider);
+            _whitelistFieldProjector = new WhitelistFieldProjector(Substitute.For<ILogger<WhitelistFieldProjector>>(),_configurationProvider);
         }
         
         [Theory]

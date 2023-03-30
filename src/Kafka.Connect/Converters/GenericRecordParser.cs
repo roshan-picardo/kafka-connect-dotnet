@@ -13,10 +13,18 @@ namespace Kafka.Connect.Converters
 {
     public class GenericRecordParser : IGenericRecordParser
     {
-        [OperationLog("Parsing generic record.")]
+        private readonly ILogger<GenericRecordParser> _logger;
+
+        public GenericRecordParser(ILogger<GenericRecordParser> logger)
+        {
+            _logger = logger;
+        }
         public JToken Parse(GenericRecord genericRecord)
         {
-            return ParseRecord(genericRecord);
+            using (_logger.Track("Parsing generic record."))
+            {
+                return ParseRecord(genericRecord);
+            }
         }
 
         private JToken ParseRecord(GenericRecord genericRecord)

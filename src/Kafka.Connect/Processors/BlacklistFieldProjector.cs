@@ -9,14 +9,19 @@ namespace Kafka.Connect.Processors
 {
     public class BlacklistFieldProjector : Processor<IList<string>>
     {
-        public BlacklistFieldProjector(IConfigurationProvider configurationProvider) : base(configurationProvider)
+        private readonly ILogger<BlacklistFieldProjector> _logger;
+
+        public BlacklistFieldProjector(ILogger<BlacklistFieldProjector> logger, IConfigurationProvider configurationProvider) : base(configurationProvider)
         {
+            _logger = logger;
         }
 
-        [OperationLog("Applying blacklist field projector.")]
         protected override Task<(bool, IDictionary<string, object>)> Apply(IDictionary<string, object> flattened, IList<string> settings)
         {
-            return Task.FromResult(ApplyInternal(flattened, settings?.Select(s=> s.Prefix())));
+            using (_logger.Track("Applying blacklist field projector."))
+            {
+                return Task.FromResult(ApplyInternal(flattened, settings?.Select(s => s.Prefix())));
+            }
         }
 
         private static (bool, IDictionary<string, object>) ApplyInternal(IDictionary<string, object> flattened,

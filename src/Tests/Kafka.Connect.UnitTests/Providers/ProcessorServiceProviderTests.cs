@@ -1,9 +1,9 @@
 using System.Collections.Generic;
 using System.Linq;
+using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Processors;
 using Kafka.Connect.Plugin.Serializers;
 using Kafka.Connect.Providers;
-using Microsoft.Extensions.Logging;
 using NSubstitute;
 using Xunit;
 

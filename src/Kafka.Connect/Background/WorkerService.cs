@@ -2,7 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Kafka.Connect.Connectors;
-using Kafka.Connect.Logging;
+using Kafka.Connect.Plugin.Logging;
 using Microsoft.Extensions.Hosting;
 
 namespace Kafka.Connect.Background

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Providers;
 using Kafka.Connect.Processors;
 using NSubstitute;
@@ -15,7 +16,7 @@ namespace Kafka.Connect.UnitTests.Processors
         public FieldRenamerTests()
         {
             _configurationProvider = Substitute.For<IConfigurationProvider>();
-            _fieldRenamer = new FieldRenamer(_configurationProvider);
+            _fieldRenamer = new FieldRenamer(Substitute.For<ILogger<FieldRenamer>>(), _configurationProvider);
         }
         
         

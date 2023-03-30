@@ -7,7 +7,6 @@ using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Providers;
 using Kafka.Connect.Serializers;
 using Kafka.Connect.Utilities;
-using Microsoft.Extensions.Logging;
 using Serilog.Context;
 using Serilog.Core.Enrichers;
 
@@ -31,50 +30,55 @@ namespace Kafka.Connect.Handlers
             _configurationProvider = configurationProvider;
         }
 
-        [OperationLog("Processing the batch.")]
         public async Task Process(SinkRecordBatch batch, string connector)
         {
-            batch ??= new SinkRecordBatch(connector);
-            foreach (var topicBatch in batch.BatchByTopicPartition)
+            using (_logger.Track("Processing the batch."))
             {
-                using (LogContext.Push(new PropertyEnricher(Constants.Topic, topicBatch.Topic),
-                    new PropertyEnricher(Constants.Partition, topicBatch.Partition)))
+                batch ??= new SinkRecordBatch(connector);
+                foreach (var topicBatch in batch.BatchByTopicPartition)
                 {
-                    await topicBatch.Batch.ForEachAsync(async record =>
+                    using (LogContext.Push(new PropertyEnricher(Constants.Topic, topicBatch.Topic),
+                               new PropertyEnricher(Constants.Partition, topicBatch.Partition)))
                     {
-                        using (LogContext.PushProperty(Constants.Offset, record.Offset))
-                        {
-                            record.Status = SinkStatus.Processing;
-                            var (keyToken, valueToken) = await _messageConverter.Deserialize(record.Consumed, connector);
-                            record.Parsed(keyToken, valueToken);
-                            record.LogDocument();
-                            (record.Skip, record.Data) = await _messageHandler.Process(record, connector);
-                            record.Status = SinkStatus.Processed;
-                        }
-                    }, (record, exception) => exception.SetLogContext(record), _configurationProvider.GetBatchConfig(connector).Parallelism);
+                        await topicBatch.Batch.ForEachAsync(async record =>
+                            {
+                                using (LogContext.PushProperty(Constants.Offset, record.Offset))
+                                {
+                                    record.Status = SinkStatus.Processing;
+                                    var (keyToken, valueToken) =
+                                        await _messageConverter.Deserialize(record.Consumed, connector);
+                                    record.Parsed(keyToken, valueToken);
+                                    record.LogDocument();
+                                    (record.Skip, record.Data) = await _messageHandler.Process(record, connector);
+                                    record.Status = SinkStatus.Processed;
+                                }
+                            }, (record, exception) => exception.SetLogContext(record),
+                            _configurationProvider.GetBatchConfig(connector).Parallelism);
+                    }
                 }
             }
         }
 
-        [OperationLog("Sinking the batch.")]
         public async Task Sink(SinkRecordBatch batch, string connector)
         {
-            if (batch == null || !batch.Any())
+            using (_logger.Track("Sinking the batch."))
             {
-                return;
+                if (batch == null || !batch.Any())
+                {
+                    return;
+                }
+
+                var sinkHandler = _sinkHandlerProvider.GetSinkHandler(connector);
+                if (sinkHandler == null)
+                {
+                    _logger.Warning(
+                        "Sink handler is not specified. Check if the handler is configured properly, and restart the connector.");
+                    batch.SkipAll();
+                    return;
+                }
+
+                await sinkHandler.Put(batch, connector, _configurationProvider.GetBatchConfig(connector).Parallelism);
             }
-            var sinkHandler = _sinkHandlerProvider.GetSinkHandler(connector);
-            if (sinkHandler == null)
-            {
-                _logger.LogWarning(Constants.AtLog,
-                    new
-                    {
-                        Message = "Sink handler is not specified. Check if the handler is configured properly, and restart the connector.",
-                    });
-                batch.SkipAll();
-                return;
-            }
-            await sinkHandler.Put(batch, connector, _configurationProvider.GetBatchConfig(connector).Parallelism);
         }
     }
 }
