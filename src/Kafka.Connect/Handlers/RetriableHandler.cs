@@ -4,8 +4,8 @@ using System.Threading.Tasks;
 using Confluent.Kafka;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Plugin.Exceptions;
+using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
-using Microsoft.Extensions.Logging;
 using Kafka.Connect.Providers;
 
 namespace Kafka.Connect.Handlers
@@ -48,7 +48,7 @@ namespace Kafka.Connect.Handlers
             }
 
             --remaining;
-            _logger.LogDebug("{@Log}", new {Message = "The batch will be split, and messages will be processed individually"});
+            _logger.Debug("The batch will be split, and messages will be processed individually");
             batch.IsLastAttempt = true;
             foreach (var record in batch) 
             {

@@ -6,7 +6,6 @@ using Kafka.Connect.Plugin.Converters;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Processors;
 using Kafka.Connect.Plugin.Providers;
-using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 
 namespace Kafka.Connect.Processors
@@ -22,10 +21,13 @@ namespace Kafka.Connect.Processors
             _logger = logger;
         }
 
-        [OperationLog("Applying json type overrider.")]
         protected override Task<(bool, IDictionary<string, object>)> Apply(IDictionary<string, object> flattened, IList<string> settings)
         {
-            return Task.FromResult(ApplyInternal(flattened, settings?.Select(s=> s.Prefix())));
+            using (_logger.Track("Applying json type overrider."))
+            {
+                return Task.FromResult(ApplyInternal(flattened, settings?.Select(s=> s.Prefix())));
+
+            }
         }
 
         private (bool, IDictionary<string, object>) ApplyInternal(IDictionary<string, object> flattened,
@@ -48,7 +50,7 @@ namespace Kafka.Connect.Processors
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "{@Log}", new {Message = $"Error while parsing JSON for key: {key}."});
+                    _logger.Warning($"Error while parsing JSON for key: {key}.", ex);
                 }
 
                 if (jToken == null) continue;

@@ -5,10 +5,10 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Kafka.Connect.Configurations;
+using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Providers;
 using Kafka.Connect.Tokens;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Serilog.Context;
 
 [assembly:InternalsVisibleTo("Kafka.Connect.UnitTests")]
@@ -66,7 +66,7 @@ namespace Kafka.Connect.Connectors
                 
                 _executionContext.Clear(connectorConfig.Name);
                 var taskId = 1;
-                _logger.LogDebug("{@Log}", new {Message = "Starting tasks.", Max = connectorConfig.MaxTasks});
+                _logger.Debug("Starting tasks.", new { Tasks = connectorConfig.MaxTasks });
 
                 _executionContext.Start(connectorConfig.Name);
 
@@ -81,23 +81,23 @@ namespace Kafka.Connect.Connectors
                     //pts.AddSubTaskTokens(task.Token);
                     using (LogContext.PushProperty("Task", task.Config.MaxTasks)) 
                     {
-                        _logger.LogDebug("{@Log}", new {Message = "Starting task.", Id = "#{t.Config.TaskId:00}"});
+                        _logger.Debug("Starting task.", new{ Id = "#{t.Config.TaskId:00}"});
                         var sinkTask = task.Task.Execute(connector, taskId++, cts.Token);
                         return sinkTask.ContinueWith(t =>
                         {
                             if (t.IsFaulted)
                             {
-                                _logger.LogError(t.Exception?.InnerException, "{@Log}", new { Message = "Task is faulted, and will be terminated."});
+                                _logger.Error("Task is faulted, and will be terminated.", t.Exception?.InnerException);
                             }
 
-                            _logger.LogDebug("{@Log}", new {Message = "Task will be Stopped."});
+                            _logger.Debug("Task will be Stopped.");
                         }, TaskContinuationOptions.None);
                     }
                 })).ContinueWith(t =>
                 {
                     if (t.IsFaulted)
                     {
-                        _logger.LogError(t.Exception?.InnerException, "{@Log}", new { Message = "Connector is faulted, and will be terminated."});
+                        _logger.Error("Connector is faulted, and will be terminated.", t.Exception?.InnerException);
                     }
                     _executionContext.Stop(connectorConfig.Name);
                 }, CancellationToken.None);
@@ -107,7 +107,7 @@ namespace Kafka.Connect.Connectors
                     !restartsConfig.EnabledFor.HasFlag(RestartsLevel.Connector)) continue;
                 if (retryAttempts < 0)
                 {
-                    _logger.LogDebug("{@Log}", new {Message = "Attempting to restart the Connector.", Attempt = ++restarts});
+                    _logger.Debug("Attempting to restart the Connector.", new { Attempt = ++restarts });
                     continue;
                 }
 
@@ -119,15 +119,15 @@ namespace Kafka.Connect.Connectors
                 if (retryAttempts > 0)
                 {
                     await Task.Delay(restartsConfig.PeriodicDelayMs, CancellationToken.None);
-                    _logger.LogDebug("{@Log}", new {Message = "Attempting to restart the Connector.", Attempt = ++restarts});
+                    _logger.Debug("Attempting to restart the Connector.", new{ Attempt = ++restarts});
                     --retryAttempts;
                     stopwatch.Restart();
                     continue;
                 }
-                _logger.LogInformation("{@Log}", new {Message = "Restart attempts exhausted the threshold for the Connector.", Use = $"/connectors/{connectorConfig.Name}/resume"});
+                _logger.Info( "Restart attempts exhausted the threshold for the Connector.", new { Use = $"/connectors/{connectorConfig.Name}/resume"});
                 await Pause();
             }
-            _logger.LogDebug("{@Log}", new {Message = "Shutting down the connector."});
+            _logger.Debug( "Shutting down the connector.");
 
             if (sinkHandler != null)
             {

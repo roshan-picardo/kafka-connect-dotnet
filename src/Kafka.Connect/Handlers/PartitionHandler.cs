@@ -10,7 +10,6 @@ using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Providers;
 using Kafka.Connect.Utilities;
-using Microsoft.Extensions.Logging;
 using Serilog.Context;
 using Serilog.Core.Enrichers;
 
@@ -29,84 +28,95 @@ namespace Kafka.Connect.Handlers
             _configurationProvider = configurationProvider;
         }
 
-        [OperationLog("Committing offsets.")]
         public void CommitOffsets(SinkRecordBatch batch, IConsumer<byte[], byte[]> consumer)
         {
-            var offsets = batch.GetCommitReadyOffsets().ToList();
-            if (!offsets.Any())
+            using (_logger.Track("Committing offsets."))
             {
-                return;
-            }
-            var (enableAutoCommit, enableAutoOffsetStore) = _configurationProvider.GetAutoCommitConfig();
-
-            var maxOffsets = GetMaxOffsets(offsets);
-
-            if (!enableAutoCommit) 
-            {
-                consumer.Commit(maxOffsets);
-            }
-            else if (!enableAutoOffsetStore) 
-            {
-                foreach (var commitOffset in maxOffsets)
+                var offsets = batch.GetCommitReadyOffsets().ToList();
+                if (!offsets.Any())
                 {
-                    consumer.StoreOffset(commitOffset);
+                    return;
+                }
+
+                var (enableAutoCommit, enableAutoOffsetStore) = _configurationProvider.GetAutoCommitConfig();
+
+                var maxOffsets = GetMaxOffsets(offsets);
+
+                if (!enableAutoCommit)
+                {
+                    consumer.Commit(maxOffsets);
+                }
+                else if (!enableAutoOffsetStore)
+                {
+                    foreach (var commitOffset in maxOffsets)
+                    {
+                        consumer.StoreOffset(commitOffset);
+                    }
                 }
             }
         }
 
-        [OperationLog("Notify end of the partition.")]
         public async Task NotifyEndOfPartition(SinkRecordBatch batch, string connector, int taskId)
         {
-            [OperationLog("Producing EOF notification message.")]
-            Task<DeliveryResult<byte[], byte[]>> Produce(IProducer<byte[], byte[]> producer, string topic, Message<byte[], byte[]> message) => producer.ProduceAsync(topic, message);
-
-            var eofSignal = _configurationProvider.GetEofSignalConfig(connector) ?? new EofConfig();
-            if (eofSignal.Enabled && !string.IsNullOrWhiteSpace(eofSignal.Topic))
+            using (_logger.Track("Notify end of the partition."))
             {
-                var eofPartitions = batch.GetEofPartitions().ToList();
-                if (!eofPartitions.Any())
+                Task<DeliveryResult<byte[], byte[]>> Produce(IProducer<byte[], byte[]> producer, string topic,
+                    Message<byte[], byte[]> message)
                 {
-                    return;
-                }
-                foreach (var commitReadyOffset in GetMaxOffsets(batch.GetCommitReadyOffsets()))
-                {
-                    var eofPartition = eofPartitions.SingleOrDefault(o =>
-                        o.Topic == commitReadyOffset.Topic &&
-                        o.Partition.Value == commitReadyOffset.Partition.Value &&
-                        o.Offset.Value == commitReadyOffset.Offset.Value);
-                    if (eofPartition == null) continue;
-                    using (LogContext.Push(new PropertyEnricher("Topic", eofPartition.Topic),
-                        new PropertyEnricher("Partition", eofPartition.Partition)))
+                    using (_logger.Track("Producing EOF notification message."))
                     {
-                        using var producer = _kafkaClientBuilder.GetProducer(connector);
-                        {
-                            if (producer == null)
-                            {
-                                _logger.LogWarning("{@Log}",
-                                    new {Message = "No producer configured to publish EOF message."});
-                                continue;
-                            }
-                            var message = new Message<byte[], byte[]>
-                            {
-                                Key = ByteConvert.Serialize(Guid.NewGuid()),
-                                Value = ByteConvert.Serialize(new EndOfPartitionMessage
-                                {
-                                    Connector = connector,
-                                    TaskId = taskId,
-                                    Topic = eofPartition.Topic,
-                                    Partition = eofPartition.Partition.Value,
-                                    Offset = eofPartition.Offset.Value
-                                })
-                            };
+                        return producer.ProduceAsync(topic, message);
+                    }
+                }
 
-                            var delivered = await Produce(producer, eofSignal.Topic, message);
-                            _logger.LogInformation("{Log}", new
+                var eofSignal = _configurationProvider.GetEofSignalConfig(connector) ?? new EofConfig();
+                if (eofSignal.Enabled && !string.IsNullOrWhiteSpace(eofSignal.Topic))
+                {
+                    var eofPartitions = batch.GetEofPartitions().ToList();
+                    if (!eofPartitions.Any())
+                    {
+                        return;
+                    }
+
+                    foreach (var commitReadyOffset in GetMaxOffsets(batch.GetCommitReadyOffsets()))
+                    {
+                        var eofPartition = eofPartitions.SingleOrDefault(o =>
+                            o.Topic == commitReadyOffset.Topic &&
+                            o.Partition.Value == commitReadyOffset.Partition.Value &&
+                            o.Offset.Value == commitReadyOffset.Offset.Value);
+                        if (eofPartition == null) continue;
+                        using (LogContext.Push(new PropertyEnricher("Topic", eofPartition.Topic),
+                                   new PropertyEnricher("Partition", eofPartition.Partition)))
+                        {
+                            using var producer = _kafkaClientBuilder.GetProducer(connector);
                             {
-                                Message = "EOF message delivered.",
-                                delivered.Topic,
-                                Partition = delivered.Partition.Value,
-                                Offset = delivered.Offset.Value
-                            });
+                                if (producer == null)
+                                {
+                                    _logger.Warning("No producer configured to publish EOF message.");
+                                    continue;
+                                }
+
+                                var message = new Message<byte[], byte[]>
+                                {
+                                    Key = ByteConvert.Serialize(Guid.NewGuid()),
+                                    Value = ByteConvert.Serialize(new EndOfPartitionMessage
+                                    {
+                                        Connector = connector,
+                                        TaskId = taskId,
+                                        Topic = eofPartition.Topic,
+                                        Partition = eofPartition.Partition.Value,
+                                        Offset = eofPartition.Offset.Value
+                                    })
+                                };
+
+                                var delivered = await Produce(producer, eofSignal.Topic, message);
+                                _logger.Info("EOF message delivered.", new
+                                {
+                                    delivered.Topic,
+                                    Partition = delivered.Partition.Value,
+                                    Offset = delivered.Offset.Value
+                                });
+                            }
                         }
                     }
                 }

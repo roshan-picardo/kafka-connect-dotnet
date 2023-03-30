@@ -5,9 +5,9 @@ using Confluent.Kafka;
 using Kafka.Connect.Builders;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Handlers;
+using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Providers;
-using Microsoft.Extensions.Logging;
 using NSubstitute;
 using Xunit;
 
@@ -25,7 +25,7 @@ namespace Kafka.Connect.UnitTests.Handlers
 
         public PartitionHandlerTests()
         {
-            _logger = Substitute.For<MockLogger<PartitionHandler>>();
+            _logger = Substitute.For<ILogger<PartitionHandler>>();
             _kafkaClientBuilder = Substitute.For<IKafkaClientBuilder>();
             _configurationProvider = Substitute.For<IConfigurationProvider>();
             _consumer = Substitute.For<IConsumer<byte[], byte[]>>();
@@ -150,7 +150,7 @@ namespace Kafka.Connect.UnitTests.Handlers
             await _partitionHandler.NotifyEndOfPartition(batch, "connector", 1);
 
             _kafkaClientBuilder.Received().GetProducer(Arg.Any<string>());
-            _logger.Received().Log(LogLevel.Warning, "{@Log}", new {Message = "No producer configured to publish EOF message."});
+            _logger.Received().Warning("No producer configured to publish EOF message.");
 
         }
         
@@ -174,7 +174,7 @@ namespace Kafka.Connect.UnitTests.Handlers
 
             _kafkaClientBuilder.Received().GetProducer(Arg.Any<string>());
             await _producer.Received().ProduceAsync("eof-topic", Arg.Any<Message<byte[], byte[]>>());
-            _logger.Received().Log(LogLevel.Information, "{@Log}", new {Message = "EOF message delivered.", Topic = "eof-topic", Partition = 0, Offset = 10});
+            _logger.Received().Info( "EOF message delivered.", Arg.Any<object>());
         }
         
         private static SinkRecord GetRecord(string topic, int partition, int offset)

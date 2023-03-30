@@ -1,16 +1,14 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Data;
 using System.Linq;
 using System.Threading.Tasks;
 using Confluent.Kafka;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Handlers;
 using Kafka.Connect.Plugin.Exceptions;
+using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Providers;
-using Microsoft.Extensions.Logging;
 using NSubstitute;
 using Xunit;
 
@@ -25,7 +23,7 @@ namespace Kafka.Connect.UnitTests.Handlers
 
         public RetriableHandlerTests()
         {
-            _logger = Substitute.For<MockLogger<RetriableHandler>>();
+            _logger = Substitute.For<ILogger<RetriableHandler>>();
             _configurationProvider = Substitute.For<IConfigurationProvider>();
             _sinkExceptionHandler = Substitute.For<ISinkExceptionHandler>();
             _retriableHandler = new RetriableHandler(_logger, _sinkExceptionHandler, _configurationProvider);

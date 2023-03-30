@@ -26,7 +26,7 @@ public class Fixture : IDisposable
         _settings = InitConfig.Get();
         ConfigureMessageProducers();
         _targetHelperProvider = new TargetHelperProvider(_settings);
-        _genericRecordBuilder = new GenericRecordBuilder();
+        _genericRecordBuilder = new GenericRecordBuilder(null);
     }
 
     public Task Setup(Sink sink)

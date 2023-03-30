@@ -1,8 +1,10 @@
 using System;
 using System.Threading.Tasks;
 using Confluent.Kafka;
+using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Serializers;
 using Newtonsoft.Json.Linq;
+using NSubstitute;
 using Xunit;
 
 namespace Kafka.Connect.UnitTests.Serializers
@@ -12,7 +14,7 @@ namespace Kafka.Connect.UnitTests.Serializers
         [Fact]
         public async  Task Deserialize()
         {
-            var ignoreDeserializer = new IgnoreDeserializer();
+            var ignoreDeserializer = new IgnoreDeserializer(Substitute.For<ILogger<IgnoreDeserializer>>());
             
             var expected = new JObject{{"value", null}};
 

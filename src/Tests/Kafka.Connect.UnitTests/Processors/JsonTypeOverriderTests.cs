@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Kafka.Connect.Plugin.Converters;
+using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Providers;
 using Kafka.Connect.Processors;
-using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 using NSubstitute;
 using Xunit;
@@ -22,7 +22,7 @@ namespace Kafka.Connect.UnitTests.Processors
         public JsonTypeOverriderTests()
         {
             _recordFlattener = Substitute.For<IRecordFlattener>();
-            _logger = Substitute.For<MockLogger<JsonTypeOverrider>>();
+            _logger = Substitute.For<ILogger<JsonTypeOverrider>>();
             _configurationProvider = Substitute.For<IConfigurationProvider>();
             _jsonTypeOverrider = new JsonTypeOverrider(_logger, _recordFlattener, _configurationProvider);
         }
@@ -99,7 +99,7 @@ namespace Kafka.Connect.UnitTests.Processors
                     await _jsonTypeOverrider.Apply(new Dictionary<string, object>(flattened), "connector-name");
                 Assert.False(skip);
                 _recordFlattener.Received(expected.Length).Flatten(Arg.Any<JToken>());
-                _logger.Received(log ? 1 : 0).Log(LogLevel.Warning, Arg.Any<Exception>(), "{@Log}", new { Message = $"Error while parsing JSON for key: {flattened.Keys.First()}."});
+                _logger.Received(log ? 1 : 0).Warning( $"Error while parsing JSON for key: {flattened.Keys.First()}.", Arg.Any<Exception>());
 
                 for (var i = 0; i < expectedJsons.Count; i++)
                 {

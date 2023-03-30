@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Confluent.Kafka;
@@ -11,13 +12,13 @@ namespace Kafka.Connect.UnitTests.Builders
 {
     public class KafkaClientEventHandlerTests
     {
-        private readonly ILogger<KafkaClientEventHandler> _logger;
+        private readonly Plugin.Logging.ILogger<KafkaClientEventHandler> _logger;
         private readonly IExecutionContext _executionContext;
         private readonly KafkaClientEventHandler _kafkaClientEventHandler;
 
         public KafkaClientEventHandlerTests()
         {
-            _logger = Substitute.For<MockLogger<KafkaClientEventHandler>>();
+            _logger = Substitute.For<Plugin.Logging.ILogger<KafkaClientEventHandler>>();
             _executionContext = Substitute.For<IExecutionContext>();
 
             _kafkaClientEventHandler = new KafkaClientEventHandler(_logger, _executionContext);
@@ -28,8 +29,18 @@ namespace Kafka.Connect.UnitTests.Builders
         public void HandleError_ReturningExpectedLogs(LogLevel level, Error error)
         {
             _kafkaClientEventHandler.HandleError(error);
-            
-            _logger.Received().Log(level, "{@Log}", error);
+            switch (level)
+            {
+                case LogLevel.Critical: _logger.Received().Critical(error.Reason, Arg.Any<object>()); break;
+                case LogLevel.Error: _logger.Received().Error(error.Reason, Arg.Any<object>()); break;
+                case LogLevel.Warning: _logger.Received().Warning(error.Reason, Arg.Any<object>()); break;
+                case LogLevel.Information: _logger.Received().Info(error.Reason, Arg.Any<object>()); break;
+                case LogLevel.Debug: _logger.Received().Debug(error.Reason, Arg.Any<object>()); break;
+                case LogLevel.Trace: _logger.Received().Trace(error.Reason, Arg.Any<object>()); break;
+                case LogLevel.None: _logger.Received().None(error.Reason, Arg.Any<object>()); break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(level), level, null);
+            }
         }
         
         public static IEnumerable<object[]> GetErrors
@@ -60,7 +71,18 @@ namespace Kafka.Connect.UnitTests.Builders
             
             _kafkaClientEventHandler.HandleLogMessage(log);
             
-            _logger.Received().Log(logLevel, "{@Log}", log);
+            switch (logLevel)
+            {
+                case LogLevel.Critical: _logger.Received().Critical(log.Message, Arg.Any<object>()); break;
+                case LogLevel.Error: _logger.Received().Error(log.Message, Arg.Any<object>()); break;
+                case LogLevel.Warning: _logger.Received().Warning(log.Message, Arg.Any<object>()); break;
+                case LogLevel.Information: _logger.Received().Info(log.Message, Arg.Any<object>()); break;
+                case LogLevel.Debug: _logger.Received().Debug(log.Message, Arg.Any<object>()); break;
+                case LogLevel.Trace: _logger.Received().Trace(log.Message, Arg.Any<object>()); break;
+                case LogLevel.None: _logger.Received().None(log.Message, Arg.Any<object>()); break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(log), logLevel, null);
+            }
         }
         
         [Fact]
@@ -70,7 +92,7 @@ namespace Kafka.Connect.UnitTests.Builders
             
             _kafkaClientEventHandler.HandleStatistics(log);
             
-            _logger.Received().Log(LogLevel.Debug, "{@Log}", new { Message = "Statistics", Stats = log });
+            _logger.Debug("Statistics", log);
         }
         
         [Fact]
@@ -79,7 +101,7 @@ namespace Kafka.Connect.UnitTests.Builders
             
             _kafkaClientEventHandler.HandlePartitionAssigned("connector", 1, new List<TopicPartition>());
             
-            _logger.Received().Log(LogLevel.Trace, "{@Log}", new { Message = "No partitions assigned." });
+            _logger.Received().Trace("No partitions assigned.");
             _executionContext.DidNotReceive().AssignPartitions(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<List<TopicPartition>>());
         }
         
@@ -91,7 +113,7 @@ namespace Kafka.Connect.UnitTests.Builders
             
             _kafkaClientEventHandler.HandlePartitionAssigned("connector", 1, partitions);
             
-            _logger.Received().Log(LogLevel.Debug, "{@Log}", new { Message="Assigned partitions.", Partitions = partitions.Select(p=>$"{{Topic:{p.Topic}}} - {{Partition:{p.Partition.Value}}}").ToList()});
+            _logger.Received().Debug ("Assigned partitions.", Arg.Any<object>());
             _executionContext.Received().AssignPartitions("connector", 1, partitions);
         }
         
@@ -100,7 +122,7 @@ namespace Kafka.Connect.UnitTests.Builders
         {
             _kafkaClientEventHandler.HandlePartitionRevoked("connector", 1, new List<TopicPartitionOffset>());
             
-            _logger.Received().Log(LogLevel.Trace, "{@Log}", new { Message = "No partitions revoked." });
+            _logger.Received().Trace("No partitions revoked.");
             _executionContext.DidNotReceive().RevokePartitions(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<List<TopicPartition>>());
         }
         
@@ -111,7 +133,7 @@ namespace Kafka.Connect.UnitTests.Builders
             _kafkaClientEventHandler.HandlePartitionRevoked("connector", 1, offsets);
 
             _executionContext.Received().RevokePartitions("connector", 1, Arg.Any<IEnumerable<TopicPartition>>());
-            _logger.Received().Log(LogLevel.Debug, "{@Log}", new { Message="Revoked partitions.", Partitions = offsets.Select(p=> $"{{topic={p.Topic}}} - {{partition={p.Partition.Value}}} - {{offset:{p.Offset.Value}}}").ToList()});
+            _logger.Received().Debug("Revoked partitions.", Arg.Any<object>());
             
         }
         
@@ -120,7 +142,7 @@ namespace Kafka.Connect.UnitTests.Builders
         {
             _kafkaClientEventHandler.HandleOffsetCommitted(new CommittedOffsets(new List<TopicPartitionOffsetError>(), ErrorCode.NoError));
             
-            _logger.Received().Log(LogLevel.Trace, "{@Log}", new { Message = "No offsets committed." });
+            _logger.Received().Trace("No offsets committed.");
         }
         
         [Fact]
@@ -128,8 +150,8 @@ namespace Kafka.Connect.UnitTests.Builders
         {
             var error = new Error(ErrorCode.OffsetOutOfRange, "commit failed");
             _kafkaClientEventHandler.HandleOffsetCommitted(new CommittedOffsets(new List<TopicPartitionOffsetError>(), error));
-            
-            _logger.Received().Log(LogLevel.Warning, "{@Log}", new { Message = "Error committing offsets.", Reason=error, Offsets = new List<TopicPartitionOffsetError>().Select(p=> $"{{topic={p.Topic}}} - {{partition={p.Partition.Value}}} - {{offset:{p.Offset.Value}}}").ToList()});
+
+            _logger.Received().Warning("Error committing offsets.", Arg.Any<object>());
         }
         
         [Fact]
@@ -138,7 +160,7 @@ namespace Kafka.Connect.UnitTests.Builders
             var error = new Error(ErrorCode.OffsetOutOfRange, "commit failed");
             _kafkaClientEventHandler.HandleOffsetCommitted(new CommittedOffsets(new List<TopicPartitionOffsetError> { new("topic", 1, 1000, error) }, error));
             
-            _logger.Received().Log(LogLevel.Warning, "{@Log}", new { Message = "Error committing offsets.", Reason=error, Offsets = new List<TopicPartitionOffsetError>().Select(p=> $"{{topic={p.Topic}}} - {{partition={p.Partition.Value}}} - {{offset:{p.Offset.Value}}}").ToList()});
+            _logger.Received().Warning( "Error committing offsets.",Arg.Any<object>());
         }
         
         [Fact]
@@ -149,7 +171,9 @@ namespace Kafka.Connect.UnitTests.Builders
             
             _kafkaClientEventHandler.HandleOffsetCommitted(offsets);
             
-            _logger.Received().Log(LogLevel.Debug, "{@Log}", new { Message="Offsets committed.", Offsets = offsets.Offsets.Select(p=> $"{{topic={p.Topic}}} - {{partition={p.Partition.Value}}} - {{offset:{p.Offset.Value}}}").ToList()});
+            _logger.Received().Debug("Offsets committed.", Arg.Any<object>());
         }
+        
+        
     }
 }

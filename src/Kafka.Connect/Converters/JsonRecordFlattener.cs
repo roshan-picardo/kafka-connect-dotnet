@@ -9,20 +9,47 @@ namespace Kafka.Connect.Converters
 {
     public class JsonRecordFlattener : IRecordFlattener
     {
+        private readonly ILogger<JsonRecordFlattener> _logger;
+
+        public JsonRecordFlattener(ILogger<JsonRecordFlattener> logger)
+        {
+            _logger = logger;
+        }
         private readonly Regex _regexFieldNameSeparator =
             new Regex(@"('([^']*)')|(?!\.)([^.^\[\]]+)|(?!\[)(\d+)(?=\])", RegexOptions.Compiled);
 
-        [OperationLog("Flattening the record.")]
-        public IDictionary<string, object> Flatten(JToken record) => FlattenInternal(record as JContainer);
+        public IDictionary<string, object> Flatten(JToken record)
+        {
+            using (_logger.Track("Flattening the record."))
+            {
+                return FlattenInternal(record as JContainer);
+            }
+        }
 
-        [OperationLog("Unflattening the record.")]
-        public JToken Unflatten(IDictionary<string, object> dictionary) => UnflattenInternal(dictionary);
+        public JToken Unflatten(IDictionary<string, object> dictionary)
+        {
+            using (_logger.Track("Unflattening the record."))
+            {
+                return UnflattenInternal(dictionary);
+            }
+            
+        }
 
-        [OperationLog("Unflatten to object.")]
-        public T ToObject<T>(IDictionary<string, object> dictionary) => UnflattenInternal(dictionary).ToObject<T>();
+        public T ToObject<T>(IDictionary<string, object> dictionary)
+        {
+            using (_logger.Track("Unflatten to object."))
+            {
+                return UnflattenInternal(dictionary).ToObject<T>();
+            }
+        }
 
-        [OperationLog("Flatten from object.")]
-        public IDictionary<string, object> Flatten<T>(T data) => FlattenInternal(JToken.FromObject(data) as JContainer);
+        public IDictionary<string, object> Flatten<T>(T data)
+        {
+            using (_logger.Track("Flatten from object."))
+            {
+                return FlattenInternal(JToken.FromObject(data) as JContainer);
+            }
+        }
 
         private static IDictionary<string, object>
             FlattenInternal(JContainer jsonObject) =>

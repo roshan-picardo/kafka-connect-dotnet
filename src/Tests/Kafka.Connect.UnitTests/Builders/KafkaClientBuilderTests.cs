@@ -1,7 +1,7 @@
 using Confluent.Kafka;
 using Kafka.Connect.Builders;
+using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Providers;
-using Microsoft.Extensions.Logging;
 using NSubstitute;
 using Xunit;
 
@@ -12,14 +12,15 @@ namespace Kafka.Connect.UnitTests.Builders
         private readonly IConfigurationProvider _configurationProvider;
         private readonly IKafkaClientEventHandler _kafkaClientEventHandler;
         private readonly KafkaClientBuilder _kafkaClientBuilder;
+        private readonly ILogger<KafkaClientBuilder> _logger;
 
         public KafkaClientBuilderTests()
         {
-            Substitute.For<ILogger<KafkaClientBuilder>>();
+            _logger = Substitute.For<ILogger<KafkaClientBuilder>>();
             _configurationProvider = Substitute.For<IConfigurationProvider>();
             _kafkaClientEventHandler = Substitute.For<IKafkaClientEventHandler>();
 
-            _kafkaClientBuilder = new KafkaClientBuilder(_configurationProvider, _kafkaClientEventHandler);
+            _kafkaClientBuilder = new KafkaClientBuilder(_logger, _configurationProvider, _kafkaClientEventHandler);
         }
 
         [Fact]

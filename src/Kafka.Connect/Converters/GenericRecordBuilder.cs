@@ -6,19 +6,31 @@ using Avro;
 using Avro.Generic;
 using Confluent.Kafka;
 using Kafka.Connect.Plugin.Exceptions;
+using Kafka.Connect.Plugin.Logging;
 using Newtonsoft.Json.Linq;
 
 namespace Kafka.Connect.Converters
 {
     public class GenericRecordBuilder : IGenericRecordBuilder
     {
+        private readonly ILogger<GenericRecordBuilder> _logger;
+
+        public GenericRecordBuilder(ILogger<GenericRecordBuilder> logger)
+        {
+            _logger = logger;
+        }
         public GenericRecord Build(Schema schema, JToken data)
         {
-            if (schema is RecordSchema recordSchema)
+            using (_logger.Track("Building generic record."))
             {
-                return BuildRecord(recordSchema, data);
+                if (schema is RecordSchema recordSchema)
+                {
+                    return BuildRecord(recordSchema, data);
+                }
+
+                throw new ConnectDataException(ErrorCode.Local_Fatal,
+                    new SchemaParseException("Schema of type RecordSchema is expected."));
             }
-            throw new ConnectDataException(ErrorCode.Local_Fatal, new SchemaParseException("Schema of type RecordSchema is expected."));
         }
         
         private GenericRecord BuildRecord(RecordSchema schema, JToken data)

@@ -4,7 +4,6 @@ using Kafka.Connect.Plugin.Converters;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Providers;
-using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 
 namespace Kafka.Connect.Handlers
@@ -25,40 +24,42 @@ namespace Kafka.Connect.Handlers
             _configurationProvider = configurationProvider;
         }
 
-        [OperationLog("Processing the message.")]
         public async Task<(bool, JToken)> Process(SinkRecord record, string connector)
         {
-            var configs = _configurationProvider.GetMessageProcessors(connector, record.Topic);
-            if (!(configs?.Any() ?? false))
+            using (_logger.Track("Processing the message."))
             {
-                return (record.Skip, record.Data);
-            }
-
-            var processors = _processorServiceProvider.GetProcessors()?.ToList();
-            if (!(processors?.Any() ?? false))
-            {
-                return (record.Skip, record.Data);
-            }
-
-            var flattened = _recordFlattener.Flatten(record.Data);
-            var skip = false;
-            foreach (var config in configs.OrderBy(p => p.Order))
-            {
-                var processor = processors.SingleOrDefault(p => p.IsOfType(config.Name));
-                if (processor == null)
+                var configs = _configurationProvider.GetMessageProcessors(connector, record.Topic);
+                if (!(configs?.Any() ?? false))
                 {
-                    _logger.LogTrace("{@Log}", new {Message = "Processor is not registered.", Processor = config.Name});
-                    continue;
+                    return (record.Skip, record.Data);
                 }
 
-                (skip, flattened) = await processor.Apply(flattened, connector);
-                if (!skip) continue;
-                _logger.LogTrace("{@Log}", new { Message = "Message will be skipped from further processing."});
-                break;
-            }
+                var processors = _processorServiceProvider.GetProcessors()?.ToList();
+                if (!(processors?.Any() ?? false))
+                {
+                    return (record.Skip, record.Data);
+                }
 
-            var unflattened = _recordFlattener.Unflatten(flattened);
-            return (skip, unflattened);
+                var flattened = _recordFlattener.Flatten(record.Data);
+                var skip = false;
+                foreach (var config in configs.OrderBy(p => p.Order))
+                {
+                    var processor = processors.SingleOrDefault(p => p.IsOfType(config.Name));
+                    if (processor == null)
+                    {
+                        _logger.Trace("Processor is not registered.", new { Processor = config.Name });
+                        continue;
+                    }
+
+                    (skip, flattened) = await processor.Apply(flattened, connector);
+                    if (!skip) continue;
+                    _logger.Trace("Message will be skipped from further processing.");
+                    break;
+                }
+
+                var unflattened = _recordFlattener.Unflatten(flattened);
+                return (skip, unflattened);
+            }
         }
     }
 }

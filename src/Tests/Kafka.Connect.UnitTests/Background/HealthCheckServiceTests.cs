@@ -15,7 +15,7 @@ namespace Kafka.Connect.UnitTests.Background
 {
     public class HealthCheckServiceTests
     {
-        private readonly Connect.Logging.ILogger<HealthCheckService> _logger;
+        private readonly Plugin.Logging.ILogger<HealthCheckService> _logger;
         private readonly IConfigurationProvider _configurationProvider;
         private readonly IExecutionContext _executionContext;
         private readonly ITokenHandler _tokenHandler;
@@ -23,7 +23,7 @@ namespace Kafka.Connect.UnitTests.Background
 
         public HealthCheckServiceTests()
         {
-            _logger = Substitute.For<Connect.Logging.ILogger<HealthCheckService>>();
+            _logger = Substitute.For<Plugin.Logging.ILogger<HealthCheckService>>();
             _configurationProvider = Substitute.For<IConfigurationProvider>();
             _executionContext = Substitute.For<IExecutionContext>();
             _tokenHandler = Substitute.For<ITokenHandler>();

@@ -7,7 +7,6 @@ using Kafka.Connect.Plugin.Exceptions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Providers;
-using Microsoft.Extensions.Logging;
 using Serilog.Context;
 using Serilog.Core.Enrichers;
 
@@ -26,85 +25,90 @@ namespace Kafka.Connect.Handlers
             _configurationProvider = configurationProvider;
         }
 
-        [OperationLog("Handle processing errors.")]
         public void Handle(Exception exception, Action cancel)
         {
-            const string logToleranceExceeded = "Tolerance exceeded in error handler.";
-            const string logUnknownError = "Unknown error detected. Task will be shutdown.";
-            switch (exception)
+            using (_logger.Track("Handle processing errors."))
             {
-                case ConnectToleranceExceededException tee:
-                    foreach (var ce in tee.GetConnectExceptions())
-                    {
-                        using (LogContext.Push(new PropertyEnricher("Topic", ce.Topic),
-                            new PropertyEnricher("Partition", ce.Partition), new PropertyEnricher("Offset", ce.Offset)))
+                const string logToleranceExceeded = "Tolerance exceeded in error handler.";
+                const string logUnknownError = "Unknown error detected. Task will be shutdown.";
+                switch (exception)
+                {
+                    case ConnectToleranceExceededException tee:
+                        foreach (var ce in tee.GetConnectExceptions())
                         {
-                            _logger.LogError(ce.InnerException, "{@Log}",
-                                new {Status = SinkStatus.Failed, Message = logToleranceExceeded});
+                            using (LogContext.Push(new PropertyEnricher("Topic", ce.Topic),
+                                       new PropertyEnricher("Partition", ce.Partition),
+                                       new PropertyEnricher("Offset", ce.Offset)))
+                            {
+                                _logger.Error(logToleranceExceeded, new { Status = SinkStatus.Failed },
+                                    ce.InnerException);
+                            }
                         }
-                    }
 
-                    foreach (var ex in tee.GetNonConnectExceptions())
-                    {
-                        _logger.LogError(ex, "{@Log}",
-                            new {Status = SinkStatus.Failed, Message = logToleranceExceeded});
-                    }
-
-                    cancel();
-                    break;
-                case ConnectAggregateException cae:
-                    foreach (var ce in cae.GetConnectExceptions())
-                    {
-                        using (LogContext.Push(new PropertyEnricher("Topic", ce.Topic),
-                            new PropertyEnricher("Partition", ce.Partition), new PropertyEnricher("Offset", ce.Offset)))
+                        foreach (var ex in tee.GetNonConnectExceptions())
                         {
-                            _logger.LogError(ce.InnerException, "{@Log}",
-                                new {Status = SinkStatus.Failed, Message = logToleranceExceeded});
+                            _logger.Error(logToleranceExceeded, new { Status = SinkStatus.Failed }, ex);
                         }
-                    }
 
-                    foreach (var ex in cae.GetNonConnectExceptions())
-                    {
-                        _logger.LogError(ex, "{@Log}",
-                            new {Status = SinkStatus.Failed, Message = logToleranceExceeded});
-                    }
-
-                    cancel();
-                    break;
-                case ConnectDataException cde:
-                    if (cde.InnerException is OperationCanceledException oce)
-                    {
-                        if (oce.CancellationToken.IsCancellationRequested)
+                        cancel();
+                        break;
+                    case ConnectAggregateException cae:
+                        foreach (var ce in cae.GetConnectExceptions())
                         {
-                            _logger.LogInformation("{@Log}",new {Status = SinkStatus.Failed, Message = "Worker shutdown initiated. Connector task will be shutdown."});
+                            using (LogContext.Push(new PropertyEnricher("Topic", ce.Topic),
+                                       new PropertyEnricher("Partition", ce.Partition),
+                                       new PropertyEnricher("Offset", ce.Offset)))
+                            {
+                                _logger.Error(logToleranceExceeded, new { Status = SinkStatus.Failed },
+                                    ce.InnerException);
+                            }
+                        }
+
+                        foreach (var ex in cae.GetNonConnectExceptions())
+                        {
+                            _logger.Error(logToleranceExceeded, new { Status = SinkStatus.Failed }, ex);
+                        }
+
+                        cancel();
+                        break;
+                    case ConnectDataException cde:
+                        if (cde.InnerException is OperationCanceledException oce)
+                        {
+                            if (oce.CancellationToken.IsCancellationRequested)
+                            {
+                                _logger.Info("Worker shutdown initiated. Connector task will be shutdown.",
+                                    new { Status = SinkStatus.Failed });
+                            }
+                            else
+                            {
+                                _logger.Error("Unexpected error while shutting down the Worker.",
+                                    new { Status = SinkStatus.Failed }, oce);
+                            }
                         }
                         else
                         {
-                            _logger.LogError(oce, "{@Log}",new {Status = SinkStatus.Failed, Message = "Unexpected error while shutting down the Worker."});
+                            _logger.Error(logUnknownError, new { Status = SinkStatus.Failed }, cde.InnerException);
+                            cancel();
                         }
-                    }
-                    else
-                    {
-                        _logger.LogError(cde.InnerException, "{@Log}",
-                            new {Status = SinkStatus.Failed, Message = logUnknownError});
-                        cancel();
-                    }
 
-                    break;
-                default:
-                    _logger.LogError(exception, "{@Log}",
-                        new {Status = SinkStatus.Failed, Message = logUnknownError});
-                    cancel();
-                    break;
+                        break;
+                    default:
+                        _logger.Error(logUnknownError, new { Status = SinkStatus.Failed }, exception);
+                        cancel();
+                        break;
+                }
             }
         }
 
-        [OperationLog("Handle dead-letter.")]
         public async Task HandleDeadLetter(IEnumerable<SinkRecord> sinkRecords, Exception exception, string connector)
         {
-            if (_configurationProvider.IsDeadLetterEnabled(connector))
+            using (_logger.Track("Handle dead-letter."))
             {
-                await _connectDeadLetter.Send(sinkRecords.Where(r => r.Status == SinkStatus.Failed), exception, connector);
+                if (_configurationProvider.IsDeadLetterEnabled(connector))
+                {
+                    await _connectDeadLetter.Send(sinkRecords.Where(r => r.Status == SinkStatus.Failed), exception,
+                        connector);
+                }
             }
         }
 
@@ -119,13 +123,13 @@ namespace Kafka.Connect.Handlers
                         using (LogContext.Push(new PropertyEnricher("Topic", ce.Topic),
                             new PropertyEnricher("Partition", ce.Partition), new PropertyEnricher("Offset", ce.Offset)))
                         {
-                            _logger.LogError(ce,"{@Log}", new { Status = SinkStatus.Failed, Message = message});
+                            _logger.Error(message, new { Status = SinkStatus.Failed }, ce);
                         }
                     }
 
                     foreach (var oe in cae.GetNonConnectExceptions())
                     {
-                        _logger.LogError(oe, "{@Log}", new { Status = SinkStatus.Failed, Message = message});
+                        _logger.Error(message, new { Status = SinkStatus.Failed }, oe);
                     }
 
                     break;
@@ -134,7 +138,7 @@ namespace Kafka.Connect.Handlers
                         new PropertyEnricher("Partition", connectException.Partition),
                         new PropertyEnricher("Offset", connectException.Offset)))
                     {
-                        _logger.LogError(connectException, "{@Log}", new { Status = SinkStatus.Failed, Message = message});
+                        _logger.Error(message, new { Status = SinkStatus.Failed }, connectException);
                     }
 
                     break;

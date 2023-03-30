@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using Avro.Generic;
 using Confluent.Kafka;
@@ -23,7 +22,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json.Linq;
 using Serilog;
 using Kafka.Connect.Configurations;
-using Kafka.Connect.Logging;
 using Kafka.Connect.Plugin.Logging;
 
 namespace Kafka.Connect.Utilities
@@ -34,35 +32,33 @@ namespace Kafka.Connect.Utilities
 
         internal static IServiceCollection AddServices(this IServiceCollection services, IConfiguration configuration)
         {
-            var trace = configuration.GetSection("worker").Get<WorkerConfig>()?.Trace ?? false;
             services
                 .AddScoped(typeof(ILogger<>), typeof(Logger<>))
-                .AddSingleton<ILogDecorator, LogDecorator>()
                 .AddScoped<IConnector, Connector>()
                 .AddScoped<ISinkTask, SinkTask>()
-                .AddScopedWithLogging<IKafkaClientBuilder, KafkaClientBuilder>(trace)
+                .AddScoped<IKafkaClientBuilder, KafkaClientBuilder>()
                 .AddScoped<IKafkaClientEventHandler, KafkaClientEventHandler>()
                 .AddScoped<IRetriableHandler, RetriableHandler>()
 
-                .AddScopedWithLogging<IConnectDeadLetter, ConnectDeadLetter>(trace)
+                .AddScoped<IConnectDeadLetter, ConnectDeadLetter>()
                 .AddScoped<ITokenHandler, TokenHandler>()
 
                 .AddScoped<IProcessorServiceProvider, ProcessorServiceProvider>()
                 .AddScoped<ISinkHandlerProvider, SinkHandlerProvider>()
 
-                .AddScopedWithLogging<IGenericRecordParser, GenericRecordParser>(trace)
-                .AddScopedWithLogging<IRecordFlattener, JsonRecordFlattener>(trace)
-                .AddScopedWithLogging<IMessageHandler, MessageHandler>(trace)
-                .AddScopedWithLogging<ISinkConsumer, SinkConsumer>(trace)
-                .AddScopedWithLogging<ISinkProcessor, SinkProcessor>(trace)
-                .AddScopedWithLogging<IPartitionHandler, PartitionHandler>(trace)
-                .AddScopedWithLogging<ISinkExceptionHandler, SinkExceptionHandler>(trace)
+                .AddScoped<IGenericRecordParser, GenericRecordParser>()
+                .AddScoped<IRecordFlattener, JsonRecordFlattener>()
+                .AddScoped<IMessageHandler, MessageHandler>()
+                .AddScoped<ISinkConsumer, SinkConsumer>()
+                .AddScoped<ISinkProcessor, SinkProcessor>()
+                .AddScoped<IPartitionHandler, PartitionHandler>()
+                .AddScoped<ISinkExceptionHandler, SinkExceptionHandler>()
 
-                .AddScopedWithLogging<IProcessor, JsonTypeOverrider>(trace)
-                .AddScopedWithLogging<IProcessor, DateTimeTypeOverrider>(trace)
-                .AddScopedWithLogging<IProcessor, BlacklistFieldProjector>(trace)
-                .AddScopedWithLogging<IProcessor, WhitelistFieldProjector>(trace)
-                .AddScopedWithLogging<IProcessor, FieldRenamer>()
+                .AddScoped<IProcessor, JsonTypeOverrider>()
+                .AddScoped<IProcessor, DateTimeTypeOverrider>()
+                .AddScoped<IProcessor, BlacklistFieldProjector>()
+                .AddScoped<IProcessor, WhitelistFieldProjector>()
+                .AddScoped<IProcessor, FieldRenamer>()
                 
                 .AddScoped<IAsyncDeserializer<GenericRecord>, AvroDeserializer<GenericRecord>>()
                 .AddScoped<IAsyncDeserializer<JObject>, AvroDeserializer<JObject>>()
@@ -71,12 +67,12 @@ namespace Kafka.Connect.Utilities
                     var config = configuration.GetSection("worker:schemaRegistry").Get<SchemaRegistryConfig>();
                     return string.IsNullOrEmpty(config?.Url) ? null : new CachedSchemaRegistryClient(config);
                 })
-                .AddScopedWithLogging<IDeserializer, AvroDeserializer>(trace)
-                .AddScopedWithLogging<IDeserializer, JsonDeserializer>(trace)
-                .AddScopedWithLogging<IDeserializer, JsonSchemaDeserializer>(trace)
-                .AddScopedWithLogging<IDeserializer, StringDeserializer>(trace)
-                .AddScopedWithLogging<IDeserializer, IgnoreDeserializer>(trace)
-                .AddScopedWithLogging<IMessageConverter, MessageConverter>(trace)
+                .AddScoped<IDeserializer, AvroDeserializer>()
+                .AddScoped<IDeserializer, JsonDeserializer>()
+                .AddScoped<IDeserializer, JsonSchemaDeserializer>()
+                .AddScoped<IDeserializer, StringDeserializer>()
+                .AddScoped<IDeserializer, IgnoreDeserializer>()
+                .AddScoped<IMessageConverter, MessageConverter>()
 
                 .Configure<WorkerConfig>(configuration.GetSection("worker"), options => options.BindNonPublicProperties = true)
                 

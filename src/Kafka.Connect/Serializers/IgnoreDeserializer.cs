@@ -9,10 +9,18 @@ namespace Kafka.Connect.Serializers
 {
     public class IgnoreDeserializer : Deserializer
     {
-        [OperationLog("Ignoring the deserialization of the record.")]
+        private readonly ILogger<IgnoreDeserializer> _logger;
+
+        public IgnoreDeserializer(ILogger<IgnoreDeserializer> logger)
+        {
+            _logger = logger;
+        }
         public override async Task<JToken> Deserialize(ReadOnlyMemory<byte> data, SerializationContext context, bool isNull = false)
         {
-            return await Task.FromResult(Wrap(null, context));
+            using (_logger.Track("Ignoring the deserialization of the record."))
+            {
+                return await Task.FromResult(Wrap(null, context));
+            }
         }
     }
 }

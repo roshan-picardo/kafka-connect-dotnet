@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Providers;
 using Kafka.Connect.Processors;
 using NSubstitute;
@@ -11,12 +12,14 @@ namespace Kafka.Connect.UnitTests.Processors
     public class BlacklistFieldProjectorTests
     {
         private readonly BlacklistFieldProjector _blacklistFieldProjector;
+        private readonly ILogger<BlacklistFieldProjector> _logger;
         private readonly IConfigurationProvider _configurationProvider;
 
         public BlacklistFieldProjectorTests()
         {
             _configurationProvider = Substitute.For<IConfigurationProvider>();
-            _blacklistFieldProjector = new BlacklistFieldProjector(_configurationProvider);
+            _logger = Substitute.For<ILogger<BlacklistFieldProjector>>();
+            _blacklistFieldProjector = new BlacklistFieldProjector(_logger, _configurationProvider);
         }
 
         [Theory]

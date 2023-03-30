@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Providers;
 using Kafka.Connect.Processors;
 using NSubstitute;
@@ -17,7 +18,7 @@ namespace Kafka.Connect.UnitTests.Processors
         public DateTimeTypeOverriderTests()
         {
             _configurationProvider = Substitute.For<IConfigurationProvider>();
-            _dateTimeTypeOverrider = new DateTimeTypeOverrider(_configurationProvider);
+            _dateTimeTypeOverrider = new DateTimeTypeOverrider(Substitute.For<ILogger<DateTimeTypeOverrider>>(), _configurationProvider);
         }
         
         [Theory]

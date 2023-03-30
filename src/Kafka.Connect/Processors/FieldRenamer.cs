@@ -9,16 +9,22 @@ namespace Kafka.Connect.Processors
 {
     public class FieldRenamer : Processor<IDictionary<string, string>>
     {
-        public FieldRenamer(IConfigurationProvider configurationProvider) : base(configurationProvider)
+        private readonly ILogger<FieldRenamer> _logger;
+
+        public FieldRenamer(ILogger<FieldRenamer> logger, IConfigurationProvider configurationProvider) : base(configurationProvider)
         {
+            _logger = logger;
         }
 
         protected override Task<(bool, IDictionary<string, object>)> Apply(IDictionary<string, object> flattened, IDictionary<string, string> settings)
         {
-            return Task.FromResult(ApplyInternal(flattened, settings?.ToDictionary(k => k.Key.Prefix(), v => v.Value)));
+            using (_logger.Track("Applying field renamer."))
+            {
+                return Task.FromResult(ApplyInternal(flattened,
+                    settings?.ToDictionary(k => k.Key.Prefix(), v => v.Value)));
+            }
         }
 
-        [OperationLog("Applying field renamer.")]
         private static (bool, IDictionary<string, object>) ApplyInternal(IDictionary<string, object> flattened, IDictionary<string, string> maps = null)
         {
             var renamed = new Dictionary<string, object>();

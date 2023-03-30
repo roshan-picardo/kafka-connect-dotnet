@@ -1,10 +1,9 @@
 using System;
-using System.Linq;
 using System.Threading.Tasks;
 using Kafka.Connect.Connectors;
 using Kafka.Connect.Models;
+using Kafka.Connect.Plugin.Logging;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Kafka.Connect.Controllers
@@ -30,7 +29,7 @@ namespace Kafka.Connect.Controllers
             //var connector = _worker.Context.Connectors.SingleOrDefault(c => c.Name == name);
             //if (connector?.Connector != null) return Ok(new { status = connector.Connector.StatusLog});
 
-            _logger.LogDebug($"Connector {name} is not active at the moment.");
+            _logger.Debug($"Connector {name} is not active at the moment.");
             return NotFound();
         }
 
@@ -40,12 +39,12 @@ namespace Kafka.Connect.Controllers
             var connector = _worker.GetConnector(name);
             if (connector == null)
             {
-                _logger.LogDebug($"Connector {name} is not active at the moment.");
+                _logger.Debug($"Connector {name} is not active at the moment.");
                 return NotFound();
             }
 
             await connector.Pause();
-            _logger.LogTrace($"Connector {name} will be paused.");
+            _logger.Trace($"Connector {name} will be paused.");
 
             return Ok(new {pausing = _executionContext.GetStatus(name)});
         }
@@ -56,12 +55,12 @@ namespace Kafka.Connect.Controllers
             var connector = _worker.GetConnector(name);
             if (connector == null)
             {
-                _logger.LogDebug($"Connector {name} is not active at the moment.");
+                _logger.Debug($"Connector {name} is not active at the moment.");
                 return NotFound();
             }
 
             await connector.Resume(input?.Payload);
-            _logger.LogTrace($"Connector {name} will be resumed.");
+            _logger.Trace($"Connector {name} will be resumed.");
 
             return Ok(new {resuming = _executionContext.GetStatus(name)});
         }
@@ -72,12 +71,12 @@ namespace Kafka.Connect.Controllers
             var connector = _worker.GetConnector(name);
             if (connector == null)
             {
-                _logger.LogDebug($"Connector {name} is not active at the moment.");
+                _logger.Debug($"Connector {name} is not active at the moment.");
                 return NotFound();
             }
 
             await connector.Restart(input?.Delay, input?.Payload);
-            _logger.LogTrace($"Connector {name} will be restarted.");
+            _logger.Trace($"Connector {name} will be restarted.");
 
             return Ok(new {restarting = _executionContext.GetStatus(name)});
         }
