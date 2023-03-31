@@ -32,11 +32,15 @@ namespace Kafka.Connect.UnitTests.Background
         [Fact]
         public void ExecuteAsync_ServiceNotEnabled()
         {
-            _configurationProvider.GetHealthCheckConfig().Returns(new HealthCheckConfig{Disabled = true});
+            _configurationProvider.GetHealthCheckConfig().Returns(new HealthCheckConfig{Disabled = true, InitialDelayMs = 1});
             _healthCheckService =
                 new HealthCheckService(_logger, _configurationProvider, _executionContext, _tokenHandler);
 
             _healthCheckService.StartAsync(GetCancellationToken(1));
+            while (!_healthCheckService.ExecuteTask.IsCompletedSuccessfully)
+            {
+                // wait for the task to complete
+            }
             
             _logger.DidNotReceive().Debug("Starting the health check service...");
             _logger.Received().Debug("Health check service is disabled...");
@@ -59,7 +63,7 @@ namespace Kafka.Connect.UnitTests.Background
             }
             
             _logger.Received().Debug("Starting the health check service...");
-            _logger.Received().Info("HealthCheck", data:log);
+            _logger.Received().Health(log);
             _logger.Received().Debug("Stopping the health check service...");
         }
         

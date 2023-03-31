@@ -1,4 +1,5 @@
 using System;
+using Kafka.Connect.Plugin.Models;
 using Microsoft.Extensions.Logging;
 
 namespace Kafka.Connect.Plugin.Logging
@@ -6,10 +7,12 @@ namespace Kafka.Connect.Plugin.Logging
     public class Logger<T> : ILogger<T> where T : class
     {
         private readonly Microsoft.Extensions.Logging.ILogger<T> _logger;
+        private readonly Microsoft.Extensions.Logging.ILogger<SinkLog> _sinkLogger;
 
-        public Logger(Microsoft.Extensions.Logging.ILogger<T> logger)
+        public Logger(Microsoft.Extensions.Logging.ILogger<T> logger, Microsoft.Extensions.Logging.ILogger<SinkLog> sinkLogger)
         {
             _logger = logger;
+            _sinkLogger = sinkLogger;
         }
 
         private void Log(LogLevel level, string message, Exception exception = null, object data = null)
@@ -82,9 +85,19 @@ namespace Kafka.Connect.Plugin.Logging
             Log(LogLevel.None, message, exception, data);
         }
 
-        public TimedLog Track(string message)
+        public void Record(SinkRecord record)
         {
-            return new TimedLog(_logger, message);
+            _sinkLogger.Log(LogLevel.Information, "{@Record}", record.GetLogs());
+        }
+        
+        public void Health(object health)
+        {
+            _sinkLogger.Log(LogLevel.Information, "{@Health}", health);
+        }
+
+        public SinkLog Track(string message)
+        {
+            return new SinkLog(_logger, message);
         }
     }
 }

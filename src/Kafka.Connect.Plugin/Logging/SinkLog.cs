@@ -5,13 +5,13 @@ using Microsoft.Extensions.Logging;
 
 namespace Kafka.Connect.Plugin.Logging
 {
-    public class TimedLog : IDisposable
+    public class SinkLog : IDisposable
     {
         private readonly ILogger _logger;
         private readonly string _message;
         private readonly Stopwatch _stopwatch;
 
-        public TimedLog(ILogger logger, string message)
+        public SinkLog(ILogger logger, string message)
         {
             _logger = logger;
             _message = message;
@@ -23,7 +23,6 @@ namespace Kafka.Connect.Plugin.Logging
                 Operation = "Started"
             });
         }
-
 
         public void Dispose()
         {
