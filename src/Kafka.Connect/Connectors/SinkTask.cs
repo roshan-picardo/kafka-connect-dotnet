@@ -135,7 +135,7 @@ namespace Kafka.Connect.Connectors
                         new PropertyEnricher("Offset", record.Offset)))
                     {
                         record.AddLog("Timing", record.Headers.EndTiming(batch.Count));
-                        _logger.Info("Record Details", record.GetLogs());
+                        _logger.Record(record);
                     }
                 } 
                 await _partitionHandler.NotifyEndOfPartition(batch, connector, taskId);

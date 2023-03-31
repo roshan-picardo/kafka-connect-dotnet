@@ -4,6 +4,7 @@
 using System.Threading.Tasks;
  using Kafka.Connect.Background;
  using Kafka.Connect.Connectors;
+ using Kafka.Connect.Plugin.Logging;
  using Kafka.Connect.Utilities;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
@@ -58,7 +59,7 @@ using Serilog;
                      .WriteTo.Console(new JsonFormatter())
                      .CreateLogger();
 
-                 Log.ForContext<Worker>().Information("{@Log}", new {Message = "Kafka Connect starting..."});
+                 Log.ForContext<SinkLog>().Information("{@Log}", new {Message = "Kafka Connect starting..."});
 
                  // time this
                  var configuration = LoadConfiguration(Arguments.Parse(args));
@@ -95,7 +96,7 @@ using Serilog;
                          Log.ForContext<Worker>().Fatal(t.Exception, "{@Log}",
                              new
                              {
-                                 Message = "Kafka Connect failed start...",
+                                 Message = "Kafka Connect failed to start...",
                                  Reason = t.Exception?.InnerException?.Message
                              });
                      }
@@ -103,11 +104,11 @@ using Serilog;
              }
              catch (Exception ex)
              {
-                 Log.ForContext<Worker>().Fatal(ex, "{@Log}", new {Message = "Kafka Connect failed start...", Reason = ex.Message});
+                 Log.ForContext<Worker>().Fatal(ex, "{@Log}", new {Message = "Kafka Connect failed to start...", Reason = ex.Message});
              }
              finally
              {
-                 Log.ForContext<Worker>().Information("{@Log}", new {Message = "Kafka Connect shutdown successfully..."});
+                 Log.ForContext<SinkLog>().Information("{@Log}", new {Message = "Kafka Connect shutdown successfully..."});
              }
          }
      }

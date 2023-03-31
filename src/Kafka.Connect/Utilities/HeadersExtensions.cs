@@ -46,8 +46,8 @@ namespace Kafka.Connect.Utilities
             {
                 Lag = logTimestamp.Lag.ToString(@"dd\.hh\:mm\:ss\.fff"),
                 Total = logTimestamp.Total.ToString(@"dd\.hh\:mm\:ss\.fff"),
-                Duration = logTimestamp.Batch,
-                Batch = new { Size = batchSize, Average = logTimestamp.Duration }
+                logTimestamp.Duration,
+                Batch = new { Size = batchSize, Total = logTimestamp.Batch }
             };
         }
     }

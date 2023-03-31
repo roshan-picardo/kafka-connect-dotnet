@@ -4,8 +4,8 @@ using System.Threading.Tasks;
 using Confluent.Kafka;
 using Kafka.Connect.Mongodb.Models;
 using Kafka.Connect.Plugin.Exceptions;
+using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
-using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using Serilog.Context;
@@ -17,6 +17,7 @@ namespace Kafka.Connect.Mongodb.Collections
     {
         private readonly IMongoClientProvider _mongoClientProvider;
         private readonly ILogger<MongoWriter> _logger;
+        
 
         public MongoWriter(IMongoClientProvider mongoClientProvider, ILogger<MongoWriter> logger)
         {
@@ -26,7 +27,10 @@ namespace Kafka.Connect.Mongodb.Collections
 
         public async Task WriteMany(IList<MongoSinkRecord> batch, MongoSinkConfig mongoSinkConfig, string connector)
         {
+            using (_logger.Track("Writing models to database"))
+            {
                 await Write(batch.Select(s => s.SinkRecord), BuildWriteModels(batch), mongoSinkConfig, connector);
+            }
         }
 
         private async Task Write(IEnumerable<SinkRecord> records, IEnumerable<WriteModel<BsonDocument>> writeModels, MongoSinkConfig mongoSinkConfig, string connector)
@@ -46,21 +50,17 @@ namespace Kafka.Connect.Mongodb.Collections
                         .GetCollection<BsonDocument>(mongoSinkConfig.Collection);
                     var bulkWriteResult = await collection.BulkWriteAsync(models,
                         new BulkWriteOptions {IsOrdered = mongoSinkConfig.WriteStrategy.IsWriteOrdered});
-                    _logger.LogDebug("{@debug}",
+                    _logger.Debug("Models written successfully to mongodb.",
                         new
                         {
-                            message = "Models written successfully to mongodb.",
-                            result = new
-                            {
-                                acknowledged = bulkWriteResult.IsAcknowledged,
-                                requests = bulkWriteResult.RequestCount,
-                                deleted = bulkWriteResult.DeletedCount,
-                                inserted = bulkWriteResult.InsertedCount,
-                                matched = bulkWriteResult.MatchedCount,
-                                modified = bulkWriteResult.ModifiedCount,
-                                processed = bulkWriteResult.ProcessedRequests.Count,
-                                upserts = bulkWriteResult.Upserts.Count,
-                            }
+                            Acknowledged = bulkWriteResult.IsAcknowledged,
+                            Requests = bulkWriteResult.RequestCount,
+                            Deleted = bulkWriteResult.DeletedCount,
+                            Inserted = bulkWriteResult.InsertedCount,
+                            Matched = bulkWriteResult.MatchedCount,
+                            Modified = bulkWriteResult.ModifiedCount,
+                            Processed = bulkWriteResult.ProcessedRequests.Count,
+                            Upserts = bulkWriteResult.Upserts.Count,
                         });
                 }
                 catch (MongoBulkWriteException ex)
@@ -82,12 +82,7 @@ namespace Kafka.Connect.Mongodb.Collections
                 writeModels.AddRange(mongoSinkRecord.WriteModels);
             }
 
-            _logger.LogTrace("{@debug}",
-                new
-                {
-                    models = writeModels.Count,
-                    message = "Preparing to write models to mongodb."
-                });
+            _logger.Trace("Preparing to write models to mongodb.", new { Models = writeModels.Count });
             return writeModels;
         }
     }
