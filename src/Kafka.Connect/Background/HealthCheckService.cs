@@ -27,8 +27,9 @@ namespace Kafka.Connect.Background
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            _logger.Info("Context information",  _executionContext.GetFullDetails() as object);
             var config = _configurationProvider.GetHealthCheckConfig();
+            await Task.Delay(config.InitialDelayMs, stoppingToken);
+            _logger.Health(_executionContext.GetFullDetails() as object);
             try
             {
                 if (!config.Disabled)
@@ -37,7 +38,7 @@ namespace Kafka.Connect.Background
                     await Task.Delay(config.InitialDelayMs, stoppingToken);
                     while (!stoppingToken.IsCancellationRequested)
                     {
-                        _logger.Info("HealthCheck", _executionContext.GetStatus() as object);
+                        _logger.Health(_executionContext.GetStatus() as object);
                         await Task.Delay(config.PeriodicDelayMs, stoppingToken);
                         _tokenHandler.DoNothing();
                     }

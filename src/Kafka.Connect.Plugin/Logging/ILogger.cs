@@ -1,4 +1,5 @@
 using System;
+using Kafka.Connect.Plugin.Models;
 
 namespace Kafka.Connect.Plugin.Logging
 {
@@ -11,6 +12,8 @@ namespace Kafka.Connect.Plugin.Logging
         void Error(string message, object data = null, Exception exception = null);
         void Critical(string message, object data = null, Exception exception = null);
         void None(string message, object data = null, Exception exception = null);
-        TimedLog Track(string message);
+        void Record(SinkRecord record);
+        void Health(object health);
+        SinkLog Track(string message);
     }
 }

@@ -6,10 +6,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Connectors;
+using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Providers;
 using Kafka.Connect.Tokens;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Serilog.Context;
 
 namespace Kafka.Connect
@@ -40,8 +40,8 @@ namespace Kafka.Connect
             _configurationProvider.Validate();
             var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken); // from here-on use this token to track
             var restartsConfig = _configurationProvider.GetRestartsConfig();
-            
-            _logger.LogDebug("{@Log}", new {Message = "Starting the worker."});
+
+            _logger.Debug("Starting the worker.");
             
             _executionContext.Name(_configurationProvider.GetWorkerName()); // or you could put this in exec context
             var stopwatch = Stopwatch.StartNew();
@@ -63,7 +63,7 @@ namespace Kafka.Connect
                 _connectors.Clear();
                 try
                 {
-                    _logger.LogDebug("{@Log}", new { Message = "Starting connectors.", _configurationProvider.GetAllConnectorConfigs().Count});
+                    _logger.Debug("Starting connectors.", new { _configurationProvider.GetAllConnectorConfigs().Count});
                     var connectors = from job in _configurationProvider.GetAllConnectorConfigs().Select(s =>
                             new {Name = s.Name, Scope = _serviceScopeFactory.CreateScope()})
                         let connector = job.Scope.ServiceProvider.GetService<IConnector>()
@@ -73,18 +73,17 @@ namespace Kafka.Connect
                         {
                             using (LogContext.PushProperty("Connector", c.Name))
                             {
-                                _logger.LogDebug("{@Log}", new {Message = "Connector Starting."});
+                                _logger.Trace("Connector Starting.");
                                 //TODO: _pauseTokenSource.AddSubTaskTokens(c.Cancel); 
                                 var connectorTask = c.Connector.Execute(c.Name, PauseTokenSource.New(), cts.Token).ContinueWith(
                                     t =>
                                     {
                                         if (t.IsFaulted && !t.IsCanceled)
                                         {
-                                            _logger.LogError(t.Exception?.InnerException, "{@Log}",
-                                                new {Message = "Connector is faulted, and is terminated."});
+                                            _logger.Error("Connector is faulted, and is terminated.", t.Exception?.InnerException);
                                         }
 
-                                        _logger.LogDebug("{@Log}", new {Message = "Connector Stopped."});
+                                        _logger.Debug("Connector Stopped.");
                                     }, CancellationToken.None);
                                 _connectors.Add((c.Name, c.Connector));
                                 return connectorTask;
@@ -94,7 +93,7 @@ namespace Kafka.Connect
                         {
                             if (t.IsFaulted && !t.IsCanceled)
                             {
-                                _logger.LogError(t.Exception?.InnerException, "{@Log}", new {Message = "Worker is faulted, and is terminated."});
+                                _logger.Error( "Worker is faulted, and is terminated.", t.Exception?.InnerException);
                             }
 
                             _executionContext.Stop();
@@ -102,7 +101,7 @@ namespace Kafka.Connect
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "{@Log}", new {Message = "Worker is faulted, and is terminated."});
+                    _logger.Error("Worker is faulted, and is terminated.", ex);
                 }
 
                 if (cts.IsCancellationRequested || _pauseTokenSource.IsPaused ||
@@ -111,7 +110,7 @@ namespace Kafka.Connect
                 if (_retryAttempts < 0)
                 {
                     await Task.Delay(restartsConfig.PeriodicDelayMs, CancellationToken.None);
-                    _logger.LogDebug("{@Log}", new {Message = "Attempting to restart the Worker.", Attempt = ++restarts});
+                    _logger.Debug("Attempting to restart the Worker.", new { Attempt = ++restarts });
                     continue;
                 }
 
@@ -123,18 +122,13 @@ namespace Kafka.Connect
                 if (_retryAttempts > 0)
                 {
                     await Task.Delay(restartsConfig.PeriodicDelayMs, CancellationToken.None);
-                    _logger.LogDebug("{@Log}", new {Message = "Attempting to restart the Worker.", Attempt = ++restarts});
+                    _logger.Debug("Attempting to restart the Worker.", new { Attempt = ++restarts });
                     --_retryAttempts;
                     stopwatch.Restart();
                     continue;
                 }
 
-                _logger.LogInformation("{@Log}",
-                    new
-                    {
-                        Message = "Restart attempts exhausted the threshold for the Worker.",
-                        Use = "/workers/resume"
-                    });
+                _logger.Info("Restart attempts exhausted the threshold for the Worker.", new { Use = "/workers/resume" });
                     
                 if (restartsConfig.StopOnFailure)
                 {
@@ -146,7 +140,7 @@ namespace Kafka.Connect
                 }
             }
 
-            _logger.LogDebug("{@Log}", new {Message = "Shutting down the worker."});
+            _logger.Debug("Shutting down the worker.");
         }
 
         public Task PauseAsync()
