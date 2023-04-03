@@ -1,7 +1,7 @@
 using System.Text;
 using Newtonsoft.Json;
 
-namespace Kafka.Connect.Utilities
+namespace Kafka.Connect.Plugin.Extensions
 {
     public static class ByteConvert
     {

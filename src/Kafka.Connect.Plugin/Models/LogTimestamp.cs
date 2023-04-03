@@ -1,7 +1,7 @@
 using System;
 using Newtonsoft.Json;
 
-namespace Kafka.Connect.Models
+namespace Kafka.Connect.Plugin.Models
 {
     public class LogTimestamp 
     {

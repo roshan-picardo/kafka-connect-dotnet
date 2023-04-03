@@ -23,6 +23,7 @@ using Newtonsoft.Json.Linq;
 using Serilog;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Plugin.Logging;
+using Kafka.Connect.Plugin.Providers;
 
 namespace Kafka.Connect.Utilities
 {
@@ -59,6 +60,7 @@ namespace Kafka.Connect.Utilities
                 .AddScoped<IProcessor, BlacklistFieldProjector>()
                 .AddScoped<IProcessor, WhitelistFieldProjector>()
                 .AddScoped<IProcessor, FieldRenamer>()
+                .AddScoped<ILogRecord, DefaultLogRecord>()
                 
                 .AddScoped<IAsyncDeserializer<GenericRecord>, AvroDeserializer<GenericRecord>>()
                 .AddScoped<IAsyncDeserializer<JObject>, AvroDeserializer<JObject>>()
@@ -100,10 +102,10 @@ namespace Kafka.Connect.Utilities
         {
             return logger.Enrich.WithProperty("Versions", new Dictionary<string, string>
                 {
-                    {"net", Environment.Version.ToString()},
-                    {"lib", Library.VersionString},
-                    {"base", Assembly.GetExecutingAssembly().GetName().Version?.ToString()},
-                    {"app", Environment.GetEnvironmentVariable("APPLICATION_VERSION") ?? "0.0.0.0"}
+                    {"Dotnet", Environment.Version.ToString()},
+                    {"Library", Library.VersionString},
+                    {"Connect", Assembly.GetExecutingAssembly().GetName().Version?.ToString()},
+                    {"Application", Environment.GetEnvironmentVariable("APPLICATION_VERSION") ?? "0.0.0.0"}
                 })
                 .Enrich.WithProperty("Environment", Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"))
                 .Enrich.WithProperty("Worker",

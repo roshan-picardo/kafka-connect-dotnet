@@ -171,6 +171,13 @@ namespace Kafka.Connect.Providers
             return config != null ? config.Properties : default;
         }
 
+        public  T GetLogAttributes<T>(string connector)
+        {
+            var connectors = _configuration.GetSection("worker:connectors").Get<IDictionary<string, ConnectorLogConfig<T>>>();
+            var config = connectors?.SingleOrDefault(c => (c.Value.Name ?? c.Key) == connector).Value?.Log;
+            return config == null ? default : config.Attributes;
+        }
+
         public void Validate()  
         {
             if (string.IsNullOrWhiteSpace(_workerConfig.BootstrapServers))

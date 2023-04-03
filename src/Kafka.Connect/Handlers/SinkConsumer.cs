@@ -10,7 +10,6 @@ using Kafka.Connect.Plugin.Exceptions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Providers;
-using Kafka.Connect.Utilities;
 
 namespace Kafka.Connect.Handlers
 {
@@ -81,8 +80,7 @@ namespace Kafka.Connect.Handlers
 
                 foreach (var record in batch)
                 {
-                    record.Consumed.Message.Headers ??= new Headers();
-                    record.Consumed.Message.Headers.StartTiming(record.Consumed.Message.Timestamp.UnixTimestampMs);
+                    record.StartTiming(record.Consumed.Message.Timestamp.UnixTimestampMs);
                 }
 
                 return batch;
