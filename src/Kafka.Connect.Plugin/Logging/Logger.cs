@@ -1,5 +1,8 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using Kafka.Connect.Plugin.Models;
+using Kafka.Connect.Plugin.Providers;
 using Microsoft.Extensions.Logging;
 
 namespace Kafka.Connect.Plugin.Logging
@@ -8,11 +11,15 @@ namespace Kafka.Connect.Plugin.Logging
     {
         private readonly Microsoft.Extensions.Logging.ILogger<T> _logger;
         private readonly Microsoft.Extensions.Logging.ILogger<SinkLog> _sinkLogger;
+        private readonly IEnumerable<ILogRecord> _logRecords;
 
-        public Logger(Microsoft.Extensions.Logging.ILogger<T> logger, Microsoft.Extensions.Logging.ILogger<SinkLog> sinkLogger)
+        public Logger(Microsoft.Extensions.Logging.ILogger<T> logger,
+            Microsoft.Extensions.Logging.ILogger<SinkLog> sinkLogger,
+            IEnumerable<ILogRecord> logRecords)
         {
             _logger = logger;
             _sinkLogger = sinkLogger;
+            _logRecords = logRecords;
         }
 
         private void Log(LogLevel level, string message, Exception exception = null, object data = null)
@@ -85,9 +92,15 @@ namespace Kafka.Connect.Plugin.Logging
             Log(LogLevel.None, message, exception, data);
         }
 
-        public void Record(SinkRecord record)
+        public void Record(SinkRecord record, string provider, string connector, int batch)
         {
-            _sinkLogger.Log(LogLevel.Information, "{@Record}", record.GetLogs());
+            var attributes = _logRecords.SingleOrDefault(l => l.GetType().FullName == provider)?.Enrich(record, connector);
+            _sinkLogger.Log(LogLevel.Information, "{@Record}", new
+            {
+                record.Status, 
+                Timers = record.EndTiming(batch),
+                Attributes = attributes
+            });
         }
         
         public void Health(object health)

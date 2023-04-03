@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Kafka.Connect.Providers;
 
 namespace Kafka.Connect.Configurations
 {
@@ -9,6 +10,7 @@ namespace Kafka.Connect.Configurations
         private readonly string _groupId;
         private readonly string _clientId;
         private readonly IDictionary<string, ProcessorConfig> _processors;
+        private readonly LogConfig _log;
 
         public string Name { get; set; }
 
@@ -37,6 +39,13 @@ namespace Kafka.Connect.Configurations
         public bool Paused { get; init; }
         public string Plugin { get; init; }
         public SinkConfig Sink { get; init; }
+
+        public LogConfig Log
+        {
+            get => _log ?? new LogConfig { Provider = typeof(DefaultLogRecord).FullName };
+            init => _log = value;
+        }
+
         public RetryConfig Retries { get; init; }
         public BatchConfig Batches { get; init; }
         public IDictionary<string, ProcessorConfig> Processors {

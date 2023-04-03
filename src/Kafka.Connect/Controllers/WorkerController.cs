@@ -38,10 +38,10 @@ namespace Kafka.Connect.Controllers
         {
             return Ok(new {version = new
             {
-                net = Environment.Version.ToString(),
-                lib = Library.VersionString,
-                @base = Assembly.GetExecutingAssembly().GetName().Version?.ToString(),
-                app = Environment.GetEnvironmentVariable("APPLICATION_VERSION")
+                Dotnet = Environment.Version.ToString(),
+                Library = Library.VersionString,
+                Connect = Assembly.GetExecutingAssembly().GetName().Version?.ToString(),
+                Application = Environment.GetEnvironmentVariable("APPLICATION_VERSION")
             }});
         }
 

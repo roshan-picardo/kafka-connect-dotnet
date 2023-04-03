@@ -16,7 +16,7 @@ namespace Kafka.Connect.Background
         private readonly IExecutionContext _executionContext;
         private readonly ITokenHandler _tokenHandler;
 
-        public HealthCheckService(ILogger<HealthCheckService> logger, IConfigurationProvider configurationProvider ,
+        public HealthCheckService(ILogger<HealthCheckService> logger, IConfigurationProvider configurationProvider,
             IExecutionContext executionContext, ITokenHandler tokenHandler)
         {
             _logger = logger;
@@ -35,10 +35,9 @@ namespace Kafka.Connect.Background
                 if (!config.Disabled)
                 {
                     _logger.Debug("Starting the health check service...");
-                    await Task.Delay(config.InitialDelayMs, stoppingToken);
                     while (!stoppingToken.IsCancellationRequested)
                     {
-                        _logger.Health(_executionContext.GetStatus() as object);
+                        _logger.Health(_executionContext.GetStatus());
                         await Task.Delay(config.PeriodicDelayMs, stoppingToken);
                         _tokenHandler.DoNothing();
                     }
@@ -52,7 +51,9 @@ namespace Kafka.Connect.Background
                 }
                 else
                 {
-                    _logger.Error( "Health check service reported errors / hasn't started. Please use '/workers/status' Rest API to get the worker status.", ex);
+                    _logger.Error(
+                        "Health check service reported errors / hasn't started. Please use '/workers/status' Rest API to get the worker status.",
+                        ex);
                 }
             }
             finally

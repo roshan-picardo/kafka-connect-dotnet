@@ -189,7 +189,7 @@ namespace Kafka.Connect.Connectors
                 Id = taskContext.Id.ToString("00"),
                 Status = taskContext.Status.ToString(),
                 Uptime = taskContext.Uptime.ToString(@"dd\.hh\:mm\:ss"),
-                Assignment = taskContext.TopicPartitions.Select(p =>
+                Assignments = taskContext.TopicPartitions.Select(p =>
                 {
                     var (topic, partition) = p;
                     return new

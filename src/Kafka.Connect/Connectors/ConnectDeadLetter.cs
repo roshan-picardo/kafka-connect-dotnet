@@ -3,10 +3,10 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Kafka.Connect.Builders;
 using Kafka.Connect.Models;
+using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Providers;
-using Kafka.Connect.Utilities;
 using Serilog.Context;
 using Serilog.Core.Enrichers;
 

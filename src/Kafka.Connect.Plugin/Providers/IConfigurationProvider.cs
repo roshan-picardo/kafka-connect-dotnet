@@ -4,5 +4,6 @@ namespace Kafka.Connect.Plugin.Providers
     {
         T GetProcessorSettings<T>(string connector, string processor);
         T GetSinkConfigProperties<T>(string connector, string plugin = null);
+         T GetLogAttributes<T>(string connector);
     }
 }
