@@ -1,8 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
-using Confluent.Kafka;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Serializers;
 using Newtonsoft.Json.Linq;
@@ -19,13 +19,13 @@ namespace Kafka.Connect.Serializers
         }
         private const int HeaderSize = sizeof(int) + sizeof(byte);
         
-        public override async Task<JToken> Deserialize(ReadOnlyMemory<byte> data, SerializationContext context, bool isNull = false)
+        public override async Task<JToken> Deserialize(ReadOnlyMemory<byte> data, string topic, IDictionary<string, byte[]> headers, bool isValue = true)
         {
             using (_logger.Track("Deserializing the record using string deserializer."))
             {
                 string strData;
-
-                if (isNull || data.IsEmpty) return Wrap(null, context);
+                var isNull = data.IsEmpty || data.Length == 0;
+                if (isNull || data.IsEmpty) return Wrap(null, isValue);
                 try
                 {
                     var array = data.ToArray();
@@ -45,7 +45,7 @@ namespace Kafka.Connect.Serializers
                     throw ae.InnerException ?? ae;
                 }
 
-                return Wrap(strData, context);
+                return Wrap(strData, isValue);
             }
         }
     }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Confluent.Kafka;
 using Kafka.Connect.Plugin.Logging;
@@ -35,7 +36,7 @@ namespace Kafka.Connect.UnitTests.Serializers
             _configurationProvider.GetMessageConverters(Arg.Any<string>(), Arg.Any<string>()).Returns(("key", "value"));
             _processorServiceProvider.GetDeserializer(Arg.Any<string>()).Returns(_deserializer);
             _processorServiceProvider.GetDeserializer(Arg.Any<string>()).Returns(_deserializer);
-            _deserializer.Deserialize(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<SerializationContext>(), Arg.Any<bool>())
+            _deserializer.Deserialize(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<string>(), Arg.Any<Dictionary<string, byte[]>>(), Arg.Any<bool>())
                 .Returns(d => keyToken, d => valueToken);
 
             var (expectedKey, expectedValue) = await _messageConverter.Deserialize(
@@ -44,7 +45,7 @@ namespace Kafka.Connect.UnitTests.Serializers
             Assert.Equal(keyToken, expectedKey);
             Assert.Equal(valueToken, expectedValue);
             await _deserializer.Received(2)
-                .Deserialize(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<SerializationContext>(), Arg.Any<bool>());
+                .Deserialize(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<string>(), Arg.Any<IDictionary<string, byte[]>>(), Arg.Any<bool>());
         }
     }
 }

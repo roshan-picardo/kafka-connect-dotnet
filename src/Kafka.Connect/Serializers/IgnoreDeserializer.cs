@@ -1,6 +1,6 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
-using Confluent.Kafka;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Serializers;
 using Newtonsoft.Json.Linq;
@@ -15,12 +15,15 @@ namespace Kafka.Connect.Serializers
         {
             _logger = logger;
         }
-        public override async Task<JToken> Deserialize(ReadOnlyMemory<byte> data, SerializationContext context, bool isNull = false)
+
+        public override async Task<JToken> Deserialize(ReadOnlyMemory<byte> data, string topic, IDictionary<string, byte[]> headers, bool isValue = true)
         {
             using (_logger.Track("Ignoring the deserialization of the record."))
             {
-                return await Task.FromResult(Wrap(null, context));
+                return await Task.FromResult(Wrap(null, isValue));
             }
+            
+            
         }
     }
 }

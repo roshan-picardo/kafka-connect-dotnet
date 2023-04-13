@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Confluent.Kafka;
 using Kafka.Connect.Plugin.Logging;
@@ -18,7 +19,7 @@ namespace Kafka.Connect.UnitTests.Serializers
             
             var expected = new JObject{{"value", null}};
 
-            var actual = await ignoreDeserializer.Deserialize(ReadOnlyMemory<byte>.Empty, SerializationContext.Empty);
+            var actual = await ignoreDeserializer.Deserialize(ReadOnlyMemory<byte>.Empty, "", new Dictionary<string, byte[]>());
             
             Assert.Equal(expected, actual);
 
