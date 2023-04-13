@@ -39,7 +39,7 @@ namespace Kafka.Connect.Mongodb
             }
         }
         
-        private void AddMongoClients(IServiceCollection collection, string plugin, IEnumerable<string> connectors)
+        private static void AddMongoClients(IServiceCollection collection, string plugin, IEnumerable<string> connectors)
         {
             foreach (var connector in connectors)
             {
