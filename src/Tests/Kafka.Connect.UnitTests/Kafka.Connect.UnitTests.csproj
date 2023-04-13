@@ -36,7 +36,6 @@
     <ItemGroup>
       <Folder Include="Connectors" />
       <Folder Include="Converters" />
-      <Folder Include="Logging" />
     </ItemGroup>
 
 </Project>
