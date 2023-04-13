@@ -10,7 +10,7 @@ namespace Kafka.Connect.Plugin.Models
 {
     public class SinkRecord
     {
-        public SinkRecord(ConsumeResult<byte[], byte[]> consumed, JToken key = null, JToken value = null)
+        public SinkRecord(ConsumeResult<byte[], byte[]> consumed, string topic, int partition, long offset, JToken key = null, JToken value = null)
         {
             if (key != null || value != null)
             {
@@ -25,11 +25,10 @@ namespace Kafka.Connect.Plugin.Models
             
             if (consumed == null) return;
             Consumed = consumed;
-            Topic = consumed.Topic;
-            Partition = consumed.Partition.Value;
-            Offset = consumed.TopicPartitionOffset.Offset.Value;
+            Topic = topic;
+            Partition = partition;
+            Offset = offset;
             Headers = consumed.Message.Headers;
-            TopicPartitionOffset = consumed.TopicPartitionOffset;
             Status = SinkStatus.Consumed;
         }
 
@@ -41,7 +40,7 @@ namespace Kafka.Connect.Plugin.Models
 
         public static SinkRecord New(ConsumeResult<byte[], byte[]> consumed, JToken key = null, JToken value = null)
         {
-            return new SinkRecord(consumed, key, value);
+            return new SinkRecord(consumed, consumed.Topic, consumed.Partition, consumed.Offset, key, value);
         }
         
         public void Parsed(JToken key, JToken value)
@@ -53,8 +52,6 @@ namespace Kafka.Connect.Plugin.Models
             };
         }
 
-        public TopicPartitionOffset TopicPartitionOffset { get; }
-        
         public JToken Data { get; set; }
        
         public string Topic { get; }

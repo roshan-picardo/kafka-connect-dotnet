@@ -82,9 +82,9 @@ namespace Kafka.Connect.Handlers
                     {
                         var eofPartition = eofPartitions.SingleOrDefault(o =>
                             o.Topic == commitReadyOffset.Topic &&
-                            o.Partition.Value == commitReadyOffset.Partition.Value &&
-                            o.Offset.Value == commitReadyOffset.Offset.Value);
-                        if (eofPartition == null) continue;
+                            o.Partition == commitReadyOffset.Partition.Value &&
+                            o.Offset == commitReadyOffset.Offset.Value);
+                        if(eofPartition == default) continue;
                         using (LogContext.Push(new PropertyEnricher("Topic", eofPartition.Topic),
                                    new PropertyEnricher("Partition", eofPartition.Partition)))
                         {
@@ -104,8 +104,8 @@ namespace Kafka.Connect.Handlers
                                         Connector = connector,
                                         TaskId = taskId,
                                         Topic = eofPartition.Topic,
-                                        Partition = eofPartition.Partition.Value,
-                                        Offset = eofPartition.Offset.Value
+                                        Partition = eofPartition.Partition,
+                                        Offset = eofPartition.Offset
                                     })
                                 };
 
@@ -124,18 +124,18 @@ namespace Kafka.Connect.Handlers
         }
 
 
-        private static IEnumerable<TopicPartitionOffset> GetMaxOffsets(IEnumerable<TopicPartitionOffset> offsets)
+        private static IEnumerable<TopicPartitionOffset> GetMaxOffsets(IEnumerable<(string Topic, int Partition, long Offset)> offsets)
         {
-            var maxOffsets = offsets.GroupBy(g => new {g.Topic, g.Partition.Value},
+            var maxOffsets = offsets.GroupBy(g => new {g.Topic, g.Partition},
                 (_, r) =>
                 {
                     var offset = r.ToList();
                     return
                         offset.SingleOrDefault(s =>
-                            s.Offset.Value == offset.Max(o => o.Offset.Value));
+                            s.Offset == offset.Max(o => o.Offset));
                 }).ToList();
             foreach (var commitOffset in maxOffsets.Select(offset =>
-                new TopicPartitionOffset(offset.TopicPartition, new Offset(offset.Offset + 1))))
+                new TopicPartitionOffset(offset.Topic, new Partition(offset.Partition), new Offset(offset.Offset + 1))))
             {
                 yield return commitOffset;
             }

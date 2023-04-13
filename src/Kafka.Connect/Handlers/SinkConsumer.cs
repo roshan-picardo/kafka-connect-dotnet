@@ -124,7 +124,7 @@ namespace Kafka.Connect.Handlers
                     
                     if (consumed.IsPartitionEOF)
                     {
-                        batch.SetPartitionEof(consumed.TopicPartitionOffset);
+                        batch.SetPartitionEof(consumed.Topic, consumed.Partition.Value, consumed.Offset.Value);
                         break;
                     }
                     batch.Add(consumed);

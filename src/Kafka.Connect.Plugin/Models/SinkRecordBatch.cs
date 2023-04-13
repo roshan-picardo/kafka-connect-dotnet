@@ -8,7 +8,7 @@ namespace Kafka.Connect.Plugin.Models
 {
     public class SinkRecordBatch : BlockingCollection<SinkRecord>
     {
-        private readonly IList<TopicPartitionOffset> _eofPartitions;
+        private readonly IList<(string Topic, int Partition, long Offset)> _eofPartitions;
         public SinkRecordBatch(string connector, SinkRecord record = null)
         {
             Connector = connector;
@@ -16,7 +16,7 @@ namespace Kafka.Connect.Plugin.Models
             {
                 Add(record);
             }
-            _eofPartitions = new List<TopicPartitionOffset>();
+            _eofPartitions = new List<(string Topic, int Partition, long Offset)>();
         }
 
         public static async Task<SinkRecordBatch> New(string connector)
@@ -39,7 +39,7 @@ namespace Kafka.Connect.Plugin.Models
 
         public void Add(ConsumeResult<byte[], byte[]> consumed)
         {
-            Add(new SinkRecord(consumed));
+            Add(new SinkRecord(consumed, consumed.Topic, consumed.Partition, consumed.Offset));
         }
 
         public SinkRecordBatch Single(SinkRecord record)
@@ -47,11 +47,11 @@ namespace Kafka.Connect.Plugin.Models
             return new SinkRecordBatch(Connector, record);
         }
 
-        public IEnumerable<TopicPartitionOffset> GetCommitReadyOffsets()
+        public IEnumerable<(string Topic, int Partition, long Offset)> GetCommitReadyOffsets()
         {
             return from record in this
                 where record.CanCommitOffset
-                select record.TopicPartitionOffset;
+                select (record.Topic, record.Partition, record.Offset);
         }
 
         public void MarkAllCommitReady(bool isTolerated = false)
@@ -94,12 +94,12 @@ namespace Kafka.Connect.Plugin.Models
         {
             return this;
         }
-        public void SetPartitionEof(TopicPartitionOffset offset)
+        public void SetPartitionEof(string topic, int partition, long offset)
         {
-            _eofPartitions.Add(offset);
+            _eofPartitions.Add((topic, partition, offset));
         }
 
-        public IEnumerable<TopicPartitionOffset> GetEofPartitions()
+        public IEnumerable<(string Topic, int Partition, long Offset)> GetEofPartitions()
         {
             return _eofPartitions;
         }
