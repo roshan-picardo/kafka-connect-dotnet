@@ -1,21 +1,21 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
-using Confluent.Kafka;
 using Newtonsoft.Json.Linq;
 
 namespace Kafka.Connect.Plugin.Serializers
 {
     public abstract class Deserializer : IDeserializer
     {
-        public abstract Task<JToken> Deserialize(ReadOnlyMemory<byte> data, SerializationContext context,  bool isNull = false);
+        public abstract Task<JToken> Deserialize(ReadOnlyMemory<byte> data, string topic, IDictionary<string, byte[]> headers, bool isValue = true);
         public bool IsOfType(string type)
         {
             return GetType().FullName == type;
         }
 
-        protected static JToken Wrap(JToken token, SerializationContext context)
+        protected static JToken Wrap(JToken token, bool isValue)
         {
-            var component = context.Component == 0 ? "value" : context.Component.ToString().ToLower();
+            var component = isValue ? "value" : "key";
             return new JObject {{component, token}};
         }
     }

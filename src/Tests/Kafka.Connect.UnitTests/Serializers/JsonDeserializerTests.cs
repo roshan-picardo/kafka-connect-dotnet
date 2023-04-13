@@ -25,7 +25,7 @@ namespace Kafka.Connect.UnitTests.Serializers
             var expected = new JObject{{"value", null}};
             
             var data = new byte[0];
-            var actual = await _jsonDeserializer.Deserialize(data, SerializationContext.Empty, isNull);
+            var actual = await _jsonDeserializer.Deserialize(data, "", null);
             
             Assert.Equal(expected, actual);
         }
@@ -37,7 +37,7 @@ namespace Kafka.Connect.UnitTests.Serializers
             
             var data = new byte[4] { 01, 12, 45, 33} ;
             
-           await  Assert.ThrowsAsync<InvalidDataException>(  async () => await _jsonDeserializer.Deserialize(data, SerializationContext.Empty));
+           await  Assert.ThrowsAsync<InvalidDataException>(  async () => await _jsonDeserializer.Deserialize(data, "", null));
         }
         
         
@@ -52,7 +52,7 @@ namespace Kafka.Connect.UnitTests.Serializers
                 32, 97, 32, 116, 101, 115, 116, 32, 115, 97, 109, 112, 108, 101, 33, 34, 125
             };
 
-            var actual = await _jsonDeserializer.Deserialize(data, SerializationContext.Empty);
+            var actual = await _jsonDeserializer.Deserialize(data, "", null);
             
             Assert.Equal(expected, actual);
         }
@@ -65,7 +65,7 @@ namespace Kafka.Connect.UnitTests.Serializers
             var data = new byte[]
                 {116, 104, 105, 115, 32,116, 104, 105, 255, 32, 105, 115, 32, 97, 32, 116, 101, 115, 116, 32, 115, 97, 109, 112, 108, 101, 33};
 
-            var actual = await _jsonDeserializer.Deserialize(data, SerializationContext.Empty);
+            var actual = await _jsonDeserializer.Deserialize(data, "", null);
             
             Assert.Equal(expected, actual);
         }

@@ -27,7 +27,7 @@ namespace Kafka.Connect.UnitTests.Serializers
             _deserializer.DeserializeAsync(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<bool>(),
                 Arg.Any<SerializationContext>()).Returns(new JObject {{"json", "this is a test sample!"}});
 
-            var actual = await _jsonSchemaDeserializer.Deserialize(ReadOnlyMemory<byte>.Empty, SerializationContext.Empty);
+            var actual = await _jsonSchemaDeserializer.Deserialize(ReadOnlyMemory<byte>.Empty, "", null);
             
             Assert.Equal(expected, actual);
         }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Avro.Generic;
 using Confluent.Kafka;
@@ -33,7 +34,7 @@ namespace Kafka.Connect.UnitTests.Serializers
             var expected = new JObject {{"value", "this is a test sample!"}};
             _parser.Parse(Arg.Any<GenericRecord>()).Returns("this is a test sample!");
             
-            var actual = await _avroDeserializer.Deserialize(new ReadOnlyMemory<byte>(), SerializationContext.Empty);
+            var actual = await _avroDeserializer.Deserialize(new ReadOnlyMemory<byte>(), "", new Dictionary<string, byte[]>());
 
             await _deserializer.Received().DeserializeAsync(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<bool>(),
                 Arg.Any<SerializationContext>());
