@@ -148,10 +148,10 @@ namespace Kafka.Connect.Handlers
                     {
                         if (ex is ConsumeException ce)
                         {
-                            throw new ConnectRetriableException(ce.Error, ce.InnerException);
+                            throw new ConnectRetriableException(ce.Error.Reason, ce.InnerException);
                         }
 
-                        throw new ConnectDataException(ErrorCode.Local_Fatal, ex);
+                        throw new ConnectDataException(ErrorCode.Local_Fatal.GetReason(), ex);
                     }
                 }
             }

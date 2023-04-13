@@ -28,7 +28,7 @@ namespace Kafka.Connect.Converters
                     return BuildRecord(recordSchema, data);
                 }
 
-                throw new ConnectDataException(ErrorCode.Local_Fatal,
+                throw new ConnectDataException(ErrorCode.Local_Fatal.GetReason(),
                     new SchemaParseException("Schema of type RecordSchema is expected."));
             }
         }

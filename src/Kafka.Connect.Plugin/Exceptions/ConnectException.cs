@@ -4,22 +4,21 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
 using System.Text;
-using Confluent.Kafka;
 using Kafka.Connect.Plugin.Models;
 
 namespace Kafka.Connect.Plugin.Exceptions
 {
     public class ConnectException : Exception
     {
-        public ConnectException() : base(ErrorCode.Unknown.GetReason())
+        public ConnectException() : base("Unknown")
         {
         }
 
-        protected ConnectException(ErrorCode code) : base(code.GetReason())
+        protected ConnectException(string message) : base(message)
         {
         }
 
-        protected ConnectException(ErrorCode code, Exception innerException) : base(code.GetReason(), innerException)
+        protected ConnectException(string message, Exception innerException) : base(message, innerException)
         {
         }
 
@@ -29,7 +28,7 @@ namespace Kafka.Connect.Plugin.Exceptions
 
         public ConnectAggregateException SetLogContext(IEnumerable<SinkRecord> records)
         {
-            return new ConnectAggregateException(ErrorCode.Unknown, this is ConnectRetriableException,
+            return new ConnectAggregateException("Unknown", this is ConnectRetriableException,
                 records.Select(SetLogContextAndClone).ToArray());
         }
 

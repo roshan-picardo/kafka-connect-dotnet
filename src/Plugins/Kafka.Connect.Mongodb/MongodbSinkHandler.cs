@@ -3,7 +3,6 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Confluent.Kafka;
 using Kafka.Connect.Mongodb.Collections;
 using Kafka.Connect.Mongodb.Extensions;
 using Kafka.Connect.Mongodb.Models;
@@ -63,13 +62,12 @@ namespace Kafka.Connect.Mongodb
                                 if (!record.Skip)
                                 {
                                     var strategy =
-                                        _writeModelStrategyProviders.GetWriteModelStrategy(
-                                            mongoSinkConfig.WriteStrategy, sinkRecord);
+                                        _writeModelStrategyProviders.GetWriteModelStrategy(mongoSinkConfig.WriteStrategy, sinkRecord);
                                     if (strategy == null)
                                     {
                                         sinkRecord.Status = SinkStatus.Failed;
                                         // lets throw retriable as some of the messages might pass on last attempt
-                                        throw new ConnectRetriableException(ErrorCode.Local_Application,
+                                        throw new ConnectRetriableException("Local_WriteStrategy",
                                                 new NullReferenceException(
                                                     "Failed to load the Write Model Strategy. Check if the strategy is registered and configured for this record."))
                                             .SetLogContext(record);

@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Confluent.Kafka;
 using Kafka.Connect.Mongodb.Models;
 using Kafka.Connect.Plugin.Exceptions;
 using Kafka.Connect.Plugin.Logging;
@@ -65,11 +64,11 @@ namespace Kafka.Connect.Mongodb.Collections
                 }
                 catch (MongoBulkWriteException ex)
                 {
-                    throw new ConnectRetriableException(ErrorCode.Local_Application, ex).SetLogContext(records);
+                    throw new ConnectRetriableException(ex.Message, ex).SetLogContext(records);
                 }
                 catch (MongoException me)
                 {
-                    throw new ConnectRetriableException(ErrorCode.Local_Application, me).SetLogContext(records);
+                    throw new ConnectRetriableException(me.Message, me).SetLogContext(records);
                 }
             }
         }

@@ -46,7 +46,7 @@ namespace Kafka.Connect.UnitTests.Handlers
         public async Task Retry_ThrowsSingleConnectAggregateException()
         {
             _configurationProvider.GetRetriesConfig(Arg.Any<string>()).Returns(new RetryConfig {Attempts = 3, DelayTimeoutMs = 1});
-            Task<SinkRecordBatch> Process() => throw new ConnectAggregateException(ErrorCode.Unknown, new Exception());
+            Task<SinkRecordBatch> Process() => throw new ConnectAggregateException(ErrorCode.Unknown.GetReason(), new Exception());
 
             await Assert.ThrowsAsync<ConnectToleranceExceededException>(() =>
                 _retriableHandler.Retry(_ => Process(), GetBatch(), "connector"));
@@ -56,7 +56,7 @@ namespace Kafka.Connect.UnitTests.Handlers
         public async Task Retry_ThrowsSingleConnectDataException()
         {
             _configurationProvider.GetRetriesConfig(Arg.Any<string>()).Returns(new RetryConfig {Attempts = 3, DelayTimeoutMs = 1});
-            Task<SinkRecordBatch> Process() => throw new ConnectDataException(ErrorCode.Unknown, new Exception());
+            Task<SinkRecordBatch> Process() => throw new ConnectDataException(ErrorCode.Unknown.GetReason(), new Exception());
             
             await Assert.ThrowsAsync<ConnectToleranceExceededException>(() =>
                 _retriableHandler.Retry(_ => Process(), GetBatch(), "connector"));
@@ -76,7 +76,7 @@ namespace Kafka.Connect.UnitTests.Handlers
         public async Task Retry_ThrowsSingleRetriableException()
         {
             _configurationProvider.GetRetriesConfig(Arg.Any<string>()).Returns(new RetryConfig {Attempts = 3, DelayTimeoutMs = 1});
-            Task<SinkRecordBatch> Process() => throw new ConnectRetriableException(ErrorCode.Unknown, new Exception());
+            Task<SinkRecordBatch> Process() => throw new ConnectRetriableException(ErrorCode.Unknown.GetReason(), new Exception());
             
             await Assert.ThrowsAsync<ConnectToleranceExceededException>(() =>
                 _retriableHandler.Retry(_ => Process(), GetBatch(), "connector"));
@@ -112,10 +112,10 @@ namespace Kafka.Connect.UnitTests.Handlers
                     switch (record.Topic)
                     {
                         case "retriable-exception":
-                            innerExceptions.Add(new ConnectRetriableException(ErrorCode.Unknown, new Exception()));
+                            innerExceptions.Add(new ConnectRetriableException(ErrorCode.Unknown.GetReason(), new Exception()));
                             break;
                         case "data-exception":
-                            innerExceptions.Add(new ConnectDataException(ErrorCode.Unknown, new Exception()));
+                            innerExceptions.Add(new ConnectDataException(ErrorCode.Unknown.GetReason(), new Exception()));
                             break;
                         case "any-exception":
                             innerExceptions.Add(new Exception());
@@ -125,7 +125,7 @@ namespace Kafka.Connect.UnitTests.Handlers
 
                 if (innerExceptions.Any())
                 {
-                    throw new ConnectAggregateException(ErrorCode.Unknown, false, innerExceptions.ToArray());
+                    throw new ConnectAggregateException(ErrorCode.Unknown.GetReason(), false, innerExceptions.ToArray());
                 }
 
                 return Task.FromResult(batch);
@@ -176,10 +176,10 @@ namespace Kafka.Connect.UnitTests.Handlers
                     switch (record.Topic)
                     {
                         case "retriable-exception":
-                            innerExceptions.Add(new ConnectRetriableException(ErrorCode.Unknown, new Exception()));
+                            innerExceptions.Add(new ConnectRetriableException(ErrorCode.Unknown.GetReason(), new Exception()));
                             break;
                         case "data-exception":
-                            innerExceptions.Add(new ConnectDataException(ErrorCode.Unknown, new Exception()));
+                            innerExceptions.Add(new ConnectDataException(ErrorCode.Unknown.GetReason(), new Exception()));
                             break;
                         case "any-exception":
                             innerExceptions.Add(new Exception());
@@ -189,7 +189,7 @@ namespace Kafka.Connect.UnitTests.Handlers
 
                 if (batch.Count > 1 && innerExceptions.Any())
                 {
-                    throw new ConnectAggregateException(ErrorCode.Unknown, false, innerExceptions.ToArray());
+                    throw new ConnectAggregateException(ErrorCode.Unknown.GetReason(), false, innerExceptions.ToArray());
                 }
 
                 return Task.FromResult(batch);

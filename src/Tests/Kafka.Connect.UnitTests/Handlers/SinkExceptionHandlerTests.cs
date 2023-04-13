@@ -46,10 +46,10 @@ namespace Kafka.Connect.UnitTests.Handlers
                 switch (exception)
                 {
                     case "retriable-exception": 
-                        innerExceptions.Add(new ConnectRetriableException(ErrorCode.Unknown, new Exception())); 
+                        innerExceptions.Add(new ConnectRetriableException(ErrorCode.Unknown.GetReason(), new Exception())); 
                         break;
                     case "data-exception": 
-                        innerExceptions.Add(new ConnectDataException(ErrorCode.Unknown, new Exception())); 
+                        innerExceptions.Add(new ConnectDataException(ErrorCode.Unknown.GetReason(), new Exception())); 
                         break;
                     case "any-exception": 
                         innerExceptions.Add(new Exception()); 
@@ -57,7 +57,7 @@ namespace Kafka.Connect.UnitTests.Handlers
                 }
             }
 
-            var connectToleranceExceededException = new ConnectToleranceExceededException(ErrorCode.Unknown, innerExceptions.ToArray());
+            var connectToleranceExceededException = new ConnectToleranceExceededException(ErrorCode.Unknown.GetReason(), innerExceptions.ToArray());
             var token = new CancellationTokenSource();
             _sinkExceptionHandler.Handle(connectToleranceExceededException, () => { token.Cancel(); });
             
@@ -79,10 +79,10 @@ namespace Kafka.Connect.UnitTests.Handlers
                 switch (exception)
                 {
                     case "retriable-exception": 
-                        innerExceptions.Add(new ConnectRetriableException(ErrorCode.Unknown, new Exception())); 
+                        innerExceptions.Add(new ConnectRetriableException(ErrorCode.Unknown.GetReason(), new Exception())); 
                         break;
                     case "data-exception": 
-                        innerExceptions.Add(new ConnectDataException(ErrorCode.Unknown, new Exception())); 
+                        innerExceptions.Add(new ConnectDataException(ErrorCode.Unknown.GetReason(), new Exception())); 
                         break;
                     case "any-exception": 
                         innerExceptions.Add(new Exception()); 
@@ -90,7 +90,7 @@ namespace Kafka.Connect.UnitTests.Handlers
                 }
             }
 
-            var connectToleranceExceededException = new ConnectAggregateException(ErrorCode.Unknown, innerExceptions:innerExceptions.ToArray());
+            var connectToleranceExceededException = new ConnectAggregateException(ErrorCode.Unknown.GetReason(), innerExceptions:innerExceptions.ToArray());
             var token = new CancellationTokenSource();
             _sinkExceptionHandler.Handle(connectToleranceExceededException, () => { token.Cancel(); });
             
@@ -120,7 +120,7 @@ namespace Kafka.Connect.UnitTests.Handlers
                     break;
             }
 
-            var connectDataException = new ConnectDataException(ErrorCode.Unknown, innerException);
+            var connectDataException = new ConnectDataException(ErrorCode.Unknown.GetReason(), innerException);
             var token = new CancellationTokenSource();
             _sinkExceptionHandler.Handle(connectDataException, () => { token.Cancel(); });
 
@@ -174,10 +174,10 @@ namespace Kafka.Connect.UnitTests.Handlers
                 switch (exception)
                 {
                     case "retriable-exception": 
-                        innerExceptions.Add(new ConnectRetriableException(ErrorCode.Unknown, new Exception())); 
+                        innerExceptions.Add(new ConnectRetriableException(ErrorCode.Unknown.GetReason(), new Exception())); 
                         break;
                     case "data-exception": 
-                        innerExceptions.Add(new ConnectDataException(ErrorCode.Unknown, new Exception())); 
+                        innerExceptions.Add(new ConnectDataException(ErrorCode.Unknown.GetReason(), new Exception())); 
                         break;
                     case "any-exception": 
                         innerExceptions.Add(new Exception()); 
@@ -185,7 +185,7 @@ namespace Kafka.Connect.UnitTests.Handlers
                 }
             }
 
-            var connectToleranceExceededException = new ConnectAggregateException(ErrorCode.Unknown, innerExceptions:innerExceptions.ToArray());
+            var connectToleranceExceededException = new ConnectAggregateException(ErrorCode.Unknown.GetReason(), innerExceptions:innerExceptions.ToArray());
             _sinkExceptionHandler.LogRetryException(connectToleranceExceededException, attempts);
             
             _logger.Received(expected).Error($"Message processing failed. Remaining retries: {attempts}", Arg.Any<object>(), Arg.Any<Exception>());
@@ -199,8 +199,8 @@ namespace Kafka.Connect.UnitTests.Handlers
         {
             var connectException = exception switch
             {
-                "data-exception" => new ConnectDataException(ErrorCode.Unknown, new Exception()),
-                "retriable-exception" => new ConnectRetriableException(ErrorCode.Unknown, new Exception()),
+                "data-exception" => new ConnectDataException(ErrorCode.Unknown.GetReason(), new Exception()),
+                "retriable-exception" => new ConnectRetriableException(ErrorCode.Unknown.GetReason(), new Exception()),
                 _ => new ConnectException()
             };
             _sinkExceptionHandler.LogRetryException(connectException, attempts);

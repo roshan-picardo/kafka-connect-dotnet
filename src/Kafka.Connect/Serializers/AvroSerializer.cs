@@ -50,7 +50,7 @@ namespace Kafka.Connect.Serializers
             }
             catch (Exception ex)
             {
-                throw new ConnectDataException(ErrorCode.Local_Fail, ex);
+                throw new ConnectDataException(ErrorCode.Local_Fail.GetReason(), ex);
             }
         }
 
