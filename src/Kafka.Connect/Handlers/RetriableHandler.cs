@@ -124,7 +124,7 @@ namespace Kafka.Connect.Handlers
 
         private static ConnectToleranceExceededException ThrowToleranceExceededException(params Exception[] exceptions)
         {
-            return new ConnectToleranceExceededException(ErrorCode.Local_Fatal, exceptions);
+            return new ConnectToleranceExceededException(ErrorCode.Local_Fatal.GetReason(), exceptions);
         }
     }
 }

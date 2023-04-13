@@ -3,7 +3,6 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Confluent.Kafka;
 using Kafka.Connect.Plugin.Exceptions;
 
 namespace Kafka.Connect.Plugin.Extensions
@@ -33,13 +32,13 @@ namespace Kafka.Connect.Plugin.Extensions
                     }
                     else
                     {
-                        var cde = new ConnectDataException(ErrorCode.Local_Fatal, task.Exception.InnerException);
+                        var cde = new ConnectDataException("Local_Fatal", task.Exception.InnerException);
                         exceptions.Add(setLogContext == null ? cde : setLogContext(data, cde));
                     }
                 }
                 else if (task.Exception.InnerExceptions.Any())
                 {
-                    var cae = new ConnectAggregateException(ErrorCode.Local_Application, canRetry,
+                    var cae = new ConnectAggregateException("Local_Application", canRetry,
                         task.Exception.InnerExceptions.ToArray());
                     exceptions.Add(setLogContext == null ? cae : setLogContext(data, cae));
                 }
@@ -58,10 +57,10 @@ namespace Kafka.Connect.Plugin.Extensions
                 if (!exceptions.Any()) return;
                 if (exceptions.Count == 1)
                 {
-                    throw new ConnectAggregateException(ErrorCode.Local_Application, exceptions.Single(), canRetry);
+                    throw new ConnectAggregateException("Local_Application", exceptions.Single(), canRetry);
                 }
 
-                throw new ConnectAggregateException(ErrorCode.Local_Application, canRetry, exceptions.ToArray());
+                throw new ConnectAggregateException("Local_Application", canRetry, exceptions.ToArray());
             }
 
             /*if (dop == 1)

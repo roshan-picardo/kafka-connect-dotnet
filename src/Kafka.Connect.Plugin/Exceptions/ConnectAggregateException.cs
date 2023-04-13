@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
-using Confluent.Kafka;
 
 namespace Kafka.Connect.Plugin.Exceptions
 {
@@ -11,13 +10,13 @@ namespace Kafka.Connect.Plugin.Exceptions
         private readonly ReadOnlyCollection<Exception> _innerExceptions;
         private readonly bool _canRetry;
 
-        public ConnectAggregateException(ErrorCode code, Exception innerException, bool canRetry = false) : base(code)
+        public ConnectAggregateException(string reason, Exception innerException, bool canRetry = false) : base(reason)
         {
             _canRetry = canRetry;
             _innerExceptions = new ReadOnlyCollection<Exception>(new [] { innerException } );
         }
 
-        public ConnectAggregateException(ErrorCode code, bool canRetry = false, params Exception[] innerExceptions) : base(code)
+        public ConnectAggregateException(string reason, bool canRetry = false, params Exception[] innerExceptions) : base(reason)
         {
             _canRetry = canRetry;
             _innerExceptions = new ReadOnlyCollection<Exception>(innerExceptions);
