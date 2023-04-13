@@ -10,6 +10,7 @@ using Kafka.Connect.Converters;
 using Kafka.Connect.Plugin.Exceptions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Serializers;
+using Kafka.Connect.Utilities;
 using Newtonsoft.Json.Linq;
 
 namespace Kafka.Connect.Serializers
@@ -29,8 +30,10 @@ namespace Kafka.Connect.Serializers
                 schemaRegistryClients.FirstOrDefault(client => client is ProducerCachedSchemaRegistryClient);*/
         }
 
-        public override async Task<byte[]> Serialize<T>(JToken data, SerializationContext context, T schema)
+        public override async Task<byte[]> Serialize<T>(JToken data, string topic, IDictionary<string, byte[]> headers, T schema, bool isValue = true)
         {
+            var context = new SerializationContext(isValue ? MessageComponentType.Value : MessageComponentType.Key,
+                topic, headers.ToMessageHeaders());
             var serialized = await _serializer.SerializeAsync(
                 _genericRecordBuilder.Build(await GetRecordSchema(schema), data), context);
             return serialized;
