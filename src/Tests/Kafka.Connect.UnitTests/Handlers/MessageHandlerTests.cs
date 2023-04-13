@@ -44,7 +44,7 @@ namespace Kafka.Connect.UnitTests.Handlers
                 {
                     Headers = new Headers()
                 }
-            })
+            }, "", 0, 0)
             {
                 Data = new JObject {{"field", "test.value"}},
                 Skip = true
@@ -74,7 +74,7 @@ namespace Kafka.Connect.UnitTests.Handlers
                 {
                     Headers = new Headers()
                 }
-            })
+            }, "", 0, 0)
             {
                 Data = new JObject {{"field", "test.value"}},
                 Skip = true
@@ -103,7 +103,7 @@ namespace Kafka.Connect.UnitTests.Handlers
                 {
                     Headers = new Headers()
                 }
-            })
+            }, "", 0, 0)
             {
                 Data = new JObject {{"field", "test.value"}},
                 Skip = true
@@ -137,7 +137,7 @@ namespace Kafka.Connect.UnitTests.Handlers
                 {
                     Headers = new Headers()
                 }
-            })
+            }, "", 0, 0)
             {
                 Data = new JObject {{"field", "test.value"}},
                 Skip = true
@@ -171,7 +171,7 @@ namespace Kafka.Connect.UnitTests.Handlers
                 {
                     Headers = new Headers()
                 }
-            })
+            }, "", 0, 0)
             {
                 Data = new JObject {{"field", "test.value"}},
                 Skip = true
@@ -210,7 +210,7 @@ namespace Kafka.Connect.UnitTests.Handlers
                 {
                     Headers = new Headers()
                 }
-            })
+            }, "", 0, 0)
             {
                 Data = new JObject {{"field", "test.value"}},
                 Skip = true
@@ -253,7 +253,7 @@ namespace Kafka.Connect.UnitTests.Handlers
                 {
                     Headers = new Headers()
                 }
-            })
+            }, "", 0, 0)
             {
                 Data = new JObject {{"field", "test.value"}},
                 Skip = true

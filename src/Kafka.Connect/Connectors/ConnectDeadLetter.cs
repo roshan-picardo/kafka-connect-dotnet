@@ -41,7 +41,7 @@ namespace Kafka.Connect.Connectors
                             record.Consumed.Message.Headers.Add("_errorContext",
                                 ByteConvert.Serialize(exception.ToString()));
                             record.Consumed.Message.Headers.Add("_sourceContext",
-                                ByteConvert.Serialize(new MessageContext(record.TopicPartitionOffset)));
+                                ByteConvert.Serialize(new MessageContext(record.Topic, record.Partition, record.Offset)));
 
                             var delivered = await producer.ProduceAsync(topic, record.Consumed.Message);
                             _logger.Info("Error message delivered.", new

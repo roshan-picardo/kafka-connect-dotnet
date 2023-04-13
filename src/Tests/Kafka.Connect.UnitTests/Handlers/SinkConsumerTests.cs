@@ -121,8 +121,8 @@ namespace Kafka.Connect.UnitTests.Handlers
         [Fact]
         public async Task Consume_WhenConsumedReturnsABatch()
         {
-            var record1 = new SinkRecord(new ConsumeResult<byte[], byte[]>() { Message = new Message<byte[], byte[]>()});
-            var record2 = new SinkRecord(new ConsumeResult<byte[], byte[]>() {Message = new Message<byte[], byte[]>()});
+            var record1 = new SinkRecord(new ConsumeResult<byte[], byte[]>() { Message = new Message<byte[], byte[]>()}, "", 0, 0);
+            var record2 = new SinkRecord(new ConsumeResult<byte[], byte[]>() {Message = new Message<byte[], byte[]>()}, "", 0, 0);
             var batch = new SinkRecordBatch("") {record1, record2};
             _retriableHandler.Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(),  Arg.Any<string>())
                 .Returns(await Task.FromResult(batch));

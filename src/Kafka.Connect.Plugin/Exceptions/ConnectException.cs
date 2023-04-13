@@ -23,17 +23,9 @@ namespace Kafka.Connect.Plugin.Exceptions
         {
         }
 
-        private TopicPartitionOffset _topicPartitionOffset;
-
-        public string Topic => _topicPartitionOffset?.Topic ?? "";
-        public int Partition => _topicPartitionOffset?.Partition.Value ?? 0;
-        public long Offset => _topicPartitionOffset?.Offset.Value ?? 0;
-
-        public Exception SetLogContext(TopicPartitionOffset topicPartitionOffset)
-        {
-            _topicPartitionOffset = topicPartitionOffset;
-            return this;
-        }
+        public string Topic { get; private set; }
+        public int Partition { get; private set; }
+        public long Offset { get; private set; }
 
         public ConnectAggregateException SetLogContext(IEnumerable<SinkRecord> records)
         {
@@ -44,22 +36,20 @@ namespace Kafka.Connect.Plugin.Exceptions
         private Exception SetLogContextAndClone(SinkRecord record)
         {
             record.Status = SinkStatus.Failed;
-            _topicPartitionOffset = record.TopicPartitionOffset;
+            Topic = record.Topic;
+            Partition = record.Partition;
+            Offset = record.Offset;
             return MemberwiseClone() as Exception;
         }
         public Exception SetLogContext(SinkRecord record)
         {
             record.Status = SinkStatus.Failed;
-            _topicPartitionOffset = record.TopicPartitionOffset;
+            Topic = record.Topic;
+            Partition = record.Partition;
+            Offset = record.Offset;
             return this;
         }
 
-        public Exception SetLogContext(string topic, int partition, long offset)
-        {
-            _topicPartitionOffset = new TopicPartitionOffset(topic, new Partition(partition), new Offset(offset));
-            return this;
-        }
-        
         protected string ToString(ReadOnlyCollection<Exception> innerExceptions)
         {
             var text = new StringBuilder();
@@ -71,7 +61,7 @@ namespace Kafka.Connect.Plugin.Exceptions
                     continue; 
 
                 text.Append(Environment.NewLine).Append("--->");
-                text.AppendFormat(CultureInfo.InvariantCulture, "(Inner Exception #{0})", i);
+                text.Append(CultureInfo.InvariantCulture, $"(Inner Exception #{i})");
                 text.Append(innerExceptions[i]);
                 text.Append("<---");
                 text.AppendLine();

@@ -215,7 +215,7 @@ namespace Kafka.Connect.UnitTests.Handlers
             for (var i = 0; i < length; i++)
             {
                 batch.Add(new SinkRecord(new ConsumeResult<byte[], byte[]>
-                    {Topic = "topic", Message = new Message<byte[], byte[]>() {Headers = new Headers()}})
+                    {Topic = "topic", Message = new Message<byte[], byte[]>() {Headers = new Headers()}}, "topic", 0, 0)
                 {
                     Status = failed-- > 0 ? SinkStatus.Failed : SinkStatus.Updated
                 });

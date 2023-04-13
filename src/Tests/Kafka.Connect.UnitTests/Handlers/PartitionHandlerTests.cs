@@ -130,7 +130,7 @@ namespace Kafka.Connect.UnitTests.Handlers
             _configurationProvider.GetEofSignalConfig(Arg.Any<string>()).Returns(new EofConfig {Enabled = true, Topic = "eof-topic"});
 
             var batch = new SinkRecordBatch("commits") {GetRecord(topic, partition, offset)};
-            batch.SetPartitionEof(new TopicPartitionOffset("data-topic", 0, 101));
+            batch.SetPartitionEof("data-topic", 0, 101);
 
             await _partitionHandler.NotifyEndOfPartition(batch, "connector", 1);
 
@@ -144,7 +144,7 @@ namespace Kafka.Connect.UnitTests.Handlers
             _configurationProvider.GetEofSignalConfig(Arg.Any<string>()).Returns(new EofConfig {Enabled = true, Topic = "eof-topic"});
 
             var batch = new SinkRecordBatch("commits") {GetRecord("data-topic", 0, 100)};
-            batch.SetPartitionEof(new TopicPartitionOffset("data-topic", 0, 101));
+            batch.SetPartitionEof("data-topic", 0, 101);
             _kafkaClientBuilder.GetProducer(Arg.Any<string>()).Returns((IProducer<byte[], byte[]>) null);
 
             await _partitionHandler.NotifyEndOfPartition(batch, "connector", 1);
@@ -160,7 +160,7 @@ namespace Kafka.Connect.UnitTests.Handlers
             _configurationProvider.GetEofSignalConfig(Arg.Any<string>()).Returns(new EofConfig {Enabled = true, Topic = "eof-topic"});
 
             var batch = new SinkRecordBatch("commits") {GetRecord("data-topic", 0, 100)};
-            batch.SetPartitionEof(new TopicPartitionOffset("data-topic", 0, 101));
+            batch.SetPartitionEof("data-topic", 0, 101);
             _kafkaClientBuilder.GetProducer(Arg.Any<string>()).Returns(_producer);
             var delivered = new DeliveryResult<byte[], byte[]>
             {
@@ -186,7 +186,7 @@ namespace Kafka.Connect.UnitTests.Handlers
                     Headers = new Headers()
                 },
                 TopicPartitionOffset = new TopicPartitionOffset(topic, new Partition(partition), new Offset(offset))
-            })
+            }, topic, partition, offset)
             {
                 CanCommitOffset = true,
             };
