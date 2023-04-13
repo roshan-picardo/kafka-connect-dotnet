@@ -33,7 +33,7 @@ namespace Kafka.Connect.Serializers
                         .Deserialize(consumed.Message?.Value,
                             new SerializationContext(MessageComponentType.Value, consumed.Topic,
                                 consumed.Message?.Headers),
-                            consumed.Message.Value == null || consumed.Message.Value.Length == 0);
+                            consumed.Message?.Value == null || consumed.Message.Value.Length == 0);
                 return (keyToken, valueToken);
             }
         }

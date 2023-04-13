@@ -36,9 +36,14 @@ namespace Kafka.Connect.Builders
 
         public IProducer<byte[], byte[]> GetProducer(string connector)
         {
+            return GetProducer(_configurationProvider.GetProducerConfig(connector));
+        }
+
+        public IProducer<byte[], byte[]> GetProducer(ProducerConfig producerConfig)
+        {
             using (_logger.Track("Creating message producer."))
             {
-                return new ProducerBuilder<byte[], byte[]>(_configurationProvider.GetProducerConfig(connector))
+                return new ProducerBuilder<byte[], byte[]>(producerConfig)
                     .SetLogHandler((_, message) => _kafkaClientEventHandler.HandleLogMessage(message))
                     .SetErrorHandler((_, error) => _kafkaClientEventHandler.HandleError(error))
                     .SetStatisticsHandler((_, message) => _kafkaClientEventHandler.HandleStatistics(message))

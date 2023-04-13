@@ -5,9 +5,11 @@ using Confluent.SchemaRegistry;
 using Confluent.SchemaRegistry.Serdes;
 using Kafka.Connect.Converters;
 using Kafka.Connect.FunctionalTests.Targets;
+using Kafka.Connect.Plugin.Logging;
 using MongoDB.Driver;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using NSubstitute;
 
 namespace Kafka.Connect.FunctionalTests;
 
@@ -26,7 +28,7 @@ public class Fixture : IDisposable
         _settings = InitConfig.Get();
         ConfigureMessageProducers();
         _targetHelperProvider = new TargetHelperProvider(_settings);
-        _genericRecordBuilder = new GenericRecordBuilder(null);
+        _genericRecordBuilder = new GenericRecordBuilder(Substitute.For<ILogger<GenericRecordBuilder>>());
     }
 
     public Task Setup(Sink sink)

@@ -1,18 +1,18 @@
-﻿﻿using System;
- using System.IO;
- using System.Threading;
+﻿using System;
+using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
- using Kafka.Connect.Background;
- using Kafka.Connect.Connectors;
- using Kafka.Connect.Plugin.Logging;
- using Kafka.Connect.Utilities;
+using Kafka.Connect.Background;
+using Kafka.Connect.Connectors;
+using Kafka.Connect.Plugin.Logging;
+using Kafka.Connect.Utilities;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Serilog;
- using Serilog.Formatting.Json;
+using Serilog.Formatting.Json;
 
  namespace Kafka.Connect
  {
