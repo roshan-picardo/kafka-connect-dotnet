@@ -3,5 +3,10 @@
     "topic" : "sample-topic",
     "schema": "/schemas/sample-schema.avsc",
     "folder": "/messages"
+  },
+  {
+    "topic" : "test-events-testing",
+    "schema": "/schemas/sample-schema.avsc",
+    "folder": "/messages"
   }
 ]

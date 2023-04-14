@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using Confluent.Kafka;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Handlers;
+using Kafka.Connect.Models;
 using Kafka.Connect.Plugin;
 using Kafka.Connect.Plugin.Exceptions;
 using Kafka.Connect.Plugin.Logging;
@@ -165,8 +166,8 @@ namespace Kafka.Connect.UnitTests.Handlers
             for (var i = 0; i < length; i++)
             {
                 var (topic, partition) = topicPartitions != null && topicPartitions.Length > i ? topicPartitions[i] : ("topic", 0);
-                batch.Add(new SinkRecord(new ConsumeResult<byte[], byte[]>
-                    {Topic = topic, Partition = partition, Message = new Message<byte[], byte[]>() {Headers = new Headers()}}, topic, partition, 0));
+                batch.Add(new ConnectSinkRecord(new ConsumeResult<byte[], byte[]>
+                    {Topic = topic, Partition = partition, Message = new Message<byte[], byte[]>() {Headers = new Headers()}}));
             }
 
             return batch;

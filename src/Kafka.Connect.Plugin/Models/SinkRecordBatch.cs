@@ -2,7 +2,6 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Confluent.Kafka;
 
 namespace Kafka.Connect.Plugin.Models
 {
@@ -27,20 +26,6 @@ namespace Kafka.Connect.Plugin.Models
         public string Connector { get; }
         
         public bool IsEmpty => Count == 0;
-        
-        public IEnumerable<SinkRecordsByTopicPartition> BatchByTopicPartition =>
-            this.GroupBy(g => new {g.Topic, g.Partition})
-            .Select(g => new SinkRecordsByTopicPartition
-            {
-                Topic = g.Key.Topic,
-                Partition = g.Key.Partition,
-                Batch = g.Select(b => b).ToList()
-            }).ToList();
-
-        public void Add(ConsumeResult<byte[], byte[]> consumed)
-        {
-            Add(new SinkRecord(consumed, consumed.Topic, consumed.Partition, consumed.Offset));
-        }
 
         public SinkRecordBatch Single(SinkRecord record)
         {
@@ -90,10 +75,19 @@ namespace Kafka.Connect.Plugin.Models
             }
         }
 
-        public IEnumerable<SinkRecord> GetAll()
+        public IEnumerable<T> GetAll<T>() where T: class
         {
-            return this;
+            return this.Select(r=> r as T);
         }
+        
+        public IEnumerable<(string Topic, int Partition, IEnumerable<T> Batch)> GetByTopicPartition<T>() where T : class
+        {
+            return from record in this
+                group record by new { record.Topic, record.Partition }
+                into tp
+                select (tp.Key.Topic, tp.Key.Partition, tp.Select(r => r as T));
+        }
+
         public void SetPartitionEof(string topic, int partition, long offset)
         {
             _eofPartitions.Add((topic, partition, offset));

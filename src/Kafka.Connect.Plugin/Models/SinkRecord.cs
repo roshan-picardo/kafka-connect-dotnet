@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Confluent.Kafka;
-using Kafka.Connect.Plugin.Extensions;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -10,6 +9,27 @@ namespace Kafka.Connect.Plugin.Models
 {
     public class SinkRecord
     {
+        private readonly LogTimestamp _logTimestamp;
+        private readonly byte[] _key;
+        private readonly byte[] _value;
+        private readonly IDictionary<string, byte[]> _headers;
+
+        public SinkRecord(string topic, int partition, long offset, byte[] key, byte[] value,
+            IDictionary<string, byte[]> headers)
+        {
+            _logAttributes = new Dictionary<string, object>();
+            _calcAttributes = new Dictionary<string, Func<object>>();
+
+            Topic = topic;
+            Partition = partition;
+            Offset = offset;
+            _key = key;
+            _value = value;
+            Status = SinkStatus.Consumed;
+            _logTimestamp = new LogTimestamp();
+            _headers = headers ?? new Dictionary<string, byte[]>();
+        }
+        
         public SinkRecord(ConsumeResult<byte[], byte[]> consumed, string topic, int partition, long offset, JToken key = null, JToken value = null)
         {
             if (key != null || value != null)
@@ -28,21 +48,22 @@ namespace Kafka.Connect.Plugin.Models
             Topic = topic;
             Partition = partition;
             Offset = offset;
-            Headers = consumed.Message.Headers;
             Status = SinkStatus.Consumed;
+            _logTimestamp = new LogTimestamp();
         }
 
-        protected SinkRecord()
+        public SinkRecord()
         {
-            
+            _logAttributes = new Dictionary<string, object>();
+            _calcAttributes = new Dictionary<string, Func<object>>();
+            _logAttributes = new Dictionary<string, object>();
+            _calcAttributes = new Dictionary<string, Func<object>>();
+            _logTimestamp = new LogTimestamp();
+            _headers = new Dictionary<string, byte[]>();
+            Status = SinkStatus.Empty;
         }
         protected SinkRecord This => this;
 
-        public static SinkRecord New(ConsumeResult<byte[], byte[]> consumed, JToken key = null, JToken value = null)
-        {
-            return new SinkRecord(consumed, consumed.Topic, consumed.Partition, consumed.Offset, key, value);
-        }
-        
         public void Parsed(JToken key, JToken value)
         {
             Data = new JObject
@@ -57,18 +78,13 @@ namespace Kafka.Connect.Plugin.Models
         public string Topic { get; }
         public int Partition { get; }
         public long Offset { get; }
-        private Headers Headers
-        {
-            get => Consumed.Message.Headers;
-            set => Consumed.Message.Headers = value;
-        }
-        
+
         // indicate the record to stop processing
         public bool Skip { get; set; } 
         
         public bool CanCommitOffset { get; set; }
         
-        public ConsumeResult<byte[], byte[]> Consumed { get; }
+        private ConsumeResult<byte[], byte[]> Consumed { get; }
 
         private SinkStatus _status;
 
@@ -161,49 +177,23 @@ namespace Kafka.Connect.Plugin.Models
         public bool IsPublished { get; private set; }
         
         public bool IsOperationCompleted { get; set; }
-        
-        private dynamic SetTime(Action<LogTimestamp> setTime)
-        {
-            Headers ??= new Headers();
-            LogTimestamp logTimestamp;
-            var timestamp = Headers.SingleOrDefault(h => h.Key == "_logTimestamp");
-            if (timestamp != null)
-            {
-                Headers.Remove("_logTimestamp");
-                logTimestamp = ByteConvert.Deserialize<LogTimestamp>(timestamp.GetValueBytes());
-            }
-            else
-            {
-                logTimestamp = new LogTimestamp();
-            }
 
-            setTime(logTimestamp);
-            Headers.Add("_logTimestamp", ByteConvert.Serialize(logTimestamp));
-            return logTimestamp;
-        }
-        
-        public void StartTiming(long? millis = null)
+        protected void StartTiming(long? millis = null)
         {
-            SetTime(t =>
-            {
-                t.Created = millis ?? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                t.Consumed = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            });
+            _logTimestamp.Created = millis ?? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            _logTimestamp.Consumed = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         }
 
         public dynamic EndTiming(int batchSize)
         {
-            var logTimestamp = SetTime(t =>
-            {
-                t.Committed = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                t.BatchSize = batchSize;
-            });
+            _logTimestamp.Committed = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            _logTimestamp.BatchSize = batchSize;
             return new
             {
-                Lag = logTimestamp.Lag.ToString(@"dd\.hh\:mm\:ss\.fff"),
-                Total = logTimestamp.Total.ToString(@"dd\.hh\:mm\:ss\.fff"),
-                logTimestamp.Duration,
-                Batch = new { Size = batchSize, Total = logTimestamp.Batch }
+                Lag = _logTimestamp.Lag.ToString(@"dd\.hh\:mm\:ss\.fff"),
+                Total = _logTimestamp.Total.ToString(@"dd\.hh\:mm\:ss\.fff"),
+                _logTimestamp.Duration,
+                Batch = new { Size = batchSize, Total = _logTimestamp.Batch }
             };
         }
     }
