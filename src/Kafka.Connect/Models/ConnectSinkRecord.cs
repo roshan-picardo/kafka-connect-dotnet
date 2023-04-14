@@ -11,7 +11,7 @@ public class ConnectSinkRecord : Plugin.Models.SinkRecord
 
     public ConnectSinkRecord(ConsumeResult<byte[], byte[]> consumed) : 
         base(consumed.Topic, consumed.Partition, consumed.Offset, consumed.Message.Key, consumed.Message.Value,
-        consumed.Message.Headers.ToDictionary(h => h.Key, h => h.GetValueBytes()))
+        consumed.Message.Headers?.ToDictionary(h => h.Key, h => h.GetValueBytes()))
     {
         _consumed = consumed;
         Consumed = consumed;
