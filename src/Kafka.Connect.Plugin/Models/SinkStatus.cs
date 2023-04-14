@@ -2,6 +2,7 @@ namespace Kafka.Connect.Plugin.Models
 {
     public enum SinkStatus
     {
+        Empty,
         Polling,
         Consumed,
         

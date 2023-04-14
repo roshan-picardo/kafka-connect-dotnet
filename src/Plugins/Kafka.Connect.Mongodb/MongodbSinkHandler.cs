@@ -45,7 +45,7 @@ namespace Kafka.Connect.Mongodb
 
 
                 var toWrite = new BlockingCollection<MongoSinkRecord>();
-                foreach (var batch in batches.BatchByTopicPartition)
+                foreach (var batch in batches.GetByTopicPartition<SinkRecord>())
                 {
                     using (LogContext.Push(new PropertyEnricher("topic", batch.Topic),
                                new PropertyEnricher("partition", batch.Partition)))

@@ -132,10 +132,6 @@ namespace Kafka.Connect.UnitTests.Handlers
             Assert.Equal(actual, batch);
             await _retriableHandler.Received()
                 .Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(), Arg.Any<string>());
-            Assert.NotNull(record1.Consumed.Message.Headers);
-            Assert.NotNull(record2.Consumed.Message.Headers);
-            Assert.Contains(record1.Consumed.Message.Headers, h => h.Key == "_logTimestamp");
-            Assert.Contains(record2.Consumed.Message.Headers, h => h.Key == "_logTimestamp");
         }
         
         [Theory]

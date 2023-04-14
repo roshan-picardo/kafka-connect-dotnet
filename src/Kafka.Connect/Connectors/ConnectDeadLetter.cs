@@ -25,7 +25,7 @@ namespace Kafka.Connect.Connectors
             _configurationProvider = configurationProvider;
         }
 
-        public async Task Send(IEnumerable<SinkRecord> sinkRecords, Exception exception, string connector)
+        public async Task Send(IEnumerable<ConnectSinkRecord> sinkRecords, Exception exception, string connector)
         {
             using (_logger.Track("Sending message to dead letter queue."))
             {
@@ -38,12 +38,7 @@ namespace Kafka.Connect.Connectors
                                    new PropertyEnricher("Partition", record.Partition),
                                    new PropertyEnricher("Offset", record.Offset)))
                         {
-                            record.Consumed.Message.Headers.Add("_errorContext",
-                                ByteConvert.Serialize(exception.ToString()));
-                            record.Consumed.Message.Headers.Add("_sourceContext",
-                                ByteConvert.Serialize(new MessageContext(record.Topic, record.Partition, record.Offset)));
-
-                            var delivered = await producer.ProduceAsync(topic, record.Consumed.Message);
+                            var delivered = await producer.ProduceAsync(topic, record.GetDeadLetterMessage(exception));
                             _logger.Info("Error message delivered.", new
                             {
                                 delivered.Topic,
