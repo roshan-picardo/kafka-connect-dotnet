@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using Confluent.Kafka;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -30,28 +28,6 @@ namespace Kafka.Connect.Plugin.Models
             _headers = headers ?? new Dictionary<string, byte[]>();
         }
         
-        public SinkRecord(ConsumeResult<byte[], byte[]> consumed, string topic, int partition, long offset, JToken key = null, JToken value = null)
-        {
-            if (key != null || value != null)
-            {
-                Data = new JObject
-                {
-                    {Constants.Key, key?[Constants.Key]},
-                    {Constants.Value, value?[Constants.Value]}
-                };
-            }
-            _logAttributes = new Dictionary<string, object>();
-            _calcAttributes = new Dictionary<string, Func<object>>();
-            
-            if (consumed == null) return;
-            Consumed = consumed;
-            Topic = topic;
-            Partition = partition;
-            Offset = offset;
-            Status = SinkStatus.Consumed;
-            _logTimestamp = new LogTimestamp();
-        }
-
         public SinkRecord()
         {
             _logAttributes = new Dictionary<string, object>();
@@ -84,8 +60,6 @@ namespace Kafka.Connect.Plugin.Models
         
         public bool CanCommitOffset { get; set; }
         
-        private ConsumeResult<byte[], byte[]> Consumed { get; }
-
         private SinkStatus _status;
 
         public SinkStatus Status

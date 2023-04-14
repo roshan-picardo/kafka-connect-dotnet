@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Confluent.Kafka;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Handlers;
+using Kafka.Connect.Models;
 using Kafka.Connect.Plugin.Exceptions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
@@ -16,17 +17,16 @@ namespace Kafka.Connect.UnitTests.Handlers
 {
     public class RetriableHandlerTests
     {
-        private readonly ILogger<RetriableHandler> _logger;
         private readonly IConfigurationProvider _configurationProvider;
         private readonly ISinkExceptionHandler _sinkExceptionHandler;
         private readonly IRetriableHandler _retriableHandler;
 
         public RetriableHandlerTests()
         {
-            _logger = Substitute.For<ILogger<RetriableHandler>>();
+            var logger = Substitute.For<ILogger<RetriableHandler>>();
             _configurationProvider = Substitute.For<IConfigurationProvider>();
             _sinkExceptionHandler = Substitute.For<ISinkExceptionHandler>();
-            _retriableHandler = new RetriableHandler(_logger, _sinkExceptionHandler, _configurationProvider);
+            _retriableHandler = new RetriableHandler(logger, _sinkExceptionHandler, _configurationProvider);
         }
 
         [Fact]
@@ -144,7 +144,7 @@ namespace Kafka.Connect.UnitTests.Handlers
         [Fact]
         public async Task Retry_SuccessOnFirstAttempt()
         {
-            var sinkRecordBatch = GetBatch(2);
+            var sinkRecordBatch = GetBatch();
             var callCounter = 0;
             Task<SinkRecordBatch> Process(SinkRecordBatch batch)
             {
@@ -213,8 +213,8 @@ namespace Kafka.Connect.UnitTests.Handlers
             for (var i = 0; i < length; i++)
             {
                 var topic = topics != null && topics.Length > i ? topics[i] : string.Empty;
-                batch.Add(new SinkRecord(new ConsumeResult<byte[], byte[]>
-                    {Topic = topic, Message = new Message<byte[], byte[]>() {Headers = new Headers()}}, topic, 0, 0));
+                batch.Add(new ConnectSinkRecord(new ConsumeResult<byte[], byte[]>
+                    {Topic = topic, Message = new Message<byte[], byte[]>() {Headers = new Headers()}}));
             }
 
             return batch;

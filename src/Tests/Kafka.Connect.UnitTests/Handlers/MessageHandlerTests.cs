@@ -4,9 +4,9 @@ using System.Threading.Tasks;
 using Confluent.Kafka;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Handlers;
+using Kafka.Connect.Models;
 using Kafka.Connect.Plugin.Converters;
 using Kafka.Connect.Plugin.Logging;
-using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Plugin.Processors;
 using Kafka.Connect.Providers;
 using Newtonsoft.Json.Linq;
@@ -38,13 +38,13 @@ namespace Kafka.Connect.UnitTests.Handlers
         [InlineData(false)]
         public async Task Process_WhenConfigurationIsEmptyOrNull(bool isNull)
         {
-            var sinkRecord = new SinkRecord(new ConsumeResult<byte[], byte[]>()
+            var sinkRecord = new ConnectSinkRecord(new ConsumeResult<byte[], byte[]>()
             {
                 Message = new Message<byte[], byte[]>()
                 {
                     Headers = new Headers()
                 }
-            }, "", 0, 0)
+            })
             {
                 Data = new JObject {{"field", "test.value"}},
                 Skip = true
@@ -68,13 +68,13 @@ namespace Kafka.Connect.UnitTests.Handlers
         [InlineData(false)]
         public async Task Process_WhenProcessorsListIsEmptyOrNull(bool isNull)
         {
-            var sinkRecord = new SinkRecord(new ConsumeResult<byte[], byte[]>()
+            var sinkRecord = new ConnectSinkRecord(new ConsumeResult<byte[], byte[]>()
             {
                 Message = new Message<byte[], byte[]>()
                 {
                     Headers = new Headers()
                 }
-            }, "", 0, 0)
+            })
             {
                 Data = new JObject {{"field", "test.value"}},
                 Skip = true
@@ -97,13 +97,13 @@ namespace Kafka.Connect.UnitTests.Handlers
         [Fact]
         public async Task Process_WhenConfiguredProcessorIsNotRegistered()
         {
-            var sinkRecord = new SinkRecord(new ConsumeResult<byte[], byte[]>()
+            var sinkRecord = new ConnectSinkRecord(new ConsumeResult<byte[], byte[]>()
             {
                 Message = new Message<byte[], byte[]>()
                 {
                     Headers = new Headers()
                 }
-            }, "", 0, 0)
+            })
             {
                 Data = new JObject {{"field", "test.value"}},
                 Skip = true
@@ -131,13 +131,13 @@ namespace Kafka.Connect.UnitTests.Handlers
         [Fact]
         public async Task Process_ApplyAllProcessors()
         {
-            var sinkRecord = new SinkRecord(new ConsumeResult<byte[], byte[]>()
+            var sinkRecord = new ConnectSinkRecord(new ConsumeResult<byte[], byte[]>()
             {
                 Message = new Message<byte[], byte[]>()
                 {
                     Headers = new Headers()
                 }
-            }, "", 0, 0)
+            })
             {
                 Data = new JObject {{"field", "test.value"}},
                 Skip = true
@@ -165,13 +165,13 @@ namespace Kafka.Connect.UnitTests.Handlers
         [Fact]
         public async Task Process_SkipsAfterFirst()
         {
-            var sinkRecord = new SinkRecord(new ConsumeResult<byte[], byte[]>()
+            var sinkRecord = new ConnectSinkRecord(new ConsumeResult<byte[], byte[]>()
             {
                 Message = new Message<byte[], byte[]>()
                 {
                     Headers = new Headers()
                 }
-            }, "", 0, 0)
+            })
             {
                 Data = new JObject {{"field", "test.value"}},
                 Skip = true
@@ -204,13 +204,13 @@ namespace Kafka.Connect.UnitTests.Handlers
         [Fact]
         public async Task Process_LoopAll_ExecuteNotFoundAndSkip()
         {
-            var sinkRecord = new SinkRecord(new ConsumeResult<byte[], byte[]>()
+            var sinkRecord = new ConnectSinkRecord(new ConsumeResult<byte[], byte[]>()
             {
                 Message = new Message<byte[], byte[]>()
                 {
                     Headers = new Headers()
                 }
-            }, "", 0, 0)
+            })
             {
                 Data = new JObject {{"field", "test.value"}},
                 Skip = true
@@ -247,13 +247,13 @@ namespace Kafka.Connect.UnitTests.Handlers
         [Fact]
         public async Task Process_LoopAll_MaintainsOrder()
         {
-            var sinkRecord = new SinkRecord(new ConsumeResult<byte[], byte[]>()
+            var sinkRecord = new ConnectSinkRecord(new ConsumeResult<byte[], byte[]>()
             {
                 Message = new Message<byte[], byte[]>()
                 {
                     Headers = new Headers()
                 }
-            }, "", 0, 0)
+            })
             {
                 Data = new JObject {{"field", "test.value"}},
                 Skip = true
