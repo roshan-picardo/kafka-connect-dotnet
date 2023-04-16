@@ -8,9 +8,6 @@ namespace Kafka.Connect.Plugin.Models
     public class SinkRecord
     {
         private readonly LogTimestamp _logTimestamp;
-        private readonly byte[] _key;
-        private readonly byte[] _value;
-        private readonly IDictionary<string, byte[]> _headers;
 
         public SinkRecord(string topic, int partition, long offset, byte[] key, byte[] value,
             IDictionary<string, byte[]> headers)
@@ -21,11 +18,8 @@ namespace Kafka.Connect.Plugin.Models
             Topic = topic;
             Partition = partition;
             Offset = offset;
-            _key = key;
-            _value = value;
             Status = SinkStatus.Consumed;
             _logTimestamp = new LogTimestamp();
-            _headers = headers ?? new Dictionary<string, byte[]>();
         }
         
         public SinkRecord()
@@ -35,7 +29,6 @@ namespace Kafka.Connect.Plugin.Models
             _logAttributes = new Dictionary<string, object>();
             _calcAttributes = new Dictionary<string, Func<object>>();
             _logTimestamp = new LogTimestamp();
-            _headers = new Dictionary<string, byte[]>();
             Status = SinkStatus.Empty;
         }
         protected SinkRecord This => this;

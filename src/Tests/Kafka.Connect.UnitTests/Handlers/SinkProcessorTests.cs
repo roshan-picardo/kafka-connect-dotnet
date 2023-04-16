@@ -49,7 +49,7 @@ namespace Kafka.Connect.UnitTests.Handlers
 
             await _sinkProcessor.Process(batch, "connector");
 
-            await _messageConverter.DidNotReceive().Deserialize(Arg.Any<ConsumeResult<byte[], byte[]>>(), Arg.Any<string>());
+            await _messageConverter.DidNotReceive().Deserialize(Arg.Any<string>(),Arg.Any<Message<byte[], byte[]>>(), Arg.Any<string>());
             await _messageHandler.DidNotReceive().Process(Arg.Any<SinkRecord>(), Arg.Any<string>());
         }
 
@@ -66,7 +66,7 @@ namespace Kafka.Connect.UnitTests.Handlers
                 {"value", value}
             };
 
-            _messageConverter.Deserialize(Arg.Any<ConsumeResult<byte[], byte[]>>(), Arg.Any<string>()).Returns((key, value));
+            _messageConverter.Deserialize(Arg.Any<string>(),Arg.Any<Message<byte[], byte[]>>(), Arg.Any<string>()).Returns((key, value));
             _messageHandler.Process(Arg.Any<SinkRecord>(), Arg.Any<string>()).Returns((true, data));
             _configurationProvider.GetBatchConfig(Arg.Any<string>()).Returns(new BatchConfig {Parallelism = 1});
 
@@ -75,7 +75,7 @@ namespace Kafka.Connect.UnitTests.Handlers
             Assert.True(record.Skip);
             Assert.Equal(data, record.Data);
             Assert.Equal(SinkStatus.Processed, record.Status);
-            await _messageConverter.Received().Deserialize(Arg.Any<ConsumeResult<byte[], byte[]>>(), Arg.Any<string>());
+            await _messageConverter.Received().Deserialize(Arg.Any<string>(),Arg.Any<Message<byte[], byte[]>>(), Arg.Any<string>());
             await _messageHandler.Received().Process(Arg.Any<SinkRecord>(), Arg.Any<string>());
         }
 
@@ -86,7 +86,7 @@ namespace Kafka.Connect.UnitTests.Handlers
             var record = batch.First();
             var ce = new ConnectException();
             _configurationProvider.GetBatchConfig(Arg.Any<string>()).Returns(new BatchConfig {Parallelism = 1});
-            _messageConverter.Deserialize(Arg.Any<ConsumeResult<byte[], byte[]>>(), Arg.Any<string>()).Throws(ce);
+            _messageConverter.Deserialize(Arg.Any<string>(),Arg.Any<Message<byte[], byte[]>>(), Arg.Any<string>()).Throws(ce);
             
             await Assert.ThrowsAsync<ConnectAggregateException>(()=> _sinkProcessor.Process(batch, "connector"));
             
@@ -94,7 +94,7 @@ namespace Kafka.Connect.UnitTests.Handlers
             Assert.Equal(record.Topic, ce.Topic);
             Assert.Equal(record.Partition, ce.Partition);
             Assert.Equal(record.Offset, ce.Offset);
-            await _messageConverter.Received().Deserialize(Arg.Any<ConsumeResult<byte[], byte[]>>(), Arg.Any<string>());
+            await _messageConverter.Received().Deserialize(Arg.Any<string>(),Arg.Any<Message<byte[], byte[]>>(), Arg.Any<string>());
             await _messageHandler.DidNotReceive().Process(Arg.Any<SinkRecord>(), Arg.Any<string>());
         }
         
@@ -113,7 +113,7 @@ namespace Kafka.Connect.UnitTests.Handlers
             Assert.Equal(record.Topic, ce.Topic);
             Assert.Equal(record.Partition, ce.Partition);
             Assert.Equal(record.Offset, ce.Offset);
-            await _messageConverter.Received().Deserialize(Arg.Any<ConsumeResult<byte[], byte[]>>(), Arg.Any<string>());
+            await _messageConverter.Received().Deserialize(Arg.Any<string>(),Arg.Any<Message<byte[], byte[]>>(), Arg.Any<string>());
             await _messageHandler.Received().Process(Arg.Any<SinkRecord>(), Arg.Any<string>());
         }
         
