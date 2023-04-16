@@ -20,19 +20,19 @@ namespace Kafka.Connect.Serializers
             _configurationProvider = configurationProvider;
         }
 
-        public async Task<(JToken, JToken)> Deserialize(ConsumeResult<byte[], byte[]> consumed, string connector)
+        public async Task<(JToken, JToken)> Deserialize(string topic, Message<byte[], byte[]> message, string connector)
         {
             using (_logger.Track("Deserializing the message."))
             {
-                var (keyConfig, valueConfig) = _configurationProvider.GetMessageConverters(connector, consumed.Topic);
+                var (keyConfig, valueConfig) = _configurationProvider.GetMessageConverters(connector, topic);
                 var keyToken =
-                    await _processorServiceProvider.GetDeserializer(keyConfig).Deserialize(consumed.Message.Key,
-                        consumed.Topic, consumed.Message?.Headers?.ToDictionary(h => h.Key, h => h.GetValueBytes()),
+                    await _processorServiceProvider.GetDeserializer(keyConfig).Deserialize(message.Key,
+                        topic, message?.Headers?.ToDictionary(h => h.Key, h => h.GetValueBytes()),
                         false);
                 var valueToken =
                     await _processorServiceProvider.GetDeserializer(valueConfig)
-                        .Deserialize(consumed.Message?.Value, consumed.Topic,
-                            consumed.Message?.Headers?.ToDictionary(h => h.Key, h => h.GetValueBytes()));
+                        .Deserialize(message?.Value, topic,
+                            message?.Headers?.ToDictionary(h => h.Key, h => h.GetValueBytes()));
                 return (keyToken, valueToken);
             }
         }

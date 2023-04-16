@@ -39,8 +39,7 @@ namespace Kafka.Connect.UnitTests.Serializers
             _deserializer.Deserialize(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<string>(), Arg.Any<Dictionary<string, byte[]>>(), Arg.Any<bool>())
                 .Returns(d => keyToken, d => valueToken);
 
-            var (expectedKey, expectedValue) = await _messageConverter.Deserialize(
-                new ConsumeResult<byte[], byte[]> {Message = new Message<byte[], byte[]>()}, "");
+            var (expectedKey, expectedValue) = await _messageConverter.Deserialize("", new Message<byte[], byte[]>(), "");
 
             Assert.Equal(keyToken, expectedKey);
             Assert.Equal(valueToken, expectedValue);
