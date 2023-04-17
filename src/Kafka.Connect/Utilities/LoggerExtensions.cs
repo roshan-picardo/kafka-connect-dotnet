@@ -1,9 +1,7 @@
 using System;
 using System.Diagnostics;
-using System.Linq;
 using Kafka.Connect.Plugin.Models;
 using Newtonsoft.Json.Linq;
-using Serilog;
 
 namespace Kafka.Connect.Utilities
 {
@@ -15,9 +13,9 @@ namespace Kafka.Connect.Utilities
             return decimal.Round(decimal.Divide(stopwatch.ElapsedTicks, TimeSpan.TicksPerMillisecond * 100), 2);
         }
 
-        public static void LogDocument(this SinkRecord sinkRecord)
+        public static void LogDocument(this Models.SinkRecord sinkRecord)
         {
-            Serilog.Log.ForContext<SinkRecord>().Debug("{@Document}", new JObject
+            Serilog.Log.ForContext<Models.SinkRecord>().Debug("{@Document}", new JObject
             {
                 {
                     "Record", new JObject

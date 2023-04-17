@@ -38,7 +38,7 @@ namespace Kafka.Connect.UnitTests.Handlers
         [InlineData(false)]
         public async Task Process_WhenConfigurationIsEmptyOrNull(bool isNull)
         {
-            var sinkRecord = new ConnectSinkRecord(new ConsumeResult<byte[], byte[]>()
+            var sinkRecord = new SinkRecord(new ConsumeResult<byte[], byte[]>()
             {
                 Message = new Message<byte[], byte[]>()
                 {
@@ -68,7 +68,7 @@ namespace Kafka.Connect.UnitTests.Handlers
         [InlineData(false)]
         public async Task Process_WhenProcessorsListIsEmptyOrNull(bool isNull)
         {
-            var sinkRecord = new ConnectSinkRecord(new ConsumeResult<byte[], byte[]>()
+            var sinkRecord = new SinkRecord(new ConsumeResult<byte[], byte[]>()
             {
                 Message = new Message<byte[], byte[]>()
                 {
@@ -97,7 +97,7 @@ namespace Kafka.Connect.UnitTests.Handlers
         [Fact]
         public async Task Process_WhenConfiguredProcessorIsNotRegistered()
         {
-            var sinkRecord = new ConnectSinkRecord(new ConsumeResult<byte[], byte[]>()
+            var sinkRecord = new SinkRecord(new ConsumeResult<byte[], byte[]>()
             {
                 Message = new Message<byte[], byte[]>()
                 {
@@ -131,7 +131,7 @@ namespace Kafka.Connect.UnitTests.Handlers
         [Fact]
         public async Task Process_ApplyAllProcessors()
         {
-            var sinkRecord = new ConnectSinkRecord(new ConsumeResult<byte[], byte[]>()
+            var sinkRecord = new SinkRecord(new ConsumeResult<byte[], byte[]>()
             {
                 Message = new Message<byte[], byte[]>()
                 {
@@ -165,7 +165,7 @@ namespace Kafka.Connect.UnitTests.Handlers
         [Fact]
         public async Task Process_SkipsAfterFirst()
         {
-            var sinkRecord = new ConnectSinkRecord(new ConsumeResult<byte[], byte[]>()
+            var sinkRecord = new SinkRecord(new ConsumeResult<byte[], byte[]>()
             {
                 Message = new Message<byte[], byte[]>()
                 {
@@ -204,7 +204,7 @@ namespace Kafka.Connect.UnitTests.Handlers
         [Fact]
         public async Task Process_LoopAll_ExecuteNotFoundAndSkip()
         {
-            var sinkRecord = new ConnectSinkRecord(new ConsumeResult<byte[], byte[]>()
+            var sinkRecord = new SinkRecord(new ConsumeResult<byte[], byte[]>()
             {
                 Message = new Message<byte[], byte[]>()
                 {
@@ -247,7 +247,7 @@ namespace Kafka.Connect.UnitTests.Handlers
         [Fact]
         public async Task Process_LoopAll_MaintainsOrder()
         {
-            var sinkRecord = new ConnectSinkRecord(new ConsumeResult<byte[], byte[]>()
+            var sinkRecord = new SinkRecord(new ConsumeResult<byte[], byte[]>()
             {
                 Message = new Message<byte[], byte[]>()
                 {

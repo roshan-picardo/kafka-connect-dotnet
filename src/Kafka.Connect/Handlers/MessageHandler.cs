@@ -1,8 +1,8 @@
 using System.Linq;
 using System.Threading.Tasks;
+using Kafka.Connect.Models;
 using Kafka.Connect.Plugin.Converters;
 using Kafka.Connect.Plugin.Logging;
-using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Providers;
 using Newtonsoft.Json.Linq;
 

@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using Confluent.Kafka;
 using Kafka.Connect.Connectors;
 using Kafka.Connect.Handlers;
-using Kafka.Connect.Models;
 using Kafka.Connect.Plugin.Exceptions;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Providers;
@@ -155,7 +154,7 @@ namespace Kafka.Connect.UnitTests.Handlers
             
             await _sinkExceptionHandler.HandleDeadLetter(batch, exception, "connector");
 
-            await _connectDeadLetter.Received(expected).Send(Arg.Is<IEnumerable<ConnectSinkRecord>>(s => s.Count() == failedCount),
+            await _connectDeadLetter.Received(expected).Send(Arg.Is<IEnumerable<Models.SinkRecord>>(s => s.Count() == failedCount),
                 exception, "connector");
         }
         
@@ -215,7 +214,7 @@ namespace Kafka.Connect.UnitTests.Handlers
 
             for (var i = 0; i < length; i++)
             {
-                batch.Add(new ConnectSinkRecord(new ConsumeResult<byte[], byte[]>
+                batch.Add(new Models.SinkRecord(new ConsumeResult<byte[], byte[]>
                     {Topic = "topic", Message = new Message<byte[], byte[]>() {Headers = new Headers()}})
                 {
                     Status = failed-- > 0 ? SinkStatus.Failed : SinkStatus.Updated

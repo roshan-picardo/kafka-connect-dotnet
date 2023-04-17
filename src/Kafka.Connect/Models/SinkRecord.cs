@@ -1,17 +1,15 @@
 using System;
-using System.Linq;
 using Confluent.Kafka;
 using Kafka.Connect.Plugin.Extensions;
 
 namespace Kafka.Connect.Models
 {
-    public class ConnectSinkRecord : Plugin.Models.SinkRecord
+    public class SinkRecord : Plugin.Models.SinkRecord
     {
         private readonly ConsumeResult<byte[], byte[]> _consumed;
 
-        public ConnectSinkRecord(ConsumeResult<byte[], byte[]> consumed) :
-            base(consumed.Topic, consumed.Partition, consumed.Offset, consumed.Message.Key, consumed.Message.Value,
-                consumed.Message.Headers?.ToDictionary(h => h.Key, h => h.GetValueBytes()))
+        public SinkRecord(ConsumeResult<byte[], byte[]> consumed) :
+            base(consumed.Topic, consumed.Partition, consumed.Offset)
         {
             _consumed = consumed;
             StartTiming(_consumed.Message.Timestamp.UnixTimestampMs);

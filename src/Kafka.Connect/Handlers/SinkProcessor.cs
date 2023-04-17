@@ -1,6 +1,5 @@
 using System.Linq;
 using System.Threading.Tasks;
-using Kafka.Connect.Models;
 using Kafka.Connect.Plugin;
 using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Logging;
@@ -36,7 +35,7 @@ namespace Kafka.Connect.Handlers
             using (_logger.Track("Processing the batch."))
             {
                 batch ??= new SinkRecordBatch(connector);
-                foreach (var topicBatch in batch.GetByTopicPartition<ConnectSinkRecord>())
+                foreach (var topicBatch in batch.GetByTopicPartition<Models.SinkRecord>())
                 {
                     using (LogContext.Push(new PropertyEnricher(Constants.Topic, topicBatch.Topic),
                                new PropertyEnricher(Constants.Partition, topicBatch.Partition)))

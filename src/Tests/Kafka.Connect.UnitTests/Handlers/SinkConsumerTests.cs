@@ -15,7 +15,6 @@ using Kafka.Connect.Providers;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Xunit;
-using Timestamp = Confluent.Kafka.Timestamp;
 
 namespace Kafka.Connect.UnitTests.Handlers
 {
@@ -120,8 +119,8 @@ namespace Kafka.Connect.UnitTests.Handlers
         [Fact]
         public async Task Consume_WhenConsumedReturnsABatch()
         {
-            var record1 = new ConnectSinkRecord(new ConsumeResult<byte[], byte[]>() { Message = new Message<byte[], byte[]>()});
-            var record2 = new ConnectSinkRecord(new ConsumeResult<byte[], byte[]>() {Message = new Message<byte[], byte[]>()});
+            var record1 = new Models.SinkRecord(new ConsumeResult<byte[], byte[]>() { Message = new Message<byte[], byte[]>()});
+            var record2 = new Models.SinkRecord(new ConsumeResult<byte[], byte[]>() {Message = new Message<byte[], byte[]>()});
             var batch = new SinkRecordBatch("") {record1, record2};
             _retriableHandler.Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(),  Arg.Any<string>())
                 .Returns(await Task.FromResult(batch));

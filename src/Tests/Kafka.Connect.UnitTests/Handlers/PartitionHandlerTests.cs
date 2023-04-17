@@ -5,7 +5,6 @@ using Confluent.Kafka;
 using Kafka.Connect.Builders;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Handlers;
-using Kafka.Connect.Models;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Providers;
@@ -178,9 +177,9 @@ namespace Kafka.Connect.UnitTests.Handlers
             _logger.Received().Info( "EOF message delivered.", Arg.Any<object>());
         }
         
-        private static SinkRecord GetRecord(string topic, int partition, int offset)
+        private static Plugin.Models.SinkRecord GetRecord(string topic, int partition, int offset)
         {
-            return  new ConnectSinkRecord(new ConsumeResult<byte[], byte[]>
+            return  new Models.SinkRecord(new ConsumeResult<byte[], byte[]>
             {
                 Message = new Message<byte[], byte[]>
                 {
