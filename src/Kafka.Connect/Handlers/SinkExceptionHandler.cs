@@ -1,9 +1,7 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Kafka.Connect.Connectors;
-using Kafka.Connect.Models;
 using Kafka.Connect.Plugin.Exceptions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
@@ -107,7 +105,7 @@ namespace Kafka.Connect.Handlers
             {
                 if (_configurationProvider.IsDeadLetterEnabled(connector))
                 {
-                    await _connectDeadLetter.Send(batch.GetAll<ConnectSinkRecord>().Where(r => r.Status == SinkStatus.Failed), exception,
+                    await _connectDeadLetter.Send(batch.GetAll<Models.SinkRecord>().Where(r => r.Status == SinkStatus.Failed), exception,
                         connector);
                 }
             }

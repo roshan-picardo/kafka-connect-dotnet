@@ -1,5 +1,5 @@
 using System.Threading.Tasks;
-using Kafka.Connect.Plugin.Models;
+using Kafka.Connect.Models;
 using Newtonsoft.Json.Linq;
 
 namespace Kafka.Connect.Handlers

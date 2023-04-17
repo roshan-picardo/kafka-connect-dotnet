@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using Confluent.Kafka;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Handlers;
-using Kafka.Connect.Models;
 using Kafka.Connect.Plugin.Exceptions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
@@ -213,7 +212,7 @@ namespace Kafka.Connect.UnitTests.Handlers
             for (var i = 0; i < length; i++)
             {
                 var topic = topics != null && topics.Length > i ? topics[i] : string.Empty;
-                batch.Add(new ConnectSinkRecord(new ConsumeResult<byte[], byte[]>
+                batch.Add(new Models.SinkRecord(new ConsumeResult<byte[], byte[]>
                     {Topic = topic, Message = new Message<byte[], byte[]>() {Headers = new Headers()}}));
             }
 

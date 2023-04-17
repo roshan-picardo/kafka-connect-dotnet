@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using Confluent.Kafka;
 using Kafka.Connect.Builders;
 using Kafka.Connect.Connectors;
-using Kafka.Connect.Models;
 using Kafka.Connect.Plugin.Exceptions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
@@ -123,7 +122,7 @@ namespace Kafka.Connect.Handlers
                         batch.SetPartitionEof(consumed.Topic, consumed.Partition.Value, consumed.Offset.Value);
                         break;
                     }
-                    batch.Add(new ConnectSinkRecord(consumed));
+                    batch.Add(new Models.SinkRecord(consumed));
 
                 } while (--maxBatchSize > 0);
             }

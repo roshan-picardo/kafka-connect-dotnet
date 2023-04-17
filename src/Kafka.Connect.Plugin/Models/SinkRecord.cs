@@ -9,8 +9,7 @@ namespace Kafka.Connect.Plugin.Models
     {
         private readonly LogTimestamp _logTimestamp;
 
-        public SinkRecord(string topic, int partition, long offset, byte[] key, byte[] value,
-            IDictionary<string, byte[]> headers)
+        public SinkRecord(string topic, int partition, long offset)
         {
             _logAttributes = new Dictionary<string, object>();
             _calcAttributes = new Dictionary<string, Func<object>>();

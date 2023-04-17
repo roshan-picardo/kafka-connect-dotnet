@@ -3,9 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Kafka.Connect.Builders;
 using Kafka.Connect.Models;
-using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Logging;
-using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Providers;
 using Serilog.Context;
 using Serilog.Core.Enrichers;
@@ -25,7 +23,7 @@ namespace Kafka.Connect.Connectors
             _configurationProvider = configurationProvider;
         }
 
-        public async Task Send(IEnumerable<ConnectSinkRecord> sinkRecords, Exception exception, string connector)
+        public async Task Send(IEnumerable<SinkRecord> sinkRecords, Exception exception, string connector)
         {
             using (_logger.Track("Sending message to dead letter queue."))
             {
