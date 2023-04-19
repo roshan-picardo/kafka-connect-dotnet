@@ -44,7 +44,7 @@ namespace Kafka.Connect.Mongodb
                 var mongoSinkConfig = _configurationProvider.GetSinkConfigProperties<MongoSinkConfig>(connector);
 
 
-                var toWrite = new BlockingCollection<MongoSinkRecord>();
+                var mongoSinkBatch = new BlockingCollection<MongoSinkRecord>();
                 foreach (var batch in batches.GetByTopicPartition<SinkRecord>())
                 {
                     using (LogContext.Push(new PropertyEnricher("topic", batch.Topic),
@@ -95,7 +95,7 @@ namespace Kafka.Connect.Mongodb
                                         {
                                             Models = sinkRecord.Ready ? sinkRecord.Models.Count() : 0, sinkRecord.Status
                                         });
-                                    toWrite.Add(sinkRecord);
+                                    mongoSinkBatch.Add(sinkRecord);
                                 }
                             },
                             (record, exception) => exception.SetLogContext(record),
@@ -103,21 +103,21 @@ namespace Kafka.Connect.Mongodb
                     }
                 }
 
-                if (toWrite.Any(s => s.Ready))
+                if (mongoSinkBatch.Any(s => s.Ready))
                 {
                     await _mongoWriter.WriteMany(
-                        toWrite.Where(s => s.Ready)
+                        mongoSinkBatch.Where(s => s.Ready)
                             .OrderBy(s => s.Topic)
                             .ThenBy(s => s.Partition)
                             .ThenBy(s => s.Offset).ToList(),
                         mongoSinkConfig, connector); //lets preserve the order
                 }
-
-                foreach (var mongoSinkRecord in toWrite)
+                
+                mongoSinkBatch.ForEach(record =>
                 {
-                    mongoSinkRecord.UpdateStatus();
-                    _logger.Document(mongoSinkRecord.LogModels());
-                }
+                    record.UpdateStatus();
+                    _logger.Document(record.LogModels());
+                });
 
                 return batches;
             }

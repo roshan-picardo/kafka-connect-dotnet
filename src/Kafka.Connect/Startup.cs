@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Kafka.Connect.Background;
 using Kafka.Connect.Connectors;
+using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Utilities;
 using Microsoft.AspNetCore.Hosting;
@@ -42,10 +43,7 @@ using Serilog.Formatting.Json;
              builder.AddJsonFile("appsettings.json", true, true);
              builder.AddJsonFile($"appsettings.{environment}.json", true, true);
              if (!args.TryGetValue("config", out var files)) return builder.Build();
-             foreach (var file in files)
-             {
-                 builder.AddJsonFile(string.Format(file, environment), false, true);
-             }
+             files.ForEach(file => builder.AddJsonFile(string.Format(file, environment), false, true));
              return builder.Build();
          }
 

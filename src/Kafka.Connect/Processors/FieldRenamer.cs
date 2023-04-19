@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Processors;
 using Kafka.Connect.Plugin.Providers;
@@ -35,10 +36,7 @@ namespace Kafka.Connect.Processors
                 flattened.Remove(key);
             }
 
-            foreach (var (key, value) in flattened)
-            {
-                renamed.Add(key, value);
-            }
+            flattened.ForEach(flat => renamed.Add(flat.Key, flat.Value));
             return (false, renamed);
         }
     }

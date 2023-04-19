@@ -31,7 +31,7 @@ namespace Kafka.Connect.Mongodb.Models
             return Models.Select(m => new
             {
                 Type = m.ModelType,
-                Model = JObject.Parse(JsonConvert.SerializeObject(m))
+                Model = JToken.Parse(JsonConvert.SerializeObject(m))
             });
         }
     }

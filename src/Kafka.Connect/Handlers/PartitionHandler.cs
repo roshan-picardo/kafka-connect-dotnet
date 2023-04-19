@@ -48,10 +48,7 @@ namespace Kafka.Connect.Handlers
                 }
                 else if (!enableAutoOffsetStore)
                 {
-                    foreach (var commitOffset in maxOffsets)
-                    {
-                        consumer.StoreOffset(commitOffset);
-                    }
+                    maxOffsets.ForEach(consumer.StoreOffset);
                 }
             }
         }

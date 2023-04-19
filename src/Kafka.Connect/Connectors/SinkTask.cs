@@ -128,15 +128,7 @@ namespace Kafka.Connect.Connectors
                     _partitionHandler.CommitOffsets(batch, _consumer);
                 }
 
-                foreach (var record in batch)
-                {
-                    using (LogContext.Push(new PropertyEnricher("Topic", record.Topic),
-                        new PropertyEnricher("Partition", record.Partition),
-                        new PropertyEnricher("Offset", record.Offset)))
-                    {
-                        _logger.Record(record, _configurationProvider.GetLogEnhancer(connector), connector, batch.Count);
-                    }
-                } 
+                _logger.Record(batch, _configurationProvider.GetLogEnhancer(connector), connector);
                 await _partitionHandler.NotifyEndOfPartition(batch, connector, taskId);
             }
             _logger.Debug("Finished processing the batch.",
