@@ -77,8 +77,8 @@ namespace Kafka.Connect.Plugin.Models
 
         public T GetMessage<T>() => JsonConvert.DeserializeObject<T>(Message?.ToString() ?? string.Empty);
 
-        public JToken Key =>  Message[Constants.Key];
-        public JToken Value => Message[Constants.Value];
+        public JToken Key =>  Message?[Constants.Key];
+        public JToken Value => Message?[Constants.Value];
 
         public void UpdateStatus()
         {

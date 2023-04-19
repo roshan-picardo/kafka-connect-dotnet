@@ -1,9 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Plugin.Providers;
 using Microsoft.Extensions.Logging;
+using Serilog.Context;
+using Serilog.Core.Enrichers;
 
 namespace Kafka.Connect.Plugin.Logging
 {
@@ -12,14 +15,16 @@ namespace Kafka.Connect.Plugin.Logging
         private readonly Microsoft.Extensions.Logging.ILogger<T> _logger;
         private readonly Microsoft.Extensions.Logging.ILogger<SinkLog> _sinkLogger;
         private readonly IEnumerable<ILogRecord> _logRecords;
+        private readonly IConfigurationProvider _configurationProvider;
 
         public Logger(Microsoft.Extensions.Logging.ILogger<T> logger,
             Microsoft.Extensions.Logging.ILogger<SinkLog> sinkLogger,
-            IEnumerable<ILogRecord> logRecords)
+            IEnumerable<ILogRecord> logRecords, IConfigurationProvider configurationProvider)
         {
             _logger = logger;
             _sinkLogger = sinkLogger;
             _logRecords = logRecords;
+            _configurationProvider = configurationProvider;
         }
 
         private void Log(LogLevel level, string message, Exception exception = null, object data = null)
@@ -92,14 +97,33 @@ namespace Kafka.Connect.Plugin.Logging
             Log(LogLevel.None, message, exception, data);
         }
 
-        public void Record(SinkRecord record, string provider, string connector, int batch)
+        public void Record(SinkRecordBatch batch, string provider, string connector)
         {
-            var attributes = _logRecords.SingleOrDefault(l => l.GetType().FullName == provider)?.Enrich(record, connector);
-            _sinkLogger.Log(LogLevel.Information, "{@Record}", new
+            var endTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var logRecord = _logRecords?.SingleOrDefault(l => l.GetType().FullName == provider);
+            batch.ForEach(record =>
             {
-                record.Status, 
-                Timers = record.EndTiming(batch),
-                Attributes = attributes
+                using (LogContext.Push(new PropertyEnricher("Topic", record.Topic),
+                           new PropertyEnricher("Partition", record.Partition),
+                           new PropertyEnricher("Offset", record.Offset)))
+                {
+                    object attributes = null;
+                    try
+                    {
+                        attributes = logRecord?.Enrich(record, connector);
+                    }
+                    catch (Exception ex)
+                    {
+                        // ignored
+                    }
+
+                    _sinkLogger.Log(LogLevel.Information, "{@Record}", new
+                    {
+                        record.Status, 
+                        Timers = record.EndTiming(batch.Count, endTime),
+                        Attributes = attributes
+                    });
+                }
             });
         }
 

@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Kafka.Connect.Mongodb.Models;
 using Kafka.Connect.Plugin.Exceptions;
+using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using MongoDB.Bson;
@@ -76,10 +77,7 @@ namespace Kafka.Connect.Mongodb.Collections
         private IEnumerable<WriteModel<BsonDocument>> BuildWriteModels(IEnumerable<MongoSinkRecord> batch)
         {
             var writeModels = new List<WriteModel<BsonDocument>>();
-            foreach (var mongoSinkRecord in batch)
-            {
-                writeModels.AddRange(mongoSinkRecord.Models);
-            }
+            batch.ForEach(record => writeModels.AddRange(record.Models));
 
             _logger.Trace("Preparing to write models to mongodb.", new { Models = writeModels.Count });
             return writeModels;

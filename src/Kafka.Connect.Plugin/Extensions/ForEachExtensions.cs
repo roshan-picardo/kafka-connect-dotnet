@@ -7,7 +7,7 @@ using Kafka.Connect.Plugin.Exceptions;
 
 namespace Kafka.Connect.Plugin.Extensions
 {
-    public static class AsyncExtensions
+    public static class ForEachExtensions
     {
         public static async Task ForEachAsync<T>(
             this IEnumerable<T> source, Func<T, Task> body, Func<T, ConnectException, Exception> setLogContext = null,
@@ -71,7 +71,7 @@ namespace Kafka.Connect.Plugin.Extensions
                 }
             }*/
             await Task.WhenAll(
-                    from partition in System.Collections.Concurrent.Partitioner.Create(source).GetPartitions(dop)
+                    from partition in Partitioner.Create(source).GetPartitions(dop)
                     select Task.Run(async () =>
                     {
                         using (partition)
@@ -83,6 +83,14 @@ namespace Kafka.Connect.Plugin.Extensions
                     }))
                 .ContinueWith(CatchWhenAllException)
                 .ContinueWith(ThrowException);
+        }
+
+        public static void ForEach<T>(this IEnumerable<T> source, Action<T> body)
+        {
+            foreach (var item in source)
+            {
+                body(item);
+            }
         }
     }
 }

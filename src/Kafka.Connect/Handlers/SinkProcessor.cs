@@ -6,7 +6,6 @@ using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Providers;
 using Kafka.Connect.Serializers;
-using Kafka.Connect.Utilities;
 using Serilog.Context;
 using Serilog.Core.Enrichers;
 

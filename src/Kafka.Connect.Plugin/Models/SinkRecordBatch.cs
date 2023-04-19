@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Kafka.Connect.Plugin.Extensions;
 
 namespace Kafka.Connect.Plugin.Models
 {
@@ -41,44 +42,38 @@ namespace Kafka.Connect.Plugin.Models
 
         public void MarkAllCommitReady(bool isTolerated = false)
         {
-            foreach (var record in this)
+            this.ForEach(record => record.CanCommitOffset = record.Status switch
             {
-                record.CanCommitOffset = record.Status switch
-                {
-                    SinkStatus.Inserted => true,
-                    SinkStatus.Deleted => true,
-                    SinkStatus.Updated => true,
-                    SinkStatus.Skipped => true,
-                    SinkStatus.Excluded => true,
-                    SinkStatus.Published => true,
-                    SinkStatus.Failed => isTolerated,
-                    _ => false
-                };
-            }
+                SinkStatus.Inserted => true,
+                SinkStatus.Deleted => true,
+                SinkStatus.Updated => true,
+                SinkStatus.Skipped => true,
+                SinkStatus.Excluded => true,
+                SinkStatus.Published => true,
+                SinkStatus.Failed => isTolerated,
+                _ => false
+            });
         }
 
         public void SkipAll()
         {
-            foreach (var record in this)
+            this.ForEach(record =>
             {
                 record.Status = SinkStatus.Skipped;
                 record.Skip = true;
-            }
+            });
         }
         
         public void ExcludeAll()
         {
-            foreach (var record in this)
+            this.ForEach(record =>
             {
                 record.Status = SinkStatus.Excluded;
                 record.Skip = true;
-            }
+            });
         }
 
-        public IEnumerable<T> GetAll<T>() where T: class
-        {
-            return this.Select(r=> r as T);
-        }
+        public IEnumerable<T> GetAll<T>() where T : class => this.Select(r => r as T);
         
         public IEnumerable<(string Topic, int Partition, IEnumerable<T> Batch)> GetByTopicPartition<T>() where T : class
         {
@@ -88,15 +83,9 @@ namespace Kafka.Connect.Plugin.Models
                 select (tp.Key.Topic, tp.Key.Partition, tp.Select(r => r as T));
         }
 
-        public void SetPartitionEof(string topic, int partition, long offset)
-        {
-            _eofPartitions.Add((topic, partition, offset));
-        }
+        public void SetPartitionEof(string topic, int partition, long offset) => _eofPartitions.Add((topic, partition, offset));
 
-        public IEnumerable<(string Topic, int Partition, long Offset)> GetEofPartitions()
-        {
-            return _eofPartitions;
-        }
+        public IEnumerable<(string Topic, int Partition, long Offset)> GetEofPartitions() => _eofPartitions;
 
         public dynamic GetBatchStatus()
         {
@@ -112,20 +101,8 @@ namespace Kafka.Connect.Plugin.Models
         
         public bool IsLastAttempt { get; set; }
 
-        public void Started()
-        {
-            foreach (var record in this)
-            {
-                record.IsOperationCompleted = false;
-            }
-        }
+        public void Started() => this.ForEach(record => record.IsOperationCompleted = false);
 
-        public void Completed()
-        {
-            foreach (var record in this)
-            {
-                record.IsOperationCompleted = true;
-            }
-        }
+        public void Completed() => this.ForEach(record => record.IsOperationCompleted = true);
     }
 }
