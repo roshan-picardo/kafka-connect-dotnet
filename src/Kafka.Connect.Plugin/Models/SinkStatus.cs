@@ -3,17 +3,22 @@ namespace Kafka.Connect.Plugin.Models
     public enum SinkStatus
     {
         Empty,
+        
         Polling,
         Consumed,
         
         Processing,
         Processed,
+        
         Updating,
         Updated,
+        
         Inserting,
         Inserted,
+        
         Deleting,
         Deleted,
+        
         Skipping,
         Skipped,
         
@@ -23,8 +28,10 @@ namespace Kafka.Connect.Plugin.Models
         
         Enriching,
         Enriched,
+        
         Excluding,
         Excluded,
+        
         Publishing,
         Published
     }

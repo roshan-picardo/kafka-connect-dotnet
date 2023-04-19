@@ -28,7 +28,7 @@ namespace Kafka.Connect.Mongodb.Collections
         {
             using (_logger.Track("Writing models to database"))
             {
-                await Write(batch.Select(s => s.SinkRecord), BuildWriteModels(batch), mongoSinkConfig, connector);
+                await Write(batch.Select(s => s.GetRecord()), BuildWriteModels(batch), mongoSinkConfig, connector);
             }
         }
 
@@ -73,12 +73,12 @@ namespace Kafka.Connect.Mongodb.Collections
             }
         }
 
-        private IList<WriteModel<BsonDocument>> BuildWriteModels(IEnumerable<MongoSinkRecord> batch)
+        private IEnumerable<WriteModel<BsonDocument>> BuildWriteModels(IEnumerable<MongoSinkRecord> batch)
         {
             var writeModels = new List<WriteModel<BsonDocument>>();
             foreach (var mongoSinkRecord in batch)
             {
-                writeModels.AddRange(mongoSinkRecord.WriteModels);
+                writeModels.AddRange(mongoSinkRecord.Models);
             }
 
             _logger.Trace("Preparing to write models to mongodb.", new { Models = writeModels.Count });

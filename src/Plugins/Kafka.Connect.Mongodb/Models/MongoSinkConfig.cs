@@ -28,7 +28,6 @@ namespace Kafka.Connect.Mongodb.Models
 
         public string Password { get; set; }
 
-        public Definition Definition { get; set; }
         public WriteStrategy WriteStrategy { get; set; }
     }
 }

@@ -102,7 +102,12 @@ namespace Kafka.Connect.Plugin.Logging
                 Attributes = attributes
             });
         }
-        
+
+        public void Document(object document)
+        {
+            _sinkLogger.Log(LogLevel.Trace, "{@Document}", document);
+        }
+
         public void Health(object health)
         {
             _sinkLogger.Log(LogLevel.Information, "{@Health}", health);
