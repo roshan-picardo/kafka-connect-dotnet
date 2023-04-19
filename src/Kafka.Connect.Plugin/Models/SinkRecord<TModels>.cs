@@ -34,5 +34,7 @@ namespace Kafka.Connect.Plugin.Models
             get => _sinkRecord.Status;
         }
         public TModels Models { get; set; }
+
+        public abstract object LogModels();
     }
 }

@@ -116,6 +116,7 @@ namespace Kafka.Connect.Mongodb
                 foreach (var mongoSinkRecord in toWrite)
                 {
                     mongoSinkRecord.UpdateStatus();
+                    _logger.Document(mongoSinkRecord.LogModels());
                 }
 
                 return batches;
