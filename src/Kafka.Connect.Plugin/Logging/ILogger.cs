@@ -14,6 +14,7 @@ namespace Kafka.Connect.Plugin.Logging
         void None(string message, object data = null, Exception exception = null);
         void Record(SinkRecord record, string provider, string connector, int batch);
         void Health(dynamic health);
+        void Document(object document);
         SinkLog Track(string message);
     }
 }

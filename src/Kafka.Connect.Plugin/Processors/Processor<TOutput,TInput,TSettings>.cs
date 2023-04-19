@@ -5,11 +5,11 @@ using Kafka.Connect.Plugin.Providers;
 
 namespace Kafka.Connect.Plugin.Processors
 {
-    public abstract class TypedProcessor<TOutput, TInput, TSettings> : Processor<TSettings> where TSettings: class
+    public abstract class Processor<TOutput, TInput, TSettings> : Processor<TSettings> where TSettings: class
     {
         private readonly IRecordFlattener _recordFlattener;
 
-        protected TypedProcessor(IRecordFlattener recordFlattener, IConfigurationProvider configurationProvider) : base(configurationProvider)
+        protected Processor(IRecordFlattener recordFlattener, IConfigurationProvider configurationProvider) : base(configurationProvider)
         {
             _recordFlattener = recordFlattener;
         }

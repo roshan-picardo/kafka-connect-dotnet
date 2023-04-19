@@ -48,8 +48,8 @@ namespace Kafka.Connect.Handlers
                                     var (keyToken, valueToken) =
                                         await _messageConverter.Deserialize(record.Topic, record.GetConsumedMessage(), connector);
                                     record.Parsed(keyToken, valueToken);
-                                    record.LogDocument();
-                                    (record.Skip, record.Data) = await _messageHandler.Process(record, connector);
+                                    _logger.Document(record.Message); 
+                                    (record.Skip, record.Message) = await _messageHandler.Process(record, connector);
                                     record.Status = SinkStatus.Processed;
                                 }
                             }, (record, exception) => exception.SetLogContext(record),

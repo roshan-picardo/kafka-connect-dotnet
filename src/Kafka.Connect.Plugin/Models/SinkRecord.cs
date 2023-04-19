@@ -9,7 +9,7 @@ namespace Kafka.Connect.Plugin.Models
     {
         private readonly LogTimestamp _logTimestamp;
 
-        public SinkRecord(string topic, int partition, long offset)
+        protected SinkRecord(string topic, int partition, long offset)
         {
             _logAttributes = new Dictionary<string, object>();
             _calcAttributes = new Dictionary<string, Func<object>>();
@@ -20,28 +20,17 @@ namespace Kafka.Connect.Plugin.Models
             Status = SinkStatus.Consumed;
             _logTimestamp = new LogTimestamp();
         }
-        
-        public SinkRecord()
-        {
-            _logAttributes = new Dictionary<string, object>();
-            _calcAttributes = new Dictionary<string, Func<object>>();
-            _logAttributes = new Dictionary<string, object>();
-            _calcAttributes = new Dictionary<string, Func<object>>();
-            _logTimestamp = new LogTimestamp();
-            Status = SinkStatus.Empty;
-        }
-        protected SinkRecord This => this;
 
         public void Parsed(JToken key, JToken value)
         {
-            Data = new JObject
+            Message = new JObject
             {
                 {Constants.Key, key?[Constants.Key]},
                 {Constants.Value, value?[Constants.Value]}
             };
         }
 
-        public JToken Data { get; set; }
+        public JToken Message { get; set; }
        
         public string Topic { get; }
         public int Partition { get; }
@@ -82,18 +71,14 @@ namespace Kafka.Connect.Plugin.Models
             }
         }
 
-        public T GetKey<T>()
-        {
-            return JsonConvert.DeserializeObject<T>(Key?.ToString() ?? string.Empty);
-        }
+        public T GetKey<T>() => JsonConvert.DeserializeObject<T>(Key?.ToString() ?? string.Empty);
 
-        public T GetValue<T>()
-        {
-            return JsonConvert.DeserializeObject<T>(Value?.ToString() ?? string.Empty);
-        }
+        public T GetValue<T>() => JsonConvert.DeserializeObject<T>(Value?.ToString() ?? string.Empty);
 
-        public JToken Key =>  Data[Constants.Key];
-        public JToken Value => Data[Constants.Value];
+        public T GetMessage<T>() => JsonConvert.DeserializeObject<T>(Message?.ToString() ?? string.Empty);
+
+        public JToken Key =>  Message[Constants.Key];
+        public JToken Value => Message[Constants.Value];
 
         public void UpdateStatus()
         {
@@ -150,9 +135,9 @@ namespace Kafka.Connect.Plugin.Models
             _logTimestamp.Consumed = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         }
 
-        public dynamic EndTiming(int batchSize)
+        public dynamic EndTiming(int batchSize, long? millis = null)
         {
-            _logTimestamp.Committed = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            _logTimestamp.Committed = millis ?? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             _logTimestamp.BatchSize = batchSize;
             return new
             {

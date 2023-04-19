@@ -31,16 +31,16 @@ namespace Kafka.Connect.Handlers
                 var configs = _configurationProvider.GetMessageProcessors(connector, record.Topic);
                 if (!(configs?.Any() ?? false))
                 {
-                    return (record.Skip, record.Data);
+                    return (record.Skip, record.Message);
                 }
 
                 var processors = _processorServiceProvider.GetProcessors()?.ToList();
                 if (!(processors?.Any() ?? false))
                 {
-                    return (record.Skip, record.Data);
+                    return (record.Skip, record.Message);
                 }
 
-                var flattened = _recordFlattener.Flatten(record.Data);
+                var flattened = _recordFlattener.Flatten(record.Message);
                 var skip = false;
                 foreach (var config in configs.OrderBy(p => p.Order))
                 {
