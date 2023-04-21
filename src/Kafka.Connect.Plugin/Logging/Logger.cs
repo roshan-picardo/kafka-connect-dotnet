@@ -62,40 +62,26 @@ namespace Kafka.Connect.Plugin.Logging
             }
         }
 
-        public void Trace(string message, object data = null, Exception exception = null)
-        {
+        public void Trace(string message, object data = null, Exception exception = null) =>
             Log(LogLevel.Trace, message, exception, data);
-        }
 
-        public void Debug(string message, object data = null, Exception exception = null)
-        {
+        public void Debug(string message, object data = null, Exception exception = null) =>
             Log(LogLevel.Debug, message, exception, data);
-        }
 
-        public void Info(string message, object data = null, Exception exception = null)
-        {
+        public void Info(string message, object data = null, Exception exception = null) =>
             Log(LogLevel.Information, message, exception, data);
-        }
 
-        public void Warning(string message, object data = null, Exception exception = null)
-        {
+        public void Warning(string message, object data = null, Exception exception = null) =>
             Log(LogLevel.Warning, message, exception, data);
-        }
 
-        public void Error(string message, object data = null, Exception exception = null)
-        {
+        public void Error(string message, object data = null, Exception exception = null) =>
             Log(LogLevel.Error, message, exception, data);
-        }
 
-        public void Critical(string message, object data = null, Exception exception = null)
-        {
+        public void Critical(string message, object data = null, Exception exception = null) =>
             Log(LogLevel.Critical, message, exception, data);
-        }
 
-        public void None(string message, object data = null, Exception exception = null)
-        {
+        public void None(string message, object data = null, Exception exception = null) =>
             Log(LogLevel.None, message, exception, data);
-        }
 
         public void Record(SinkRecordBatch batch, string provider, string connector)
         {
@@ -127,20 +113,11 @@ namespace Kafka.Connect.Plugin.Logging
             });
         }
 
-        public void Document(object document)
-        {
-            _sinkLogger.Log(LogLevel.Trace, "{@Document}", document);
-        }
+        public void Document(object document) => _sinkLogger.Log(LogLevel.Debug, "{@Document}", document);
 
-        public void Health(object health)
-        {
-            _sinkLogger.Log(LogLevel.Information, "{@Health}", health);
-        }
+        public void Health(object health) => _sinkLogger.Log(LogLevel.Information, "{@Health}", health);
 
-        public SinkLog Track(string message)
-        {
-            return new SinkLog(_logger, message);
-        }
+        public SinkLog Track(string message) => new SinkLog(_logger, message);
     }
 }
 
