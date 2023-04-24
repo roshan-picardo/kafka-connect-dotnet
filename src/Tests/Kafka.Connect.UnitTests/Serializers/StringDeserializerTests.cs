@@ -1,30 +1,28 @@
+using System;
 using System.IO;
 using System.Threading.Tasks;
-using Confluent.Kafka;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Serializers;
 using Newtonsoft.Json.Linq;
 using NSubstitute;
 using Xunit;
 
-namespace Kafka.Connect.UnitTests.Serializers
+namespace UnitTests.Kafka.Connect.Serializers
 {
     public class StringDeserializerTests
     {
-        private StringDeserializer _stringDeserializer;
+        private readonly StringDeserializer _stringDeserializer;
         public StringDeserializerTests()
         {
             _stringDeserializer = new StringDeserializer(Substitute.For<ILogger<StringDeserializer>>());
         }
 
-        [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
-        public async Task Deserialize_EmptyOrNull(bool isNull)
+        [Fact]
+        public async Task Deserialize_EmptyOrNull()
         {
             var expected = new JObject{{"value", null}};
             
-            var data =  new byte[0] ;
+            var data =  Array.Empty<byte>() ;
             var actual = await _stringDeserializer.Deserialize(data, "", null);
             
             Assert.Equal(expected, actual);
@@ -33,9 +31,7 @@ namespace Kafka.Connect.UnitTests.Serializers
         [Fact]
         public async Task Deserialize_LengthLessThan5()
         {
-            var expected = new JObject{{"value", null}};
-            
-            var data = new byte[4] { 01, 12, 45, 33} ;
+            var data = new byte[] { 01, 12, 45, 33} ;
             
            await  Assert.ThrowsAsync<InvalidDataException>(  async () => await _stringDeserializer.Deserialize(data, "", null));
         }

@@ -6,9 +6,6 @@ using Confluent.SchemaRegistry.Serdes;
 using Kafka.Connect.Converters;
 using Kafka.Connect.FunctionalTests.Targets;
 using Kafka.Connect.Plugin.Logging;
-using MongoDB.Driver;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using NSubstitute;
 
 namespace Kafka.Connect.FunctionalTests;
@@ -26,7 +23,35 @@ public class Fixture : IDisposable
     public Fixture()
     {
         _settings = InitConfig.Get();
-        ConfigureMessageProducers();
+        var producerConfig = new ProducerConfig
+        {
+            BootstrapServers = _settings.BootstrapServers
+        };
+
+        var schemaRegistryConfig = new SchemaRegistryConfig
+        {
+            Url = _settings.SchemaRegistryUrl
+        };
+        var avroSerializerConfig = new AvroSerializerConfig
+        {
+            BufferBytes = 100,
+            AutoRegisterSchemas = true,
+        };
+        
+        var schemaRegistry = new CachedSchemaRegistryClient(schemaRegistryConfig);
+
+        _keyNullProducer = new ProducerBuilder<Null, GenericRecord>(producerConfig)
+            .SetValueSerializer(new AvroSerializer<GenericRecord>(schemaRegistry, avroSerializerConfig))
+            .Build();
+
+        _keyStringProducer = new ProducerBuilder<string, GenericRecord>(producerConfig)
+            .SetValueSerializer(new AvroSerializer<GenericRecord>(schemaRegistry, avroSerializerConfig))
+            .Build();
+
+        _keyGenericProducer = new ProducerBuilder<GenericRecord, GenericRecord>(producerConfig)
+            .SetKeySerializer(new AvroSerializer<GenericRecord>(schemaRegistry, avroSerializerConfig))
+            .SetValueSerializer(new AvroSerializer<GenericRecord>(schemaRegistry, avroSerializerConfig))
+            .Build();
         _targetHelperProvider = new TargetHelperProvider(_settings);
         _genericRecordBuilder = new GenericRecordBuilder(Substitute.For<ILogger<GenericRecordBuilder>>());
     }
@@ -82,35 +107,7 @@ public class Fixture : IDisposable
 
     private void ConfigureMessageProducers()
     {
-        var producerConfig = new ProducerConfig
-        {
-            BootstrapServers = _settings.BootstrapServers
-        };
-
-        var schemaRegistryConfig = new SchemaRegistryConfig
-        {
-            Url = _settings.SchemaRegistryUrl
-        };
-        var avroSerializerConfig = new AvroSerializerConfig
-        {
-            BufferBytes = 100,
-            AutoRegisterSchemas = true,
-        };
         
-        var schemaRegistry = new CachedSchemaRegistryClient(schemaRegistryConfig);
-
-        _keyNullProducer = new ProducerBuilder<Null, GenericRecord>(producerConfig)
-            .SetValueSerializer(new AvroSerializer<GenericRecord>(schemaRegistry, avroSerializerConfig))
-            .Build();
-
-        _keyStringProducer = new ProducerBuilder<string, GenericRecord>(producerConfig)
-            .SetValueSerializer(new AvroSerializer<GenericRecord>(schemaRegistry, avroSerializerConfig))
-            .Build();
-
-        _keyGenericProducer = new ProducerBuilder<GenericRecord, GenericRecord>(producerConfig)
-            .SetKeySerializer(new AvroSerializer<GenericRecord>(schemaRegistry, avroSerializerConfig))
-            .SetValueSerializer(new AvroSerializer<GenericRecord>(schemaRegistry, avroSerializerConfig))
-            .Build();
     }
     
     public void Dispose()

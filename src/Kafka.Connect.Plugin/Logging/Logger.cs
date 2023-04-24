@@ -15,16 +15,13 @@ namespace Kafka.Connect.Plugin.Logging
         private readonly Microsoft.Extensions.Logging.ILogger<T> _logger;
         private readonly Microsoft.Extensions.Logging.ILogger<SinkLog> _sinkLogger;
         private readonly IEnumerable<ILogRecord> _logRecords;
-        private readonly IConfigurationProvider _configurationProvider;
 
         public Logger(Microsoft.Extensions.Logging.ILogger<T> logger,
-            Microsoft.Extensions.Logging.ILogger<SinkLog> sinkLogger,
-            IEnumerable<ILogRecord> logRecords, IConfigurationProvider configurationProvider)
+            Microsoft.Extensions.Logging.ILogger<SinkLog> sinkLogger, IEnumerable<ILogRecord> logRecords)
         {
             _logger = logger;
             _sinkLogger = sinkLogger;
             _logRecords = logRecords;
-            _configurationProvider = configurationProvider;
         }
 
         private void Log(LogLevel level, string message, Exception exception = null, object data = null)
@@ -98,7 +95,7 @@ namespace Kafka.Connect.Plugin.Logging
                     {
                         attributes = logRecord?.Enrich(record, connector);
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
                         // ignored
                     }

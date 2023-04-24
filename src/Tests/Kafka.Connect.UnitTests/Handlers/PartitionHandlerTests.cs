@@ -11,7 +11,7 @@ using Kafka.Connect.Providers;
 using NSubstitute;
 using Xunit;
 
-namespace Kafka.Connect.UnitTests.Handlers
+namespace UnitTests.Kafka.Connect.Handlers
 {
     public class PartitionHandlerTests
     {
@@ -177,9 +177,9 @@ namespace Kafka.Connect.UnitTests.Handlers
             _logger.Received().Info( "EOF message delivered.", Arg.Any<object>());
         }
         
-        private static Plugin.Models.SinkRecord GetRecord(string topic, int partition, int offset)
+        private static SinkRecord GetRecord(string topic, int partition, int offset)
         {
-            return  new Models.SinkRecord(new ConsumeResult<byte[], byte[]>
+            return  new global::Kafka.Connect.Models.SinkRecord(new ConsumeResult<byte[], byte[]>
             {
                 Message = new Message<byte[], byte[]>
                 {

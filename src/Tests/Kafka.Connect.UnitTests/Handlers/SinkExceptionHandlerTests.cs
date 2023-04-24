@@ -13,11 +13,11 @@ using Microsoft.Extensions.Logging;
 using NSubstitute;
 using Xunit;
 
-namespace Kafka.Connect.UnitTests.Handlers
+namespace UnitTests.Kafka.Connect.Handlers
 {
     public class SinkExceptionHandlerTests
     {
-        private readonly Plugin.Logging.ILogger<SinkExceptionHandler> _logger;
+        private readonly global::Kafka.Connect.Plugin.Logging.ILogger<SinkExceptionHandler> _logger;
         private readonly IConnectDeadLetter _connectDeadLetter;
         private readonly IConfigurationProvider _configurationProvider;
 
@@ -25,7 +25,7 @@ namespace Kafka.Connect.UnitTests.Handlers
 
         public SinkExceptionHandlerTests()
         {
-            _logger = Substitute.For<Plugin.Logging.ILogger<SinkExceptionHandler>>();
+            _logger = Substitute.For<global::Kafka.Connect.Plugin.Logging.ILogger<SinkExceptionHandler>>();
             _connectDeadLetter = Substitute.For<IConnectDeadLetter>();
             _configurationProvider = Substitute.For<IConfigurationProvider>();
 
@@ -154,7 +154,7 @@ namespace Kafka.Connect.UnitTests.Handlers
             
             await _sinkExceptionHandler.HandleDeadLetter(batch, exception, "connector");
 
-            await _connectDeadLetter.Received(expected).Send(Arg.Is<IEnumerable<Models.SinkRecord>>(s => s.Count() == failedCount),
+            await _connectDeadLetter.Received(expected).Send(Arg.Is<IEnumerable<global::Kafka.Connect.Models.SinkRecord>>(s => s.Count() == failedCount),
                 exception, "connector");
         }
         
@@ -214,7 +214,7 @@ namespace Kafka.Connect.UnitTests.Handlers
 
             for (var i = 0; i < length; i++)
             {
-                batch.Add(new Models.SinkRecord(new ConsumeResult<byte[], byte[]>
+                batch.Add(new global::Kafka.Connect.Models.SinkRecord(new ConsumeResult<byte[], byte[]>
                     {Topic = "topic", Message = new Message<byte[], byte[]>() {Headers = new Headers()}})
                 {
                     Status = failed-- > 0 ? SinkStatus.Failed : SinkStatus.Updated

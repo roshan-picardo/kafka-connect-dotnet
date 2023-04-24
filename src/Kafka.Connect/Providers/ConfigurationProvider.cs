@@ -109,7 +109,7 @@ namespace Kafka.Connect.Providers
 
         public string GetLogEnhancer(string connector)
         {
-            return GetConnectorConfig(connector).Log.Provider;
+            return GetConnectorConfig(connector).Log?.Provider;
         }
 
         public (string Key, string Value) GetMessageConverters(string connector, string topic)

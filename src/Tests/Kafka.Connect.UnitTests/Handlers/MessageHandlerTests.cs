@@ -13,7 +13,7 @@ using Newtonsoft.Json.Linq;
 using NSubstitute;
 using Xunit;
 
-namespace Kafka.Connect.UnitTests.Handlers
+namespace UnitTests.Kafka.Connect.Handlers
 {
     public class MessageHandlerTests
     {

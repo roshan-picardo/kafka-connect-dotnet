@@ -12,7 +12,7 @@ using Kafka.Connect.Providers;
 using NSubstitute;
 using Xunit;
 
-namespace Kafka.Connect.UnitTests.Handlers
+namespace UnitTests.Kafka.Connect.Handlers
 {
     public class RetriableHandlerTests
     {
@@ -212,7 +212,7 @@ namespace Kafka.Connect.UnitTests.Handlers
             for (var i = 0; i < length; i++)
             {
                 var topic = topics != null && topics.Length > i ? topics[i] : string.Empty;
-                batch.Add(new Models.SinkRecord(new ConsumeResult<byte[], byte[]>
+                batch.Add(new global::Kafka.Connect.Models.SinkRecord(new ConsumeResult<byte[], byte[]>
                     {Topic = topic, Message = new Message<byte[], byte[]>() {Headers = new Headers()}}));
             }
 

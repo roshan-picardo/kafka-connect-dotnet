@@ -13,8 +13,9 @@ using Newtonsoft.Json.Linq;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Xunit;
+using SinkRecord = Kafka.Connect.Models.SinkRecord;
 
-namespace Kafka.Connect.UnitTests.Handlers
+namespace UnitTests.Kafka.Connect.Handlers
 {
     public class SinkProcessorTests
     {
@@ -35,7 +36,6 @@ namespace Kafka.Connect.UnitTests.Handlers
             _sinkHandlerProvider = Substitute.For<ISinkHandlerProvider>();
             _configurationProvider = Substitute.For<IConfigurationProvider>();
             _sinkHandler = Substitute.For<ISinkHandler>();
-
             _sinkProcessor = new SinkProcessor(_logger, _messageConverter, _messageHandler, _sinkHandlerProvider, _configurationProvider);
         }
 
@@ -49,7 +49,7 @@ namespace Kafka.Connect.UnitTests.Handlers
             await _sinkProcessor.Process(batch, "connector");
 
             await _messageConverter.DidNotReceive().Deserialize(Arg.Any<string>(),Arg.Any<Message<byte[], byte[]>>(), Arg.Any<string>());
-            await _messageHandler.DidNotReceive().Process(Arg.Any<Models.SinkRecord>(), Arg.Any<string>());
+            await _messageHandler.DidNotReceive().Process(Arg.Any<SinkRecord>(), Arg.Any<string>());
         }
 
         [Fact]
@@ -66,7 +66,7 @@ namespace Kafka.Connect.UnitTests.Handlers
             };
 
             _messageConverter.Deserialize(Arg.Any<string>(),Arg.Any<Message<byte[], byte[]>>(), Arg.Any<string>()).Returns((key, value));
-            _messageHandler.Process(Arg.Any<Models.SinkRecord>(), Arg.Any<string>()).Returns((true, data));
+            _messageHandler.Process(Arg.Any<SinkRecord>(), Arg.Any<string>()).Returns((true, data));
             _configurationProvider.GetBatchConfig(Arg.Any<string>()).Returns(new BatchConfig {Parallelism = 1});
 
             await _sinkProcessor.Process(batch, "connector");
@@ -75,7 +75,7 @@ namespace Kafka.Connect.UnitTests.Handlers
             Assert.Equal(data, record.Message);
             Assert.Equal(SinkStatus.Processed, record.Status);
             await _messageConverter.Received().Deserialize(Arg.Any<string>(),Arg.Any<Message<byte[], byte[]>>(), Arg.Any<string>());
-            await _messageHandler.Received().Process(Arg.Any<Models.SinkRecord>(), Arg.Any<string>());
+            await _messageHandler.Received().Process(Arg.Any<SinkRecord>(), Arg.Any<string>());
         }
 
         [Fact]
@@ -94,7 +94,7 @@ namespace Kafka.Connect.UnitTests.Handlers
             Assert.Equal(record.Partition, ce.Partition);
             Assert.Equal(record.Offset, ce.Offset);
             await _messageConverter.Received().Deserialize(Arg.Any<string>(),Arg.Any<Message<byte[], byte[]>>(), Arg.Any<string>());
-            await _messageHandler.DidNotReceive().Process(Arg.Any<Models.SinkRecord>(), Arg.Any<string>());
+            await _messageHandler.DidNotReceive().Process(Arg.Any<SinkRecord>(), Arg.Any<string>());
         }
         
         [Fact]
@@ -104,7 +104,7 @@ namespace Kafka.Connect.UnitTests.Handlers
             var record = batch.First();
             var ce = new ConnectException();
             _configurationProvider.GetBatchConfig(Arg.Any<string>()).Returns(new BatchConfig {Parallelism = 1});
-            _messageHandler.Process(Arg.Any<Models.SinkRecord>(), Arg.Any<string>()).Throws(ce);
+            _messageHandler.Process(Arg.Any<SinkRecord>(), Arg.Any<string>()).Throws(ce);
             
             await Assert.ThrowsAsync<ConnectAggregateException>(()=> _sinkProcessor.Process(batch, "connector"));
             
@@ -113,7 +113,7 @@ namespace Kafka.Connect.UnitTests.Handlers
             Assert.Equal(record.Partition, ce.Partition);
             Assert.Equal(record.Offset, ce.Offset);
             await _messageConverter.Received().Deserialize(Arg.Any<string>(),Arg.Any<Message<byte[], byte[]>>(), Arg.Any<string>());
-            await _messageHandler.Received().Process(Arg.Any<Models.SinkRecord>(), Arg.Any<string>());
+            await _messageHandler.Received().Process(Arg.Any<SinkRecord>(), Arg.Any<string>());
         }
         
         [Theory]
@@ -165,7 +165,7 @@ namespace Kafka.Connect.UnitTests.Handlers
             for (var i = 0; i < length; i++)
             {
                 var (topic, partition) = topicPartitions != null && topicPartitions.Length > i ? topicPartitions[i] : ("topic", 0);
-                batch.Add(new Models.SinkRecord(new ConsumeResult<byte[], byte[]>
+                batch.Add(new SinkRecord(new ConsumeResult<byte[], byte[]>
                     {Topic = topic, Partition = partition, Message = new Message<byte[], byte[]>() {Headers = new Headers()}}));
             }
 

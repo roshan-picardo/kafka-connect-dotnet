@@ -7,7 +7,7 @@ using Kafka.Connect.Processors;
 using NSubstitute;
 using Xunit;
 
-namespace Kafka.Connect.UnitTests.Processors
+namespace UnitTests.Kafka.Connect.Processors
 {
     public class BlacklistFieldProjectorTests
     {

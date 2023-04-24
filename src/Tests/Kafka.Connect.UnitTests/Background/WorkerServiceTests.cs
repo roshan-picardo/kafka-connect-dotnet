@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Kafka.Connect;
 using Kafka.Connect.Background;
 using Kafka.Connect.Connectors;
 using Kafka.Connect.Plugin.Logging;
@@ -8,7 +9,7 @@ using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Xunit;
 
-namespace Kafka.Connect.UnitTests.Background
+namespace UnitTests.Kafka.Connect.Background
 {
     public class WorkerServiceTests
     {

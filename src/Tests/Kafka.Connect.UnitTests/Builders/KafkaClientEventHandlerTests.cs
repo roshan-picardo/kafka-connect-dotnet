@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Confluent.Kafka;
 using Kafka.Connect.Builders;
 using Kafka.Connect.Connectors;
@@ -8,17 +7,17 @@ using Microsoft.Extensions.Logging;
 using NSubstitute;
 using Xunit;
 
-namespace Kafka.Connect.UnitTests.Builders
+namespace UnitTests.Kafka.Connect.Builders
 {
     public class KafkaClientEventHandlerTests
     {
-        private readonly Plugin.Logging.ILogger<KafkaClientEventHandler> _logger;
+        private readonly global::Kafka.Connect.Plugin.Logging.ILogger<KafkaClientEventHandler> _logger;
         private readonly IExecutionContext _executionContext;
         private readonly KafkaClientEventHandler _kafkaClientEventHandler;
 
         public KafkaClientEventHandlerTests()
         {
-            _logger = Substitute.For<Plugin.Logging.ILogger<KafkaClientEventHandler>>();
+            _logger = Substitute.For<global::Kafka.Connect.Plugin.Logging.ILogger<KafkaClientEventHandler>>();
             _executionContext = Substitute.For<IExecutionContext>();
 
             _kafkaClientEventHandler = new KafkaClientEventHandler(_logger, _executionContext);

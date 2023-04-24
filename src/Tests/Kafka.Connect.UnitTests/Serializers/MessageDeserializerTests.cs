@@ -10,7 +10,7 @@ using Newtonsoft.Json.Linq;
 using NSubstitute;
 using Xunit;
 
-namespace Kafka.Connect.UnitTests.Serializers
+namespace UnitTests.Kafka.Connect.Serializers
 {
     public class MessageConverterTests
     {
@@ -37,7 +37,7 @@ namespace Kafka.Connect.UnitTests.Serializers
             _processorServiceProvider.GetDeserializer(Arg.Any<string>()).Returns(_deserializer);
             _processorServiceProvider.GetDeserializer(Arg.Any<string>()).Returns(_deserializer);
             _deserializer.Deserialize(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<string>(), Arg.Any<Dictionary<string, byte[]>>(), Arg.Any<bool>())
-                .Returns(d => keyToken, d => valueToken);
+                .Returns(_ => keyToken, _ => valueToken);
 
             var (expectedKey, expectedValue) = await _messageConverter.Deserialize("", new Message<byte[], byte[]>(), "");
 

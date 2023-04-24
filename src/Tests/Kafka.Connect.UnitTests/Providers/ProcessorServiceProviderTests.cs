@@ -7,7 +7,7 @@ using Kafka.Connect.Providers;
 using NSubstitute;
 using Xunit;
 
-namespace Kafka.Connect.UnitTests.Providers
+namespace UnitTests.Kafka.Connect.Providers
 {
     public class ProcessorServiceProviderTests
     {
