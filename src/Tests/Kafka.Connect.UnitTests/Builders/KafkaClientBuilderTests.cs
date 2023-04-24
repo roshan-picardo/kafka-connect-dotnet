@@ -5,22 +5,18 @@ using Kafka.Connect.Providers;
 using NSubstitute;
 using Xunit;
 
-namespace Kafka.Connect.UnitTests.Builders
+namespace UnitTests.Kafka.Connect.Builders
 {
     public class KafkaClientBuilderTests
     {
         private readonly IConfigurationProvider _configurationProvider;
-        private readonly IKafkaClientEventHandler _kafkaClientEventHandler;
         private readonly KafkaClientBuilder _kafkaClientBuilder;
-        private readonly ILogger<KafkaClientBuilder> _logger;
 
         public KafkaClientBuilderTests()
         {
-            _logger = Substitute.For<ILogger<KafkaClientBuilder>>();
             _configurationProvider = Substitute.For<IConfigurationProvider>();
-            _kafkaClientEventHandler = Substitute.For<IKafkaClientEventHandler>();
-
-            _kafkaClientBuilder = new KafkaClientBuilder(_logger, _configurationProvider, _kafkaClientEventHandler);
+            _kafkaClientBuilder = new KafkaClientBuilder(Substitute.For<ILogger<KafkaClientBuilder>>(),
+                _configurationProvider, Substitute.For<IKafkaClientEventHandler>());
         }
 
         [Fact]

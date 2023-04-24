@@ -5,13 +5,12 @@ using Confluent.Kafka;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Plugin;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using Xunit;
 using ConfigurationProvider = Kafka.Connect.Providers.ConfigurationProvider;
 
-namespace Kafka.Connect.UnitTests.Providers
+namespace UnitTests.Kafka.Connect.Providers
 {
     public class ConfigurationProviderTests
     {
@@ -391,7 +390,7 @@ namespace Kafka.Connect.UnitTests.Providers
 
         [Theory]
         [MemberData(nameof(ValidateConfigTests))]
-        public void Validate_Tests( WorkerConfig workerConfig, string expected, bool throwsException = true)
+        public void Validate_Tests(WorkerConfig workerConfig, string expected, bool throwsException = true)
         {
             var exception = Record.Exception(() => GetProvider(workerConfig).Validate());
             if (!throwsException)
@@ -405,13 +404,74 @@ namespace Kafka.Connect.UnitTests.Providers
                 Assert.Equal(expected, exception.Message);
             }
         }
+
+        [Theory]
+        [MemberData(nameof(GetProcessorSettings))]
+        public void GetProcessorSettings_Tests(string connector, string processor, IDictionary<string, string> settings,
+            ConfigGenericType expected)
+        {
+            var actual = GetProvider(settings).GetProcessorSettings<ConfigGenericType>(connector, processor);
+            Assert.Equivalent(expected, actual);
+        }
+
+        [Theory]
+        [MemberData(nameof(GetSinkConfigProperties))]
+        public void GetSinkConfigProperties_Tests(string connector, string plugin, IDictionary<string, string> settings,
+            ConfigGenericType expected)
+        {
+            var actual = GetProvider(settings).GetSinkConfigProperties<ConfigGenericType>(connector, plugin);
+            Assert.Equivalent(expected, actual);
+        }
+
+        [Theory]
+        [MemberData(nameof(GetLogAttributes))]
+        public void GetLogAttributes_Tests(string connector, IDictionary<string, string> settings,
+            ConfigGenericType expected)
+        {
+            var actual = GetProvider(settings).GetLogAttributes<ConfigGenericType>(connector);
+            Assert.Equivalent(expected, actual);
+        }
+
+        [Theory]
+        [InlineData(false, "", "Kafka.Connect.Providers.DefaultLogRecord")]
+        [InlineData(true, null, "Kafka.Connect.Providers.DefaultLogRecord")]
+        [InlineData(true, "Kafka.Connect.Logging.CustomLogRecord", "Kafka.Connect.Logging.CustomLogRecord")]
+        public void GetLogEnhancer_Tests(bool hasLogger, string provider, string expected)
+        {
+            var config = new WorkerConfig
+            {
+                Connectors = new Dictionary<string, ConnectorConfig>()
+                {
+                    {
+                        "connector-1", new ConnectorConfig()
+                        {
+                            Log = hasLogger ? new LogConfig() { Provider = provider } : null
+                        }
+                    }
+                }
+            };
+            var actual = GetProvider(config).GetLogEnhancer("connector-1");
+            Assert.Equal(expected, actual);
+        }
         
 
-        private ConfigurationProvider GetProvider(WorkerConfig config)
+        private static ConfigurationProvider GetProvider(WorkerConfig config)
         {
             var options = Substitute.For<IOptions<WorkerConfig>>();
             options.Value.Returns(config);
             return new ConfigurationProvider(options, Substitute.For<IConfiguration>());
+        }
+        
+        private static ConfigurationProvider GetProvider(IDictionary<string, string> settings)
+        {
+            IConfiguration configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(settings)
+                .Build();
+            
+            var options = Substitute.For<IOptions<WorkerConfig>>();
+            options.Value.Returns(new WorkerConfig());
+            
+            return new ConfigurationProvider(options, configuration);
         }
 
         public static IEnumerable<object[]> FailOverConfigTests
@@ -780,6 +840,370 @@ namespace Kafka.Connect.UnitTests.Providers
             }
         }
 
+        public class ConfigGenericType
+        {
+            public string Name { get; set; }
+            public int Count { get; set; }
+        }
+
+        public static IEnumerable<object[]> GetProcessorSettings
+        {
+            get
+            {
+                yield return new object[]
+                {
+                    "connector", "processor",
+                    new Dictionary<string, string>() { { "worker:connectors:healthCheck:disabled", "true" } }, null
+                };
+                yield return new object[]
+                {
+                    "connector", "processor",
+                    new Dictionary<string, string>() { { "worker:connectors:connector-1:name", "connector-1" } }, null
+                };
+                
+                yield return new object[]
+                {
+                    "connector-1", "processor-1",
+                    new Dictionary<string, string>()
+                    {
+                        { "worker:connectors:connector-1:processors:processor-1:order", "1" },
+                        { "worker:connectors:connector-1:processors:processor-1:settings:name", "my-name" },
+                        { "worker:connectors:connector-1:processors:processor-1:settings:count", "100" },
+                    },
+                    new ConfigGenericType(){Name = "my-name", Count = 100}
+                };
+                yield return new object[]
+                {
+                    "connector-1", "processor-1",
+                    new Dictionary<string, string>()
+                    {
+                        { "worker:connectors:connector-1:name", "connector-1" },
+                        { "worker:connectors:connector-1:processors:processor-1:order", "1" },
+                        { "worker:connectors:connector-1:processors:processor-1:settings:name", "my-name" },
+                        { "worker:connectors:connector-1:processors:processor-1:settings:count", "100" },
+                    },
+                    new ConfigGenericType(){Name = "my-name", Count = 100}
+                };
+                yield return new object[]
+                {
+                    "connector-1", "processor-1",
+                    new Dictionary<string, string>()
+                    {
+                        { "worker:connectors:connector-1:name", "connector-1" },
+                        { "worker:connectors:connector-1:processors:processor-1:name", "processor-1" },
+                        { "worker:connectors:connector-1:processors:processor-1:order", "1" },
+                        { "worker:connectors:connector-1:processors:processor-1:settings:name", "my-name" },
+                        { "worker:connectors:connector-1:processors:processor-1:settings:count", "100" },
+                    },
+                    new ConfigGenericType(){Name = "my-name", Count = 100}
+                };
+                yield return new object[]
+                {
+                    "connector-1", "processor-1",
+                    new Dictionary<string, string>()
+                    {
+                        { "worker:connectors:connector-1:name", "connector-1" },
+                        { "worker:connectors:connector-1:processors:processor-1:name", "processor-1" },
+                        { "worker:connectors:connector-1:processors:processor-1:order", "1" },
+                        { "worker:connectors:connector-1:processors:processor-1:settings:auto", "true" },
+                        { "worker:connectors:connector-1:processors:processor-1:settings:Number", "500" },
+                    },
+                    new ConfigGenericType()
+                };
+                yield return new object[]
+                {
+                    "connector-1", "processor-2",
+                    new Dictionary<string, string>()
+                    {
+                        { "worker:connectors:connector-1:name", "connector-1" },
+                        { "worker:connectors:connector-1:processors:processor-1:name", "processor-1" },
+                        { "worker:connectors:connector-1:processors:processor-1:order", "1" },
+                        { "worker:connectors:connector-1:processors:processor-1:settings:name", "my-name" },
+                        { "worker:connectors:connector-1:processors:processor-1:settings:count", "100" },
+                    },
+                    null
+                };
+                yield return new object[]
+                {
+                    "connector-2", "processor-1",
+                    new Dictionary<string, string>()
+                    {
+                        { "worker:connectors:connector-1:name", "connector-1" },
+                        { "worker:connectors:connector-1:processors:processor-1:name", "processor-1" },
+                        { "worker:connectors:connector-1:processors:processor-1:order", "1" },
+                        { "worker:connectors:connector-1:processors:processor-1:settings:name", "my-name" },
+                        { "worker:connectors:connector-1:processors:processor-1:settings:count", "100" },
+                    },
+                    null
+                };
+                
+                yield return new object[]
+                {
+                    "connector-1", "processor-1",
+                    new Dictionary<string, string>()
+                    {
+                        { "worker:connectors:connector-1:name", "connector-1" },
+                        { "worker:connectors:connector-1:processors:processor-1:name", "processor-1" },
+                        { "worker:connectors:connector-1:processors:processor-1:order", "1" },
+                        { "worker:connectors:connector-1:processors:processor-1:settings:name", "my-name" },
+                        { "worker:connectors:connector-1:processors:processor-1:settings:count", "100" },
+                        { "worker:connectors:connector-1:processors:processor-2:name", "processor-2" },
+                        { "worker:connectors:connector-1:processors:processor-2:order", "1" },
+                        { "worker:connectors:connector-1:processors:processor-2:settings:name", "my-name" },
+                        { "worker:connectors:connector-1:processors:processor-2:settings:count", "100" }
+                    },
+                    new ConfigGenericType(){Name = "my-name", Count = 100}
+                };
+                yield return new object[]
+                {
+                    "connector-1", "processor-1",
+                    new Dictionary<string, string>()
+                    {
+                        { "worker:connectors:connector-1:name", "connector-1" },
+                        { "worker:connectors:connector-1:processors:processor-1:name", "processor-1" },
+                        { "worker:connectors:connector-1:processors:processor-1:order", "1" },
+                        { "worker:connectors:connector-1:processors:processor-1:settings:name", "my-name" },
+                        { "worker:connectors:connector-1:processors:processor-1:settings:count", "100" },
+                        { "worker:connectors:connector-1:processors:processor-2:name", "processor-2" },
+                        { "worker:connectors:connector-1:processors:processor-2:order", "1" },
+                        { "worker:connectors:connector-1:processors:processor-2:settings:name", "my-name" },
+                        { "worker:connectors:connector-1:processors:processor-2:settings:count", "100" },
+                        { "worker:connectors:connector-2:name", "connector-2" },
+                        { "worker:connectors:connector-2:processors:processor-1:name", "processor-1" },
+                        { "worker:connectors:connector-2:processors:processor-1:order", "1" },
+                        { "worker:connectors:connector-2:processors:processor-1:settings:name", "my-name" },
+                        { "worker:connectors:connector-2:processors:processor-1:settings:count", "100" },
+                        { "worker:connectors:connector-2:processors:processor-2:name", "processor-2" },
+                        { "worker:connectors:connector-2:processors:processor-2:order", "1" },
+                        { "worker:connectors:connector-2:processors:processor-2:settings:name", "my-name" },
+                        { "worker:connectors:connector-2:processors:processor-2:settings:count", "100" },
+                    },
+                    new ConfigGenericType(){Name = "my-name", Count = 100}
+                };
+            }
+        }
+
+        public static IEnumerable<object[]> GetSinkConfigProperties
+        {
+            get
+            {
+                yield return new object[]
+                {
+                    "connector-1", "plugin-1",
+                    new Dictionary<string, string>()
+                    {
+                        { "worker:connectors:connector-1:name", "connector-1" },
+                        { "worker:connectors:connector-1:plugin", "plugin-1" }
+                    }, null
+                };
+                yield return new object[]
+                {
+                    "connector-2", "plugin-1",
+                    new Dictionary<string, string>()
+                    {
+                        { "worker:connectors:connector-1:name", "connector-1" },
+                        { "worker:connectors:connector-1:plugin", "plugin-1" },
+                        { "worker:connectors:connector-1:sink:handler", "Kafka.Connect.Mongodb.MongodbSinkHandler" },
+                        { "worker:connectors:connector-1:sink:properties:dbName", "mongo-db-name" },
+                        { "worker:connectors:connector-1:sink:properties:password", "300" }
+                    }, null
+                };
+                yield return new object[]
+                {
+                    "connector-1", "plugin-1",
+                    new Dictionary<string, string>()
+                    {
+                        { "worker:connectors:connector-1:name", "connector-1" },
+                        { "worker:connectors:connector-1:plugin", "plugin-1" },
+                        { "worker:connectors:connector-1:sink:handler", "Kafka.Connect.Mongodb.MongodbSinkHandler" },
+                        { "worker:connectors:connector-1:sink:properties:dbName", "mongo-db-name" },
+                        { "worker:connectors:connector-1:sink:properties:password", "300" }
+                    },
+                    new ConfigGenericType()
+                };
+                yield return new object[]
+                {
+                    "connector-1", "plugin-2",
+                    new Dictionary<string, string>()
+                    {
+                        { "worker:connectors:connector-1:name", "connector-1" },
+                        { "worker:connectors:connector-1:plugin", "plugin-1" },
+                        { "worker:connectors:connector-1:sink:handler", "Kafka.Connect.Mongodb.MongodbSinkHandler" },
+                        { "worker:connectors:connector-1:sink:properties:name", "mongo-db-name" },
+                        { "worker:connectors:connector-1:sink:properties:count", "300" }
+                    },
+                    null
+                };
+                yield return new object[]
+                {
+                    "connector-1", null,
+                    new Dictionary<string, string>()
+                    {
+                        { "worker:connectors:connector-1:name", "connector-1" },
+                        { "worker:connectors:connector-1:plugin", "plugin-1" },
+                        { "worker:connectors:connector-1:sink:handler", "Kafka.Connect.Mongodb.MongodbSinkHandler" },
+                        { "worker:connectors:connector-1:sink:properties:name", "mongo-db-name" },
+                        { "worker:connectors:connector-1:sink:properties:count", "300" }
+                    },
+                    new ConfigGenericType { Name = "mongo-db-name", Count = 300 }
+                };
+                yield return new object[]
+                {
+                    "connector-1", "",
+                    new Dictionary<string, string>()
+                    {
+                        { "worker:connectors:connector-1:name", "connector-1" },
+                        { "worker:connectors:connector-1:plugin", "plugin-1" },
+                        { "worker:connectors:connector-1:sink:handler", "Kafka.Connect.Mongodb.MongodbSinkHandler" },
+                        { "worker:connectors:connector-1:sink:properties:name", "mongo-db-name" },
+                        { "worker:connectors:connector-1:sink:properties:count", "300" }
+                    },
+                    new ConfigGenericType { Name = "mongo-db-name", Count = 300 }
+                };
+                yield return new object[]
+                {
+                    "connector-1", "plugin-1",
+                    new Dictionary<string, string>()
+                    {
+                        { "worker:connectors:connector-1:plugin", "plugin-1" },
+                        { "worker:connectors:connector-1:sink:handler", "Kafka.Connect.Mongodb.MongodbSinkHandler" },
+                        { "worker:connectors:connector-1:sink:properties:name", "mongo-db-name" },
+                        { "worker:connectors:connector-1:sink:properties:count", "300" }
+                    },
+                    new ConfigGenericType { Name = "mongo-db-name", Count = 300 }
+                };
+                yield return new object[]
+                {
+                    "connector-1", "plugin-1",
+                    new Dictionary<string, string>()
+                    {
+                        { "worker:connectors:connector-1:name", "connector-1" },
+                        { "worker:connectors:connector-1:plugin", "plugin-1" },
+                        { "worker:connectors:connector-1:sink:handler", "Kafka.Connect.Mongodb.MongodbSinkHandler" },
+                        { "worker:connectors:connector-1:sink:properties:name", "mongo-db-name" },
+                        { "worker:connectors:connector-1:sink:properties:count", "300" }
+                    },
+                    new ConfigGenericType { Name = "mongo-db-name", Count = 300 }
+                };
+                yield return new object[]
+                {
+                    "connector-1", "plugin-1",
+                    new Dictionary<string, string>()
+                    {
+                        { "worker:connectors:connector-1:name", "connector-1" },
+                        { "worker:connectors:connector-1:plugin", "plugin-1" },
+                        { "worker:connectors:connector-1:sink:handler", "Kafka.Connect.Mongodb.MongodbSinkHandler" },
+                        { "worker:connectors:connector-1:sink:properties:name", "mongo-db-name" },
+                        { "worker:connectors:connector-1:sink:properties:count", "300" },
+                        { "worker:connectors:connector-2:name", "connector-2" },
+                        { "worker:connectors:connector-2:plugin", "plugin-2" },
+                        { "worker:connectors:connector-2:sink:handler", "Kafka.Connect.Mongodb.MongodbSinkHandler" },
+                        { "worker:connectors:connector-2:sink:properties:name", "mongo-db-name" },
+                        { "worker:connectors:connector-2:sink:properties:count", "300" }
+                    },
+                    new ConfigGenericType { Name = "mongo-db-name", Count = 300 }
+                };
+            }
+        }
+
+        public static IEnumerable<object[]> GetLogAttributes
+        {
+            get
+            {
+                yield return new object[]
+                {
+                    "connector-1",
+                    new Dictionary<string, string>()
+                    {
+                        { "worker:connectors:connector-d:name", "connector-1" },
+                        { "worker:connectors:connector-d:log:provider", "default-log-provider" },
+                        { "worker:connectors:connector-d:log:attributes:logger", "default-logger" },
+                        { "worker:connectors:connector-d:log:attributes:limit", "300" }
+                    },
+                    new ConfigGenericType()
+                };
+                yield return new object[]
+                {
+                    "connector-1",
+                    new Dictionary<string, string>()
+                    {
+                        { "worker:connectors:connector-d:name", "connector-1" },
+                        { "worker:connectors:connector-d:log:provider", "default-log-provider" }
+                    },
+                    null
+                };
+                yield return new object[]
+                {
+                    "connector-1",
+                    new Dictionary<string, string>()
+                    {
+                        { "worker:connectors:connector-d:name", "connector-1" }
+                    },
+                    null
+                };   
+                yield return new object[]
+                {
+                    "connector-1",
+                    new Dictionary<string, string>()
+                    {
+                        { "worker:connectors:connector-d:log:provider", "default-log-provider" },
+                        { "worker:connectors:connector-d:log:attributes:name", "default-logger" },
+                        { "worker:connectors:connector-d:log:attributes:count", "300" }
+                    },
+                    null
+                };
+                yield return new object[]
+                {
+                    "connector-1",
+                    new Dictionary<string, string>()
+                    {
+                        { "worker:connectors:connector-d:name", "connector-1" },
+                        { "worker:connectors:connector-d:log:provider", "default-log-provider" },
+                        { "worker:connectors:connector-d:log:attributes:name", "default-logger" },
+                        { "worker:connectors:connector-d:log:attributes:count", "300" }
+                    },
+                    new ConfigGenericType { Name = "default-logger", Count = 300 }
+                };
+                yield return new object[]
+                {
+                    "connector-1",
+                    new Dictionary<string, string>()
+                    {
+                        { "worker:connectors:connector-1:log:provider", "default-log-provider" },
+                        { "worker:connectors:connector-1:log:attributes:name", "default-logger" },
+                        { "worker:connectors:connector-1:log:attributes:count", "300" }
+                    },
+                    new ConfigGenericType { Name = "default-logger", Count = 300 }
+                };
+                yield return new object[]
+                {
+                    "connector-1",
+                    new Dictionary<string, string>()
+                    {
+                        { "worker:connectors:connector-1:name", "connector-1" },
+                        { "worker:connectors:connector-1:log:provider", "default-log-provider" },
+                        { "worker:connectors:connector-1:log:attributes:name", "default-logger" },
+                        { "worker:connectors:connector-1:log:attributes:count", "300" }
+                    },
+                    new ConfigGenericType { Name = "default-logger", Count = 300 }
+                };
+                yield return new object[]
+                {
+                    "connector-1",
+                    new Dictionary<string, string>()
+                    {
+                        { "worker:connectors:connector-1:name", "connector-1" },
+                        { "worker:connectors:connector-1:log:provider", "default-log-provider" },
+                        { "worker:connectors:connector-1:log:attributes:name", "default-logger" },
+                        { "worker:connectors:connector-1:log:attributes:count", "300" },
+                        { "worker:connectors:connector-2:log:provider", "default-log-provider" },
+                        { "worker:connectors:connector-2:log:attributes:name", "default-logger" },
+                        { "worker:connectors:connector-2:log:attributes:count", "300" }
+                    },
+                    new ConfigGenericType { Name = "default-logger", Count = 300 }
+                };
+            }
+        }
 
     }
 }

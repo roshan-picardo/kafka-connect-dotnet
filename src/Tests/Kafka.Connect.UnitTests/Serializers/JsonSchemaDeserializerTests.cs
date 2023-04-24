@@ -7,7 +7,7 @@ using Newtonsoft.Json.Linq;
 using NSubstitute;
 using Xunit;
 
-namespace Kafka.Connect.UnitTests.Serializers
+namespace UnitTests.Kafka.Connect.Serializers
 {
     public class JsonSchemaDeserializerTests
     {

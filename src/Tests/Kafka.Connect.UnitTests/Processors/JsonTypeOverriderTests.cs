@@ -10,7 +10,7 @@ using Newtonsoft.Json.Linq;
 using NSubstitute;
 using Xunit;
 
-namespace Kafka.Connect.UnitTests.Processors
+namespace UnitTests.Kafka.Connect.Processors
 {
     public class JsonTypeOverriderTests
     {

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Confluent.Kafka;
+using Kafka.Connect;
 using Kafka.Connect.Background;
 using Kafka.Connect.Builders;
 using Kafka.Connect.Configurations;
@@ -16,7 +17,7 @@ using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Xunit;
 
-namespace Kafka.Connect.UnitTests.Background
+namespace UnitTests.Kafka.Connect.Background
 {
     public class FailOverMonitorServiceTests
     {

@@ -1,14 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Confluent.Kafka;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Serializers;
 using Newtonsoft.Json.Linq;
 using NSubstitute;
 using Xunit;
 
-namespace Kafka.Connect.UnitTests.Serializers
+namespace UnitTests.Kafka.Connect.Serializers
 {
     public class IgnoreDeserializerTests
     {
