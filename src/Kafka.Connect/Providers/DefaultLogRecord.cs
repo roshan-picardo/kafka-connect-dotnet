@@ -15,7 +15,7 @@ namespace Kafka.Connect.Providers
         public object Enrich(SinkRecord record, string connector)
         {
             var attributes = _configurationProvider.GetLogAttributes<string[]>(connector);
-            return attributes?.ToDictionary<string, string, object>(a => a, a => record.Value?[a]);
+            return !record.Value.HasValues ? null : attributes?.ToDictionary<string, string, object>(a => a, a => record.Value?[a]);
         }
     }
 }
