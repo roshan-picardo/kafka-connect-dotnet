@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -6,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Plugin.Logging;
+using Kafka.Connect.Plugin.Tokens;
 using Kafka.Connect.Providers;
 using Kafka.Connect.Tokens;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,29 +23,31 @@ namespace Kafka.Connect.Connectors
         private readonly ISinkHandlerProvider _sinkHandlerProvider;
         private readonly IConfigurationProvider _configurationProvider;
         private readonly IExecutionContext _executionContext;
+        private readonly ITokenHandler _tokenHandler;
         private PauseTokenSource _pauseTokenSource;
 
         public Connector(ILogger<Connector> logger, IServiceScopeFactory serviceScopeFactory,
             ISinkHandlerProvider sinkHandlerProvider,
-            IConfigurationProvider configurationProvider, IExecutionContext executionContext)
+            IConfigurationProvider configurationProvider, IExecutionContext executionContext, ITokenHandler tokenHandler)
         {
             _logger = logger;
             _serviceScopeFactory = serviceScopeFactory;
             _sinkHandlerProvider = sinkHandlerProvider;
             _configurationProvider = configurationProvider;
             _executionContext = executionContext;
+            _tokenHandler = tokenHandler;
         }
 
-        public async Task Execute(string connector, PauseTokenSource pts, CancellationToken cancellationToken)
+        public async Task Execute(string connector,  CancellationTokenSource cts)
         {
             var restartsConfig = _configurationProvider.GetRestartsConfig();
             var retryAttempts = restartsConfig.Attempts;
             _executionContext.Add(connector);
-            _pauseTokenSource = pts;
-            var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            _pauseTokenSource = PauseTokenSource.New();
+            //var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             var connectorConfig = _configurationProvider.GetConnectorConfig(connector);
 
-            pts.Toggle(connectorConfig.Paused);
+            _pauseTokenSource.Toggle(connectorConfig.Paused);
 
             var sinkHandler = _sinkHandlerProvider.GetSinkHandler(connectorConfig.Name);
             var stopwatch = Stopwatch.StartNew();
@@ -57,15 +61,16 @@ namespace Kafka.Connect.Connectors
             while (!cts.IsCancellationRequested) 
             {
                 _executionContext.Pause(connectorConfig.Name);
-                await pts.Token.WaitWhilePausedAsync(cts.Token);
+                await _pauseTokenSource.Token.WaitWhilePausedAsync(cts.Token);
 
                 if (cts.IsCancellationRequested)
                 {
+                   
                     break;
                 }
                 
                 _executionContext.Clear(connectorConfig.Name);
-                var taskId = 1;
+                var taskId = 0;
                 _logger.Debug("Starting tasks.", new { Tasks = connectorConfig.MaxTasks });
 
                 _executionContext.Start(connectorConfig.Name);
@@ -77,12 +82,19 @@ namespace Kafka.Connect.Connectors
 
                 await Task.WhenAll(tasks.Select(task =>
                 {
-                    //task.Config.TaskId = taskId++;
-                    //pts.AddSubTaskTokens(task.Token);
-                    using (LogContext.PushProperty("Task", task.Config.MaxTasks)) 
+                    taskId++;
+                    using (LogContext.PushProperty("Task", taskId)) 
                     {
-                        _logger.Debug("Starting task.", new{ Id = "#{t.Config.TaskId:00}"});
-                        var sinkTask = task.Task.Execute(connector, taskId++, cts.Token);
+                        if (task?.Task == null)
+                        {
+                            _logger.Warning("Unable to load and terminating the task.");
+                            return Task.CompletedTask;
+                        }
+
+                        _logger.Debug("Starting task.", new { Id = $"#{taskId:00}" });
+                        var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cts.Token);
+                        _pauseTokenSource.AddLinkedTokenSource(linkedTokenSource);
+                        var sinkTask = task.Task.Execute(connector, taskId, linkedTokenSource);
                         return sinkTask.ContinueWith(t =>
                         {
                             if (t.IsFaulted)
@@ -90,7 +102,7 @@ namespace Kafka.Connect.Connectors
                                 _logger.Error("Task is faulted, and will be terminated.", t.Exception?.InnerException);
                             }
 
-                            _logger.Debug("Task will be Stopped.");
+                            _logger.Debug("Task will be stopped.");
                         }, TaskContinuationOptions.None);
                     }
                 })).ContinueWith(t =>
@@ -99,12 +111,14 @@ namespace Kafka.Connect.Connectors
                     {
                         _logger.Error("Connector is faulted, and will be terminated.", t.Exception?.InnerException);
                     }
-                    _executionContext.Stop(connectorConfig.Name);
                 }, CancellationToken.None);
 
+                _executionContext.Stop(connectorConfig.Name);
 
-                if (cts.IsCancellationRequested || _pauseTokenSource.IsPaused ||
-                    !restartsConfig.EnabledFor.HasFlag(RestartsLevel.Connector)) continue;
+                if(cts.IsCancellationRequested || _pauseTokenSource.IsPaused) continue;
+
+                if (!restartsConfig.EnabledFor.HasFlag(RestartsLevel.Connector)) break;
+                
                 if (retryAttempts < 0)
                 {
                     _logger.Debug("Attempting to restart the Connector.", new { Attempt = ++restarts });
@@ -125,8 +139,10 @@ namespace Kafka.Connect.Connectors
                     continue;
                 }
                 _logger.Info( "Restart attempts exhausted the threshold for the Connector.", new { Use = $"/connectors/{connectorConfig.Name}/resume"});
+                _tokenHandler.DoNothing();
                 await Pause();
             }
+            
             _logger.Debug( "Shutting down the connector.");
 
             if (sinkHandler != null)

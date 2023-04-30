@@ -27,15 +27,12 @@
     </ItemGroup>
 
     <ItemGroup>
-      <Compile Remove="Connectors\ConnectDeadLetterTests.cs" />
-      <Compile Remove="Connectors\ConnectorTests.cs" />
       <Compile Remove="Connectors\SinkTaskTests.cs" />
       <Compile Remove="Converters\GenericRecordParserTests.cs" />
       <Compile Remove="Converters\JsonRecordFlattenerTests.cs" />
     </ItemGroup>
 
     <ItemGroup>
-      <Folder Include="Connectors" />
       <Folder Include="Converters" />
     </ItemGroup>
 

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Threading;
 
 namespace Kafka.Connect.Models
 {
@@ -11,5 +12,6 @@ namespace Kafka.Connect.Models
         public Status Status { get; set; }
         public TimeSpan Uptime => _stopwatch.Elapsed;
         public IList<TaskContext> Tasks { get; init; }
+        public CancellationTokenSource Token { get; set; }
     }
 }

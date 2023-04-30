@@ -12,6 +12,6 @@ namespace Kafka.Connect.Connectors
         public Task Pause();
         public Task Resume(IDictionary<string, string> payload);
         public Task Restart(int? delay, IDictionary<string, string> payload);
-        public Task Execute(string connector,  PauseTokenSource pts, CancellationToken cancellationToken);
+        public Task Execute(string connector,  CancellationTokenSource cts);
     }
 }

@@ -22,7 +22,7 @@ namespace Kafka.Connect.Connectors
         dynamic GetFullDetails();
         void Shutdown();
         CancellationTokenSource GetToken();
-
+        bool IsStopped { get; }
         BatchPollContext GetOrSetBatchContext(string connector, int taskId, CancellationToken token = default);
     }
 }

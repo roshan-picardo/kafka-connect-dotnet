@@ -10,7 +10,7 @@ namespace Kafka.Connect
         Task PauseAsync();
         Task ResumeAsync();
         Task RestartAsync(int? delayMs);
-        Task Execute(CancellationToken stoppingToken);
+        Task Execute(CancellationTokenSource cts);
         IConnector GetConnector(string name);
     }
 }

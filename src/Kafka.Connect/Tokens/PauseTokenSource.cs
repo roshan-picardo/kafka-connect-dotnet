@@ -24,7 +24,7 @@ namespace Kafka.Connect.Tokens
                     Interlocked.CompareExchange(
                         ref _paused, new TaskCompletionSource<bool>(), null);
                     ResumePayload = null;
-                    CancelAllSubTasks();
+                    CancelAll();
                     _onPaused?.Invoke();
                 }
                 else
@@ -81,12 +81,9 @@ namespace Kafka.Connect.Tokens
 
         public IDictionary<string, string> ResumePayload { get; set; }
 
-        public void AddSubTaskTokens(CancellationTokenSource cts)
-        {
-            _cancellationTokens.Add(cts);
-        }
+        public void AddLinkedTokenSource(CancellationTokenSource cts) => _cancellationTokens.Add(cts);
         
-        private void CancelAllSubTasks()
+        private void CancelAll()
         {
             foreach (var cancellationToken in _cancellationTokens)
             {
