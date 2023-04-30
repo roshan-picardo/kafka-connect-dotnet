@@ -10,8 +10,9 @@ test:
 publish:
 	-rm -rf ./app/bin
 	-dotnet publish ./src/Kafka.Connect/Kafka.Connect.csproj --output ./app/bin --configuration Debug --no-build --verbosity m
-	-dotnet publish ./src/Plugins/Kafka.Connect.Mongodb/Kafka.Connect.Mongodb.csproj --output ./app/bin/plugins/mongodb --configuration debug --no-build --verbosity m
-	-dotnet publish ./src/Plugins/Kafka.Connect.Streamer/Kafka.Connect.Streamer.csproj --output ./app/bin/plugins/streamer --configuration debug --no-build --verbosity m
+	-dotnet publish ./src/Plugins/Kafka.Connect.MongoDb/Kafka.Connect.MongoDb.csproj --output ./app/bin/plugins/mongodb --configuration debug --no-build --verbosity m
+	-dotnet publish ./src/Plugins/Kafka.Connect.Replicator/Kafka.Connect.Replicator.csproj --output ./app/bin/plugins/replicator --configuration debug --no-build --verbosity m
+	-dotnet publish ./src/Plugins/Kafka.Connect.PostgreSql/Kafka.Connect.PostgreSql.csproj --output ./app/bin/plugins/postgresql --configuration debug --no-build --verbosity m
 
 run:
 	-sleep 10

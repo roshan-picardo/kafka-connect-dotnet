@@ -35,10 +35,10 @@ namespace Kafka.Connect
             _connectors = new List<(string Name, IConnector Connector)>();
         }
 
-        public async Task Execute(CancellationToken cancellationToken)
+        public async Task Execute(CancellationTokenSource cts)
         {
             _configurationProvider.Validate();
-            var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken); // from here-on use this token to track
+            //var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken); // from here-on use this token to track
             var restartsConfig = _configurationProvider.GetRestartsConfig();
 
             _logger.Debug("Starting the worker.");
@@ -69,13 +69,19 @@ namespace Kafka.Connect
                         let connector = job.Scope.ServiceProvider.GetService<IConnector>()
                         select new {Connector = connector, job.Name};
                     _executionContext.Start();
-                    await Task.WhenAll(connectors.Select(c =>
+                    await Task.WhenAll(connectors.Select(connector =>
                         {
-                            using (LogContext.PushProperty("Connector", c.Name))
+                            using (LogContext.PushProperty("Connector", connector.Name))
                             {
+                                if (connector?.Connector == null)
+                                {
+                                    _logger.Warning("Unable to load and terminating the connector.");
+                                    return Task.CompletedTask;
+                                }
                                 _logger.Trace("Connector Starting.");
-                                //TODO: _pauseTokenSource.AddSubTaskTokens(c.Cancel); 
-                                var connectorTask = c.Connector.Execute(c.Name, PauseTokenSource.New(), cts.Token).ContinueWith(
+                                var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cts.Token);
+                                _pauseTokenSource.AddLinkedTokenSource(linkedTokenSource);
+                                var connectorTask = connector.Connector.Execute(connector.Name, linkedTokenSource).ContinueWith(
                                     t =>
                                     {
                                         if (t.IsFaulted && !t.IsCanceled)
@@ -85,7 +91,7 @@ namespace Kafka.Connect
 
                                         _logger.Debug("Connector Stopped.");
                                     }, CancellationToken.None);
-                                _connectors.Add((c.Name, c.Connector));
+                                _connectors.Add((connector.Name, connector.Connector));
                                 return connectorTask;
                             }
                         }))
@@ -96,8 +102,8 @@ namespace Kafka.Connect
                                 _logger.Error( "Worker is faulted, and is terminated.", t.Exception?.InnerException);
                             }
 
-                            _executionContext.Stop();
                         }, CancellationToken.None);
+                    _executionContext.Stop();
                 }
                 catch (Exception ex)
                 {

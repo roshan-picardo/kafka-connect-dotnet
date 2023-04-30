@@ -27,7 +27,7 @@ namespace Kafka.Connect.Background
             {
                 _logger.Debug("Starting background worker process...");
 
-                await _worker.Execute(cts.Token);
+                await _worker.Execute(cts);
             }
             catch (Exception ex)
             {

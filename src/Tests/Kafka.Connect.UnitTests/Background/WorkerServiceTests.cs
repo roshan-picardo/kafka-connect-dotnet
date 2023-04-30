@@ -41,7 +41,7 @@ namespace UnitTests.Kafka.Connect.Background
         public async Task ExecuteAsync_WorkerThrowsException()
         {
             var cts = new CancellationTokenSource();
-            _worker.Execute(Arg.Any<CancellationToken>()).Throws<Exception>();
+            _worker.Execute(Arg.Any<CancellationTokenSource>()).Throws<Exception>();
             
             await _workerService.StartAsync(cts.Token);
             
@@ -55,7 +55,7 @@ namespace UnitTests.Kafka.Connect.Background
         public async Task ExecuteAsync_WorkerThrowsExceptionWithCancelledToken()
         {
             var cts = new CancellationTokenSource();
-            _worker.When(w=> w.Execute(Arg.Any<CancellationToken>())).Do(_=>
+            _worker.When(w=> w.Execute(Arg.Any<CancellationTokenSource>())).Do(_=>
             {
                 cts.Cancel();
                 throw new Exception();

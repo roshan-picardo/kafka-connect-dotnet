@@ -38,9 +38,9 @@ namespace Kafka.Connect.Connectors
             _executionContext = executionContext;
         }
 
-        public async Task Execute(string connector, int taskId, CancellationToken cancellationToken)
+        public async Task Execute(string connector, int taskId, CancellationTokenSource cts)
         {
-            var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            //var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             void Cancel()
             {
                 if (!_configurationProvider.IsErrorTolerated(connector))

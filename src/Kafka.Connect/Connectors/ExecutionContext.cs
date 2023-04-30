@@ -149,6 +149,9 @@ namespace Kafka.Connect.Connectors
             };
         }
 
+        public bool IsStopped => _workerContext.Status == Status.Stopped && _workerContext.Connectors.All(c =>
+            c.Status == Status.Stopped && c.Tasks.All(t => t.Status == Status.Stopped));
+
         public BatchPollContext GetOrSetBatchContext(string connector, int taskId, CancellationToken token = default)
         {
             var taskContext = _workerContext.Connectors.SingleOrDefault(c => c.Name == connector)?.Tasks

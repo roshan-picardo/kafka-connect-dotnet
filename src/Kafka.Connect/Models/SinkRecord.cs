@@ -17,6 +17,7 @@ namespace Kafka.Connect.Models
 
         public Message<byte[], byte[]> GetDeadLetterMessage(Exception ex)
         {
+            _consumed.Message.Headers ??= new Headers();
             _consumed.Message.Headers.Add("_errorContext",
                 ByteConvert.Serialize(new DeadLetterErrorContext(_consumed.Topic, _consumed.Partition, _consumed.Offset,
                     ex)));
