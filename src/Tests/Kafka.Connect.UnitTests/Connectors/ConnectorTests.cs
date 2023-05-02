@@ -66,14 +66,10 @@ namespace UnitTests.Kafka.Connect.Connectors
             await _connector.Execute(connector, token);
 
             _configurationProvider.Received().GetRestartsConfig();
-            _executionContext.Received().Add(connector, Arg.Any<int>());
+            _executionContext.Received().Initialize(connector, _connector);
             _configurationProvider.Received().GetConnectorConfig(connector);
             _sinkHandlerProvider.Received().GetSinkHandler(connector);
             await _sinkHandler.Received().Startup(connector);
-            _executionContext.Received().Pause(connector, Arg.Any<int>());
-            _executionContext.Received().Clear(connector);
-            _executionContext.Received().Start(connector);
-            _executionContext.Received().Stop(connector);
             _serviceScopeFactory.Received().CreateScope();
             _serviceProvider.Received().GetService<ISinkTask>();
             await _sinkTask.Received().Execute(connector, 1, Arg.Any<CancellationTokenSource>());
@@ -107,14 +103,10 @@ namespace UnitTests.Kafka.Connect.Connectors
             await _connector.Execute(connector, token);
 
             _configurationProvider.Received().GetRestartsConfig();
-            _executionContext.Received().Add(connector, Arg.Any<int>());
+            _executionContext.Received().Initialize(connector, _connector);
             _configurationProvider.Received().GetConnectorConfig(connector);
             _sinkHandlerProvider.Received().GetSinkHandler(connector);
             await _sinkHandler.DidNotReceive().Startup(connector);
-            _executionContext.Received().Pause(connector, Arg.Any<int>());
-            _executionContext.Received().Clear(connector);
-            _executionContext.Received().Start(connector);
-            _executionContext.Received().Stop(connector);
             _serviceScopeFactory.Received().CreateScope();
             _serviceProvider.Received().GetService<ISinkTask>();
             await _sinkTask.Received().Execute(connector, 1, Arg.Any<CancellationTokenSource>());
@@ -148,14 +140,9 @@ namespace UnitTests.Kafka.Connect.Connectors
             await _connector.Execute(connector, token);
 
             _configurationProvider.Received().GetRestartsConfig();
-            _executionContext.Received().Add(connector, Arg.Any<int>());
             _configurationProvider.Received().GetConnectorConfig(connector);
             _sinkHandlerProvider.Received().GetSinkHandler(connector);
             await _sinkHandler.Received().Startup(connector);
-            _executionContext.Received().Pause(connector, Arg.Any<int>());
-            _executionContext.Received().Clear(connector);
-            _executionContext.Received().Start(connector);
-            _executionContext.Received().Stop(connector);
             _serviceScopeFactory.Received().CreateScope();
             _serviceProvider.Received().GetService<ISinkTask>();
             await _sinkTask.Received().Execute(connector, 1, Arg.Any<CancellationTokenSource>());
@@ -189,14 +176,10 @@ namespace UnitTests.Kafka.Connect.Connectors
             await _connector.Execute(connector, token);
 
             _configurationProvider.Received().GetRestartsConfig();
-            _executionContext.Received().Add(connector, Arg.Any<int>());
+            _executionContext.Received().Initialize(connector, _connector);
             _configurationProvider.Received().GetConnectorConfig(connector);
             _sinkHandlerProvider.Received().GetSinkHandler(connector);
             await _sinkHandler.Received().Startup(connector);
-            _executionContext.Received().Pause(connector, Arg.Any<int>());
-            _executionContext.Received().Clear(connector);
-            _executionContext.Received().Start(connector);
-            _executionContext.Received().Stop(connector);
             _serviceScopeFactory.Received().CreateScope();
             _serviceProvider.Received().GetService<ISinkTask>();
             await _sinkTask.DidNotReceive().Execute(connector, 1, Arg.Any<CancellationTokenSource>());
@@ -233,14 +216,10 @@ namespace UnitTests.Kafka.Connect.Connectors
             await _connector.Execute(connector, token);
 
             _configurationProvider.Received().GetRestartsConfig();
-            _executionContext.Received().Add(connector, Arg.Any<int>());
+            _executionContext.Received().Initialize(connector, _connector);
             _configurationProvider.Received().GetConnectorConfig(connector);
             _sinkHandlerProvider.Received().GetSinkHandler(connector);
             await _sinkHandler.Received().Startup(connector);
-            _executionContext.Received().Pause(connector, Arg.Any<int>());
-            _executionContext.Received().Clear(connector);
-            _executionContext.Received().Start(connector);
-            _executionContext.Received().Stop(connector);
             _serviceScopeFactory.Received().CreateScope();
             _serviceProvider.Received().GetService<ISinkTask>();
             await _sinkTask.Received().Execute(connector, 1, Arg.Any<CancellationTokenSource>());

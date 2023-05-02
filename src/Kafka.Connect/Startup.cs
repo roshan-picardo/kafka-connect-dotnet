@@ -69,18 +69,27 @@ using Serilog.Formatting.Json;
                  Log.ForContext<Worker>().Verbose("{@Log}", new {Message = "Initializing the web host."});
 
                  var host = ConfigureHostBuilder(args, configuration).Build();
-                 _cts = host.Services.GetService<IExecutionContext>()?.GetToken() ?? new CancellationTokenSource();
+                 var executionContext = host.Services.GetService<IExecutionContext>();
+                 _cts = executionContext?.GetToken() ?? new CancellationTokenSource();
+                 _cts.Token.Register(() => Log.ForContext<SinkLog>().Information("{@Log}",new {Message = "Shutting down Kafka Connect."}));
                  
                  Console.CancelKeyPress += (_, eventArgs) =>
                  {
-                     Log.ForContext<Worker>().Debug("{@Log}", new {Message = "Worker shutdown initiated."});
                      _cts.Cancel();
                      eventArgs.Cancel = true;
                  };
 
                  await host.RunAsync(_cts.Token).ContinueWith(t =>
                  {
-                     if (!t.IsFaulted) return;
+                     if (!t.IsFaulted)
+                     {
+                         while (!(executionContext?.IsStopped ?? true))
+                         {
+                             // wait here
+                         }
+
+                         return;
+                     }
                      if (t.Exception?.InnerException is OperationCanceledException)
                      {
                          Log.ForContext<Worker>().Warning("{@Log}",

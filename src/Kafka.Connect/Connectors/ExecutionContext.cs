@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using Confluent.Kafka;
 using Kafka.Connect.Models;
 using Kafka.Connect.Plugin;
@@ -27,78 +28,45 @@ namespace Kafka.Connect.Connectors
             _processors = processors;
             _handlers = handlers;
             _deserializers = deserializers;
-            _workerContext = new WorkerContext
-            {
-                Status = Status.Running,
-                Connectors = new List<ConnectorContext>()
-            };
+            _workerContext = new WorkerContext();
             _topicPollIndex = 0;
             _recordsCount = 0;
             _cancellationToken = new CancellationTokenSource();
         }
 
-        public void Name(string worker) => _workerContext.Name = worker;
-
-        public T GetOrAdd<T>(string connector = null, int task = 0)
+        public void Initialize(string name, IWorker worker)
         {
-            object context = default(T);
-            var connectorContext = _workerContext.Connectors.SingleOrDefault(c => c.Name == connector);
-            if (!string.IsNullOrEmpty(connector) && connectorContext == null)
-            {
-                connectorContext = new ConnectorContext {Name = connector};
-                _workerContext.Connectors.Add(connectorContext);
-                context = connectorContext;
-            }
-            else if(connectorContext != null)
-            {
-                var taskContext = connectorContext.Tasks.SingleOrDefault(t => t.Id == task);
-                if (task <= 0 || taskContext != null)
-                {
-                    context = connectorContext;
-                }
-                else
-                {
-                    taskContext = new TaskContext {Id = task};
-                    connectorContext.Tasks.Add(taskContext);
-                    context = taskContext;
-                }
-            }
-
-            return (T) context;
+            _workerContext.Name = name;
+            _workerContext.Worker = worker;
+            _workerContext.Connectors.Clear();
         }
 
-        public void Add(string connector = null, int task = 0)
+        public void Initialize(string name, IConnector connector)
         {
-            var connectorContext = _workerContext.Connectors.SingleOrDefault(c => c.Name == connector);
-            if (!string.IsNullOrEmpty(connector) && connectorContext == null)
+            if (string.IsNullOrWhiteSpace(name)) return;
+            var context = _workerContext.Connectors.SingleOrDefault(c => c.Name == name);
+            if (context == null)
             {
-                connectorContext = new ConnectorContext {Name = connector, Tasks = new List<TaskContext>()};
-                _workerContext.Connectors.Add(connectorContext);
+                context = new ConnectorContext { Name = name };
+                _workerContext.Connectors.Add(context);
             }
-            else if(connectorContext != null)
+            context.Connector = connector;
+            context.Tasks.Clear();
+        }
+
+        public void Initialize(string connector, int taskId, ISinkTask task)
+        {
+            if(string.IsNullOrWhiteSpace(connector) && taskId <= 0) return;
+            var connectorContext = _workerContext.Connectors.SingleOrDefault(c => c.Name == connector);
+            if(connectorContext == null) return;
+            var taskContext = connectorContext.Tasks.SingleOrDefault(t => t.Id == taskId);
+            if (taskContext == null)
             {
-                var taskContext = connectorContext.Tasks.SingleOrDefault(t => t.Id == task);
-                if (task <= 0 || taskContext != null) return;
-                taskContext = new TaskContext {Id = task, TopicPartitions = new List<(string, int)>()};
+                taskContext = new TaskContext { Id = taskId };
                 connectorContext.Tasks.Add(taskContext);
             }
-        }
-
-        public void Pause(string connector = null, int task = 0) => UpdateStatus(Status.Paused, connector, task);
-        public void Stop(string connector = null, int task = 0) => UpdateStatus(Status.Stopped, connector, task);
-        public void Start(string connector = null, int task = 0) => UpdateStatus(Status.Running, connector, task);
-
-        public void Clear(string connector = null)
-        {
-            var connectorContext = _workerContext.Connectors.SingleOrDefault(c => c.Name == connector);
-            if (connectorContext != null)
-            {
-                connectorContext.Tasks.Clear();
-            }
-            else
-            {
-                _workerContext.Connectors.Clear();
-            }
+            taskContext.Task = task;
+            taskContext.TopicPartitions.Clear();
         }
 
         public void AssignPartitions(string connector, int task, IEnumerable<TopicPartition> partitions)
@@ -149,8 +117,7 @@ namespace Kafka.Connect.Connectors
             };
         }
 
-        public bool IsStopped => _workerContext.Status == Status.Stopped && _workerContext.Connectors.All(c =>
-            c.Status == Status.Stopped && c.Tasks.All(t => t.Status == Status.Stopped));
+        public bool IsStopped => _workerContext.IsStopped;
 
         public BatchPollContext GetOrSetBatchContext(string connector, int taskId, CancellationToken token = default)
         {
@@ -160,7 +127,6 @@ namespace Kafka.Connect.Connectors
             taskContext.BatchContext ??= new BatchPollContext {Token = token};
             return taskContext.BatchContext;
         }
-        
 
         public int GetNextPollIndex()
         {
@@ -185,12 +151,59 @@ namespace Kafka.Connect.Connectors
             }
         }
 
-        private dynamic GetTaskStatus(TaskContext taskContext)
+        public async Task Pause(string connector = null, int task = 0)
+        {
+            if (string.IsNullOrWhiteSpace(connector))
+            {
+                await _workerContext.Worker?.Pause()!;
+            }
+            else if (task <= 0)
+            {
+               await _workerContext.Connectors.SingleOrDefault(c => c.Name == connector)?.Connector?.Pause()!;
+            }
+            else
+            {
+                // TODO: Pause the Task
+            }
+        }
+        
+        public async Task Resume(string connector = null, int task = 0)
+        {
+            if (string.IsNullOrWhiteSpace(connector))
+            {
+                await _workerContext.Worker?.Resume()!;
+            }
+            else if (task <= 0)
+            {
+                await _workerContext.Connectors.SingleOrDefault(c => c.Name == connector)?.Connector?.Resume(null)!;
+            }
+            else
+            {
+                // TODO: Resume the Task
+            }
+        }
+        
+        public async Task Restart(int delay, string connector = null, int task = 0)
+        {
+            //TODO: this method needs to cancel the token and call Execute method 
+            await Pause(connector, task);
+            await Task.Delay(delay);
+            await Resume(connector, task);
+        }
+
+        public IConnector GetConnector(string connector) =>
+            _workerContext.Connectors?.SingleOrDefault(c => c.Name == connector)?.Connector;
+
+
+        public ISinkTask GetSinkTask(string connector, int task) => _workerContext.Connectors
+            ?.SingleOrDefault(c => c.Name == connector)?.Tasks?.SingleOrDefault(t => t.Id == task)?.Task;
+
+        private static dynamic GetTaskStatus(TaskContext taskContext)
         {
             return new
             {
                 Id = taskContext.Id.ToString("00"),
-                Status = taskContext.Status.ToString(),
+                taskContext.Status,
                 Uptime = taskContext.Uptime.ToString(@"dd\.hh\:mm\:ss"),
                 Assignments = taskContext.TopicPartitions.Select(p =>
                 {
@@ -203,19 +216,19 @@ namespace Kafka.Connect.Connectors
                 })
             };
         }
-        private dynamic GetConnectorStatus(ConnectorContext connectorContext)
+        private static dynamic GetConnectorStatus(ConnectorContext connectorContext)
         {
             return new
             {
                 connectorContext.Name,
-                Status = connectorContext.Status.ToString(),
+                connectorContext.Status,
                 Uptime = connectorContext.Uptime.ToString(@"dd\.hh\:mm\:ss"),
                 Summary = new
                 {
                     connectorContext.Tasks.Count,
-                    Running = connectorContext.Tasks.Count(t => t.Status == Status.Running),
-                    Paused = connectorContext.Tasks.Count(t => t.Status == Status.Paused),
-                    Stopped = connectorContext.Tasks.Count(t => t.Status == Status.Stopped),
+                    Running = connectorContext.Tasks.Count(t => !t.Task.IsPaused && !t.IsStopped),
+                    Paused = connectorContext.Tasks.Count(t => t.Task.IsPaused),
+                    Stopped = connectorContext.Tasks.Count(t => !t.Task.IsPaused && t.IsStopped),
                     Assigned = connectorContext.Tasks.Count(t => t.TopicPartitions != null && t.TopicPartitions.Any())
                 },
                 Tasks = connectorContext.Tasks.Select(t => GetTaskStatus(t))
@@ -226,40 +239,19 @@ namespace Kafka.Connect.Connectors
             return new
             {
                 _workerContext.Name,
-                Status = _workerContext.Status.ToString(),
+                _workerContext.Status,
                 Uptime = _workerContext.Uptime.ToString(@"dd\.hh\:mm\:ss"),
                 Summary = new
                 {
                     _workerContext.Connectors.Count,
-                    Running = _workerContext.Connectors.Count(c => c.Status == Status.Running),
-                    Paused = _workerContext.Connectors.Count(c => c.Status == Status.Paused),
-                    Stopped = _workerContext.Connectors.Count(c => c.Status == Status.Stopped),
+                    Running = _workerContext.Connectors.Count(c => !c.Connector.IsPaused && !c.IsStopped),
+                    Paused = _workerContext.Connectors.Count(c => c.Connector.IsPaused),
+                    Stopped = _workerContext.Connectors.Count(c => !c.Connector.IsPaused && c.IsStopped),
                     Poll = _topicPollIndex,
                     Records = _recordsCount
                 },
                 Connectors = _workerContext.Connectors.Select(c => GetConnectorStatus(c))
             };
-        }
-
-        private void UpdateStatus(Status status, string connector, int task)
-        {
-            var connectorContext = _workerContext.Connectors.SingleOrDefault(c => c.Name == connector);
-            if (connectorContext != null)
-            {
-                var taskContext = connectorContext.Tasks.SingleOrDefault(t => t.Id == task);
-                if (taskContext != null)
-                {
-                    taskContext.Status = status;
-                }
-                else
-                {
-                    connectorContext.Status = status;
-                }
-            }
-            else
-            {
-                _workerContext.Status = status;
-            }
         }
     }
 }

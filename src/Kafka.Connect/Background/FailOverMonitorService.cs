@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Confluent.Kafka;
 using Kafka.Connect.Builders;
+using Kafka.Connect.Connectors;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Tokens;
 using Kafka.Connect.Providers;
@@ -17,16 +18,16 @@ namespace Kafka.Connect.Background
     public class FailOverMonitorService : BackgroundService
     {
         private readonly ILogger<FailOverMonitorService> _logger;
-        private readonly IWorker _worker;
+        private readonly IExecutionContext _executionContext;
         private readonly ITokenHandler _tokenHandler;
         private readonly IConfigurationProvider _configurationProvider;
         private readonly IKafkaClientBuilder _kafkaClientBuilder;
 
-        public FailOverMonitorService(ILogger<FailOverMonitorService> logger, IWorker worker,
+        public FailOverMonitorService(ILogger<FailOverMonitorService> logger, IExecutionContext executionContext,
             IServiceScopeFactory serviceScopeFactory, ITokenHandler tokenHandler, IConfigurationProvider configurationProvider)
         {
             _logger = logger;
-            _worker = worker;
+            _executionContext = executionContext;
             _tokenHandler = tokenHandler;
             _configurationProvider = configurationProvider;
             _kafkaClientBuilder = serviceScopeFactory.CreateScope().ServiceProvider.GetService<IKafkaClientBuilder>();
@@ -106,12 +107,12 @@ namespace Kafka.Connect.Background
                         {
                             if (thresholds.All(t => t.Value <= 0))
                             {
-                                await _worker.RestartAsync(failOverConfig.RestartDelayMs);
+                                await _executionContext.Restart(failOverConfig.RestartDelayMs);
                             }
                             else
                             {
                                 foreach (var connector in thresholds.Where(t=>t.Value <= 0)
-                                    .Select(t => new {Name = t.Key, Connector = _worker.GetConnector(t.Key)})
+                                    .Select(t => new {Name = t.Key, Connector = _executionContext.GetConnector(t.Key)})
                                     .Where(c => c.Connector != null))
                                 {
                                     using (LogContext.PushProperty("Connector", connector.Name))

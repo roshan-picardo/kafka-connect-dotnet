@@ -38,9 +38,11 @@ namespace Kafka.Connect.Connectors
             _executionContext = executionContext;
         }
 
+        public bool IsPaused => false;
+        public bool IsStopped { get; private set; }
+
         public async Task Execute(string connector, int taskId, CancellationTokenSource cts)
         {
-            //var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             void Cancel()
             {
                 if (!_configurationProvider.IsErrorTolerated(connector))
@@ -49,11 +51,12 @@ namespace Kafka.Connect.Connectors
                 }
             }
             
-            _executionContext.Add(connector, taskId);
+            _executionContext.Initialize(connector, taskId, this);
             _consumer = _sinkConsumer.Subscribe(connector, taskId);
             if (_consumer == null)
             {
                 _logger.Warning("Failed to create the consumer, exiting from the sink task.");
+                IsStopped = true;
                 return;
             }
             
@@ -89,7 +92,7 @@ namespace Kafka.Connect.Connectors
                 }
 
                 Cleanup();
-                _executionContext.Stop(connector, taskId);
+                IsStopped = true;
             }
         }
         

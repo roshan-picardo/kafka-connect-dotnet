@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -37,14 +36,16 @@ namespace Kafka.Connect.Connectors
             _executionContext = executionContext;
             _tokenHandler = tokenHandler;
         }
+        
+        public bool IsPaused => _pauseTokenSource.IsPaused;
+        public bool IsStopped { get; private set; }
 
         public async Task Execute(string connector,  CancellationTokenSource cts)
         {
             var restartsConfig = _configurationProvider.GetRestartsConfig();
             var retryAttempts = restartsConfig.Attempts;
-            _executionContext.Add(connector);
+            _executionContext.Initialize(connector, this);
             _pauseTokenSource = PauseTokenSource.New();
-            //var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             var connectorConfig = _configurationProvider.GetConnectorConfig(connector);
 
             _pauseTokenSource.Toggle(connectorConfig.Paused);
@@ -60,20 +61,15 @@ namespace Kafka.Connect.Connectors
 
             while (!cts.IsCancellationRequested) 
             {
-                _executionContext.Pause(connectorConfig.Name);
                 await _pauseTokenSource.Token.WaitWhilePausedAsync(cts.Token);
 
                 if (cts.IsCancellationRequested)
                 {
-                   
                     break;
                 }
-                
-                _executionContext.Clear(connectorConfig.Name);
+
                 var taskId = 0;
                 _logger.Debug("Starting tasks.", new { Tasks = connectorConfig.MaxTasks });
-
-                _executionContext.Start(connectorConfig.Name);
 
                 var tasks = (from scope in Enumerable.Range(1, connectorConfig.MaxTasks)
                         .Select(_ => _serviceScopeFactory.CreateScope())
@@ -113,8 +109,6 @@ namespace Kafka.Connect.Connectors
                     }
                 }, CancellationToken.None);
 
-                _executionContext.Stop(connectorConfig.Name);
-
                 if(cts.IsCancellationRequested || _pauseTokenSource.IsPaused) continue;
 
                 if (!restartsConfig.EnabledFor.HasFlag(RestartsLevel.Connector)) break;
@@ -125,7 +119,7 @@ namespace Kafka.Connect.Connectors
                     continue;
                 }
 
-                if (stopwatch.ElapsedMilliseconds >= 30000)
+                if (stopwatch.ElapsedMilliseconds >= restartsConfig.RetryWaitTimeMs)
                 {
                     retryAttempts = restartsConfig.Attempts;
                 }
@@ -142,13 +136,14 @@ namespace Kafka.Connect.Connectors
                 _tokenHandler.DoNothing();
                 await Pause();
             }
-            
             _logger.Debug( "Shutting down the connector.");
 
             if (sinkHandler != null)
             {
                 await sinkHandler.Cleanup(connectorConfig.Name);
             }
+
+            IsStopped = true;
         }
 
         public Task Pause()
