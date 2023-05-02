@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
@@ -21,7 +20,6 @@ namespace Kafka.Connect
         private readonly IExecutionContext _executionContext;
         private readonly IConfigurationProvider _configurationProvider;
         private PauseTokenSource _pauseTokenSource;
-        private readonly IList<(string Name, IConnector Connector)> _connectors;
 
         private int _retryAttempts = -1;
 
@@ -32,18 +30,20 @@ namespace Kafka.Connect
             _serviceScopeFactory = serviceScopeFactory;
             _executionContext = executionContext;
             _configurationProvider = configurationProvider;
-            _connectors = new List<(string Name, IConnector Connector)>();
         }
+
+        public bool IsPaused => _pauseTokenSource.IsPaused;
+        public bool IsStopped { get; private set; }
+
 
         public async Task Execute(CancellationTokenSource cts)
         {
             _configurationProvider.Validate();
-            //var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken); // from here-on use this token to track
             var restartsConfig = _configurationProvider.GetRestartsConfig();
 
             _logger.Debug("Starting the worker.");
             
-            _executionContext.Name(_configurationProvider.GetWorkerName()); // or you could put this in exec context
+            _executionContext.Initialize(_configurationProvider.GetWorkerName(), this);
             var stopwatch = Stopwatch.StartNew();
             var restarts = 0;
 
@@ -52,28 +52,23 @@ namespace Kafka.Connect
             _pauseTokenSource = PauseTokenSource.New();
             while (!cts.IsCancellationRequested)
             {
-                _executionContext.Pause();
                 await _pauseTokenSource.Token.WaitWhilePausedAsync(cts.Token);
                 if (cts.IsCancellationRequested)
                 {
                     break;
                 }
-
-                _executionContext.Clear();
-                _connectors.Clear();
                 try
                 {
                     _logger.Debug("Starting connectors.", new { _configurationProvider.GetAllConnectorConfigs().Count});
                     var connectors = from job in _configurationProvider.GetAllConnectorConfigs().Select(s =>
-                            new {Name = s.Name, Scope = _serviceScopeFactory.CreateScope()})
+                            new { s.Name, Scope = _serviceScopeFactory.CreateScope()})
                         let connector = job.Scope.ServiceProvider.GetService<IConnector>()
                         select new {Connector = connector, job.Name};
-                    _executionContext.Start();
                     await Task.WhenAll(connectors.Select(connector =>
                         {
                             using (LogContext.PushProperty("Connector", connector.Name))
                             {
-                                if (connector?.Connector == null)
+                                if (connector.Connector == null)
                                 {
                                     _logger.Warning("Unable to load and terminating the connector.");
                                     return Task.CompletedTask;
@@ -91,7 +86,6 @@ namespace Kafka.Connect
 
                                         _logger.Debug("Connector Stopped.");
                                     }, CancellationToken.None);
-                                _connectors.Add((connector.Name, connector.Connector));
                                 return connectorTask;
                             }
                         }))
@@ -103,15 +97,15 @@ namespace Kafka.Connect
                             }
 
                         }, CancellationToken.None);
-                    _executionContext.Stop();
                 }
                 catch (Exception ex)
                 {
                     _logger.Error("Worker is faulted, and is terminated.", ex);
                 }
 
-                if (cts.IsCancellationRequested || _pauseTokenSource.IsPaused ||
-                    !restartsConfig.EnabledFor.HasFlag(RestartsLevel.Worker)) continue;
+                if (cts.IsCancellationRequested || _pauseTokenSource.IsPaused) continue;
+                
+                if (!restartsConfig.EnabledFor.HasFlag(RestartsLevel.Connector)) break;
                 
                 if (_retryAttempts < 0)
                 {
@@ -146,28 +140,21 @@ namespace Kafka.Connect
                 }
             }
 
+            IsStopped = true;
             _logger.Debug("Shutting down the worker.");
         }
 
-        public Task PauseAsync()
+        public Task Pause()
         {
             _pauseTokenSource.Resume();
             return Task.CompletedTask;
         }
 
-        public Task ResumeAsync()
+        public Task Resume()
         {
             _pauseTokenSource.Resume();
             return Task.CompletedTask;
         }
-
-        public async Task RestartAsync(int? delayMs)
-        {
-            await PauseAsync();
-            await Task.Delay(delayMs ?? 1000);
-            await ResumeAsync();
-        }
-
-        public IConnector GetConnector(string name) => _connectors.SingleOrDefault(c=>c.Name == name).Connector;
+        
     }
 }

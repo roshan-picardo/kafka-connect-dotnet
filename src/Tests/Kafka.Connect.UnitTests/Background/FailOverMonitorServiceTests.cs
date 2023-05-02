@@ -4,7 +4,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Confluent.Kafka;
-using Kafka.Connect;
 using Kafka.Connect.Background;
 using Kafka.Connect.Builders;
 using Kafka.Connect.Configurations;
@@ -27,9 +26,9 @@ namespace UnitTests.Kafka.Connect.Background
         private FailOverMonitorService _failOverMonitorService;
         private readonly IAdminClient _adminClient;
         private readonly ITokenHandler _tokenHandler;
-        private readonly IWorker _worker;
         private readonly IConnector _connector;
         private readonly IConfigurationProvider _configProvider;
+        private readonly IExecutionContext _executionContext;
 
         public FailOverMonitorServiceTests()
         {
@@ -38,9 +37,9 @@ namespace UnitTests.Kafka.Connect.Background
             _kafkaClientBuilder = Substitute.For<IKafkaClientBuilder>();
             _adminClient = Substitute.For<IAdminClient>();
             _tokenHandler = Substitute.For<ITokenHandler>();
-            _worker = Substitute.For<IWorker>();
             _connector = Substitute.For<IConnector>();
             _configProvider = Substitute.For<IConfigurationProvider>();
+            _executionContext = Substitute.For<IExecutionContext>();
         }
 
         [Fact]
@@ -140,7 +139,7 @@ namespace UnitTests.Kafka.Connect.Background
                 _logger.Received().Trace( "Broker failure detected.", new{Connector = "unit-test-fail-over-enabled-b", Threshold = i });
             }
 
-            _worker.Received().RestartAsync(Arg.Any<int>());
+            _executionContext.Received().Restart(Arg.Any<int>());
         }
         
         [Fact]
@@ -173,7 +172,7 @@ namespace UnitTests.Kafka.Connect.Background
                 new Metadata(new List<BrokerMetadata>(),
                     new List<TopicMetadata>
                         {new(args[0] as string, new List<PartitionMetadata>(), ErrorCode.NoError)}, 0, ""));
-            _worker.GetConnector(Arg.Any<string>()).Returns(_connector);
+            _executionContext.GetConnector(Arg.Any<string>()).Returns(_connector);
             
             _failOverMonitorService = GetFailOverMonitorService();
             
@@ -345,7 +344,7 @@ namespace UnitTests.Kafka.Connect.Background
                 _logger.Received(1).Error("Unhandled error while reading metadata.",new {Connector = "unit-test-fail-over-exception",Threshold=i}, Arg.Any<Exception>());
             }
 
-            _worker.Received().RestartAsync(Arg.Any<int>());
+            _executionContext.Received().Restart(Arg.Any<int>());
         }
         
         [Fact]
@@ -364,7 +363,7 @@ namespace UnitTests.Kafka.Connect.Background
             });
             
             _adminClient.GetMetadata("topic-test", Arg.Any<TimeSpan>()).Throws(new Exception("UnitTestFailure"));
-            _worker.RestartAsync(Arg.Any<int>()).Throws<Exception>();
+            _executionContext.Restart(Arg.Any<int>()).Throws<Exception>();
             
             _failOverMonitorService = GetFailOverMonitorService();
             _failOverMonitorService.StartAsync(GetCancellationToken(1));
@@ -375,7 +374,7 @@ namespace UnitTests.Kafka.Connect.Background
             }
             
             _adminClient.Received(1).GetMetadata("topic-test", Arg.Any<TimeSpan>());
-            _worker.Received(1).RestartAsync(Arg.Any<int>());
+            _executionContext.Received(1).Restart(Arg.Any<int>());
             _logger.Received(1).Trace("Broker failure detected.",Arg.Any<object>());
             _logger.Received(1).Error( "Fail over monitoring service reported errors / hasn't started." , Arg.Any<Exception>());
             _logger.Received(1).Debug("Stopping fail over monitoring service...");
@@ -398,7 +397,7 @@ namespace UnitTests.Kafka.Connect.Background
                 }
             });
             _adminClient.GetMetadata("topic-test", Arg.Any<TimeSpan>()).Throws(new Exception("UnitTestFailure"));
-            _worker.RestartAsync(Arg.Any<int>()).Throws(Activator.CreateInstance(exType, "Token Cancelled.") as Exception);
+            _executionContext.Restart(Arg.Any<int>()).Throws(Activator.CreateInstance(exType, "Token Cancelled.") as Exception);
 
             _failOverMonitorService = GetFailOverMonitorService();
             _failOverMonitorService.StartAsync(GetCancellationToken(1));
@@ -409,7 +408,7 @@ namespace UnitTests.Kafka.Connect.Background
             }
             
             _adminClient.Received(1).GetMetadata("topic-test", Arg.Any<TimeSpan>());
-            _worker.Received(1).RestartAsync(Arg.Any<int>());
+            _executionContext.Received(1).Restart(Arg.Any<int>());
             _logger.Received(1).Trace( "Broker failure detected.", Arg.Any<object>());
             _logger.Received(1).Trace( "Task has been cancelled. Fail over service will be terminated." );
             _logger.Received(1).Debug("Stopping fail over monitoring service..." );
@@ -433,7 +432,7 @@ namespace UnitTests.Kafka.Connect.Background
             _serviceScopeFactory.CreateScope().ServiceProvider.GetService<IKafkaClientBuilder>()
                 .Returns(_kafkaClientBuilder);
             _kafkaClientBuilder.GetAdminClient().Returns(_adminClient);
-            return new FailOverMonitorService(_logger, _worker, _serviceScopeFactory, _tokenHandler, _configProvider);
+            return new FailOverMonitorService(_logger, _executionContext, _serviceScopeFactory, _tokenHandler, _configProvider);
         }
         
         private CancellationToken GetCancellationToken(int loop)

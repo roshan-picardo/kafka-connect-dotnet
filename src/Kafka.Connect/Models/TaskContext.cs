@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Threading;
+using Kafka.Connect.Connectors;
 
 namespace Kafka.Connect.Models
 {
@@ -9,10 +9,11 @@ namespace Kafka.Connect.Models
     {
         private readonly Stopwatch _stopwatch = Stopwatch.StartNew();
         public int Id { get; init; }
-        public Status Status { get; set; }
+        public string Status => Task.IsPaused ? "Paused" : Task.IsStopped ? "Stopped" : "Running";
         public TimeSpan Uptime => _stopwatch.Elapsed;
-        public IList<(string, int)> TopicPartitions { get; init; }
+        public IList<(string, int)> TopicPartitions { get; init; } = new List<(string, int)>();
         public BatchPollContext BatchContext { get; set; }
-        public CancellationTokenSource Token { get; set; }
+        public bool IsStopped => Task.IsStopped;
+        public ISinkTask Task { get; internal set; }
     }
 }

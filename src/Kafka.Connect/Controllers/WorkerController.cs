@@ -6,9 +6,7 @@ using Confluent.Kafka;
 using Kafka.Connect.Connectors;
 using Kafka.Connect.Models;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-
 
 namespace Kafka.Connect.Controllers
 {
@@ -16,13 +14,11 @@ namespace Kafka.Connect.Controllers
     [Route("workers")]
     public class WorkerController : ControllerBase
     {
-        private readonly IServiceProvider _serviceProvider;
         private readonly IHostedService _hostedService;
         private readonly IExecutionContext _executionContext;
 
-        public WorkerController(IServiceProvider serviceProvider, IHostedService hostedService, IExecutionContext executionContext)
+        public WorkerController(IHostedService hostedService, IExecutionContext executionContext)
         {
-            _serviceProvider = serviceProvider;
             _hostedService = hostedService;
             _executionContext = executionContext;
         }
@@ -48,16 +44,14 @@ namespace Kafka.Connect.Controllers
         [HttpPost("pause")] 
         public async Task<IActionResult> Pause()
         {
-            var worker = _serviceProvider.GetService<Worker>();
-            await worker.PauseAsync();
+            await _executionContext.Pause();
             return Ok(new {pausing = _executionContext.GetStatus()});
         }
         
         [HttpPost("resume")] 
         public async Task<IActionResult> Resume()
         {
-            var worker = _serviceProvider.GetService<Worker>();
-            await _serviceProvider.GetService<Worker>().ResumeAsync();
+            await _executionContext.Resume();
             return Ok(new {resuming = _executionContext.GetStatus()});
         }
         
@@ -78,7 +72,7 @@ namespace Kafka.Connect.Controllers
         [HttpPost("restart")] 
         public async Task<IActionResult> Restart(ApiPayload input)
         {
-            await _serviceProvider.GetService<Worker>().RestartAsync(input?.Delay);
+            await _executionContext.Restart(0);
             return Ok(new {restarting = _executionContext.GetStatus()});
         }
     }
