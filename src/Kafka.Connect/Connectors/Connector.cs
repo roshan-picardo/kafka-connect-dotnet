@@ -1,10 +1,8 @@
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
-using Kafka.Connect.Configurations;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Tokens;
 using Kafka.Connect.Providers;
@@ -13,158 +11,132 @@ using Microsoft.Extensions.DependencyInjection;
 using Serilog.Context;
 
 [assembly:InternalsVisibleTo("Kafka.Connect.UnitTests")]
-namespace Kafka.Connect.Connectors
+namespace Kafka.Connect.Connectors;
+
+public class Connector : IConnector
 {
-    public class Connector : IConnector
+    private readonly ILogger<Connector> _logger;
+    private readonly IServiceScopeFactory _serviceScopeFactory;
+    private readonly ISinkHandlerProvider _sinkHandlerProvider;
+    private readonly IConfigurationProvider _configurationProvider;
+    private readonly IExecutionContext _executionContext;
+    private readonly ITokenHandler _tokenHandler;
+    private PauseTokenSource _pauseTokenSource;
+
+    public Connector(ILogger<Connector> logger, IServiceScopeFactory serviceScopeFactory,
+        ISinkHandlerProvider sinkHandlerProvider,
+        IConfigurationProvider configurationProvider, IExecutionContext executionContext, ITokenHandler tokenHandler)
     {
-        private readonly ILogger<Connector> _logger;
-        private readonly IServiceScopeFactory _serviceScopeFactory;
-        private readonly ISinkHandlerProvider _sinkHandlerProvider;
-        private readonly IConfigurationProvider _configurationProvider;
-        private readonly IExecutionContext _executionContext;
-        private readonly ITokenHandler _tokenHandler;
-        private PauseTokenSource _pauseTokenSource;
-
-        public Connector(ILogger<Connector> logger, IServiceScopeFactory serviceScopeFactory,
-            ISinkHandlerProvider sinkHandlerProvider,
-            IConfigurationProvider configurationProvider, IExecutionContext executionContext, ITokenHandler tokenHandler)
-        {
-            _logger = logger;
-            _serviceScopeFactory = serviceScopeFactory;
-            _sinkHandlerProvider = sinkHandlerProvider;
-            _configurationProvider = configurationProvider;
-            _executionContext = executionContext;
-            _tokenHandler = tokenHandler;
-        }
+        _logger = logger;
+        _serviceScopeFactory = serviceScopeFactory;
+        _sinkHandlerProvider = sinkHandlerProvider;
+        _configurationProvider = configurationProvider;
+        _executionContext = executionContext;
+        _tokenHandler = tokenHandler;
+    }
         
-        public bool IsPaused => _pauseTokenSource.IsPaused;
-        public bool IsStopped { get; private set; }
+    public bool IsPaused => _pauseTokenSource.IsPaused;
+    public bool IsStopped { get; private set; }
 
-        public async Task Execute(string connector,  CancellationTokenSource cts)
+    public async Task Execute(string connector,  CancellationTokenSource cts)
+    {
+        _executionContext.Initialize(connector, this);
+        _pauseTokenSource = PauseTokenSource.New();
+        var connectorConfig = _configurationProvider.GetConnectorConfig(connector);
+
+        _pauseTokenSource.Toggle(connectorConfig.Paused);
+
+        var sinkHandler = _sinkHandlerProvider.GetSinkHandler(connectorConfig.Name);
+
+        if (sinkHandler != null)
         {
-            var restartsConfig = _configurationProvider.GetRestartsConfig();
-            var retryAttempts = restartsConfig.Attempts;
-            _executionContext.Initialize(connector, this);
-            _pauseTokenSource = PauseTokenSource.New();
-            var connectorConfig = _configurationProvider.GetConnectorConfig(connector);
+            await sinkHandler.Startup(connectorConfig.Name);
+        }
 
-            _pauseTokenSource.Toggle(connectorConfig.Paused);
+        while (!cts.IsCancellationRequested) 
+        {
+            await _pauseTokenSource.Token.WaitWhilePausedAsync(cts.Token);
 
-            var sinkHandler = _sinkHandlerProvider.GetSinkHandler(connectorConfig.Name);
-            var stopwatch = Stopwatch.StartNew();
-            var restarts = 0;
-
-            if (sinkHandler != null)
+            if (cts.IsCancellationRequested)
             {
-                await sinkHandler.Startup(connectorConfig.Name);
+                break;
             }
 
-            while (!cts.IsCancellationRequested) 
+            var taskId = 0;
+            _logger.Debug("Starting tasks.", new { Tasks = connectorConfig.MaxTasks });
+
+            var tasks = (from scope in Enumerable.Range(1, connectorConfig.MaxTasks)
+                    .Select(_ => _serviceScopeFactory.CreateScope())
+                let task = scope.ServiceProvider.GetService<ISinkTask>()
+                select new {Task = task, Scope = scope, Config = connectorConfig}).ToList();
+
+            await Task.WhenAll(tasks.Select(task =>
             {
-                await _pauseTokenSource.Token.WaitWhilePausedAsync(cts.Token);
-
-                if (cts.IsCancellationRequested)
+                taskId++;
+                using (LogContext.PushProperty("Task", taskId)) 
                 {
-                    break;
-                }
-
-                var taskId = 0;
-                _logger.Debug("Starting tasks.", new { Tasks = connectorConfig.MaxTasks });
-
-                var tasks = (from scope in Enumerable.Range(1, connectorConfig.MaxTasks)
-                        .Select(_ => _serviceScopeFactory.CreateScope())
-                    let task = scope.ServiceProvider.GetService<ISinkTask>()
-                    select new {Task = task, Scope = scope, Config = connectorConfig}).ToList();
-
-                await Task.WhenAll(tasks.Select(task =>
-                {
-                    taskId++;
-                    using (LogContext.PushProperty("Task", taskId)) 
+                    if (task?.Task == null)
                     {
-                        if (task?.Task == null)
+                        _logger.Warning("Unable to load and terminating the task.");
+                        return Task.CompletedTask;
+                    }
+
+                    _logger.Debug("Starting task.", new { Id = $"#{taskId:00}" });
+                    var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cts.Token);
+                    _pauseTokenSource.AddLinkedTokenSource(linkedTokenSource);
+                    var sinkTask = task.Task.Execute(connector, taskId, linkedTokenSource);
+                    return sinkTask.ContinueWith(t =>
+                    {
+                        if (t.IsFaulted)
                         {
-                            _logger.Warning("Unable to load and terminating the task.");
-                            return Task.CompletedTask;
+                            _logger.Error("Task is faulted, and will be terminated.", t.Exception?.InnerException);
                         }
 
-                        _logger.Debug("Starting task.", new { Id = $"#{taskId:00}" });
-                        var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cts.Token);
-                        _pauseTokenSource.AddLinkedTokenSource(linkedTokenSource);
-                        var sinkTask = task.Task.Execute(connector, taskId, linkedTokenSource);
-                        return sinkTask.ContinueWith(t =>
-                        {
-                            if (t.IsFaulted)
-                            {
-                                _logger.Error("Task is faulted, and will be terminated.", t.Exception?.InnerException);
-                            }
-
-                            _logger.Debug("Task will be stopped.");
-                        }, TaskContinuationOptions.None);
-                    }
-                })).ContinueWith(t =>
-                {
-                    if (t.IsFaulted)
-                    {
-                        _logger.Error("Connector is faulted, and will be terminated.", t.Exception?.InnerException);
-                    }
-                }, CancellationToken.None);
-
-                if(cts.IsCancellationRequested || _pauseTokenSource.IsPaused) continue;
-
-                if (!restartsConfig.EnabledFor.HasFlag(RestartsLevel.Connector)) break;
-                
-                if (retryAttempts < 0)
-                {
-                    _logger.Debug("Attempting to restart the Connector.", new { Attempt = ++restarts });
-                    continue;
+                        _logger.Debug("Task will be stopped.");
+                    }, TaskContinuationOptions.None);
                 }
-
-                if (stopwatch.ElapsedMilliseconds >= restartsConfig.RetryWaitTimeMs)
-                {
-                    retryAttempts = restartsConfig.Attempts;
-                }
-
-                if (retryAttempts > 0)
-                {
-                    await Task.Delay(restartsConfig.PeriodicDelayMs, CancellationToken.None);
-                    _logger.Debug("Attempting to restart the Connector.", new{ Attempt = ++restarts});
-                    --retryAttempts;
-                    stopwatch.Restart();
-                    continue;
-                }
-                _logger.Info( "Restart attempts exhausted the threshold for the Connector.", new { Use = $"/connectors/{connectorConfig.Name}/resume"});
-                _tokenHandler.DoNothing();
-                await Pause();
-            }
-            _logger.Debug( "Shutting down the connector.");
-
-            if (sinkHandler != null)
+            })).ContinueWith(t =>
             {
-                await sinkHandler.Cleanup(connectorConfig.Name);
-            }
+                if (t.IsFaulted)
+                {
+                    _logger.Error("Connector is faulted, and will be terminated.", t.Exception?.InnerException);
+                }
+            }, CancellationToken.None);
 
-            IsStopped = true;
-        }
+            if(cts.IsCancellationRequested || _pauseTokenSource.IsPaused) continue;
 
-        public Task Pause()
-        {
+            if (await _executionContext.Retry(connector)) continue;
             _pauseTokenSource.Pause();
-            return Task.CompletedTask;
+            _tokenHandler.DoNothing();
+        }
+        _logger.Debug( "Shutting down the connector.");
+
+        if (sinkHandler != null)
+        {
+            await sinkHandler.Cleanup(connectorConfig.Name);
         }
 
-        public Task Resume(IDictionary<string, string> payload)
-        {
-            _pauseTokenSource.Resume();
-            return Task.CompletedTask;
-        }
+        IsStopped = true;
+    }
 
-        public async Task Restart(int? delay, IDictionary<string, string> payload)
-        {
-            await Pause();
-            await Task.Delay(delay ?? 1000);
-            await Resume(payload);
-        }
+    public Task Pause()
+    {
+        _pauseTokenSource.Pause();
+        return Task.CompletedTask;
+    }
+
+    public Task Resume(IDictionary<string, string> payload)
+    {
+        _pauseTokenSource.Resume();
+        return Task.CompletedTask;
+    }
+
+    public async Task Restart(int? delay, IDictionary<string, string> payload)
+    {
+        await Pause();
+        await Task.Delay(delay ?? 1000);
+        await Resume(payload);
+    }
 
         
-    }
 }

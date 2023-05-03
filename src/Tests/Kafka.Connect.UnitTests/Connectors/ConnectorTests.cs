@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Dynamic;
 using System.Threading;
 using System.Threading.Tasks;
 using Kafka.Connect.Configurations;
@@ -9,10 +7,8 @@ using Kafka.Connect.Plugin;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Tokens;
 using Kafka.Connect.Providers;
-using Kafka.Connect.Tokens;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
-using NSubstitute.ExceptionExtensions;
 using Xunit;
 
 namespace UnitTests.Kafka.Connect.Connectors
@@ -52,10 +48,6 @@ namespace UnitTests.Kafka.Connect.Connectors
         public async Task Execute_SimpleSuccess()
         {
             const string connector = "connector";
-            var restartsConfig = new RestartsConfig();
-            _configurationProvider.GetRestartsConfig().Returns(restartsConfig);
-            var token = new CancellationTokenSource();
-            var pts = new PauseTokenSource();
             var connectorConfig = new ConnectorConfig{MaxTasks = 1, Name = connector};
             _configurationProvider.GetConnectorConfig(Arg.Any<string>()).Returns(connectorConfig);
             _sinkHandlerProvider.GetSinkHandler(Arg.Any<string>()).Returns(_sinkHandler);
@@ -63,9 +55,8 @@ namespace UnitTests.Kafka.Connect.Connectors
             _serviceScope.ServiceProvider.Returns(_serviceProvider);
             _serviceProvider.GetService<ISinkTask>().Returns(_sinkTask);
 
-            await _connector.Execute(connector, token);
+            await _connector.Execute(connector, GetCancellationToken());
 
-            _configurationProvider.Received().GetRestartsConfig();
             _executionContext.Received().Initialize(connector, _connector);
             _configurationProvider.Received().GetConnectorConfig(connector);
             _sinkHandlerProvider.Received().GetSinkHandler(connector);
@@ -74,6 +65,7 @@ namespace UnitTests.Kafka.Connect.Connectors
             _serviceProvider.Received().GetService<ISinkTask>();
             await _sinkTask.Received().Execute(connector, 1, Arg.Any<CancellationTokenSource>());
             await _sinkHandler.Received().Cleanup(connector);
+            await _executionContext.DidNotReceive().Retry();
             _logger.Received().Debug("Starting tasks.", Arg.Any<object>());
             _logger.Received().Debug("Starting task.", Arg.Any<object>());
             _logger.Received().Debug("Task will be stopped.");
@@ -90,19 +82,15 @@ namespace UnitTests.Kafka.Connect.Connectors
         public async Task Execute_WhenSinkHandlerNotSetup()
         {
             const string connector = "connector";
-            var restartsConfig = new RestartsConfig();
-            _configurationProvider.GetRestartsConfig().Returns(restartsConfig);
-            var token = new CancellationTokenSource();
-            var pts = new PauseTokenSource();
             var connectorConfig = new ConnectorConfig{MaxTasks = 1, Name = connector};
             _configurationProvider.GetConnectorConfig(Arg.Any<string>()).Returns(connectorConfig);
             _serviceScopeFactory.CreateScope().Returns(_serviceScope);
             _serviceScope.ServiceProvider.Returns(_serviceProvider);
             _serviceProvider.GetService<ISinkTask>().Returns(_sinkTask);
+            _executionContext.Retry(Arg.Any<string>()).Returns(false);
 
-            await _connector.Execute(connector, token);
+            await _connector.Execute(connector, GetCancellationToken());
 
-            _configurationProvider.Received().GetRestartsConfig();
             _executionContext.Received().Initialize(connector, _connector);
             _configurationProvider.Received().GetConnectorConfig(connector);
             _sinkHandlerProvider.Received().GetSinkHandler(connector);
@@ -111,6 +99,7 @@ namespace UnitTests.Kafka.Connect.Connectors
             _serviceProvider.Received().GetService<ISinkTask>();
             await _sinkTask.Received().Execute(connector, 1, Arg.Any<CancellationTokenSource>());
             await _sinkHandler.DidNotReceive().Cleanup(connector);
+            await _executionContext.Received().Retry(connector);
             _logger.Received().Debug("Starting tasks.", Arg.Any<object>());
             _logger.Received().Debug("Starting task.", Arg.Any<object>());
             _logger.Received().Debug("Task will be stopped.");
@@ -129,7 +118,6 @@ namespace UnitTests.Kafka.Connect.Connectors
             var restartsConfig = new RestartsConfig();
             _configurationProvider.GetRestartsConfig().Returns(restartsConfig);
             var token = new CancellationTokenSource();
-            var pts = new PauseTokenSource();
             var connectorConfig = new ConnectorConfig{MaxTasks = 1, Name = connector, Paused = true};
             _configurationProvider.GetConnectorConfig(Arg.Any<string>()).Returns(connectorConfig);
             _sinkHandlerProvider.GetSinkHandler(Arg.Any<string>()).Returns(_sinkHandler);
@@ -163,19 +151,15 @@ namespace UnitTests.Kafka.Connect.Connectors
         public async Task Execute_WhenSinkTaskIsNotAvailable()
         {
             const string connector = "connector";
-            var restartsConfig = new RestartsConfig();
-            _configurationProvider.GetRestartsConfig().Returns(restartsConfig);
-            var token = new CancellationTokenSource();
-            var pts = new PauseTokenSource();
             var connectorConfig = new ConnectorConfig{MaxTasks = 1, Name = connector};
             _configurationProvider.GetConnectorConfig(Arg.Any<string>()).Returns(connectorConfig);
             _sinkHandlerProvider.GetSinkHandler(Arg.Any<string>()).Returns(_sinkHandler);
             _serviceScopeFactory.CreateScope().Returns(_serviceScope);
             _serviceScope.ServiceProvider.Returns(_serviceProvider);
+            _executionContext.Retry(Arg.Any<string>()).Returns(false);
 
-            await _connector.Execute(connector, token);
+            await _connector.Execute(connector, GetCancellationToken());
 
-            _configurationProvider.Received().GetRestartsConfig();
             _executionContext.Received().Initialize(connector, _connector);
             _configurationProvider.Received().GetConnectorConfig(connector);
             _sinkHandlerProvider.Received().GetSinkHandler(connector);
@@ -184,6 +168,7 @@ namespace UnitTests.Kafka.Connect.Connectors
             _serviceProvider.Received().GetService<ISinkTask>();
             await _sinkTask.DidNotReceive().Execute(connector, 1, Arg.Any<CancellationTokenSource>());
             await _sinkHandler.Received().Cleanup(connector);
+            await _executionContext.Received().Retry(connector);
             _logger.Received().Debug("Starting tasks.", Arg.Any<object>());
             _logger.DidNotReceive().Debug("Starting task.", Arg.Any<object>());
             _logger.DidNotReceive().Debug("Task will be stopped.");
@@ -200,22 +185,18 @@ namespace UnitTests.Kafka.Connect.Connectors
         public async Task Execute_WhenSinkTaskIsFaulted()
         {
             const string connector = "connector";
-            var restartsConfig = new RestartsConfig();
-            _configurationProvider.GetRestartsConfig().Returns(restartsConfig);
-            var token = new CancellationTokenSource();
-            var pts = new PauseTokenSource();
             var connectorConfig = new ConnectorConfig{MaxTasks = 1, Name = connector};
             _configurationProvider.GetConnectorConfig(Arg.Any<string>()).Returns(connectorConfig);
             _sinkHandlerProvider.GetSinkHandler(Arg.Any<string>()).Returns(_sinkHandler);
             _serviceScopeFactory.CreateScope().Returns(_serviceScope);
             _serviceScope.ServiceProvider.Returns(_serviceProvider);
             _serviceProvider.GetService<ISinkTask>().Returns(_sinkTask);
+            _executionContext.Retry(Arg.Any<string>()).Returns(false);
             _sinkTask.Execute(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationTokenSource>())
                 .Returns(Task.FromException(new Exception()));
             
-            await _connector.Execute(connector, token);
+            await _connector.Execute(connector, GetCancellationToken());
 
-            _configurationProvider.Received().GetRestartsConfig();
             _executionContext.Received().Initialize(connector, _connector);
             _configurationProvider.Received().GetConnectorConfig(connector);
             _sinkHandlerProvider.Received().GetSinkHandler(connector);
@@ -224,6 +205,7 @@ namespace UnitTests.Kafka.Connect.Connectors
             _serviceProvider.Received().GetService<ISinkTask>();
             await _sinkTask.Received().Execute(connector, 1, Arg.Any<CancellationTokenSource>());
             await _sinkHandler.Received().Cleanup(connector);
+            await _executionContext.Received().Retry(connector);
             _logger.Received().Debug("Starting tasks.", Arg.Any<object>());
             _logger.Received().Debug("Starting task.", Arg.Any<object>());
             _logger.Received().Debug("Task will be stopped.");
@@ -234,6 +216,16 @@ namespace UnitTests.Kafka.Connect.Connectors
             _logger.DidNotReceive().Debug("Attempting to restart the Connector.", Arg.Any<object>());
             _logger.DidNotReceive().Info("Restart attempts exhausted the threshold for the Connector.", Arg.Any<object>());
             
+        }
+
+        private CancellationTokenSource GetCancellationToken()
+        {
+            var cts = new CancellationTokenSource();
+            _tokenHandler.When(k => k.DoNothing()).Do(_ =>
+            {
+                cts.Cancel();
+            });
+            return cts;
         }
 
         /*

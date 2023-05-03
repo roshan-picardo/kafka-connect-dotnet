@@ -7,51 +7,57 @@ using Kafka.Connect.Handlers;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Providers;
+using Kafka.Connect.Tokens;
 using Kafka.Connect.Utilities;
 using Serilog.Context;
 using Serilog.Core.Enrichers;
 
-namespace Kafka.Connect.Connectors
+namespace Kafka.Connect.Connectors;
+
+public class SinkTask : ISinkTask
 {
-    public class SinkTask : ISinkTask
+    private readonly ILogger<SinkTask> _logger;
+    private IConsumer<byte[], byte[]> _consumer;
+    private readonly ISinkConsumer _sinkConsumer;
+    private readonly ISinkProcessor _sinkProcessor;
+    private readonly IPartitionHandler _partitionHandler;
+    private readonly ISinkExceptionHandler _sinkExceptionHandler;
+    private readonly IRetriableHandler _retriableHandler;
+    private readonly IConfigurationProvider _configurationProvider;
+    private readonly IExecutionContext _executionContext;
+    private PauseTokenSource _pauseTokenSource;
+
+    public SinkTask(ILogger<SinkTask> logger,  ISinkConsumer sinkConsumer, ISinkProcessor sinkProcessor,
+        IPartitionHandler partitionHandler, ISinkExceptionHandler sinkExceptionHandler, IRetriableHandler retriableHandler, IConfigurationProvider configurationProvider, IExecutionContext executionContext)
     {
-        private readonly ILogger<SinkTask> _logger;
-        private IConsumer<byte[], byte[]> _consumer;
-        private readonly ISinkConsumer _sinkConsumer;
-        private readonly ISinkProcessor _sinkProcessor;
-        private readonly IPartitionHandler _partitionHandler;
-        private readonly ISinkExceptionHandler _sinkExceptionHandler;
-        private readonly IRetriableHandler _retriableHandler;
-        private readonly IConfigurationProvider _configurationProvider;
-        private readonly IExecutionContext _executionContext;
+        _logger = logger;
+        _sinkConsumer = sinkConsumer;
+        _sinkProcessor = sinkProcessor;
+        _partitionHandler = partitionHandler;
+        _sinkExceptionHandler = sinkExceptionHandler;
+        _retriableHandler = retriableHandler;
+        _configurationProvider = configurationProvider;
+        _executionContext = executionContext;
+    }
 
-        public SinkTask(ILogger<SinkTask> logger,  ISinkConsumer sinkConsumer, ISinkProcessor sinkProcessor,
-            IPartitionHandler partitionHandler, ISinkExceptionHandler sinkExceptionHandler, IRetriableHandler retriableHandler, IConfigurationProvider configurationProvider, IExecutionContext executionContext)
-        {
-            _logger = logger;
-            _sinkConsumer = sinkConsumer;
-            _sinkProcessor = sinkProcessor;
-            _partitionHandler = partitionHandler;
-            _sinkExceptionHandler = sinkExceptionHandler;
-            _retriableHandler = retriableHandler;
-            _configurationProvider = configurationProvider;
-            _executionContext = executionContext;
-        }
+    public bool IsPaused => false;
+    public bool IsStopped { get; private set; }
 
-        public bool IsPaused => false;
-        public bool IsStopped { get; private set; }
-
-        public async Task Execute(string connector, int taskId, CancellationTokenSource cts)
-        {
-            void Cancel()
-            {
-                if (!_configurationProvider.IsErrorTolerated(connector))
-                {
-                    cts.Cancel();
-                }
-            }
+    public async Task Execute(string connector, int taskId, CancellationTokenSource cts)
+    {
             
-            _executionContext.Initialize(connector, taskId, this);
+        void Cancel()
+        {
+            if (!_configurationProvider.IsErrorTolerated(connector))
+            {
+                cts.Cancel();
+            }
+        }
+        _pauseTokenSource = PauseTokenSource.New();
+        _executionContext.Initialize(connector, taskId, this);
+            
+        while (!cts.IsCancellationRequested) // this loop to enable restarts! 
+        {
             _consumer = _sinkConsumer.Subscribe(connector, taskId);
             if (_consumer == null)
             {
@@ -59,14 +65,18 @@ namespace Kafka.Connect.Connectors
                 IsStopped = true;
                 return;
             }
-            
+
             using (LogContext.Push(new PropertyEnricher("GroupId", _configurationProvider.GetGroupId(connector)),
-                new PropertyEnricher("Consumer", _consumer.Name?.Replace(connector, ""))))
+                       new PropertyEnricher("Consumer", _consumer.Name?.Replace(connector, ""))))
             {
                 var batchPollContext = _executionContext.GetOrSetBatchContext(connector, taskId, cts.Token);
 
                 while (!cts.IsCancellationRequested)
                 {
+                    await _pauseTokenSource.Token.WaitWhilePausedAsync(cts.Token);
+                    //TODO: lets approach this solution differently - need an Admin node to issue pause / resume over all workers.
+                    if (cts.IsCancellationRequested) break;
+
                     batchPollContext.Reset(_executionContext.GetNextPollIndex());
                     SinkRecordBatch batch = null;
                     using (LogContext.PushProperty("Batch", batchPollContext.Iteration))
@@ -74,7 +84,8 @@ namespace Kafka.Connect.Connectors
                         try
                         {
                             batch = await _sinkConsumer.Consume(_consumer, connector, taskId);
-                            batch = await _retriableHandler.Retry(b => ProcessAndSinkInternal(connector, b, Cancel), batch, connector);
+                            batch = await _retriableHandler.Retry(b => ProcessAndSinkInternal(connector, b, Cancel),
+                                batch, connector);
                         }
                         catch (Exception ex)
                         {
@@ -86,68 +97,71 @@ namespace Kafka.Connect.Connectors
                             {
                                 await CommitAndLog(batch, connector, taskId);
                             }
+
                             _executionContext.AddToCount(batch?.Count ?? 0);
                         }
                     }
                 }
 
                 Cleanup();
-                IsStopped = true;
+                //if(cts.IsCancellationRequested) continue;
+                // do the retries!!
             }
         }
+        IsStopped = true;
+    }
         
-        private async Task<SinkRecordBatch> ProcessAndSinkInternal(string connector, SinkRecordBatch batch, Action cancelToken)
+    private async Task<SinkRecordBatch> ProcessAndSinkInternal(string connector, SinkRecordBatch batch, Action cancelToken)
+    {
+        if (batch == null || !batch.Any()) return batch;
+        try
         {
-            if (batch == null || !batch.Any()) return batch;
-            try
+            await _sinkProcessor.Process(batch, connector);
+            await _sinkProcessor.Sink(batch, connector);
+            batch.MarkAllCommitReady();
+        }
+        catch (Exception ex)
+        {
+            if (_configurationProvider.IsErrorTolerated(connector) && batch.IsLastAttempt)
             {
-                await _sinkProcessor.Process(batch, connector);
-                await _sinkProcessor.Sink(batch, connector);
-                batch.MarkAllCommitReady();
+                _sinkExceptionHandler.Handle(ex,cancelToken);
+                await _sinkExceptionHandler.HandleDeadLetter(batch, ex, connector);
+                batch.MarkAllCommitReady(true);
             }
-            catch (Exception ex)
+            else
             {
-                if (_configurationProvider.IsErrorTolerated(connector) && batch.IsLastAttempt)
-                {
-                    _sinkExceptionHandler.Handle(ex,cancelToken);
-                    await _sinkExceptionHandler.HandleDeadLetter(batch, ex, connector);
-                    batch.MarkAllCommitReady(true);
-                }
-                else
-                {
-                    throw;
-                }
+                throw;
             }
-
-            return batch;
         }
 
-        private async Task CommitAndLog(SinkRecordBatch batch,  string connector, int taskId)
-        {
-            if (batch != null && batch.Any())
-            {
-                if (batch.GetCommitReadyOffsets().Any())
-                {
-                    _partitionHandler.CommitOffsets(batch, _consumer);
-                }
+        return batch;
+    }
 
-                _logger.Record(batch, _configurationProvider.GetLogEnhancer(connector), connector);
-                await _partitionHandler.NotifyEndOfPartition(batch, connector, taskId);
+    private async Task CommitAndLog(SinkRecordBatch batch,  string connector, int taskId)
+    {
+        if (batch != null && batch.Any())
+        {
+            if (batch.GetCommitReadyOffsets().Any())
+            {
+                _partitionHandler.CommitOffsets(batch, _consumer);
             }
-            _logger.Debug("Finished processing the batch.",
-                new
-                {
-                    Records = batch?.Count ?? 0,
-                    Duration = _executionContext.GetOrSetBatchContext(connector, taskId).Timer.EndTiming(),
-                    Stats = batch?.GetBatchStatus()
-                });
+
+            _logger.Record(batch, _configurationProvider.GetLogEnhancer(connector), connector);
+            await _partitionHandler.NotifyEndOfPartition(batch, connector, taskId);
         }
+        _logger.Debug("Finished processing the batch.",
+            new
+            {
+                Records = batch?.Count ?? 0,
+                Duration = _executionContext.GetOrSetBatchContext(connector, taskId).Timer.EndTiming(),
+                Stats = batch?.GetBatchStatus()
+            });
+    }
         
-        private void Cleanup()
-        {
-            if (_consumer == null) return;
-            _consumer.Close();
-            _consumer.Dispose();
-        }
+    private void Cleanup()
+    {
+        if (_consumer == null) return;
+        _consumer.Close();
+        _consumer.Dispose();
     }
 }
