@@ -3,255 +3,281 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Confluent.Kafka;
+using Kafka.Connect.Configurations;
 using Kafka.Connect.Models;
 using Kafka.Connect.Plugin;
 using Kafka.Connect.Plugin.Processors;
 using Kafka.Connect.Plugin.Serializers;
+using Kafka.Connect.Providers;
 
-namespace Kafka.Connect.Connectors
+namespace Kafka.Connect.Connectors;
+
+public class ExecutionContext : IExecutionContext
 {
-    public class ExecutionContext : IExecutionContext
+    private readonly IEnumerable<IPluginInitializer> _plugins;
+    private readonly IEnumerable<IProcessor> _processors;
+    private readonly IEnumerable<ISinkHandler> _handlers;
+    private readonly IEnumerable<IDeserializer> _deserializers;
+    private readonly WorkerContext _workerContext;
+    private int _topicPollIndex;
+    private int _recordsCount;
+    private readonly CancellationTokenSource _cancellationToken;
+    private readonly RestartsConfig _restartsConfig;
+
+    public ExecutionContext(IEnumerable<IPluginInitializer> plugins, IEnumerable<IProcessor> processors,
+        IEnumerable<ISinkHandler> handlers, IEnumerable<IDeserializer> deserializers, IConfigurationProvider configurationProvider)
     {
-        private readonly IEnumerable<IPluginInitializer> _plugins;
-        private readonly IEnumerable<IProcessor> _processors;
-        private readonly IEnumerable<ISinkHandler> _handlers;
-        private readonly IEnumerable<IDeserializer> _deserializers;
-        private readonly WorkerContext _workerContext;
-        private int _topicPollIndex;
-        private int _recordsCount;
-        private readonly CancellationTokenSource _cancellationToken;
+        _plugins = plugins;
+        _processors = processors;
+        _handlers = handlers;
+        _deserializers = deserializers;
+        _workerContext = new WorkerContext();
+        _topicPollIndex = 0;
+        _recordsCount = 0;
+        _cancellationToken = new CancellationTokenSource();
+        _restartsConfig = configurationProvider.GetRestartsConfig();
+    }
 
-        public ExecutionContext(IEnumerable<IPluginInitializer> plugins, IEnumerable<IProcessor> processors,
-            IEnumerable<ISinkHandler> handlers, IEnumerable<IDeserializer> deserializers)
+    public void Initialize(string name, IWorker worker)
+    {
+        _workerContext.Name = name;
+        _workerContext.Worker = worker;
+        _workerContext.RestartContext =
+            new RestartContext(_restartsConfig, RestartsLevel.Worker);
+        _workerContext.Connectors.Clear();
+    }
+
+    public void Initialize(string name, IConnector connector)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return;
+        var context = _workerContext.Connectors.SingleOrDefault(c => c.Name == name);
+        if (context == null)
         {
-            _plugins = plugins;
-            _processors = processors;
-            _handlers = handlers;
-            _deserializers = deserializers;
-            _workerContext = new WorkerContext();
-            _topicPollIndex = 0;
-            _recordsCount = 0;
-            _cancellationToken = new CancellationTokenSource();
+            context = new ConnectorContext { Name = name };
+            _workerContext.Connectors.Add(context);
         }
+        context.Connector = connector;
+        context.RestartContext =
+            new RestartContext(_restartsConfig, RestartsLevel.Connector);
+        context.Tasks.Clear();
+    }
 
-        public void Initialize(string name, IWorker worker)
+    public void Initialize(string connector, int taskId, ISinkTask task)
+    {
+        if(string.IsNullOrWhiteSpace(connector) && taskId <= 0) return;
+        var connectorContext = _workerContext.Connectors.SingleOrDefault(c => c.Name == connector);
+        if(connectorContext == null) return;
+        var taskContext = connectorContext.Tasks.SingleOrDefault(t => t.Id == taskId);
+        if (taskContext == null)
         {
-            _workerContext.Name = name;
-            _workerContext.Worker = worker;
-            _workerContext.Connectors.Clear();
+            taskContext = new TaskContext { Id = taskId };
+            connectorContext.Tasks.Add(taskContext);
         }
+        taskContext.Task = task;
+        taskContext.RestartContext =
+            new RestartContext(_restartsConfig, RestartsLevel.Task);
+        taskContext.TopicPartitions.Clear();
+    }
 
-        public void Initialize(string name, IConnector connector)
+    public void AssignPartitions(string connector, int task, IEnumerable<TopicPartition> partitions)
+    {
+        var taskContext = _workerContext.Connectors.SingleOrDefault(c => c.Name == connector)?.Tasks
+            .SingleOrDefault(t => t.Id == task);
+        if(taskContext == null) return;
+        foreach (var partition in partitions)
         {
-            if (string.IsNullOrWhiteSpace(name)) return;
-            var context = _workerContext.Connectors.SingleOrDefault(c => c.Name == name);
-            if (context == null)
+            if (!taskContext.TopicPartitions.Contains((partition.Topic, partition.Partition.Value)))
             {
-                context = new ConnectorContext { Name = name };
-                _workerContext.Connectors.Add(context);
-            }
-            context.Connector = connector;
-            context.Tasks.Clear();
-        }
-
-        public void Initialize(string connector, int taskId, ISinkTask task)
-        {
-            if(string.IsNullOrWhiteSpace(connector) && taskId <= 0) return;
-            var connectorContext = _workerContext.Connectors.SingleOrDefault(c => c.Name == connector);
-            if(connectorContext == null) return;
-            var taskContext = connectorContext.Tasks.SingleOrDefault(t => t.Id == taskId);
-            if (taskContext == null)
-            {
-                taskContext = new TaskContext { Id = taskId };
-                connectorContext.Tasks.Add(taskContext);
-            }
-            taskContext.Task = task;
-            taskContext.TopicPartitions.Clear();
-        }
-
-        public void AssignPartitions(string connector, int task, IEnumerable<TopicPartition> partitions)
-        {
-            var taskContext = _workerContext.Connectors.SingleOrDefault(c => c.Name == connector)?.Tasks
-                .SingleOrDefault(t => t.Id == task);
-            if(taskContext == null) return;
-            foreach (var partition in partitions)
-            {
-                if (!taskContext.TopicPartitions.Contains((partition.Topic, partition.Partition.Value)))
-                {
-                    taskContext.TopicPartitions.Add((partition.Topic, partition.Partition.Value));
-                }
+                taskContext.TopicPartitions.Add((partition.Topic, partition.Partition.Value));
             }
         }
+    }
         
-        public void RevokePartitions(string connector, int task, IEnumerable<TopicPartition> partitions)
+    public void RevokePartitions(string connector, int task, IEnumerable<TopicPartition> partitions)
+    {
+        var taskContext = _workerContext.Connectors.SingleOrDefault(c => c.Name == connector)?.Tasks
+            .SingleOrDefault(t => t.Id == task);
+        if(taskContext == null) return;
+        foreach (var partition in partitions)
         {
-            var taskContext = _workerContext.Connectors.SingleOrDefault(c => c.Name == connector)?.Tasks
-                .SingleOrDefault(t => t.Id == task);
-            if(taskContext == null) return;
-            foreach (var partition in partitions)
+            if (taskContext.TopicPartitions.Contains((partition.Topic, partition.Partition.Value)))
             {
-                if (taskContext.TopicPartitions.Contains((partition.Topic, partition.Partition.Value)))
-                {
-                    taskContext.TopicPartitions.Remove((partition.Topic, partition.Partition.Value));
-                }
+                taskContext.TopicPartitions.Remove((partition.Topic, partition.Partition.Value));
             }
         }
+    }
 
-        public dynamic GetStatus(string connector = null, int task = 0)
+    public dynamic GetStatus(string connector = null, int task = 0)
+    {
+        var connectorContext = _workerContext.Connectors.SingleOrDefault(c => c.Name == connector);
+        if (connectorContext == null) return GetWorkerStatus();
+        var taskContext = connectorContext.Tasks.SingleOrDefault(t => t.Id == task);
+        return taskContext != null ? GetTaskStatus(taskContext) : GetConnectorStatus(connectorContext);
+    }
+
+    public dynamic GetFullDetails()
+    {
+        return new
         {
-            var connectorContext = _workerContext.Connectors.SingleOrDefault(c => c.Name == connector);
-            if (connectorContext == null) return GetWorkerStatus();
-            var taskContext = connectorContext.Tasks.SingleOrDefault(t => t.Id == task);
-            return taskContext != null ? GetTaskStatus(taskContext) : GetConnectorStatus(connectorContext);
-        }
+            Worker = GetWorkerStatus(),
+            Plugins = _plugins?.Select(p => p?.GetType().FullName),
+            Processors = _processors?.Select(p => p?.GetType().FullName),
+            Deserializers = _deserializers?.Select(d => d?.GetType().FullName),
+            Handlers = _handlers?.Select(h => h?.GetType().FullName)
+        };
+    }
 
-        public dynamic GetFullDetails()
+    public bool IsStopped => _workerContext.IsStopped;
+
+    public BatchPollContext GetOrSetBatchContext(string connector, int taskId, CancellationToken token = default)
+    {
+        var taskContext = _workerContext.Connectors.SingleOrDefault(c => c.Name == connector)?.Tasks
+            .SingleOrDefault(t => t.Id == taskId);
+        if (taskContext == null) return new BatchPollContext {Token = token};
+        taskContext.BatchContext ??= new BatchPollContext {Token = token};
+        return taskContext.BatchContext;
+    }
+
+    public int GetNextPollIndex()
+    {
+        return Interlocked.Increment(ref _topicPollIndex);
+    }
+
+    public void AddToCount(int records)
+    {
+        Interlocked.Add(ref _recordsCount, records);
+    }
+
+    public CancellationTokenSource GetToken()
+    {
+        return _cancellationToken;
+    }
+
+    public void Shutdown()
+    {
+        if (_cancellationToken is {IsCancellationRequested: false})
         {
-            return new
-            {
-                Worker = GetWorkerStatus(),
-                Plugins = _plugins?.Select(p => p?.GetType().FullName),
-                Processors = _processors?.Select(p => p?.GetType().FullName),
-                Deserializers = _deserializers?.Select(d => d?.GetType().FullName),
-                Handlers = _handlers?.Select(h => h?.GetType().FullName)
-            };
+            _cancellationToken.Cancel();
         }
+    }
 
-        public bool IsStopped => _workerContext.IsStopped;
-
-        public BatchPollContext GetOrSetBatchContext(string connector, int taskId, CancellationToken token = default)
+    public async Task Pause(string connector = null, int task = 0)
+    {
+        if (string.IsNullOrWhiteSpace(connector))
         {
-            var taskContext = _workerContext.Connectors.SingleOrDefault(c => c.Name == connector)?.Tasks
-                .SingleOrDefault(t => t.Id == taskId);
-            if (taskContext == null) return new BatchPollContext {Token = token};
-            taskContext.BatchContext ??= new BatchPollContext {Token = token};
-            return taskContext.BatchContext;
+            await _workerContext.Worker?.Pause()!;
         }
-
-        public int GetNextPollIndex()
+        else if (task <= 0)
         {
-            return Interlocked.Increment(ref _topicPollIndex);
+            await _workerContext.Connectors.SingleOrDefault(c => c.Name == connector)?.Connector?.Pause()!;
         }
-
-        public void AddToCount(int records)
+        else
         {
-            Interlocked.Add(ref _recordsCount, records);
+            // TODO: Pause the Task
         }
-
-        public CancellationTokenSource GetToken()
-        {
-            return _cancellationToken;
-        }
-
-        public void Shutdown()
-        {
-            if (_cancellationToken is {IsCancellationRequested: false})
-            {
-                _cancellationToken.Cancel();
-            }
-        }
-
-        public async Task Pause(string connector = null, int task = 0)
-        {
-            if (string.IsNullOrWhiteSpace(connector))
-            {
-                await _workerContext.Worker?.Pause()!;
-            }
-            else if (task <= 0)
-            {
-               await _workerContext.Connectors.SingleOrDefault(c => c.Name == connector)?.Connector?.Pause()!;
-            }
-            else
-            {
-                // TODO: Pause the Task
-            }
-        }
+    }
         
-        public async Task Resume(string connector = null, int task = 0)
+    public async Task Resume(string connector = null, int task = 0)
+    {
+        if (string.IsNullOrWhiteSpace(connector))
         {
-            if (string.IsNullOrWhiteSpace(connector))
-            {
-                await _workerContext.Worker?.Resume()!;
-            }
-            else if (task <= 0)
-            {
-                await _workerContext.Connectors.SingleOrDefault(c => c.Name == connector)?.Connector?.Resume(null)!;
-            }
-            else
-            {
-                // TODO: Resume the Task
-            }
+            await _workerContext.Worker?.Resume()!;
         }
+        else if (task <= 0)
+        {
+            await _workerContext.Connectors.SingleOrDefault(c => c.Name == connector)?.Connector?.Resume(null)!;
+        }
+        else
+        {
+            // TODO: Resume the Task
+        }
+    }
         
-        public async Task Restart(int delay, string connector = null, int task = 0)
+    public async Task Restart(int delay, string connector = null, int task = 0)
+    {
+        //TODO: this method needs to cancel the token and call Execute method 
+        await Pause(connector, task);
+        await Task.Delay(delay);
+        await Resume(connector, task);
+    }
+
+    public IConnector GetConnector(string connector) =>
+        _workerContext.Connectors?.SingleOrDefault(c => c.Name == connector)?.Connector;
+
+
+    public ISinkTask GetSinkTask(string connector, int task) => _workerContext.Connectors
+        ?.SingleOrDefault(c => c.Name == connector)?.Tasks?.SingleOrDefault(t => t.Id == task)?.Task;
+
+    public async Task<bool> Retry(string connector = null, int task = 0)
+    {
+        if (string.IsNullOrWhiteSpace(connector))
         {
-            //TODO: this method needs to cancel the token and call Execute method 
-            await Pause(connector, task);
-            await Task.Delay(delay);
-            await Resume(connector, task);
+            return await _workerContext.RestartContext.Retry();
         }
 
-        public IConnector GetConnector(string connector) =>
-            _workerContext.Connectors?.SingleOrDefault(c => c.Name == connector)?.Connector;
-
-
-        public ISinkTask GetSinkTask(string connector, int task) => _workerContext.Connectors
-            ?.SingleOrDefault(c => c.Name == connector)?.Tasks?.SingleOrDefault(t => t.Id == task)?.Task;
-
-        private static dynamic GetTaskStatus(TaskContext taskContext)
+        if(task <= 0)
         {
-            return new
+            return await _workerContext.Connectors.SingleOrDefault(c => c.Name == connector)?.RestartContext
+                .Retry()!;
+        }
+
+        return await _workerContext.Connectors.SingleOrDefault(c => c.Name == connector)?.Tasks
+            ?.SingleOrDefault(t => t.Id == task)?.RestartContext.Retry()!;
+    }
+
+    private static dynamic GetTaskStatus(TaskContext taskContext)
+    {
+        return new
+        {
+            Id = taskContext.Id.ToString("00"),
+            taskContext.Status,
+            Uptime = taskContext.Uptime.ToString(@"dd\.hh\:mm\:ss"),
+            Assignments = taskContext.TopicPartitions.Select(p =>
             {
-                Id = taskContext.Id.ToString("00"),
-                taskContext.Status,
-                Uptime = taskContext.Uptime.ToString(@"dd\.hh\:mm\:ss"),
-                Assignments = taskContext.TopicPartitions.Select(p =>
+                var (topic, partition) = p;
+                return new
                 {
-                    var (topic, partition) = p;
-                    return new
-                    {
-                        Topic = topic,
-                        Partition = partition
-                    };
-                })
-            };
-        }
-        private static dynamic GetConnectorStatus(ConnectorContext connectorContext)
+                    Topic = topic,
+                    Partition = partition
+                };
+            })
+        };
+    }
+    private static dynamic GetConnectorStatus(ConnectorContext connectorContext)
+    {
+        return new
         {
-            return new
+            connectorContext.Name,
+            connectorContext.Status,
+            Uptime = connectorContext.Uptime.ToString(@"dd\.hh\:mm\:ss"),
+            Summary = new
             {
-                connectorContext.Name,
-                connectorContext.Status,
-                Uptime = connectorContext.Uptime.ToString(@"dd\.hh\:mm\:ss"),
-                Summary = new
-                {
-                    connectorContext.Tasks.Count,
-                    Running = connectorContext.Tasks.Count(t => !t.Task.IsPaused && !t.IsStopped),
-                    Paused = connectorContext.Tasks.Count(t => t.Task.IsPaused),
-                    Stopped = connectorContext.Tasks.Count(t => !t.Task.IsPaused && t.IsStopped),
-                    Assigned = connectorContext.Tasks.Count(t => t.TopicPartitions != null && t.TopicPartitions.Any())
-                },
-                Tasks = connectorContext.Tasks.Select(t => GetTaskStatus(t))
-            };
-        }
-        private dynamic GetWorkerStatus()
+                connectorContext.Tasks.Count,
+                Running = connectorContext.Tasks.Count(t => !t.Task.IsPaused && !t.IsStopped),
+                Paused = connectorContext.Tasks.Count(t => t.Task.IsPaused),
+                Stopped = connectorContext.Tasks.Count(t => !t.Task.IsPaused && t.IsStopped),
+                Assigned = connectorContext.Tasks.Count(t => t.TopicPartitions != null && t.TopicPartitions.Any())
+            },
+            Tasks = connectorContext.Tasks.Select(t => GetTaskStatus(t))
+        };
+    }
+    private dynamic GetWorkerStatus()
+    {
+        return new
         {
-            return new
+            _workerContext.Name,
+            _workerContext.Status,
+            Uptime = _workerContext.Uptime.ToString(@"dd\.hh\:mm\:ss"),
+            Summary = new
             {
-                _workerContext.Name,
-                _workerContext.Status,
-                Uptime = _workerContext.Uptime.ToString(@"dd\.hh\:mm\:ss"),
-                Summary = new
-                {
-                    _workerContext.Connectors.Count,
-                    Running = _workerContext.Connectors.Count(c => !c.Connector.IsPaused && !c.IsStopped),
-                    Paused = _workerContext.Connectors.Count(c => c.Connector.IsPaused),
-                    Stopped = _workerContext.Connectors.Count(c => !c.Connector.IsPaused && c.IsStopped),
-                    Poll = _topicPollIndex,
-                    Records = _recordsCount
-                },
-                Connectors = _workerContext.Connectors.Select(c => GetConnectorStatus(c))
-            };
-        }
+                _workerContext.Connectors.Count,
+                Running = _workerContext.Connectors.Count(c => !c.Connector.IsPaused && !c.IsStopped),
+                Paused = _workerContext.Connectors.Count(c => c.Connector.IsPaused),
+                Stopped = _workerContext.Connectors.Count(c => !c.Connector.IsPaused && c.IsStopped),
+                Poll = _topicPollIndex,
+                Records = _recordsCount
+            },
+            Connectors = _workerContext.Connectors.Select(c => GetConnectorStatus(c))
+        };
     }
 }
