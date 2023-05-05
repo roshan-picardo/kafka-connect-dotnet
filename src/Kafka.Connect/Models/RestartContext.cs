@@ -13,14 +13,14 @@ public class RestartContext
 
     public RestartContext(RestartsConfig config, RestartsLevel restartsLevel)
     {
-        _config = config;
+        _config = config ?? new RestartsConfig();
         _restartsLevel = restartsLevel;
-        _remainingAttempts = config.Attempts;
-        _timer = new Timer(config.RetryWaitTimeMs);
+        _remainingAttempts = _config.Attempts;
+        _timer = new Timer(_config.RetryWaitTimeMs);
         _timer.Elapsed += (_, _) =>
         {
-            if (config.Attempts <= 0) return;
-            _remainingAttempts = config.Attempts;
+            if (_config.Attempts <= 0) return;
+            _remainingAttempts = _config.Attempts;
             _timer.Stop();
         };
     }

@@ -18,11 +18,11 @@ public class ExecutionContext : IExecutionContext
     private readonly IEnumerable<IProcessor> _processors;
     private readonly IEnumerable<ISinkHandler> _handlers;
     private readonly IEnumerable<IDeserializer> _deserializers;
+    private readonly IConfigurationProvider _configurationProvider;
     private readonly WorkerContext _workerContext;
     private int _topicPollIndex;
     private int _recordsCount;
     private readonly CancellationTokenSource _cancellationToken;
-    private readonly RestartsConfig _restartsConfig;
 
     public ExecutionContext(IEnumerable<IPluginInitializer> plugins, IEnumerable<IProcessor> processors,
         IEnumerable<ISinkHandler> handlers, IEnumerable<IDeserializer> deserializers, IConfigurationProvider configurationProvider)
@@ -31,11 +31,11 @@ public class ExecutionContext : IExecutionContext
         _processors = processors;
         _handlers = handlers;
         _deserializers = deserializers;
+        _configurationProvider = configurationProvider;
         _workerContext = new WorkerContext();
         _topicPollIndex = 0;
         _recordsCount = 0;
         _cancellationToken = new CancellationTokenSource();
-        _restartsConfig = configurationProvider.GetRestartsConfig();
     }
 
     public void Initialize(string name, IWorker worker)
@@ -43,7 +43,7 @@ public class ExecutionContext : IExecutionContext
         _workerContext.Name = name;
         _workerContext.Worker = worker;
         _workerContext.RestartContext =
-            new RestartContext(_restartsConfig, RestartsLevel.Worker);
+            new RestartContext(_configurationProvider.GetRestartsConfig(), RestartsLevel.Worker);
         _workerContext.Connectors.Clear();
     }
 
@@ -58,13 +58,13 @@ public class ExecutionContext : IExecutionContext
         }
         context.Connector = connector;
         context.RestartContext =
-            new RestartContext(_restartsConfig, RestartsLevel.Connector);
+            new RestartContext(_configurationProvider.GetRestartsConfig(), RestartsLevel.Connector);
         context.Tasks.Clear();
     }
 
     public void Initialize(string connector, int taskId, ISinkTask task)
     {
-        if(string.IsNullOrWhiteSpace(connector) && taskId <= 0) return;
+        if(string.IsNullOrWhiteSpace(connector) || taskId <= 0) return;
         var connectorContext = _workerContext.Connectors.SingleOrDefault(c => c.Name == connector);
         if(connectorContext == null) return;
         var taskContext = connectorContext.Tasks.SingleOrDefault(t => t.Id == taskId);
@@ -75,7 +75,7 @@ public class ExecutionContext : IExecutionContext
         }
         taskContext.Task = task;
         taskContext.RestartContext =
-            new RestartContext(_restartsConfig, RestartsLevel.Task);
+            new RestartContext(_configurationProvider.GetRestartsConfig(), RestartsLevel.Task);
         taskContext.TopicPartitions.Clear();
     }
 
@@ -161,44 +161,44 @@ public class ExecutionContext : IExecutionContext
         }
     }
 
-    public async Task Pause(string connector = null, int task = 0)
+    public void Pause(string connector = null, int task = 0)
     {
         if (string.IsNullOrWhiteSpace(connector))
-        {
-            await _workerContext.Worker?.Pause()!;
+        { 
+            _workerContext.Worker?.Pause();
         }
         else if (task <= 0)
         {
-            await _workerContext.Connectors.SingleOrDefault(c => c.Name == connector)?.Connector?.Pause()!;
+            _workerContext.Connectors.SingleOrDefault(c => c.Name == connector)?.Connector?.Pause();
         }
         else
         {
             // TODO: Pause the Task
         }
     }
-        
-    public async Task Resume(string connector = null, int task = 0)
+
+    public void Resume(string connector = null, int task = 0)
     {
         if (string.IsNullOrWhiteSpace(connector))
         {
-            await _workerContext.Worker?.Resume()!;
+            _workerContext.Worker?.Resume();
         }
         else if (task <= 0)
         {
-            await _workerContext.Connectors.SingleOrDefault(c => c.Name == connector)?.Connector?.Resume(null)!;
+            _workerContext.Connectors.SingleOrDefault(c => c.Name == connector)?.Connector?.Resume(null);
         }
         else
         {
             // TODO: Resume the Task
         }
     }
-        
+
     public async Task Restart(int delay, string connector = null, int task = 0)
     {
         //TODO: this method needs to cancel the token and call Execute method 
-        await Pause(connector, task);
+        Pause(connector, task);
         await Task.Delay(delay);
-        await Resume(connector, task);
+        Resume(connector, task);
     }
 
     public IConnector GetConnector(string connector) =>

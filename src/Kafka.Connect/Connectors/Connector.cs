@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Kafka.Connect.Plugin.Logging;
@@ -10,7 +9,6 @@ using Kafka.Connect.Tokens;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog.Context;
 
-[assembly:InternalsVisibleTo("Kafka.Connect.UnitTests")]
 namespace Kafka.Connect.Connectors;
 
 public class Connector : IConnector
@@ -21,7 +19,7 @@ public class Connector : IConnector
     private readonly IConfigurationProvider _configurationProvider;
     private readonly IExecutionContext _executionContext;
     private readonly ITokenHandler _tokenHandler;
-    private PauseTokenSource _pauseTokenSource;
+    private readonly PauseTokenSource _pauseTokenSource;
 
     public Connector(ILogger<Connector> logger, IServiceScopeFactory serviceScopeFactory,
         ISinkHandlerProvider sinkHandlerProvider,
@@ -33,6 +31,7 @@ public class Connector : IConnector
         _configurationProvider = configurationProvider;
         _executionContext = executionContext;
         _tokenHandler = tokenHandler;
+        _pauseTokenSource = PauseTokenSource.New();
     }
         
     public bool IsPaused => _pauseTokenSource.IsPaused;
@@ -41,10 +40,11 @@ public class Connector : IConnector
     public async Task Execute(string connector,  CancellationTokenSource cts)
     {
         _executionContext.Initialize(connector, this);
-        _pauseTokenSource = PauseTokenSource.New();
         var connectorConfig = _configurationProvider.GetConnectorConfig(connector);
-
-        _pauseTokenSource.Toggle(connectorConfig.Paused);
+        if (connectorConfig.Paused)
+        {
+            _pauseTokenSource.Pause();
+        }
 
         var sinkHandler = _sinkHandlerProvider.GetSinkHandler(connectorConfig.Name);
 
@@ -55,6 +55,7 @@ public class Connector : IConnector
 
         while (!cts.IsCancellationRequested) 
         {
+            _tokenHandler.DoNothing();
             await _pauseTokenSource.Token.WaitWhilePausedAsync(cts.Token);
 
             if (cts.IsCancellationRequested)
@@ -101,13 +102,12 @@ public class Connector : IConnector
                 {
                     _logger.Error("Connector is faulted, and will be terminated.", t.Exception?.InnerException);
                 }
-            }, CancellationToken.None);
+            }, TaskContinuationOptions.None);
 
             if(cts.IsCancellationRequested || _pauseTokenSource.IsPaused) continue;
 
             if (await _executionContext.Retry(connector)) continue;
             _pauseTokenSource.Pause();
-            _tokenHandler.DoNothing();
         }
         _logger.Debug( "Shutting down the connector.");
 
@@ -119,24 +119,14 @@ public class Connector : IConnector
         IsStopped = true;
     }
 
-    public Task Pause()
+    public void Pause()
     {
         _pauseTokenSource.Pause();
-        return Task.CompletedTask;
     }
 
-    public Task Resume(IDictionary<string, string> payload)
+    public void Resume(IDictionary<string, string> payload)
     {
         _pauseTokenSource.Resume();
-        return Task.CompletedTask;
     }
 
-    public async Task Restart(int? delay, IDictionary<string, string> payload)
-    {
-        await Pause();
-        await Task.Delay(delay ?? 1000);
-        await Resume(payload);
-    }
-
-        
 }

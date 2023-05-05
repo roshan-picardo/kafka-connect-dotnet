@@ -21,8 +21,8 @@ public interface IExecutionContext
     void Initialize(string name, IWorker worker);
     void Initialize(string name, IConnector connector);
     void Initialize(string connector, int taskId, ISinkTask task);
-    Task Pause(string connector = null, int task = 0);
-    Task Resume(string connector = null, int task = 0);
+    void Pause(string connector = null, int task = 0);
+    void Resume(string connector = null, int task = 0);
     Task Restart(int delay, string connector = null, int task = 0);
     IConnector GetConnector(string connector);
     ISinkTask GetSinkTask(string connector, int task);
