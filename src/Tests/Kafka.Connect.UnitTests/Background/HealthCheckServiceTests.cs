@@ -50,7 +50,7 @@ namespace UnitTests.Kafka.Connect.Background
         public void ExecuteAsync_ServiceEnabledWithHealthCheckLogs()
         {
             _configurationProvider.GetHealthCheckConfig().Returns(new HealthCheckConfig{InitialDelayMs = 1, PeriodicDelayMs = 1});
-            var log = new WorkerContext { Name = "My Worker" };
+            var log = new WorkerContext();
             _executionContext.GetStatus().Returns(log);
             _healthCheckService =
                 new HealthCheckService(_logger, _configurationProvider, _executionContext, _tokenHandler);

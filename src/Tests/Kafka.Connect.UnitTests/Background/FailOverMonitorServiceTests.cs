@@ -190,7 +190,7 @@ namespace UnitTests.Kafka.Connect.Background
                 _logger.Received().Trace( "Broker failure detected.", new{Connector = "unit-test-fail-over-enabled-b", Threshold = i });
             }
 
-            _connector.Received(1).Restart(Arg.Any<int>(), null);
+            _executionContext.Received(1).Restart(Arg.Any<int>(), "unit-test-fail-over-enabled-a");
         }
         
         [Theory]
