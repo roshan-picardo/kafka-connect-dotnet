@@ -27,7 +27,6 @@
     </ItemGroup>
 
     <ItemGroup>
-      <Compile Remove="Connectors\SinkTaskTests.cs" />
       <Compile Remove="Converters\GenericRecordParserTests.cs" />
       <Compile Remove="Converters\JsonRecordFlattenerTests.cs" />
     </ItemGroup>
