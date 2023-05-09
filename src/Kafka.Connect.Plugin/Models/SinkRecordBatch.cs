@@ -1,7 +1,6 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using Kafka.Connect.Plugin.Extensions;
 
 namespace Kafka.Connect.Plugin.Models
@@ -19,19 +18,9 @@ namespace Kafka.Connect.Plugin.Models
             _eofPartitions = new List<(string Topic, int Partition, long Offset)>();
         }
 
-        public static async Task<SinkRecordBatch> New(string connector)
-        {
-            return await Task.FromResult(new SinkRecordBatch(connector));
-        }
-        
         public string Connector { get; }
         
         public bool IsEmpty => Count == 0;
-
-        public SinkRecordBatch Single(SinkRecord record)
-        {
-            return new SinkRecordBatch(Connector, record);
-        }
 
         public IEnumerable<(string Topic, int Partition, long Offset)> GetCommitReadyOffsets()
         {

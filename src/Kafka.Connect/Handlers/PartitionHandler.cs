@@ -55,6 +55,7 @@ namespace Kafka.Connect.Handlers
 
         public async Task NotifyEndOfPartition(SinkRecordBatch batch, string connector, int taskId)
         {
+            if(batch == null || !batch.Any()) return;
             using (_logger.Track("Notify end of the partition."))
             {
                 Task<DeliveryResult<byte[], byte[]>> Produce(IProducer<byte[], byte[]> producer, string topic,
