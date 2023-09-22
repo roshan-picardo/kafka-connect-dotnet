@@ -2,203 +2,202 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Kafka.Connect.Converters;
-using Microsoft.Extensions.Logging;
+using Kafka.Connect.Plugin.Logging;
 using Newtonsoft.Json.Linq;
 using NSubstitute;
 using Xunit;
 
-namespace Kafka.Connect.Tests.Converters
+namespace UnitTests.Kafka.Connect.Converters;
+
+public class JsonRecordFlattenerTests
 {
-    public class JsonRecordFlattenerTests
+    private readonly JsonRecordFlattener _jsonRecordFlattener;
+
+    public JsonRecordFlattenerTests()
     {
-        private readonly JsonRecordFlattener _jsonRecordFlattener;
+        _jsonRecordFlattener = new JsonRecordFlattener(Substitute.For<ILogger<JsonRecordFlattener>>());
+    }
 
-        public JsonRecordFlattenerTests()
-        {
-            _jsonRecordFlattener = new JsonRecordFlattener();
-        }
-
-        [Fact]
-        public void Flatten_Flat_Json()
-        {
-            var dateTest = new DateTime(2020, 10, 10, 10, 10, 10);
-            var token = new JObject()
-                {{"string", "value1"}, {"number", 100}, {"datetime", dateTest}};
+    [Fact]
+    public void Flatten_Flat_Json()
+    {
+        var dateTest = new DateTime(2020, 10, 10, 10, 10, 10);
+        var token = new JObject()
+            {{"string", "value1"}, {"number", 100}, {"datetime", dateTest}};
             
-            var expected = new Dictionary<string, object>
-            {
-                {"string", "value1"}, {"number", (long)100}, {"datetime", dateTest}
-            };
-
-            var actual = _jsonRecordFlattener.Flatten(token);
-            Assert.Equal(expected["string"], actual["string"]);
-            Assert.Equal(expected["number"], actual["number"]);
-            Assert.Equal(expected["datetime"], actual["datetime"]);
-        }
-        
-        [Fact]
-        public void Flatten_Structured_Json()
+        var expected = new Dictionary<string, object>
         {
-            var data = new
+            {"string", "value1"}, {"number", (long)100}, {"datetime", dateTest}
+        };
+
+        var actual = _jsonRecordFlattener.Flatten(token);
+        Assert.Equal(expected["string"], actual["string"]);
+        Assert.Equal(expected["number"], actual["number"]);
+        Assert.Equal(expected["datetime"], actual["datetime"]);
+    }
+        
+    [Fact]
+    public void Flatten_Structured_Json()
+    {
+        var data = new
+        {
+            parent = new
             {
-                parent = new
+                child1 = "firstChild",
+                child2 = new
                 {
-                    child1 = "firstChild",
-                    child2 = new
-                    {
-                        grandChild = "grandchild"
-                    }
+                    grandChild = "grandchild"
                 }
-            };
+            }
+        };
             
-            var token = JToken.FromObject(data);
+        var token = JToken.FromObject(data);
             
-            var expected = new Dictionary<string, object>
-            {
-                {"parent.child1", "firstChild"}, {"parent.child2.grandChild", "grandchild"}
-            };
-
-            var actual = _jsonRecordFlattener.Flatten(token);
-            
-            Assert.Equal(expected["parent.child1"], actual["parent.child1"]);
-            Assert.Equal(expected["parent.child2.grandChild"], actual["parent.child2.grandChild"]);
-        }
-        
-        [Fact]
-        public void Flatten_Arrays_Json()
+        var expected = new Dictionary<string, object>
         {
-            var data = new
+            {"parent.child1", "firstChild"}, {"parent.child2.grandChild", "grandchild"}
+        };
+
+        var actual = _jsonRecordFlattener.Flatten(token);
+            
+        Assert.Equal(expected["parent.child1"], actual["parent.child1"]);
+        Assert.Equal(expected["parent.child2.grandChild"], actual["parent.child2.grandChild"]);
+    }
+        
+    [Fact]
+    public void Flatten_Arrays_Json()
+    {
+        var data = new
+        {
+            parent = new
             {
-                parent = new
+                children = new []
                 {
-                    children = new []
+                    new
                     {
-                        new
-                        {
-                            name = "me"
-                        },
-                        new
-                        {
-                            name = "you"
-                        }
+                        name = "me"
                     },
-                    friend = "friend"
-                }
-            };
+                    new
+                    {
+                        name = "you"
+                    }
+                },
+                friend = "friend"
+            }
+        };
             
-            var token = JToken.FromObject(data);
+        var token = JToken.FromObject(data);
             
-            var expected = new Dictionary<string, object>
-            {
-                {"parent.friend", "friend"}, {"parent.children[0].name", "me"}, {"parent.children[1].name", "you"}
-            };
-
-            var actual = _jsonRecordFlattener.Flatten(token);
-            
-            Assert.Equal(expected["parent.friend"], actual["parent.friend"]);
-            Assert.Equal(expected["parent.children[0].name"], actual["parent.children[0].name"]);
-            Assert.Equal(expected["parent.children[1].name"], actual["parent.children[1].name"]);
-        }
-
-        [Fact]
-        public void Flatten_EmptyElementAndArray_Json()
+        var expected = new Dictionary<string, object>
         {
-            var data = new
-            {
-                parent = new
-                {
-                    item = new { },
-                    array = new List<string>()
-                }
-            };
+            {"parent.friend", "friend"}, {"parent.children[0].name", "me"}, {"parent.children[1].name", "you"}
+        };
 
-            var token = JToken.FromObject(data);
+        var actual = _jsonRecordFlattener.Flatten(token);
+            
+        Assert.Equal(expected["parent.friend"], actual["parent.friend"]);
+        Assert.Equal(expected["parent.children[0].name"], actual["parent.children[0].name"]);
+        Assert.Equal(expected["parent.children[1].name"], actual["parent.children[1].name"]);
+    }
 
-            var expected = new Dictionary<string, object>
-            {
-                {"parent.item", new object()}, {"parent.array", Enumerable.Empty<object>()}
-            };
-
-            var actual = _jsonRecordFlattener.Flatten(token);
-
-            Assert.IsType<object>(expected["parent.item"]);
-            Assert.IsType<object>(actual["parent.item"]);
-        }
-
-        [Fact]
-        public void Unflatten_Flat_Structure()
+    [Fact]
+    public void Flatten_EmptyElementAndArray_Json()
+    {
+        var data = new
         {
-            var dateTest = new DateTime(2020, 10, 10, 10, 10, 10);
-            var input = new Dictionary<string, object>
+            parent = new
             {
-                {"string", "value1"}, {"number", (long)100}, {"datetime", dateTest}
-            };
-            
-            var expected = new JObject()
-                {{"string", "value1"}, {"number", 100}, {"datetime", dateTest}};
+                item = new { },
+                array = new List<string>()
+            }
+        };
 
-            var actual = _jsonRecordFlattener.Unflatten(input);
+        var token = JToken.FromObject(data);
+
+        var expected = new Dictionary<string, object>
+        {
+            {"parent.item", new object()}, {"parent.array", Enumerable.Empty<object>()}
+        };
+
+        var actual = _jsonRecordFlattener.Flatten(token);
+
+        Assert.IsType<object>(expected["parent.item"]);
+        Assert.IsType<object>(actual["parent.item"]);
+    }
+
+    [Fact]
+    public void Unflatten_Flat_Structure()
+    {
+        var dateTest = new DateTime(2020, 10, 10, 10, 10, 10);
+        var input = new Dictionary<string, object>
+        {
+            {"string", "value1"}, {"number", (long)100}, {"datetime", dateTest}
+        };
             
-            Assert.Equal(expected, actual);
-        }
+        var expected = new JObject()
+            {{"string", "value1"}, {"number", 100}, {"datetime", dateTest}};
+
+        var actual = _jsonRecordFlattener.Unflatten(input);
+            
+        Assert.Equal(expected, actual);
+    }
         
-        [Fact]
-        public void Unflatten_Structured_Json()
+    [Fact]
+    public void Unflatten_Structured_Json()
+    {
+        var input = new Dictionary<string, object>
         {
-            var input = new Dictionary<string, object>
-            {
-                {"parent.child1", "firstChild"}, {"parent.child2.grandChild", "grandchild"}
-            };
+            {"parent.child1", "firstChild"}, {"parent.child2.grandChild", "grandchild"}
+        };
             
-            var data = new
+        var data = new
+        {
+            parent = new
             {
-                parent = new
+                child1 = "firstChild",
+                child2 = new
                 {
-                    child1 = "firstChild",
-                    child2 = new
+                    grandChild = "grandchild"
+                }
+            }
+        };
+        var expected = JToken.FromObject(data);
+
+
+        var actual = _jsonRecordFlattener.Unflatten(input);
+            
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void Unflatten_Arrays_Json()
+    {
+        var input = new Dictionary<string, object>
+        {
+            {"parent.friend", "friend"}, {"parent.children[0].name", "me"}, {"parent.children[1].name", "you"}
+        };
+        var data = new
+        {
+            parent = new
+            {
+                friend = "friend",
+                children = new[]
+                {
+                    new
                     {
-                        grandChild = "grandchild"
+                        name = "me"
+                    },
+                    new
+                    {
+                        name = "you"
                     }
                 }
-            };
-            var expected = JToken.FromObject(data);
+            }
+        };
+        var expected = JToken.FromObject(data);
 
+        var actual = _jsonRecordFlattener.Unflatten(input);
 
-            var actual = _jsonRecordFlattener.Unflatten(input);
-            
-            Assert.Equal(expected, actual);
-        }
-
-        [Fact]
-        public void Unflatten_Arrays_Json()
-        {
-            var input = new Dictionary<string, object>
-            {
-                {"parent.friend", "friend"}, {"parent.children[0].name", "me"}, {"parent.children[1].name", "you"}
-            };
-            var data = new
-            {
-                parent = new
-                {
-                    friend = "friend",
-                    children = new[]
-                    {
-                        new
-                        {
-                            name = "me"
-                        },
-                        new
-                        {
-                            name = "you"
-                        }
-                    }
-                }
-            };
-            var expected = JToken.FromObject(data);
-
-            var actual = _jsonRecordFlattener.Unflatten(input);
-
-            Assert.Equal(expected, actual);
-        }
+        Assert.Equal(expected, actual);
     }
 }

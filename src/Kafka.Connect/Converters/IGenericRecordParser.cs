@@ -1,10 +1,9 @@
 using Avro.Generic;
 using Newtonsoft.Json.Linq;
 
-namespace Kafka.Connect.Converters
+namespace Kafka.Connect.Converters;
+
+public interface IGenericRecordParser
 {
-    public interface IGenericRecordParser
-    {
-        JToken Parse(GenericRecord genericRecord);
-    }
+    JToken Parse(GenericRecord genericRecord);
 }

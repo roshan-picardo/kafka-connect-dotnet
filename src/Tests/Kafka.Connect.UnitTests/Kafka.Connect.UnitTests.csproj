@@ -26,13 +26,4 @@
       <ProjectReference Include="..\..\Kafka.Connect\Kafka.Connect.csproj" />
     </ItemGroup>
 
-    <ItemGroup>
-      <Compile Remove="Converters\GenericRecordParserTests.cs" />
-      <Compile Remove="Converters\JsonRecordFlattenerTests.cs" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <Folder Include="Converters" />
-    </ItemGroup>
-
 </Project>
