@@ -5,10 +5,12 @@ using System.Text;
 using Avro;
 using Avro.Generic;
 using Kafka.Connect.Converters;
+using Kafka.Connect.Plugin.Logging;
 using Newtonsoft.Json.Linq;
+using NSubstitute;
 using Xunit;
 
-namespace Kafka.Connect.Tests.Converters
+namespace UnitTests.Kafka.Connect.Converters
 {
     public class GenericRecordParserTests
     {
@@ -16,7 +18,7 @@ namespace Kafka.Connect.Tests.Converters
 
         public GenericRecordParserTests()
         {
-            _genericRecordParser = new GenericRecordParser();
+            _genericRecordParser = new GenericRecordParser(Substitute.For<ILogger<GenericRecordParser>>());
         }
 
         [Theory]
