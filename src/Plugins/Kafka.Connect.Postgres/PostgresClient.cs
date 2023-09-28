@@ -17,6 +17,10 @@ public class PostgresClient : IPostgresClient, IDisposable
     {
         ApplicationName = connector;
         _connection = connection;
+        if (_connection is not { State: ConnectionState.Open })
+        {
+            _connection.Open();
+        }
     }
     public string ApplicationName { get; }
     public NpgsqlConnection GetConnection()

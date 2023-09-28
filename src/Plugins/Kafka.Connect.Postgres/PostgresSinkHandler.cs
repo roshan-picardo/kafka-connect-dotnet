@@ -1,23 +1,34 @@
 using System.Collections.Concurrent;
 using Kafka.Connect.Plugin;
-using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Plugin.Providers;
-using Kafka.Connect.Postgres.Models;
-using Serilog.Context;
-using Serilog.Core.Enrichers;
+using Npgsql;
 
 namespace Kafka.Connect.Postgres;
 
 public class PostgresSinkHandler : SinkHandler<string>
 {
-    public PostgresSinkHandler(ILogger<SinkHandler<string>> logger, IWriteStrategyProvider writeStrategyProvider, IConfigurationProvider configurationProvider) : base(logger, writeStrategyProvider, configurationProvider)
+    private readonly IPostgresClientProvider _postgresClientProvider;
+
+    public PostgresSinkHandler(
+        ILogger<SinkHandler<string>> logger,
+        IWriteStrategyProvider writeStrategyProvider,
+        IConfigurationProvider configurationProvider,
+        IPostgresClientProvider postgresClientProvider) : base(logger, writeStrategyProvider, configurationProvider)
     {
+        _postgresClientProvider = postgresClientProvider;
     }
 
-    protected override Task Sink(string connector, BlockingCollection<SinkRecord<string>> sinkBatch)
+    protected override async Task Sink(string connector, BlockingCollection<SinkRecord<string>> sinkBatch)
     {
-        throw new NotImplementedException();
+        foreach (var record in sinkBatch)
+        {
+            foreach (var model in record.Models)
+            {
+                var command = new NpgsqlCommand(model, _postgresClientProvider.GetPostgresClient(connector).GetConnection());
+                await command.ExecuteNonQueryAsync();
+            }    
+        }
     }
 }

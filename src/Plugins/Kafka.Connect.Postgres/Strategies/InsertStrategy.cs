@@ -4,7 +4,7 @@ using Kafka.Connect.Plugin.Providers;
 using Kafka.Connect.Plugin.Strategies;
 using Kafka.Connect.Postgres.Models;
 
-namespace Kafka.Connect.Postgres;
+namespace Kafka.Connect.Postgres.Strategies;
 
 public class InsertStrategy : WriteStrategy<string>
 {
@@ -23,7 +23,7 @@ public class InsertStrategy : WriteStrategy<string>
         {
             var config = _configurationProvider.GetSinkConfigProperties<PostgresSinkConfig>(connector);
             var insertQuery =
-                $"INSERT INTO {config.Table} SELECT * FROM json_populate_record(null::{config.Table}, '{record.Value}');";
+                $"INSERT INTO {config.Schema}.{config.Table} SELECT * FROM json_populate_record(null::{config.Schema}.{config.Table}, '{record.Value}');";
             return await Task.FromResult((SinkStatus.Inserting, new[] { insertQuery }));
         }
     }

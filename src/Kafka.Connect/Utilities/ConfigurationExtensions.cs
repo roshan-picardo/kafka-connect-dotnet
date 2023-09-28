@@ -21,7 +21,6 @@ namespace Kafka.Connect.Utilities
                  return;
              }
              plugins.Location = Directory.Exists(plugins.Location) ? plugins.Location : $"{AppDomain.CurrentDomain.BaseDirectory}{plugins.Location}";
-             string pluginLocation = null;
              if (!Directory.Exists(plugins.Location))
              {
                  Log.ForContext<Worker>().Debug("{@Log}", new {Message = "Plugins directory is empty. Continuing without loading any plugins."});
@@ -29,6 +28,7 @@ namespace Kafka.Connect.Utilities
              }
              foreach (var (name, initializer) in plugins.Initializers)
              {
+                 string pluginLocation = null;
                  Log.ForContext<Worker>().Debug("{@Log}", new {Message = $"Loading plugin - {name}"});
                  var assemblyFiles = Directory.EnumerateFiles(plugins.Location, $"*{initializer.Assembly}", SearchOption.AllDirectories).ToList();
                  if (!assemblyFiles.Any())
