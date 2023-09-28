@@ -183,6 +183,11 @@ namespace Kafka.Connect.Providers
             return config == null ? default : config.Attributes;
         }
 
+        public string GetPluginName(string connector)
+        {
+            return GetConnectorConfig(connector)?.Plugin;
+        }
+
         public void Validate()  
         {
             if (string.IsNullOrWhiteSpace(_workerConfig.BootstrapServers))

@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net6.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>disable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Npgsql" Version="7.0.6" />
+    </ItemGroup>
+
+    <Choose>
+        <When Condition="'$(Configuration)'=='Debug'">
+            <ItemGroup>
+                <ProjectReference Include="..\..\Kafka.Connect.Plugin\Kafka.Connect.Plugin.csproj">
+                    <Private>false</Private>
+                    <ExcludeAssets>runtime</ExcludeAssets>
+                </ProjectReference>
+            </ItemGroup>
+        </When>
+        <Otherwise>
+            <ItemGroup>
+                <PackageReference Include="Kafka.Connect.Plugin" Version="*">
+                    <Private>false</Private>
+                    <ExcludeAssets>runtime</ExcludeAssets>
+                </PackageReference>
+            </ItemGroup>
+        </Otherwise>
+    </Choose>
+
+</Project>

@@ -16,7 +16,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kafka.Connect.Replicator", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kafka.Connect.FunctionalTests", "Tests\Kafka.Connect.FunctionalTests\Kafka.Connect.FunctionalTests.csproj", "{F2C28EDC-0DED-4EA9-A01B-453F302FFD71}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kafka.Connect.PostgreSql", "Plugins\Kafka.Connect.PostgreSql\Kafka.Connect.PostgreSql.csproj", "{61556092-043C-4B0B-AC56-8F9D802D2541}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kafka.Connect.Postgres", "Plugins\Kafka.Connect.Postgres\Kafka.Connect.Postgres.csproj", "{61556092-043C-4B0B-AC56-8F9D802D2541}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

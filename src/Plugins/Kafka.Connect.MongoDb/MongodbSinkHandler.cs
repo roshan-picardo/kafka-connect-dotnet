@@ -43,7 +43,6 @@ namespace Kafka.Connect.MongoDb
                 connector ??= batches.Connector;
                 var mongoSinkConfig = _configurationProvider.GetSinkConfigProperties<MongoSinkConfig>(connector);
 
-
                 var mongoSinkBatch = new BlockingCollection<MongoSinkRecord>();
                 foreach (var batch in batches.GetByTopicPartition<SinkRecord>())
                 {
@@ -136,6 +135,11 @@ namespace Kafka.Connect.MongoDb
         public bool IsOfType(string plugin, string type)
         {
             return _plugin == plugin && GetType().FullName == type;
+        }
+
+        public bool IsOfType(string connector, string plugin, string handler)
+        {
+            throw new NotImplementedException();
         }
     }
 }

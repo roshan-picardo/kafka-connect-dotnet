@@ -1,0 +1,30 @@
+using Kafka.Connect.Plugin.Logging;
+using Kafka.Connect.Plugin.Models;
+using Kafka.Connect.Plugin.Providers;
+using Kafka.Connect.Plugin.Strategies;
+using Kafka.Connect.Postgres.Models;
+
+namespace Kafka.Connect.Postgres;
+
+public class InsertStrategy : WriteStrategy<string>
+{
+    private readonly ILogger<InsertStrategy> _logger;
+    private readonly IConfigurationProvider _configurationProvider;
+
+    public InsertStrategy(ILogger<InsertStrategy> logger, IConfigurationProvider configurationProvider)
+    {
+        _logger = logger;
+        _configurationProvider = configurationProvider;
+    }
+
+    protected override async Task<(SinkStatus Status, IList<string> Models)> BuildModels(string connector, SinkRecord record)
+    {
+        using (_logger.Track("Creating Insert query"))
+        {
+            var config = _configurationProvider.GetSinkConfigProperties<PostgresSinkConfig>(connector);
+            var insertQuery =
+                $"INSERT INTO {config.Table} SELECT * FROM json_populate_record(null::{config.Table}, '{record.Value}');";
+            return await Task.FromResult((SinkStatus.Inserting, new[] { insertQuery }));
+        }
+    }
+}
