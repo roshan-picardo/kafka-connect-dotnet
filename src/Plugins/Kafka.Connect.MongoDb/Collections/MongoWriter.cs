@@ -30,14 +30,6 @@ namespace Kafka.Connect.MongoDb.Collections
             _configurationProvider = configurationProvider;
         }
 
-        public async Task WriteMany(IList<MongoSinkRecord> batch, MongoSinkConfig mongoSinkConfig, string connector)
-        {
-            using (_logger.Track("Writing models to database"))
-            {
-                await Write(batch.Select(s => s.GetRecord()), BuildWriteModels(batch), connector);
-            }
-        }
-
         public async Task WriteMany(IList<SinkRecord<WriteModel<BsonDocument>>> batch, string connector)
         {
             using (_logger.Track("Writing models to database"))

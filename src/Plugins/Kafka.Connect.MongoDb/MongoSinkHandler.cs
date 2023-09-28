@@ -2,7 +2,6 @@ using System.Collections.Concurrent;
 using System.Linq;
 using System.Threading.Tasks;
 using Kafka.Connect.MongoDb.Collections;
-using Kafka.Connect.MongoDb.Models;
 using Kafka.Connect.Plugin;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;

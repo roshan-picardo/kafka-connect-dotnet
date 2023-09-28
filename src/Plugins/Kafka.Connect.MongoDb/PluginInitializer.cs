@@ -22,10 +22,7 @@ namespace Kafka.Connect.MongoDb
                     .AddScoped<ISinkHandler, MongoSinkHandler>()
                     .AddScoped<IPluginInitializer, DefaultPluginInitializer>()
                     .AddScoped<IMongoClientProvider, MongoClientProvider>()
-                    //.AddScoped<IWriteModelStrategyProvider, WriteModelStrategyProvider>()
-                    //.AddScoped<IWriteModelStrategyProvider, TopicWriteModelStrategyProvider>()
-                    //.AddScoped<IWriteStrategy, DefaultWriteModelStrategy>()
-                    .AddScoped<IWriteStrategy, DefaultWriteModelStrategy>()
+                    .AddScoped<IWriteStrategy, DefaultWriteStrategy>()
                     .AddScoped<IMongoWriter, MongoWriter>();
                 AddMongoClients(collection, pluginConfig.Plugin, pluginConfig.Connectors);
                 AddAdditionalServices(collection, configuration);
