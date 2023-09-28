@@ -5,6 +5,7 @@ using Kafka.Connect.MongoDb.Models;
 using Kafka.Connect.MongoDb.Strategies;
 using Kafka.Connect.Plugin;
 using Kafka.Connect.Plugin.Logging;
+using Kafka.Connect.Plugin.Strategies;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using MongoDB.Driver;
@@ -18,17 +19,13 @@ namespace Kafka.Connect.MongoDb
             try
             {
                 collection
-                    .AddScoped<ISinkHandler>(provider => new MongodbSinkHandler(
-                        provider.GetService<ILogger<MongodbSinkHandler>>(),
-                        provider.GetService<IEnumerable<IWriteModelStrategyProvider>>(),
-                        provider.GetService<Plugin.Providers.IConfigurationProvider>(),
-                        provider.GetService<IMongoWriter>(), pluginConfig.Plugin))
+                    .AddScoped<ISinkHandler, MongoSinkHandler>()
                     .AddScoped<IPluginInitializer, DefaultPluginInitializer>()
                     .AddScoped<IMongoClientProvider, MongoClientProvider>()
-                    .AddScoped<IWriteModelStrategyProvider, WriteModelStrategyProvider>()
-                    .AddScoped<IWriteModelStrategyProvider, TopicWriteModelStrategyProvider>()
-                    .AddScoped<IWriteModelStrategy, DefaultWriteModelStrategy>()
-                    .AddScoped<IWriteModelStrategy, TopicSkipWriteModelStrategy>()
+                    //.AddScoped<IWriteModelStrategyProvider, WriteModelStrategyProvider>()
+                    //.AddScoped<IWriteModelStrategyProvider, TopicWriteModelStrategyProvider>()
+                    //.AddScoped<IWriteStrategy, DefaultWriteModelStrategy>()
+                    .AddScoped<IWriteStrategy, DefaultWriteModelStrategy>()
                     .AddScoped<IMongoWriter, MongoWriter>();
                 AddMongoClients(collection, pluginConfig.Plugin, pluginConfig.Connectors);
                 AddAdditionalServices(collection, configuration);

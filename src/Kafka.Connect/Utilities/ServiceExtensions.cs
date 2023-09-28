@@ -24,6 +24,8 @@ using Serilog;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Providers;
+using Kafka.Connect.Plugin.Strategies;
+using Kafka.Connect.Strategies;
 
 namespace Kafka.Connect.Utilities
 {
@@ -75,6 +77,10 @@ namespace Kafka.Connect.Utilities
                 .AddScoped<IDeserializer, StringDeserializer>()
                 .AddScoped<IDeserializer, IgnoreDeserializer>()
                 .AddScoped<IMessageConverter, MessageConverter>()
+                
+                .AddScoped<IWriteStrategyProvider, WriteStrategyProvider>()
+                .AddScoped<IWriteStrategySelector, TopicStrategySelector>()
+                .AddScoped<IWriteStrategySelector, ValueStrategySelector>()
 
                 .Configure<WorkerConfig>(configuration.GetSection("worker"), options => options.BindNonPublicProperties = true)
                 

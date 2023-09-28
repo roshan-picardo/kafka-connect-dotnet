@@ -4,6 +4,7 @@ namespace Kafka.Connect.Configurations
     {
         public string Plugin { get; set; }
         public string Handler { get; set; }
+        public StrategyConfig Strategy { get; set; }
     }
 
     public class SinkConfig<T> : SinkConfig

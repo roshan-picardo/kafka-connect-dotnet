@@ -1,11 +1,16 @@
 
+using System.Collections.Generic;
+using System.Linq;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+
 namespace Kafka.Connect.Plugin.Models
 {
-    public abstract class SinkRecord<TModels>
+    public class SinkRecord<TModel>
     {
         private readonly SinkRecord _sinkRecord;
 
-        protected SinkRecord(SinkRecord sinkRecord)
+        public SinkRecord(SinkRecord sinkRecord)
         {
             _sinkRecord = sinkRecord;
         }
@@ -22,7 +27,14 @@ namespace Kafka.Connect.Plugin.Models
             _sinkRecord.UpdateStatus();
         }
 
-        public abstract bool Ready { get; }
+        public bool Ready
+        {
+            get
+            {
+                if (_sinkRecord.Skip) return false;
+                return Models != null && Models.Any();
+            }
+        }
 
         public TData GetKey<TData>() => _sinkRecord.GetKey<TData>();
         public TData GetValue<TData>() => _sinkRecord.GetValue<TData>();
@@ -33,8 +45,15 @@ namespace Kafka.Connect.Plugin.Models
             set => _sinkRecord.Status = value;
             get => _sinkRecord.Status;
         }
-        public TModels Models { get; set; }
+        public IEnumerable<TModel> Models { get; set; }
 
-        public abstract object LogModels();
+        public object LogModels()
+        {
+            return Models.Select(m => new
+            {
+                Status,
+                Model = JToken.Parse(JsonConvert.SerializeObject(m))
+            });
+        }
     }
 }
