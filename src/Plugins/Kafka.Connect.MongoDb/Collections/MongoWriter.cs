@@ -55,7 +55,7 @@ namespace Kafka.Connect.MongoDb.Collections
                         .GetDatabase(mongoSinkConfig.Database)
                         .GetCollection<BsonDocument>(mongoSinkConfig.Collection);
                     var bulkWriteResult = await collection.BulkWriteAsync(models,
-                        new BulkWriteOptions {IsOrdered = mongoSinkConfig.WriteStrategy.IsWriteOrdered});
+                        new BulkWriteOptions {IsOrdered = mongoSinkConfig.IsWriteOrdered});
                     _logger.Debug("Models written successfully to mongodb.",
                         new
                         {
