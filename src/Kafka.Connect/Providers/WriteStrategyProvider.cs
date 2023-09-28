@@ -45,6 +45,6 @@ public class WriteStrategyProvider : IWriteStrategyProvider
             strategy = selector?.GetWriteStrategy(record, strategyConfig.Strategy.Selector.Overrides) ??
                        strategy;
         }
-        return strategy ?? throw new ConnectDataException("Strategy not defined.", new ArgumentException("Strategy"));
+        return strategy ?? throw new ConnectDataException("Strategy not defined.", new ArgumentException("Strategy not defined."));
     }
 }

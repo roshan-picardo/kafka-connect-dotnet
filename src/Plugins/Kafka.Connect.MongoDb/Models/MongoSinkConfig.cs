@@ -28,6 +28,6 @@ namespace Kafka.Connect.MongoDb.Models
 
         public string Password { get; set; }
 
-        public WriteStrategy WriteStrategy { get; set; }
+        public bool IsWriteOrdered { get; set; } = true;
     }
 }
