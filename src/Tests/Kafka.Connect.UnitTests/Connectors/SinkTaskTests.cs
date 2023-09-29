@@ -200,7 +200,7 @@ public class SinkTaskTests
         await _partitionHandler.Received().NotifyEndOfPartition(batch, connector, taskId);
         _executionContext.Received().AddToCount(0);
         await _sinkProcessor.DidNotReceive().Process(batch, connector);
-        await _sinkProcessor.DidNotReceive().Sink(batch, connector);
+        await _sinkProcessor.DidNotReceive().Sink(batch, connector, taskId);
         _sinkExceptionHandler.DidNotReceive().Handle(Arg.Any<Exception>(), Arg.Any<Action>());
         await _sinkExceptionHandler.DidNotReceive().HandleDeadLetter(batch, Arg.Any<Exception>(), connector);
         Assert.True(_sinkTask.IsStopped);
@@ -236,7 +236,7 @@ public class SinkTaskTests
         await _partitionHandler.Received().NotifyEndOfPartition(batch, connector, taskId);
         _executionContext.Received().AddToCount(1);
         await _sinkProcessor.Received().Process(batch, connector);
-        await _sinkProcessor.Received().Sink(batch, connector);
+        await _sinkProcessor.Received().Sink(batch, connector, taskId);
         _sinkExceptionHandler.DidNotReceive().Handle(Arg.Any<Exception>(), Arg.Any<Action>());
         await _sinkExceptionHandler.DidNotReceive().HandleDeadLetter(batch, Arg.Any<Exception>(), connector);
         Assert.True(_sinkTask.IsStopped);
@@ -279,7 +279,7 @@ public class SinkTaskTests
         _logger.Received().Record(batch, "Log.Provider", connector);
         await _partitionHandler.Received().NotifyEndOfPartition(batch, connector, taskId);
         _executionContext.Received().AddToCount(1);
-        await _sinkProcessor.DidNotReceive().Sink(batch, connector);
+        await _sinkProcessor.DidNotReceive().Sink(batch, connector, taskId);
         _sinkExceptionHandler.Received(expectedThrow ? 0 : 1).Handle(Arg.Any<Exception>(), Arg.Any<Action>());
         await _sinkExceptionHandler.Received(expectedThrow ? 0 : 1).HandleDeadLetter(batch, Arg.Any<Exception>(), connector);
         await Assert.ThrowsAsync<Exception>(() => _sinkProcessor.Process(batch, connector));
@@ -306,7 +306,7 @@ public class SinkTaskTests
                 Arg.Any<SinkRecordBatch>(), Arg.Any<string>()).Returns(batch);
         _configurationProvider.GetLogEnhancer(Arg.Any<string>()).Returns("Log.Provider");
         _configurationProvider.IsErrorTolerated(Arg.Any<string>()).Returns(errorTolerated);
-        _sinkProcessor.When(sp => sp.Sink(Arg.Any<SinkRecordBatch>(), Arg.Any<string>())).Throw<Exception>();
+        _sinkProcessor.When(sp => sp.Sink(Arg.Any<SinkRecordBatch>(), Arg.Any<string>(), Arg.Any<int>())).Throw<Exception>();
         batch.IsLastAttempt = isLastAttempt;
 
         await _sinkTask.Execute(connector, taskId, cts);
@@ -326,7 +326,7 @@ public class SinkTaskTests
         await _sinkProcessor.Received().Process(batch, connector);
         _sinkExceptionHandler.Received(expectedThrow ? 0 : 1).Handle(Arg.Any<Exception>(), Arg.Any<Action>());
         await _sinkExceptionHandler.Received(expectedThrow ? 0 : 1).HandleDeadLetter(batch, Arg.Any<Exception>(), connector);
-        await Assert.ThrowsAsync<Exception>(() => _sinkProcessor.Sink(batch, connector));
+        await Assert.ThrowsAsync<Exception>(() => _sinkProcessor.Sink(batch, connector, taskId));
         Assert.True(_sinkTask.IsStopped);
     }
     

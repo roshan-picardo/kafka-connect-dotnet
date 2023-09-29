@@ -89,7 +89,7 @@ public class SinkTask : ISinkTask
                     try
                     {
                         batch = await _sinkConsumer.Consume(_consumer, connector, taskId);
-                        batch = await _retriableHandler.Retry(b => ProcessAndSinkInternal(connector, b, Cancel),
+                        batch = await _retriableHandler.Retry(b => ProcessAndSinkInternal(connector, taskId, b, Cancel),
                             batch, connector);
                     }
                     catch (Exception ex)
@@ -126,13 +126,13 @@ public class SinkTask : ISinkTask
         IsStopped = true;
     }
 
-    private async Task<SinkRecordBatch> ProcessAndSinkInternal(string connector, SinkRecordBatch batch, Action cancelToken)
+    private async Task<SinkRecordBatch> ProcessAndSinkInternal(string connector, int taskId, SinkRecordBatch batch, Action cancelToken)
     {
         if (batch == null || !batch.Any()) return batch;
         try
         {
             await _sinkProcessor.Process(batch, connector);
-            await _sinkProcessor.Sink(batch, connector);
+            await _sinkProcessor.Sink(batch, connector, taskId);
             batch.MarkAllCommitReady();
         }
         catch (Exception ex)

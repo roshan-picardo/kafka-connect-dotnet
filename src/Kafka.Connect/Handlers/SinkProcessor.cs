@@ -58,7 +58,7 @@ namespace Kafka.Connect.Handlers
             }
         }
 
-        public async Task Sink(SinkRecordBatch batch, string connector)
+        public async Task Sink(SinkRecordBatch batch, string connector, int taskId)
         {
             using (_logger.Track("Sinking the batch."))
             {
