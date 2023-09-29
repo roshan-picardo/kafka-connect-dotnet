@@ -123,10 +123,10 @@ namespace UnitTests.Kafka.Connect.Handlers
         {
             var batch = isNull ? null : new SinkRecordBatch("connector");
 
-            await _sinkProcessor.Sink(batch, "connector");
+            await _sinkProcessor.Sink(batch, "connector", 0);
 
             _sinkHandlerProvider.DidNotReceive().GetSinkHandler(Arg.Any<string>());
-            await _sinkHandler.DidNotReceive().Put(Arg.Any<SinkRecordBatch>());
+            await _sinkHandler.DidNotReceive().Put(Arg.Any<SinkRecordBatch>(), Arg.Any<string>(), Arg.Any<int>());
             _logger.DidNotReceive().Warning("Sink handler is not specified. Check if the handler is configured properly, and restart the connector.");
         } 
         
@@ -136,10 +136,10 @@ namespace UnitTests.Kafka.Connect.Handlers
             var batch = GetBatch();
             _sinkHandlerProvider.GetSinkHandler(Arg.Any<string>()).Returns((ISinkHandler) null);
 
-            await _sinkProcessor.Sink(batch, "connector");
+            await _sinkProcessor.Sink(batch, "connector", 0);
 
             _sinkHandlerProvider.Received().GetSinkHandler(Arg.Any<string>());
-            await _sinkHandler.DidNotReceive().Put(Arg.Any<SinkRecordBatch>());
+            await _sinkHandler.DidNotReceive().Put(Arg.Any<SinkRecordBatch>(),Arg.Any<string>(), Arg.Any<int>());
             _logger.Received().Warning("Sink handler is not specified. Check if the handler is configured properly, and restart the connector.");
             Assert.True(batch.All(r=>r.Skip));
             Assert.True(batch.All(r=>r.Status == SinkStatus.Skipped));
@@ -152,7 +152,7 @@ namespace UnitTests.Kafka.Connect.Handlers
             _sinkHandlerProvider.GetSinkHandler(Arg.Any<string>()).Returns(_sinkHandler);
             _configurationProvider.GetBatchConfig(Arg.Any<string>()).Returns(new BatchConfig() { Parallelism = 1 });
 
-            await _sinkProcessor.Sink(batch, "connector");
+            await _sinkProcessor.Sink(batch, "connector", 0);
             _sinkHandlerProvider.Received().GetSinkHandler(Arg.Any<string>());
             await _sinkHandler.Received().Put(Arg.Any<SinkRecordBatch>(), Arg.Any<string>(), Arg.Any<int>());
             _logger.DidNotReceive().Warning("Sink handler is not specified. Check if the handler is configured properly, and restart the connector.");

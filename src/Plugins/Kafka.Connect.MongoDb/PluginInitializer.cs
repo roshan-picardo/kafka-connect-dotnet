@@ -14,7 +14,7 @@ namespace Kafka.Connect.MongoDb
 {
     public abstract class PluginInitializer : IPluginInitializer
     {
-        public void AddServices(IServiceCollection collection, IConfiguration configuration, (string Plugin, IEnumerable<string> Connectors) pluginConfig)
+        public void AddServices(IServiceCollection collection, IConfiguration configuration, (string Plugin, IEnumerable<(string Name, int Tasks)> Connectors) pluginConfig)
         {
             try
             {
@@ -33,17 +33,17 @@ namespace Kafka.Connect.MongoDb
             }
         }
         
-        private static void AddMongoClients(IServiceCollection collection, string plugin, IEnumerable<string> connectors)
+        private static void AddMongoClients(IServiceCollection collection, string plugin, IEnumerable<(string Name, int Tasks)> connectors)
         {
             foreach (var connector in connectors)
             {
                 collection.AddSingleton<IMongoClient>(provider =>
                 {
                     var configurationProvider = provider.GetService<Plugin.Providers.IConfigurationProvider>() ?? throw new InvalidOperationException($@"Unable to resolve service for type 'IConfigurationProvider' for {plugin} and {connector}.");
-                    var mongodbSinkConfig = configurationProvider.GetSinkConfigProperties<MongoSinkConfig>(connector, plugin);
+                    var mongodbSinkConfig = configurationProvider.GetSinkConfigProperties<MongoSinkConfig>(connector.Name, plugin);
                     if (mongodbSinkConfig == null) throw new InvalidOperationException($@"Unable to find the configuration matching {plugin} and {connector}.");
                     var settings = MongoClientSettings.FromConnectionString(mongodbSinkConfig.ConnectionUri);
-                    settings.ApplicationName = connector;
+                    settings.ApplicationName = connector.Name;
                     return new MongoClient(settings);
                 });
             }

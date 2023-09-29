@@ -20,13 +20,13 @@ public class PostgresSinkHandler : SinkHandler<string>
         _postgresClientProvider = postgresClientProvider;
     }
 
-    protected override async Task Sink(string connector, BlockingCollection<SinkRecord<string>> sinkBatch)
+    protected override async Task Sink(string connector, int taskId,  BlockingCollection<SinkRecord<string>> sinkBatch)
     {
         foreach (var record in sinkBatch)
         {
             foreach (var model in record.Models)
             {
-                var command = new NpgsqlCommand(model, _postgresClientProvider.GetPostgresClient(connector).GetConnection());
+                var command = new NpgsqlCommand(model, _postgresClientProvider.GetPostgresClient(connector, taskId).GetConnection());
                 await command.ExecuteNonQueryAsync();
             }    
         }

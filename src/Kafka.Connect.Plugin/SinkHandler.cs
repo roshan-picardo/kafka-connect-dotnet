@@ -29,7 +29,7 @@ public abstract class SinkHandler<TModel> : ISinkHandler
         _configurationProvider = configurationProvider;
     }
 
-    public async Task<SinkRecordBatch> Put(SinkRecordBatch batches, string connector = null, int parallelism = 100)
+    public async Task<SinkRecordBatch> Put(SinkRecordBatch batches, string connector, int taskId, int parallelism = 100)
     {
         using (_logger.Track("Invoking Put"))
         {
@@ -91,7 +91,7 @@ public abstract class SinkHandler<TModel> : ISinkHandler
 
             if (sinkBatch.Any(b => b.Ready))
             {
-                await Sink(connector, sinkBatch);
+                await Sink(connector, taskId, sinkBatch);
             }
             sinkBatch.ForEach(record => record.UpdateStatus());
             return batches;
@@ -100,7 +100,7 @@ public abstract class SinkHandler<TModel> : ISinkHandler
 
     public Task Startup(string connector) => Task.CompletedTask;
 
-    protected abstract Task Sink(string connector, BlockingCollection<SinkRecord<TModel>> sinkBatch);
+    protected abstract Task Sink(string connector, int taskId,  BlockingCollection<SinkRecord<TModel>> sinkBatch);
 
     public Task Cleanup(string connector) => Task.CompletedTask;
 

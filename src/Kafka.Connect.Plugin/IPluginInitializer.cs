@@ -6,6 +6,6 @@ namespace Kafka.Connect.Plugin
 {
     public interface IPluginInitializer
     {
-        void AddServices(IServiceCollection collection, IConfiguration configuration, (string Plugin, IEnumerable<string> Connectors) pluginConfig);
+        void AddServices(IServiceCollection collection, IConfiguration configuration, (string Plugin, IEnumerable<(string Name, int Tasks)> Connectors) pluginConfig);
     }
 }
