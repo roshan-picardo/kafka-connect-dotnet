@@ -120,7 +120,7 @@ public class ExecutionContext : IExecutionContext
         return new
         {
             Worker = GetWorkerStatus(),
-            Plugins = _plugins?.Select(p => p?.GetType().FullName),
+            Plugins = _plugins?.Select(p => p?.GetType().Assembly.GetName().Name),
             Processors = _processors?.Select(p => p?.GetType().FullName),
             Deserializers = _deserializers?.Select(d => d?.GetType().FullName),
             Handlers = _handlers?.Select(h => h?.GetType().FullName)

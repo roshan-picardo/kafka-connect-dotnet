@@ -37,15 +37,24 @@ namespace Kafka.Connect.MongoDb
         {
             foreach (var connector in connectors)
             {
-                collection.AddSingleton<IMongoClient>(provider =>
+                for (var t = 0; t < connector.Tasks; t++)
                 {
-                    var configurationProvider = provider.GetService<Plugin.Providers.IConfigurationProvider>() ?? throw new InvalidOperationException($@"Unable to resolve service for type 'IConfigurationProvider' for {plugin} and {connector}.");
-                    var mongodbSinkConfig = configurationProvider.GetSinkConfigProperties<MongoSinkConfig>(connector.Name, plugin);
-                    if (mongodbSinkConfig == null) throw new InvalidOperationException($@"Unable to find the configuration matching {plugin} and {connector}.");
-                    var settings = MongoClientSettings.FromConnectionString(mongodbSinkConfig.ConnectionUri);
-                    settings.ApplicationName = connector.Name;
-                    return new MongoClient(settings);
-                });
+                    var taskId = t + 1;
+                    collection.AddSingleton<IMongoClient>(provider =>
+                    {
+                        var configurationProvider = provider.GetService<Plugin.Providers.IConfigurationProvider>() ??
+                                                    throw new InvalidOperationException(
+                                                        $@"Unable to resolve service for type 'IConfigurationProvider' for {plugin} and {connector}.");
+                        var mongodbSinkConfig =
+                            configurationProvider.GetSinkConfigProperties<MongoSinkConfig>(connector.Name, plugin);
+                        if (mongodbSinkConfig == null)
+                            throw new InvalidOperationException(
+                                $@"Unable to find the configuration matching {plugin} and {connector}.");
+                        var settings = MongoClientSettings.FromConnectionString(mongodbSinkConfig.ConnectionUri);
+                        settings.ApplicationName = $"{connector.Name}-{taskId:00}";
+                        return new MongoClient(settings);
+                    });
+                }
             }
         }
         

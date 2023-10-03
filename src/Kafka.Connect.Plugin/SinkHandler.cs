@@ -17,7 +17,6 @@ public abstract class SinkHandler<TModel> : ISinkHandler
     private readonly ILogger<SinkHandler<TModel>> _logger;
     private readonly IWriteStrategyProvider _writeStrategyProvider;
     private readonly IConfigurationProvider _configurationProvider;
-    private string _plugin;
 
     protected SinkHandler(
         ILogger<SinkHandler<TModel>> logger,
@@ -91,7 +90,7 @@ public abstract class SinkHandler<TModel> : ISinkHandler
 
             if (sinkBatch.Any(b => b.Ready))
             {
-                await Sink(connector, taskId, sinkBatch);
+                await Put(connector, taskId, sinkBatch);
             }
             sinkBatch.ForEach(record => record.UpdateStatus());
             return batches;
@@ -100,7 +99,7 @@ public abstract class SinkHandler<TModel> : ISinkHandler
 
     public Task Startup(string connector) => Task.CompletedTask;
 
-    protected abstract Task Sink(string connector, int taskId,  BlockingCollection<SinkRecord<TModel>> sinkBatch);
+    protected abstract Task Put(string connector, int taskId,  BlockingCollection<SinkRecord<TModel>> sinkBatch);
 
     public Task Cleanup(string connector) => Task.CompletedTask;
 
