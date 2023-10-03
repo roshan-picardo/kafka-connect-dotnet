@@ -24,7 +24,7 @@ public class MongoSinkHandler : SinkHandler<WriteModel<BsonDocument>>
         _mongoWriter = mongoWriter;
     }
 
-    protected override async Task Sink(string connector, int taskId, BlockingCollection<SinkRecord<WriteModel<BsonDocument>>> sinkBatch)
+    protected override async Task Put(string connector, int taskId, BlockingCollection<SinkRecord<WriteModel<BsonDocument>>> sinkBatch)
     {
         await _mongoWriter.WriteMany(
             sinkBatch.Where(s => s.Ready)

@@ -19,7 +19,7 @@ public class InsertStrategy : WriteStrategy<string>
 
     protected override async Task<(SinkStatus Status, IList<string> Models)> BuildModels(string connector, SinkRecord record)
     {
-        using (_logger.Track("Creating Insert query"))
+        using (_logger.Track("Building insert statement"))
         {
             var config = _configurationProvider.GetSinkConfigProperties<PostgresSinkConfig>(connector);
             var insertQuery =

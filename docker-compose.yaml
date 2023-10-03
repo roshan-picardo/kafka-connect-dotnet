@@ -69,3 +69,10 @@ services:
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
+        
+  nginx:
+    image: hub.docker.internal.cba/nginx:latest
+    hostname: nginx
+    container_name: nginx-tcp
+    ports:
+      - "5400:5400"

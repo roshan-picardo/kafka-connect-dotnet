@@ -19,6 +19,9 @@ public abstract class PluginInitializer : IPluginInitializer
             .AddScoped<ISinkHandler, PostgresSinkHandler>()
             .AddScoped<IPluginInitializer, DefaultPluginInitializer>()
             .AddScoped<IWriteStrategy, InsertStrategy>()
+            .AddScoped<IWriteStrategy, UpdateStrategy>()
+            .AddScoped<IWriteStrategy, UpsertStrategy>()
+            .AddScoped<IWriteStrategy, DeleteStrategy>()
             .AddScoped<IPostgresClientProvider, PostgresClientProvider>();
         AddPostgresClients(collection, pluginConfig.Plugin, pluginConfig.Connectors);
         AddAdditionalServices(collection, configuration);
@@ -41,8 +44,7 @@ public abstract class PluginInitializer : IPluginInitializer
                     if (postgresSinkConfig == null)
                         throw new InvalidOperationException(
                             $"Unable to find the configuration matching {plugin} and {connector}.");
-                    return new PostgresClient($"{connector.Name}-{taskId:00}",
-                        new NpgsqlConnection(postgresSinkConfig.ConnectionString));
+                    return new PostgresClient($"{connector.Name}-{taskId:00}", new NpgsqlConnection(postgresSinkConfig.ConnectionString));
                 });
             }
         }
