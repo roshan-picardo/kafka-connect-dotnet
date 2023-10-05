@@ -11,6 +11,7 @@ using Kafka.Connect.Models;
 using Kafka.Connect.Plugin;
 using Kafka.Connect.Plugin.Processors;
 using Kafka.Connect.Plugin.Serializers;
+using Kafka.Connect.Plugin.Strategies;
 using Kafka.Connect.Providers;
 using NSubstitute;
 using Xunit;
@@ -43,7 +44,9 @@ public class ExecutionContextTests
         _configurationProvider = Substitute.For<IConfigurationProvider>();
 
         _executionContext =
-            new ExecutionContext(_plugins, _processors, _handlers, _deserializers, _configurationProvider);
+            new ExecutionContext(_plugins, _processors, _handlers, _deserializers,
+                Substitute.For<IEnumerable<IWriteStrategySelector>>(), Substitute.For<IEnumerable<IWriteStrategy>>(),
+                _configurationProvider);
 
     }
 

@@ -30,15 +30,15 @@ namespace Kafka.Connect.MongoDb.Collections
             _configurationProvider = configurationProvider;
         }
 
-        public async Task WriteMany(IList<SinkRecord<WriteModel<BsonDocument>>> batch, string connector)
+        public async Task WriteMany(IList<SinkRecord<WriteModel<BsonDocument>>> batch, string connector, int taskId)
         {
             using (_logger.Track("Writing models to database"))
             {
-                await Write(batch.Select(s => s.GetRecord()), BuildWriteModels(batch), connector);
+                await Write(batch.Select(s => s.GetRecord()), BuildWriteModels(batch), connector, taskId);
             }
         }
 
-        private async Task Write(IEnumerable<SinkRecord> records, IEnumerable<WriteModel<BsonDocument>> writeModels, string connector)
+        private async Task Write(IEnumerable<SinkRecord> records, IEnumerable<WriteModel<BsonDocument>> writeModels, string connector, int taskId)
         {
             var mongoSinkConfig = _configurationProvider.GetSinkConfigProperties<MongoSinkConfig>(connector);
             var models = writeModels?.ToList();
@@ -51,7 +51,7 @@ namespace Kafka.Connect.MongoDb.Collections
             {
                 try
                 {
-                    var collection = _mongoClientProvider.GetMongoClient(connector)
+                    var collection = _mongoClientProvider.GetMongoClient(connector, 100)
                         .GetDatabase(mongoSinkConfig.Database)
                         .GetCollection<BsonDocument>(mongoSinkConfig.Collection);
                     var bulkWriteResult = await collection.BulkWriteAsync(models,

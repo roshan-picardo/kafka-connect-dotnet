@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -11,9 +10,6 @@ namespace Kafka.Connect.Plugin.Models
 
         protected SinkRecord(string topic, int partition, long offset)
         {
-            _logAttributes = new Dictionary<string, object>();
-            _calcAttributes = new Dictionary<string, Func<object>>();
-
             Topic = topic;
             Partition = partition;
             Offset = offset;
@@ -80,46 +76,19 @@ namespace Kafka.Connect.Plugin.Models
         public JToken Key =>  Message?[Constants.Key];
         public JToken Value => Message?[Constants.Value];
 
-        public void UpdateStatus()
+        public void UpdateStatus(bool failed = false)
         {
             Status = Status switch
             {
-                SinkStatus.Updating => SinkStatus.Updated,
-                SinkStatus.Skipping => SinkStatus.Skipped,
-                SinkStatus.Inserting => SinkStatus.Inserted,
-                SinkStatus.Deleting => SinkStatus.Deleted,
-                SinkStatus.Enriching => SinkStatus.Enriched,
-                SinkStatus.Publishing => SinkStatus.Published,
-                SinkStatus.Excluding => SinkStatus.Excluded,
+                SinkStatus.Updating => failed ? SinkStatus.Failed : SinkStatus.Updated,
+                SinkStatus.Skipping => failed ? SinkStatus.Failed : SinkStatus.Skipped,
+                SinkStatus.Inserting => failed ? SinkStatus.Failed : SinkStatus.Inserted,
+                SinkStatus.Deleting => failed ? SinkStatus.Failed : SinkStatus.Deleted,
+                SinkStatus.Enriching => failed ? SinkStatus.Failed : SinkStatus.Enriched,
+                SinkStatus.Publishing => failed ? SinkStatus.Failed : SinkStatus.Published,
+                SinkStatus.Excluding => failed ? SinkStatus.Failed : SinkStatus.Excluded,
                 _ => Status
             };
-        }
-
-        private readonly IDictionary<string, dynamic> _logAttributes;
-        private readonly IDictionary<string, Func<dynamic>> _calcAttributes;
-        
-        public void AddLog(string key, object d)
-        {
-            if (_logAttributes.ContainsKey(key))
-            {
-                _logAttributes[key] = d;
-            }
-            else
-            {
-                _logAttributes.Add(key, d);
-            }
-        }
-
-        public void AddLog(string key, Func<object> data)
-        {
-            if (_calcAttributes.ContainsKey(key))
-            {
-                _calcAttributes[key] = data;
-            }
-            else
-            {
-                _calcAttributes.Add(key, data);
-            }
         }
 
         public bool IsProcessed { get; private set; }

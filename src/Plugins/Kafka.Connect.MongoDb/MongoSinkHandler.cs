@@ -31,6 +31,6 @@ public class MongoSinkHandler : SinkHandler<WriteModel<BsonDocument>>
                 .OrderBy(s => s.Topic)
                 .ThenBy(s => s.Partition)
                 .ThenBy(s => s.Offset).ToList(),
-            connector); //lets preserve the order
+            connector, taskId); //lets preserve the order
     }
 }

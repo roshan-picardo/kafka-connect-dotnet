@@ -8,6 +8,7 @@ using Kafka.Connect.Models;
 using Kafka.Connect.Plugin;
 using Kafka.Connect.Plugin.Processors;
 using Kafka.Connect.Plugin.Serializers;
+using Kafka.Connect.Plugin.Strategies;
 using Kafka.Connect.Providers;
 
 namespace Kafka.Connect.Connectors;
@@ -18,19 +19,29 @@ public class ExecutionContext : IExecutionContext
     private readonly IEnumerable<IProcessor> _processors;
     private readonly IEnumerable<ISinkHandler> _handlers;
     private readonly IEnumerable<IDeserializer> _deserializers;
+    private readonly IEnumerable<IWriteStrategySelector> _strategySelectors;
+    private readonly IEnumerable<IWriteStrategy> _writeStrategies;
     private readonly IConfigurationProvider _configurationProvider;
     private readonly WorkerContext _workerContext;
     private int _topicPollIndex;
     private int _recordsCount;
     private readonly CancellationTokenSource _cancellationToken;
 
-    public ExecutionContext(IEnumerable<IPluginInitializer> plugins, IEnumerable<IProcessor> processors,
-        IEnumerable<ISinkHandler> handlers, IEnumerable<IDeserializer> deserializers, IConfigurationProvider configurationProvider)
+    public ExecutionContext(
+        IEnumerable<IPluginInitializer> plugins, 
+        IEnumerable<IProcessor> processors,
+        IEnumerable<ISinkHandler> handlers, 
+        IEnumerable<IDeserializer> deserializers, 
+        IEnumerable<IWriteStrategySelector> strategySelectors,
+        IEnumerable<IWriteStrategy> writeStrategies,
+        IConfigurationProvider configurationProvider)
     {
         _plugins = plugins;
         _processors = processors;
         _handlers = handlers;
         _deserializers = deserializers;
+        _strategySelectors = strategySelectors;
+        _writeStrategies = writeStrategies;
         _configurationProvider = configurationProvider;
         _workerContext = new WorkerContext();
         _topicPollIndex = 0;
@@ -121,9 +132,15 @@ public class ExecutionContext : IExecutionContext
         {
             Worker = GetWorkerStatus(),
             Plugins = _plugins?.Select(p => p?.GetType().Assembly.GetName().Name),
+            Initializers = _plugins?.Select(p => p?.GetType().FullName),
             Processors = _processors?.Select(p => p?.GetType().FullName),
             Deserializers = _deserializers?.Select(d => d?.GetType().FullName),
-            Handlers = _handlers?.Select(h => h?.GetType().FullName)
+            Handlers = _handlers?.Select(h => h?.GetType().FullName),
+            Writers = new
+            {
+                Selectors = _strategySelectors?.Select(s => s?.GetType().FullName),
+                Strategies = _writeStrategies?.Select(s => s?.GetType().FullName)
+            }
         };
     }
 
