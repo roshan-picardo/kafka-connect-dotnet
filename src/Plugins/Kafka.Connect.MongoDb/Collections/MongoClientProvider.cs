@@ -12,9 +12,9 @@ namespace Kafka.Connect.MongoDb.Collections
         {
             _mongoClients = mongoClients;
         }
-        public IMongoClient GetMongoClient(string connector)
+        public IMongoClient GetMongoClient(string connector, int taskId)
         {
-            return _mongoClients.SingleOrDefault(m => m.Settings.ApplicationName == connector);
+            return _mongoClients.SingleOrDefault(m => m.Settings.ApplicationName == $"{connector}-{taskId:00}");
         }
     }
 }

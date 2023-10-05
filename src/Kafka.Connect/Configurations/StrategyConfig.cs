@@ -15,5 +15,16 @@ public class StrategySelectorConfig
     public IDictionary<string, string> Overrides { get; set; }
 }
 
+public class StrategySelectorConfig<T>
+{
+    public string Name { get; set; }
+    public T Overrides { get; set; }
+}
 
-// { sink: { handler: "", strategy: { name: "", selector: {name: "", overrides: { "one" : "this"} } } }
+public class StrategyConfig<T>
+{
+    public string Name { get; set; }
+    public StrategySelectorConfig<T> Selector { get; set; }
+    public bool SkipOnFailure { get; set; }
+}
+

@@ -99,10 +99,11 @@ namespace Kafka.Connect.Plugin.Logging
                     {
                         // ignored
                     }
-
+                    
+                    record.UpdateStatus(true);
                     _sinkLogger.Log(LogLevel.Information, "{@Record}", new
                     {
-                        record.Status, 
+                        record.Status,
                         Timers = record.EndTiming(batch.Count, endTime),
                         Attributes = attributes
                     });

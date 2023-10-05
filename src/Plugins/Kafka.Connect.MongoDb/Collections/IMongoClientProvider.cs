@@ -4,6 +4,6 @@ namespace Kafka.Connect.MongoDb.Collections
 {
     public interface IMongoClientProvider
     {
-        IMongoClient GetMongoClient(string connector);
+        IMongoClient GetMongoClient(string connector, int taskId);
     }
 }
