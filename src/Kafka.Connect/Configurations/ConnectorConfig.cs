@@ -13,6 +13,7 @@ namespace Kafka.Connect.Configurations
         private readonly LogConfig _log;
 
         public string Name { get; set; }
+        public ConnectorType Type { get; set; }
 
         public string GroupId
         {
@@ -72,5 +73,11 @@ namespace Kafka.Connect.Configurations
             get => _clientId ?? Name;
             init => _clientId = value;
         }
+    }
+
+    public enum ConnectorType
+    {
+        Sink,
+        Source
     }
 }

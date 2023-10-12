@@ -22,6 +22,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json.Linq;
 using Serilog;
 using Kafka.Connect.Configurations;
+using Kafka.Connect.Plugin;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Providers;
 using Kafka.Connect.Plugin.Strategies;
@@ -39,9 +40,12 @@ namespace Kafka.Connect.Utilities
                 .AddScoped(typeof(ILogger<>), typeof(Logger<>))
                 .AddScoped<IConnector, Connector>()
                 .AddScoped<ISinkTask, SinkTask>()
+                .AddScoped<ISourceTask, SourceTask>()
                 .AddScoped<IKafkaClientBuilder, KafkaClientBuilder>()
                 .AddScoped<IKafkaClientEventHandler, KafkaClientEventHandler>()
                 .AddScoped<IRetriableHandler, RetriableHandler>()
+                
+                .AddScoped<ISourceHandler, SourceHandler>() //TODO: requires a provider
 
                 .AddScoped<IConnectDeadLetter, ConnectDeadLetter>()
                 .AddScoped<ITokenHandler, TokenHandler>()
@@ -53,6 +57,7 @@ namespace Kafka.Connect.Utilities
                 .AddScoped<IRecordFlattener, JsonRecordFlattener>()
                 .AddScoped<IMessageHandler, MessageHandler>()
                 .AddScoped<ISinkConsumer, SinkConsumer>()
+                .AddScoped<ISourceProducer, SourceProducer>()
                 .AddScoped<ISinkProcessor, SinkProcessor>()
                 .AddScoped<IPartitionHandler, PartitionHandler>()
                 .AddScoped<ISinkExceptionHandler, SinkExceptionHandler>()

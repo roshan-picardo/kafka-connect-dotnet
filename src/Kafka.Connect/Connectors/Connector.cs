@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Kafka.Connect.Configurations;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Tokens;
 using Kafka.Connect.Providers;
@@ -68,8 +69,10 @@ public class Connector : IConnector
 
             var tasks = (from scope in Enumerable.Range(1, connectorConfig.MaxTasks)
                     .Select(_ => _serviceScopeFactory.CreateScope())
-                let task = scope.ServiceProvider.GetService<ISinkTask>()
-                select new {Task = task, Scope = scope, Config = connectorConfig}).ToList();
+                let task = connectorConfig.Type == ConnectorType.Sink
+                    ? scope.ServiceProvider.GetService<ISinkTask>()
+                    : (ITask)scope.ServiceProvider.GetService<ISourceTask>()
+                select new { Task = task, Scope = scope, Config = connectorConfig }).ToList();
 
             await Task.WhenAll(tasks.Select(task =>
             {

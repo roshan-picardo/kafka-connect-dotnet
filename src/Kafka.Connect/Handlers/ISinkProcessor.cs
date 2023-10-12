@@ -6,6 +6,7 @@ namespace Kafka.Connect.Handlers
     public interface ISinkProcessor
     {
         Task Process(SinkRecordBatch batch, string connector);
+        Task<T> Process<T>(Kafka.Connect.Models.SinkRecord record, string connector);
         Task Sink(SinkRecordBatch batch, string connector, int taskId);
     }
 }

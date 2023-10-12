@@ -51,7 +51,7 @@ namespace Kafka.Connect.MongoDb.Collections
             {
                 try
                 {
-                    var collection = _mongoClientProvider.GetMongoClient(connector, 100)
+                    var collection = _mongoClientProvider.GetMongoClient(connector, taskId)
                         .GetDatabase(mongoSinkConfig.Database)
                         .GetCollection<BsonDocument>(mongoSinkConfig.Collection);
                     var bulkWriteResult = await collection.BulkWriteAsync(models,

@@ -16,6 +16,6 @@ public class TaskContext
     public IList<(string, int)> TopicPartitions { get; init; } = new List<(string, int)>();
     public BatchPollContext BatchContext { get; set; }
     public bool IsStopped => Task == null || Task.IsStopped;
-    public ISinkTask Task { get; internal set; }
+    public ITask Task { get; internal set; }
     public RestartContext RestartContext { get; set; }
 }
