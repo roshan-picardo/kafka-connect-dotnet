@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Kafka.Connect.Plugin;
@@ -55,6 +56,16 @@ namespace Kafka.Connect.Handlers
                             _configurationProvider.GetBatchConfig(connector).Parallelism);
                     }
                 }
+            }
+        }
+
+        public async Task<T> Process<T>(Kafka.Connect.Models.SinkRecord record, string connector)
+        {
+            using (_logger.Track("Processing record"))
+            {
+                var (keyToken, valueToken) =
+                    await _messageConverter.Deserialize(record.Topic, record.GetConsumedMessage(), connector);
+                return valueToken.Value<T>(""); //TODO: fix this
             }
         }
 

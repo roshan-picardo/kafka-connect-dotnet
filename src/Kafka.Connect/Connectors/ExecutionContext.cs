@@ -73,7 +73,7 @@ public class ExecutionContext : IExecutionContext
         context.Tasks.Clear();
     }
 
-    public void Initialize(string connector, int taskId, ISinkTask task)
+    public void Initialize(string connector, int taskId, ITask task)
     {
         if(string.IsNullOrWhiteSpace(connector) || taskId <= 0) return;
         var connectorContext = _workerContext.Connectors.SingleOrDefault(c => c.Name == connector);
@@ -222,7 +222,7 @@ public class ExecutionContext : IExecutionContext
         _workerContext.Connectors?.SingleOrDefault(c => c.Name == connector)?.Connector;
 
 
-    public ISinkTask GetSinkTask(string connector, int task) => _workerContext.Connectors
+    public ITask GetSinkTask(string connector, int task) => _workerContext.Connectors
         ?.SingleOrDefault(c => c.Name == connector)?.Tasks?.SingleOrDefault(t => t.Id == task)?.Task;
 
     public async Task<bool> Retry(string connector = null, int task = 0)

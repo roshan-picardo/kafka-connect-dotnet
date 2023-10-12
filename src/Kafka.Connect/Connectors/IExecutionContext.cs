@@ -20,11 +20,11 @@ public interface IExecutionContext
     BatchPollContext GetOrSetBatchContext(string connector, int taskId, CancellationToken token = default);
     void Initialize(string name, IWorker worker);
     void Initialize(string name, IConnector connector);
-    void Initialize(string connector, int taskId, ISinkTask task);
+    void Initialize(string connector, int taskId, ITask task);
     void Pause(string connector = null, int task = 0);
     void Resume(string connector = null, int task = 0);
     Task Restart(int delay, string connector = null, int task = 0);
     IConnector GetConnector(string connector);
-    ISinkTask GetSinkTask(string connector, int task);
+    ITask GetSinkTask(string connector, int task);
     Task<bool> Retry(string connector = null, int task = 0);
 }
