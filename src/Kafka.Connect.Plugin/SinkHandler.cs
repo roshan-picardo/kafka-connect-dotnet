@@ -28,13 +28,13 @@ public abstract class SinkHandler<TModel> : ISinkHandler
         _configurationProvider = configurationProvider;
     }
 
-    public async Task<SinkRecordBatch> Put(SinkRecordBatch batches, string connector, int taskId, int parallelism = 100)
+    public async Task<ConnectRecordBatch> Put(ConnectRecordBatch batches, string connector, int taskId, int parallelism = 100)
     {
         using (_logger.Track("Invoking Put"))
         {
             connector ??= batches.Connector;
-            var sinkBatch = new BlockingCollection<SinkRecord<TModel>>();
-            foreach (var batch in batches.GetByTopicPartition<SinkRecord>())
+            var sinkBatch = new BlockingCollection<ConnectRecord<TModel>>();
+            foreach (var batch in batches.GetByTopicPartition<ConnectRecord>())
             {
                 using (LogContext.Push(new PropertyEnricher("topic", batch.Topic),
                            new PropertyEnricher("partition", batch.Partition)))
@@ -49,7 +49,7 @@ public abstract class SinkHandler<TModel> : ISinkHandler
                                 return;
                             }
 
-                            var sinkRecord = new SinkRecord<TModel>(record);
+                            var sinkRecord = new ConnectRecord<TModel>(record);
 
                             if (!record.Skip)
                             {
@@ -99,7 +99,7 @@ public abstract class SinkHandler<TModel> : ISinkHandler
 
     public Task Startup(string connector) => Task.CompletedTask;
 
-    protected abstract Task Put(string connector, int taskId,  BlockingCollection<SinkRecord<TModel>> sinkBatch);
+    protected abstract Task Put(string connector, int taskId,  BlockingCollection<ConnectRecord<TModel>> sinkBatch);
 
     public Task Cleanup(string connector) => Task.CompletedTask;
 

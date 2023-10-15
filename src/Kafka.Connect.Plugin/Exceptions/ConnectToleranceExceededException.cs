@@ -8,10 +8,10 @@ namespace Kafka.Connect.Plugin.Exceptions
 {
     public class ConnectToleranceExceededException : ConnectException
     {
-        private readonly IEnumerable<SinkRecord> _sinkRecordBatch;
+        private readonly IEnumerable<ConnectRecord> _sinkRecordBatch;
         private readonly ReadOnlyCollection<Exception> _innerExceptions;
 
-        public ConnectToleranceExceededException(string reason, IEnumerable<SinkRecord> errorBatch, params Exception[] innerExceptions) : base(reason)
+        public ConnectToleranceExceededException(string reason, IEnumerable<ConnectRecord> errorBatch, params Exception[] innerExceptions) : base(reason)
         {
             _sinkRecordBatch = errorBatch;
             _innerExceptions = new ReadOnlyCollection<Exception>(innerExceptions);
@@ -25,7 +25,7 @@ namespace Kafka.Connect.Plugin.Exceptions
 
         public bool HasFailedRecords => _sinkRecordBatch != null && _sinkRecordBatch.Any();
         
-        public IEnumerable<SinkRecord> GetFailedRecords() =>
+        public IEnumerable<ConnectRecord> GetFailedRecords() =>
             _sinkRecordBatch?
                 .Where(r => r.Status == SinkStatus.Failed)
                 .OrderBy(r=>r.Topic)

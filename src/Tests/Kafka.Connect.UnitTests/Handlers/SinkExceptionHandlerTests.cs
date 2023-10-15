@@ -154,7 +154,7 @@ namespace UnitTests.Kafka.Connect.Handlers
             
             await _sinkExceptionHandler.HandleDeadLetter(batch, exception, "connector");
 
-            await _connectDeadLetter.Received(expected).Send(Arg.Is<IEnumerable<global::Kafka.Connect.Models.SinkRecord>>(s => s.Count() == failedCount),
+            await _connectDeadLetter.Received(expected).Send(Arg.Is<IEnumerable<global::Kafka.Connect.Models.ConnectRecord>>(s => s.Count() == failedCount),
                 exception, "connector");
         }
         
@@ -208,13 +208,13 @@ namespace UnitTests.Kafka.Connect.Handlers
             _logger.Received().Error( $"Message processing failed. Remaining retries: {attempts}",Arg.Any<object>(), Arg.Any<Exception>());
         }
         
-        private static SinkRecordBatch GetBatch(int length = 2, int failed = 1)
+        private static ConnectRecordBatch GetBatch(int length = 2, int failed = 1)
         {
-            var batch = new SinkRecordBatch("connector");
+            var batch = new ConnectRecordBatch("connector");
 
             for (var i = 0; i < length; i++)
             {
-                batch.Add(new global::Kafka.Connect.Models.SinkRecord(new ConsumeResult<byte[], byte[]>
+                batch.Add(new global::Kafka.Connect.Models.ConnectRecord(new ConsumeResult<byte[], byte[]>
                     {Topic = "topic", Message = new Message<byte[], byte[]>() {Headers = new Headers()}})
                 {
                     Status = failed-- > 0 ? SinkStatus.Failed : SinkStatus.Updated

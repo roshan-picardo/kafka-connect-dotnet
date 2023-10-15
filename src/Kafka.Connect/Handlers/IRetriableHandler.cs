@@ -6,9 +6,9 @@ namespace Kafka.Connect.Handlers
 {
     public interface IRetriableHandler
     {
-        Task<SinkRecordBatch> Retry(Func<Task<SinkRecordBatch>> action, string connector);
+        Task<ConnectRecordBatch> Retry(Func<Task<ConnectRecordBatch>> action, string connector);
 
-        Task<SinkRecordBatch> Retry(Func<SinkRecordBatch, Task<SinkRecordBatch>> handler, SinkRecordBatch batch, string connector);
+        Task<ConnectRecordBatch> Retry(Func<ConnectRecordBatch, Task<ConnectRecordBatch>> handler, ConnectRecordBatch batch, string connector);
 
     }
 }

@@ -26,13 +26,13 @@ namespace Kafka.Connect.Plugin.Exceptions
         public int Partition { get; private set; }
         public long Offset { get; private set; }
 
-        public ConnectAggregateException SetLogContext(IEnumerable<SinkRecord> records)
+        public ConnectAggregateException SetLogContext(IEnumerable<ConnectRecord> records)
         {
             return new ConnectAggregateException("Unknown", this is ConnectRetriableException,
                 records.Select(SetLogContextAndClone).ToArray());
         }
 
-        private Exception SetLogContextAndClone(SinkRecord record)
+        private Exception SetLogContextAndClone(ConnectRecord record)
         {
             record.Status = SinkStatus.Failed;
             Topic = record.Topic;
@@ -40,7 +40,7 @@ namespace Kafka.Connect.Plugin.Exceptions
             Offset = record.Offset;
             return MemberwiseClone() as Exception;
         }
-        public Exception SetLogContext(SinkRecord record)
+        public Exception SetLogContext(ConnectRecord record)
         {
             record.Status = SinkStatus.Failed;
             Topic = record.Topic;

@@ -23,7 +23,7 @@ namespace Kafka.Connect.Handlers
             _configurationProvider = configurationProvider;
         }
 
-        public async Task<SinkRecordBatch> Retry(Func<Task<SinkRecordBatch>> consumer, string connector)
+        public async Task<ConnectRecordBatch> Retry(Func<Task<ConnectRecordBatch>> consumer, string connector)
         {
             var retryConfig = _configurationProvider.GetRetriesConfig(connector) ?? new RetryConfig();
             var (_, _, consumedBatch) =
@@ -32,7 +32,7 @@ namespace Kafka.Connect.Handlers
         }
 
 
-        public async Task<SinkRecordBatch> Retry(Func<SinkRecordBatch, Task<SinkRecordBatch>> handler, SinkRecordBatch batch, string connector)
+        public async Task<ConnectRecordBatch> Retry(Func<ConnectRecordBatch, Task<ConnectRecordBatch>> handler, ConnectRecordBatch batch, string connector)
         {
             batch.Started();
             var retryConfig = _configurationProvider.GetRetriesConfig(connector) ?? new RetryConfig();
@@ -52,7 +52,7 @@ namespace Kafka.Connect.Handlers
             batch.IsLastAttempt = true;
             foreach (var record in batch) 
             {
-                var singleBatch = new SinkRecordBatch(connector, record) {IsLastAttempt = true};
+                var singleBatch = new ConnectRecordBatch(connector, record) {IsLastAttempt = true};
                 await RetryInternal(() => handler(singleBatch), singleBatch, remaining, retryConfig.DelayTimeoutMs, true);
                 singleBatch.Completed();
             }
@@ -68,7 +68,7 @@ namespace Kafka.Connect.Handlers
             return (attempts > 0, attempts > 0 && !throwOnLastAttempt && attempts == 1);
         }
 
-        private async Task<(int remaining, bool split, SinkRecordBatch batch)> RetryInternal(Func<Task<SinkRecordBatch>> handler, SinkRecordBatch batch = null, int attempts = 3, int delayTimeoutMs = 1000, bool throwOnLastAttempt = false)
+        private async Task<(int remaining, bool split, ConnectRecordBatch batch)> RetryInternal(Func<Task<ConnectRecordBatch>> handler, ConnectRecordBatch batch = null, int attempts = 3, int delayTimeoutMs = 1000, bool throwOnLastAttempt = false)
         {
             do
             {

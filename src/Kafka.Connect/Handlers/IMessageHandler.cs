@@ -6,6 +6,6 @@ namespace Kafka.Connect.Handlers
 {
     public interface IMessageHandler
     {
-        Task<(bool, JToken)> Process(SinkRecord record, string connector);
+        Task<(bool, JToken)> Process(ConnectRecord record, string connector);
     }
 }

@@ -5,10 +5,10 @@ using Kafka.Connect.Plugin.Extensions;
 
 namespace Kafka.Connect.Plugin.Models
 {
-    public class SinkRecordBatch : BlockingCollection<SinkRecord>
+    public class ConnectRecordBatch : BlockingCollection<ConnectRecord>
     {
         private readonly IList<(string Topic, int Partition, long Offset)> _eofPartitions;
-        public SinkRecordBatch(string connector, SinkRecord record = null)
+        public ConnectRecordBatch(string connector, ConnectRecord record = null)
         {
             Connector = connector;
             if (record != null)

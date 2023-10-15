@@ -20,7 +20,7 @@ public class PostgresSinkHandler : SinkHandler<string>
         _postgresClientProvider = postgresClientProvider;
     }
 
-    protected override async Task Put(string connector, int taskId,  BlockingCollection<SinkRecord<string>> sinkBatch)
+    protected override async Task Put(string connector, int taskId,  BlockingCollection<ConnectRecord<string>> sinkBatch)
     {
         foreach (var record in sinkBatch)
         {

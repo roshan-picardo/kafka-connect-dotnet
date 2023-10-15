@@ -33,7 +33,7 @@ public class DefaultLogRecordTests
             { "fieldInteger", new JValue(1000) },
             { "field.secondLevel", null },
         };
-        var record = new SinkRecord(new ConsumeResult<byte[], byte[]>()
+        var record = new ConnectRecord(new ConsumeResult<byte[], byte[]>()
         {
             Message = new Message<byte[], byte[]>()
         })
@@ -60,7 +60,7 @@ public class DefaultLogRecordTests
     public void EnrichReturnsNullTests()
     {
         _configurationProvider.GetLogAttributes<string[]>("connector").Returns(null as string[]);
-        var record = new SinkRecord(new ConsumeResult<byte[], byte[]>()
+        var record = new ConnectRecord(new ConsumeResult<byte[], byte[]>()
         {
             Message = new Message<byte[], byte[]>()
         })
@@ -87,7 +87,7 @@ public class DefaultLogRecordTests
     {
         _configurationProvider.GetLogAttributes<string[]>("connector").Returns(new[]
             { "fieldPresent", "fieldNotPresent", "fieldBoolean", "fieldInteger", "field.secondLevel" });
-        var record = new SinkRecord(new ConsumeResult<byte[], byte[]>()
+        var record = new ConnectRecord(new ConsumeResult<byte[], byte[]>()
         {
             Message = new Message<byte[], byte[]>()
         })

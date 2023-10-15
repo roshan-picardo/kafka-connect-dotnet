@@ -12,7 +12,7 @@ using Kafka.Connect.Providers;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Xunit;
-using SinkRecord = Kafka.Connect.Models.SinkRecord;
+using ConnectRecord = Kafka.Connect.Models.ConnectRecord;
 
 namespace UnitTests.Kafka.Connect.Connectors;
 
@@ -67,13 +67,13 @@ public class SinkTaskTests
         const string connector = "connector";
         const int taskId = 1;
         var cts = GetCancellationToken();
-        var batch = new SinkRecordBatch("") { new SinkRecord(new ConsumeResult<byte[], byte[]>(){Message = new Message<byte[], byte[]>()}) };
+        var batch = new ConnectRecordBatch("") { new ConnectRecord(new ConsumeResult<byte[], byte[]>(){Message = new Message<byte[], byte[]>()}) };
         _sinkConsumer.Subscribe(Arg.Any<string>(), Arg.Any<int>()).Returns(_consumer);
         _executionContext.GetOrSetBatchContext(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(new BatchPollContext());
         _executionContext.GetNextPollIndex().Returns(10);
         _sinkConsumer.Consume(Arg.Any<IConsumer<byte[], byte[]>>(), Arg.Any<string>(), Arg.Any<int>()).Returns(batch);
-        _retriableHandler.Retry(Arg.Any<Func<SinkRecordBatch, Task<SinkRecordBatch>>>(), Arg.Any<SinkRecordBatch>(), Arg.Any<string>()).Returns(batch);
+        _retriableHandler.Retry(Arg.Any<Func<ConnectRecordBatch, Task<ConnectRecordBatch>>>(), Arg.Any<ConnectRecordBatch>(), Arg.Any<string>()).Returns(batch);
         _configurationProvider.GetLogEnhancer(Arg.Any<string>()).Returns("Log.Provider");
 
         await _sinkTask.Execute(connector, taskId, cts);
@@ -84,7 +84,7 @@ public class SinkTaskTests
         _executionContext.Received().GetOrSetBatchContext(connector, taskId, cts.Token);
         _executionContext.Received().GetNextPollIndex();
         await _sinkConsumer.Received().Consume(_consumer, connector, taskId);
-        await _retriableHandler.Received().Retry(Arg.Any<Func<SinkRecordBatch, Task<SinkRecordBatch>>>(), batch, connector);
+        await _retriableHandler.Received().Retry(Arg.Any<Func<ConnectRecordBatch, Task<ConnectRecordBatch>>>(), batch, connector);
         _sinkExceptionHandler.DidNotReceive().Handle(Arg.Any<Exception>(), Arg.Any<Action>());
         _partitionHandler.Received().CommitOffsets(batch, _consumer);
         _configurationProvider.Received().GetLogEnhancer(connector);
@@ -100,13 +100,13 @@ public class SinkTaskTests
         const string connector = "connector";
         const int taskId = 1;
         var cts = GetCancellationToken();
-        var batch = new SinkRecordBatch("") { new SinkRecord(new ConsumeResult<byte[], byte[]>(){Message = new Message<byte[], byte[]>()}) };
+        var batch = new ConnectRecordBatch("") { new ConnectRecord(new ConsumeResult<byte[], byte[]>(){Message = new Message<byte[], byte[]>()}) };
         _sinkConsumer.Subscribe(Arg.Any<string>(), Arg.Any<int>()).Returns(_consumer);
         _executionContext.GetOrSetBatchContext(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(new BatchPollContext());
         _executionContext.GetNextPollIndex().Returns(10);
         _sinkConsumer.Consume(Arg.Any<IConsumer<byte[], byte[]>>(), Arg.Any<string>(), Arg.Any<int>()).Throws<Exception>();
-        _retriableHandler.Retry(Arg.Any<Func<SinkRecordBatch, Task<SinkRecordBatch>>>(), Arg.Any<SinkRecordBatch>(), Arg.Any<string>()).Returns(batch);
+        _retriableHandler.Retry(Arg.Any<Func<ConnectRecordBatch, Task<ConnectRecordBatch>>>(), Arg.Any<ConnectRecordBatch>(), Arg.Any<string>()).Returns(batch);
         _configurationProvider.GetLogEnhancer(Arg.Any<string>()).Returns("Log.Provider");
 
         await _sinkTask.Execute(connector, taskId, cts);
@@ -117,12 +117,12 @@ public class SinkTaskTests
         _executionContext.Received().GetOrSetBatchContext(connector, taskId, cts.Token);
         _executionContext.Received().GetNextPollIndex();
         await _sinkConsumer.Received().Consume(_consumer, connector, taskId);
-        await _retriableHandler.DidNotReceive().Retry(Arg.Any<Func<SinkRecordBatch, Task<SinkRecordBatch>>>(), batch, connector);
+        await _retriableHandler.DidNotReceive().Retry(Arg.Any<Func<ConnectRecordBatch, Task<ConnectRecordBatch>>>(), batch, connector);
         _sinkExceptionHandler.Received().Handle(Arg.Any<Exception>(), Arg.Any<Action>());
-        _partitionHandler.Received().CommitOffsets(Arg.Any<SinkRecordBatch>(), _consumer);
+        _partitionHandler.Received().CommitOffsets(Arg.Any<ConnectRecordBatch>(), _consumer);
         _configurationProvider.Received().GetLogEnhancer(connector);
-        _logger.Received().Record(Arg.Any<SinkRecordBatch>(), "Log.Provider", connector);
-        await _partitionHandler.Received().NotifyEndOfPartition(Arg.Any<SinkRecordBatch>(), connector, taskId);
+        _logger.Received().Record(Arg.Any<ConnectRecordBatch>(), "Log.Provider", connector);
+        await _partitionHandler.Received().NotifyEndOfPartition(Arg.Any<ConnectRecordBatch>(), connector, taskId);
         _executionContext.Received().AddToCount(0);
         Assert.True(_sinkTask.IsStopped);
     }
@@ -135,13 +135,13 @@ public class SinkTaskTests
         const string connector = "connector";
         const int taskId = 1;
         var cts = GetCancellationToken();
-        var batch = new SinkRecordBatch("") { new SinkRecord(new ConsumeResult<byte[], byte[]>(){Message = new Message<byte[], byte[]>()}) };
+        var batch = new ConnectRecordBatch("") { new ConnectRecord(new ConsumeResult<byte[], byte[]>(){Message = new Message<byte[], byte[]>()}) };
         _sinkConsumer.Subscribe(Arg.Any<string>(), Arg.Any<int>()).Returns(_consumer);
         _executionContext.GetOrSetBatchContext(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(new BatchPollContext());
         _executionContext.GetNextPollIndex().Returns(10);
         _sinkConsumer.Consume(Arg.Any<IConsumer<byte[], byte[]>>(), Arg.Any<string>(), Arg.Any<int>()).Throws<Exception>();
-        _retriableHandler.Retry(Arg.Any<Func<SinkRecordBatch, Task<SinkRecordBatch>>>(), Arg.Any<SinkRecordBatch>(), Arg.Any<string>()).Returns(batch);
+        _retriableHandler.Retry(Arg.Any<Func<ConnectRecordBatch, Task<ConnectRecordBatch>>>(), Arg.Any<ConnectRecordBatch>(), Arg.Any<string>()).Returns(batch);
         _configurationProvider.GetLogEnhancer(Arg.Any<string>()).Returns("Log.Provider");
         _configurationProvider.IsErrorTolerated(connector).Returns(errorTolerated);
         _sinkExceptionHandler.Handle(Arg.Any<Exception>(), Arg.Do<Action>(x => x.Invoke()));
@@ -154,12 +154,12 @@ public class SinkTaskTests
         _executionContext.Received().GetOrSetBatchContext(connector, taskId, cts.Token);
         _executionContext.Received().GetNextPollIndex();
         await _sinkConsumer.Received().Consume(_consumer, connector, taskId);
-        await _retriableHandler.DidNotReceive().Retry(Arg.Any<Func<SinkRecordBatch, Task<SinkRecordBatch>>>(), batch, connector);
+        await _retriableHandler.DidNotReceive().Retry(Arg.Any<Func<ConnectRecordBatch, Task<ConnectRecordBatch>>>(), batch, connector);
         _sinkExceptionHandler.Received().Handle(Arg.Any<Exception>(), Arg.Any<Action>());
-        _partitionHandler.Received().CommitOffsets(Arg.Any<SinkRecordBatch>(), _consumer);
+        _partitionHandler.Received().CommitOffsets(Arg.Any<ConnectRecordBatch>(), _consumer);
         _configurationProvider.Received().GetLogEnhancer(connector);
-        _logger.Received().Record(Arg.Any<SinkRecordBatch>(), "Log.Provider", connector);
-        await _partitionHandler.Received().NotifyEndOfPartition(Arg.Any<SinkRecordBatch>(), connector, taskId);
+        _logger.Received().Record(Arg.Any<ConnectRecordBatch>(), "Log.Provider", connector);
+        await _partitionHandler.Received().NotifyEndOfPartition(Arg.Any<ConnectRecordBatch>(), connector, taskId);
         _executionContext.Received().AddToCount(0);
         Assert.True(_sinkTask.IsStopped);
         
@@ -176,13 +176,13 @@ public class SinkTaskTests
         const string connector = "connector";
         const int taskId = 1;
         var cts = GetCancellationToken();
-        var batch = isNull ?  null : new SinkRecordBatch("");
+        var batch = isNull ?  null : new ConnectRecordBatch("");
         _sinkConsumer.Subscribe(Arg.Any<string>(), Arg.Any<int>()).Returns(_consumer);
         _executionContext.GetOrSetBatchContext(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(new BatchPollContext());
         _executionContext.GetNextPollIndex().Returns(10);
-        _sinkConsumer.Consume(Arg.Any<IConsumer<byte[], byte[]>>(), Arg.Any<string>(), Arg.Any<int>()).Returns((SinkRecordBatch)null);
-        _retriableHandler.Retry(Arg.Do<Func<SinkRecordBatch, Task<SinkRecordBatch>>>(async d=> batch = await d.Invoke(null)), Arg.Any<SinkRecordBatch>(), Arg.Any<string>()).Returns((SinkRecordBatch)null);
+        _sinkConsumer.Consume(Arg.Any<IConsumer<byte[], byte[]>>(), Arg.Any<string>(), Arg.Any<int>()).Returns((ConnectRecordBatch)null);
+        _retriableHandler.Retry(Arg.Do<Func<ConnectRecordBatch, Task<ConnectRecordBatch>>>(async d=> batch = await d.Invoke(null)), Arg.Any<ConnectRecordBatch>(), Arg.Any<string>()).Returns((ConnectRecordBatch)null);
         _configurationProvider.GetLogEnhancer(Arg.Any<string>()).Returns("Log.Provider");
 
         await _sinkTask.Execute(connector, taskId, cts);
@@ -193,7 +193,7 @@ public class SinkTaskTests
         _executionContext.Received().GetOrSetBatchContext(connector, taskId, cts.Token);
         _executionContext.Received().GetNextPollIndex();
         await _sinkConsumer.Received().Consume(_consumer, connector, taskId);
-        await _retriableHandler.Received().Retry(Arg.Any<Func<SinkRecordBatch, Task<SinkRecordBatch>>>(), batch, connector);
+        await _retriableHandler.Received().Retry(Arg.Any<Func<ConnectRecordBatch, Task<ConnectRecordBatch>>>(), batch, connector);
         _partitionHandler.Received().CommitOffsets(batch, _consumer);
         _configurationProvider.Received().GetLogEnhancer(connector);
         _logger.Received().Record(batch, "Log.Provider", connector);
@@ -212,13 +212,13 @@ public class SinkTaskTests
         const string connector = "connector";
         const int taskId = 1;
         var cts = GetCancellationToken();
-        var batch = new SinkRecordBatch("") { new SinkRecord(new ConsumeResult<byte[], byte[]>(){Message = new Message<byte[], byte[]>()}) };
+        var batch = new ConnectRecordBatch("") { new ConnectRecord(new ConsumeResult<byte[], byte[]>(){Message = new Message<byte[], byte[]>()}) };
         _sinkConsumer.Subscribe(Arg.Any<string>(), Arg.Any<int>()).Returns(_consumer);
         _executionContext.GetOrSetBatchContext(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(new BatchPollContext());
         _executionContext.GetNextPollIndex().Returns(10);
         _sinkConsumer.Consume(Arg.Any<IConsumer<byte[], byte[]>>(), Arg.Any<string>(), Arg.Any<int>()).Returns(batch);
-        _retriableHandler.Retry(Arg.Do<Func<SinkRecordBatch, Task<SinkRecordBatch>>>(async d=> batch = await d.Invoke(batch)), Arg.Any<SinkRecordBatch>(), Arg.Any<string>()).Returns(batch);
+        _retriableHandler.Retry(Arg.Do<Func<ConnectRecordBatch, Task<ConnectRecordBatch>>>(async d=> batch = await d.Invoke(batch)), Arg.Any<ConnectRecordBatch>(), Arg.Any<string>()).Returns(batch);
         _configurationProvider.GetLogEnhancer(Arg.Any<string>()).Returns("Log.Provider");
 
         await _sinkTask.Execute(connector, taskId, cts);
@@ -229,7 +229,7 @@ public class SinkTaskTests
         _executionContext.Received().GetOrSetBatchContext(connector, taskId, cts.Token);
         _executionContext.Received().GetNextPollIndex();
         await _sinkConsumer.Received().Consume(_consumer, connector, taskId);
-        await _retriableHandler.Received().Retry(Arg.Any<Func<SinkRecordBatch, Task<SinkRecordBatch>>>(), batch, connector);
+        await _retriableHandler.Received().Retry(Arg.Any<Func<ConnectRecordBatch, Task<ConnectRecordBatch>>>(), batch, connector);
         _partitionHandler.Received().CommitOffsets(batch, _consumer);
         _configurationProvider.Received().GetLogEnhancer(connector);
         _logger.Received().Record(batch, "Log.Provider", connector);
@@ -251,18 +251,18 @@ public class SinkTaskTests
         const string connector = "connector";
         const int taskId = 1;
         var cts = GetCancellationToken();
-        var batch = new SinkRecordBatch("") { new SinkRecord(new ConsumeResult<byte[], byte[]>(){Message = new Message<byte[], byte[]>()}) };
+        var batch = new ConnectRecordBatch("") { new ConnectRecord(new ConsumeResult<byte[], byte[]>(){Message = new Message<byte[], byte[]>()}) };
         _sinkConsumer.Subscribe(Arg.Any<string>(), Arg.Any<int>()).Returns(_consumer);
         _executionContext.GetOrSetBatchContext(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(new BatchPollContext());
         _executionContext.GetNextPollIndex().Returns(10);
         _sinkConsumer.Consume(Arg.Any<IConsumer<byte[], byte[]>>(), Arg.Any<string>(), Arg.Any<int>()).Returns(batch);
         _retriableHandler
-            .Retry(Arg.Do<Func<SinkRecordBatch, Task<SinkRecordBatch>>>(async d => batch = await d.Invoke(batch)),
-                Arg.Any<SinkRecordBatch>(), Arg.Any<string>()).Returns(batch);
+            .Retry(Arg.Do<Func<ConnectRecordBatch, Task<ConnectRecordBatch>>>(async d => batch = await d.Invoke(batch)),
+                Arg.Any<ConnectRecordBatch>(), Arg.Any<string>()).Returns(batch);
         _configurationProvider.GetLogEnhancer(Arg.Any<string>()).Returns("Log.Provider");
         _configurationProvider.IsErrorTolerated(Arg.Any<string>()).Returns(errorTolerated);
-        _sinkProcessor.When(sp => sp.Process(Arg.Any<SinkRecordBatch>(), Arg.Any<string>())).Throw<Exception>();
+        _sinkProcessor.When(sp => sp.Process(Arg.Any<ConnectRecordBatch>(), Arg.Any<string>())).Throw<Exception>();
         batch.IsLastAttempt = isLastAttempt;
 
         await _sinkTask.Execute(connector, taskId, cts);
@@ -273,7 +273,7 @@ public class SinkTaskTests
         _executionContext.Received().GetOrSetBatchContext(connector, taskId, cts.Token);
         _executionContext.Received().GetNextPollIndex();
         await _sinkConsumer.Received().Consume(_consumer, connector, taskId);
-        await _retriableHandler.Received().Retry(Arg.Any<Func<SinkRecordBatch, Task<SinkRecordBatch>>>(), batch, connector);
+        await _retriableHandler.Received().Retry(Arg.Any<Func<ConnectRecordBatch, Task<ConnectRecordBatch>>>(), batch, connector);
         _partitionHandler.Received().CommitOffsets(batch, _consumer);
         _configurationProvider.Received().GetLogEnhancer(connector);
         _logger.Received().Record(batch, "Log.Provider", connector);
@@ -295,18 +295,18 @@ public class SinkTaskTests
         const string connector = "connector";
         const int taskId = 1;
         var cts = GetCancellationToken();
-        var batch = new SinkRecordBatch("") { new SinkRecord(new ConsumeResult<byte[], byte[]>(){Message = new Message<byte[], byte[]>()}) };
+        var batch = new ConnectRecordBatch("") { new ConnectRecord(new ConsumeResult<byte[], byte[]>(){Message = new Message<byte[], byte[]>()}) };
         _sinkConsumer.Subscribe(Arg.Any<string>(), Arg.Any<int>()).Returns(_consumer);
         _executionContext.GetOrSetBatchContext(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(new BatchPollContext());
         _executionContext.GetNextPollIndex().Returns(10);
         _sinkConsumer.Consume(Arg.Any<IConsumer<byte[], byte[]>>(), Arg.Any<string>(), Arg.Any<int>()).Returns(batch);
         _retriableHandler
-            .Retry(Arg.Do<Func<SinkRecordBatch, Task<SinkRecordBatch>>>(async d => batch = await d.Invoke(batch)),
-                Arg.Any<SinkRecordBatch>(), Arg.Any<string>()).Returns(batch);
+            .Retry(Arg.Do<Func<ConnectRecordBatch, Task<ConnectRecordBatch>>>(async d => batch = await d.Invoke(batch)),
+                Arg.Any<ConnectRecordBatch>(), Arg.Any<string>()).Returns(batch);
         _configurationProvider.GetLogEnhancer(Arg.Any<string>()).Returns("Log.Provider");
         _configurationProvider.IsErrorTolerated(Arg.Any<string>()).Returns(errorTolerated);
-        _sinkProcessor.When(sp => sp.Sink(Arg.Any<SinkRecordBatch>(), Arg.Any<string>(), Arg.Any<int>())).Throw<Exception>();
+        _sinkProcessor.When(sp => sp.Sink(Arg.Any<ConnectRecordBatch>(), Arg.Any<string>(), Arg.Any<int>())).Throw<Exception>();
         batch.IsLastAttempt = isLastAttempt;
 
         await _sinkTask.Execute(connector, taskId, cts);
@@ -317,7 +317,7 @@ public class SinkTaskTests
         _executionContext.Received().GetOrSetBatchContext(connector, taskId, cts.Token);
         _executionContext.Received().GetNextPollIndex();
         await _sinkConsumer.Received().Consume(_consumer, connector, taskId);
-        await _retriableHandler.Received().Retry(Arg.Any<Func<SinkRecordBatch, Task<SinkRecordBatch>>>(), batch, connector);
+        await _retriableHandler.Received().Retry(Arg.Any<Func<ConnectRecordBatch, Task<ConnectRecordBatch>>>(), batch, connector);
         _partitionHandler.Received().CommitOffsets(batch, _consumer);
         _configurationProvider.Received().GetLogEnhancer(connector);
         _logger.Received().Record(batch, "Log.Provider", connector);

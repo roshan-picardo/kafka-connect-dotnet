@@ -12,7 +12,7 @@ namespace Kafka.Connect.Plugin.Logging
         void Error(string message, object data = null, Exception exception = null);
         void Critical(string message, object data = null, Exception exception = null);
         void None(string message, object data = null, Exception exception = null);
-        void Record(SinkRecordBatch batch, string provider, string connector);
+        void Record(ConnectRecordBatch batch, string provider, string connector);
         void Health(dynamic health);
         void Document(object document);
         SinkLog Track(string message);

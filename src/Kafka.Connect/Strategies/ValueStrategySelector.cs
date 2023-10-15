@@ -12,7 +12,7 @@ public class ValueStrategySelector : IWriteStrategySelector
     {
         _writeStrategies = writeStrategies;
     }
-    public IWriteStrategy GetWriteStrategy(Plugin.Models.SinkRecord record, IDictionary<string, string> overrides)
+    public IWriteStrategy GetWriteStrategy(Plugin.Models.ConnectRecord record, IDictionary<string, string> overrides)
     {
         if (overrides == null || !overrides.Any())
         {

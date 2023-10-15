@@ -66,7 +66,7 @@ namespace Kafka.Connect.Handlers
         }
 
 
-        public async Task<SinkRecordBatch> Consume(IConsumer<byte[], byte[]> consumer, string connector, int taskId)
+        public async Task<ConnectRecordBatch> Consume(IConsumer<byte[], byte[]> consumer, string connector, int taskId)
         {
             using (_logger.Track("Consume and batch messages."))
             {
@@ -82,7 +82,7 @@ namespace Kafka.Connect.Handlers
             }
         }
 
-        private async Task<SinkRecordBatch> ConsumeInternal(IConsumer<byte[], byte[]> consumer, string connector, int taskId)
+        private async Task<ConnectRecordBatch> ConsumeInternal(IConsumer<byte[], byte[]> consumer, string connector, int taskId)
         {
             ConsumeResult<byte[], byte[]> Consuming(IConsumer<byte[], byte[]> consumerInternal, CancellationToken token)
             {
@@ -92,7 +92,7 @@ namespace Kafka.Connect.Handlers
                 }
             }
             
-            var batch = new SinkRecordBatch("internal");
+            var batch = new ConnectRecordBatch("internal");
             var batchPollContext = _executionContext.GetOrSetBatchContext(connector, taskId);
             try
             {
@@ -122,7 +122,7 @@ namespace Kafka.Connect.Handlers
                         batch.SetPartitionEof(consumed.Topic, consumed.Partition.Value, consumed.Offset.Value);
                         break;
                     }
-                    batch.Add(new Models.SinkRecord(consumed));
+                    batch.Add(new Models.ConnectRecord(consumed));
 
                 } while (--maxBatchSize > 0);
             }

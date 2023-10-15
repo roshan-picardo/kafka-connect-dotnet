@@ -13,7 +13,7 @@ using Newtonsoft.Json.Linq;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Xunit;
-using SinkRecord = Kafka.Connect.Models.SinkRecord;
+using ConnectRecord = Kafka.Connect.Models.ConnectRecord;
 
 namespace UnitTests.Kafka.Connect.Handlers
 {
@@ -44,12 +44,12 @@ namespace UnitTests.Kafka.Connect.Handlers
         [InlineData(false)]
         public async Task Process_WhenBatchIsNullOrEmpty(bool isNull)
         {
-            var batch = isNull ? null : new SinkRecordBatch("connector");
+            var batch = isNull ? null : new ConnectRecordBatch("connector");
 
             await _sinkProcessor.Process(batch, "connector");
 
             await _messageConverter.DidNotReceive().Deserialize(Arg.Any<string>(),Arg.Any<Message<byte[], byte[]>>(), Arg.Any<string>());
-            await _messageHandler.DidNotReceive().Process(Arg.Any<SinkRecord>(), Arg.Any<string>());
+            await _messageHandler.DidNotReceive().Process(Arg.Any<ConnectRecord>(), Arg.Any<string>());
         }
 
         [Fact]
@@ -66,7 +66,7 @@ namespace UnitTests.Kafka.Connect.Handlers
             };
 
             _messageConverter.Deserialize(Arg.Any<string>(),Arg.Any<Message<byte[], byte[]>>(), Arg.Any<string>()).Returns((key, value));
-            _messageHandler.Process(Arg.Any<SinkRecord>(), Arg.Any<string>()).Returns((true, data));
+            _messageHandler.Process(Arg.Any<ConnectRecord>(), Arg.Any<string>()).Returns((true, data));
             _configurationProvider.GetBatchConfig(Arg.Any<string>()).Returns(new BatchConfig {Parallelism = 1});
 
             await _sinkProcessor.Process(batch, "connector");
@@ -75,7 +75,7 @@ namespace UnitTests.Kafka.Connect.Handlers
             Assert.Equal(data, record.Message);
             Assert.Equal(SinkStatus.Processed, record.Status);
             await _messageConverter.Received().Deserialize(Arg.Any<string>(),Arg.Any<Message<byte[], byte[]>>(), Arg.Any<string>());
-            await _messageHandler.Received().Process(Arg.Any<SinkRecord>(), Arg.Any<string>());
+            await _messageHandler.Received().Process(Arg.Any<ConnectRecord>(), Arg.Any<string>());
         }
 
         [Fact]
@@ -94,7 +94,7 @@ namespace UnitTests.Kafka.Connect.Handlers
             Assert.Equal(record.Partition, ce.Partition);
             Assert.Equal(record.Offset, ce.Offset);
             await _messageConverter.Received().Deserialize(Arg.Any<string>(),Arg.Any<Message<byte[], byte[]>>(), Arg.Any<string>());
-            await _messageHandler.DidNotReceive().Process(Arg.Any<SinkRecord>(), Arg.Any<string>());
+            await _messageHandler.DidNotReceive().Process(Arg.Any<ConnectRecord>(), Arg.Any<string>());
         }
         
         [Fact]
@@ -104,7 +104,7 @@ namespace UnitTests.Kafka.Connect.Handlers
             var record = batch.First();
             var ce = new ConnectException();
             _configurationProvider.GetBatchConfig(Arg.Any<string>()).Returns(new BatchConfig {Parallelism = 1});
-            _messageHandler.Process(Arg.Any<SinkRecord>(), Arg.Any<string>()).Throws(ce);
+            _messageHandler.Process(Arg.Any<ConnectRecord>(), Arg.Any<string>()).Throws(ce);
             
             await Assert.ThrowsAsync<ConnectAggregateException>(()=> _sinkProcessor.Process(batch, "connector"));
             
@@ -113,7 +113,7 @@ namespace UnitTests.Kafka.Connect.Handlers
             Assert.Equal(record.Partition, ce.Partition);
             Assert.Equal(record.Offset, ce.Offset);
             await _messageConverter.Received().Deserialize(Arg.Any<string>(),Arg.Any<Message<byte[], byte[]>>(), Arg.Any<string>());
-            await _messageHandler.Received().Process(Arg.Any<SinkRecord>(), Arg.Any<string>());
+            await _messageHandler.Received().Process(Arg.Any<ConnectRecord>(), Arg.Any<string>());
         }
         
         [Theory]
@@ -121,12 +121,12 @@ namespace UnitTests.Kafka.Connect.Handlers
         [InlineData(false)]
         public async Task Sink_WhenBatchIsNullOrEmpty(bool isNull)
         {
-            var batch = isNull ? null : new SinkRecordBatch("connector");
+            var batch = isNull ? null : new ConnectRecordBatch("connector");
 
             await _sinkProcessor.Sink(batch, "connector", 0);
 
             _sinkHandlerProvider.DidNotReceive().GetSinkHandler(Arg.Any<string>());
-            await _sinkHandler.DidNotReceive().Put(Arg.Any<SinkRecordBatch>(), Arg.Any<string>(), Arg.Any<int>());
+            await _sinkHandler.DidNotReceive().Put(Arg.Any<ConnectRecordBatch>(), Arg.Any<string>(), Arg.Any<int>());
             _logger.DidNotReceive().Warning("Sink handler is not specified. Check if the handler is configured properly, and restart the connector.");
         } 
         
@@ -139,7 +139,7 @@ namespace UnitTests.Kafka.Connect.Handlers
             await _sinkProcessor.Sink(batch, "connector", 0);
 
             _sinkHandlerProvider.Received().GetSinkHandler(Arg.Any<string>());
-            await _sinkHandler.DidNotReceive().Put(Arg.Any<SinkRecordBatch>(),Arg.Any<string>(), Arg.Any<int>());
+            await _sinkHandler.DidNotReceive().Put(Arg.Any<ConnectRecordBatch>(),Arg.Any<string>(), Arg.Any<int>());
             _logger.Received().Warning("Sink handler is not specified. Check if the handler is configured properly, and restart the connector.");
             Assert.True(batch.All(r=>r.Skip));
             Assert.True(batch.All(r=>r.Status == SinkStatus.Skipped));
@@ -154,18 +154,18 @@ namespace UnitTests.Kafka.Connect.Handlers
 
             await _sinkProcessor.Sink(batch, "connector", 0);
             _sinkHandlerProvider.Received().GetSinkHandler(Arg.Any<string>());
-            await _sinkHandler.Received().Put(Arg.Any<SinkRecordBatch>(), Arg.Any<string>(), Arg.Any<int>());
+            await _sinkHandler.Received().Put(Arg.Any<ConnectRecordBatch>(), Arg.Any<string>(), Arg.Any<int>());
             _logger.DidNotReceive().Warning("Sink handler is not specified. Check if the handler is configured properly, and restart the connector.");
         } 
         
-        private static SinkRecordBatch GetBatch(int length = 1, params (string topic, int partition)[] topicPartitions)
+        private static ConnectRecordBatch GetBatch(int length = 1, params (string topic, int partition)[] topicPartitions)
         {
-            var batch = new SinkRecordBatch("connector");
+            var batch = new ConnectRecordBatch("connector");
 
             for (var i = 0; i < length; i++)
             {
                 var (topic, partition) = topicPartitions != null && topicPartitions.Length > i ? topicPartitions[i] : ("topic", 0);
-                batch.Add(new SinkRecord(new ConsumeResult<byte[], byte[]>
+                batch.Add(new ConnectRecord(new ConsumeResult<byte[], byte[]>
                     {Topic = topic, Partition = partition, Message = new Message<byte[], byte[]>() {Headers = new Headers()}}));
             }
 

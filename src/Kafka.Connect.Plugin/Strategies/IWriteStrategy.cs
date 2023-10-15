@@ -6,5 +6,5 @@ namespace Kafka.Connect.Plugin.Strategies;
 
 public interface IWriteStrategy
 {
-    Task<(SinkStatus Status, IList<T> Models)> BuildModels<T>(string connector, SinkRecord record);
+    Task<(SinkStatus Status, IList<T> Models)> BuildModels<T>(string connector, ConnectRecord record);
 }

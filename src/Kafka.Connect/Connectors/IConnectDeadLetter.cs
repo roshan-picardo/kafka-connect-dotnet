@@ -7,6 +7,6 @@ namespace Kafka.Connect.Connectors
 {
     public interface IConnectDeadLetter
     {
-        Task Send(IEnumerable<SinkRecord> sinkRecords, Exception exception, string connector);
+        Task Send(IEnumerable<ConnectRecord> sinkRecords, Exception exception, string connector);
     }
 }

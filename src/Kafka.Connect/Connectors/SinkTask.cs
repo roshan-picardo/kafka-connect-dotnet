@@ -83,7 +83,7 @@ public class SinkTask : ISinkTask
                 if (cts.IsCancellationRequested) break;
 
                 batchPollContext.Reset(_executionContext.GetNextPollIndex());
-                SinkRecordBatch batch = null;
+                ConnectRecordBatch batch = null;
                 using (LogContext.PushProperty("Batch", batchPollContext.Iteration))
                 {
                     try
@@ -126,7 +126,7 @@ public class SinkTask : ISinkTask
         IsStopped = true;
     }
 
-    private async Task<SinkRecordBatch> ProcessAndSinkInternal(string connector, int taskId, SinkRecordBatch batch, Action cancelToken)
+    private async Task<ConnectRecordBatch> ProcessAndSinkInternal(string connector, int taskId, ConnectRecordBatch batch, Action cancelToken)
     {
         if (batch == null || !batch.Any()) return batch;
         try
