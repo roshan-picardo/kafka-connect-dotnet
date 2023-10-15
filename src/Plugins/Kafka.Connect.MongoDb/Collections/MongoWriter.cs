@@ -30,7 +30,7 @@ namespace Kafka.Connect.MongoDb.Collections
             _configurationProvider = configurationProvider;
         }
 
-        public async Task WriteMany(IList<SinkRecord<WriteModel<BsonDocument>>> batch, string connector, int taskId)
+        public async Task WriteMany(IList<ConnectRecord<WriteModel<BsonDocument>>> batch, string connector, int taskId)
         {
             using (_logger.Track("Writing models to database"))
             {
@@ -38,7 +38,7 @@ namespace Kafka.Connect.MongoDb.Collections
             }
         }
 
-        private async Task Write(IEnumerable<SinkRecord> records, IEnumerable<WriteModel<BsonDocument>> writeModels, string connector, int taskId)
+        private async Task Write(IEnumerable<ConnectRecord> records, IEnumerable<WriteModel<BsonDocument>> writeModels, string connector, int taskId)
         {
             var mongoSinkConfig = _configurationProvider.GetSinkConfigProperties<MongoSinkConfig>(connector);
             var models = writeModels?.ToList();
@@ -80,7 +80,7 @@ namespace Kafka.Connect.MongoDb.Collections
             }
         }
 
-        private IEnumerable<WriteModel<BsonDocument>> BuildWriteModels(IEnumerable<SinkRecord<WriteModel<BsonDocument>>> batch)
+        private IEnumerable<WriteModel<BsonDocument>> BuildWriteModels(IEnumerable<ConnectRecord<WriteModel<BsonDocument>>> batch)
         {
             var writeModels = new List<WriteModel<BsonDocument>>();
             batch.ForEach(record => writeModels.AddRange(record.Models));

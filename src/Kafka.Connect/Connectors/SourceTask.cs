@@ -90,7 +90,7 @@ public class SourceTask : ISourceTask
                 if (cts.IsCancellationRequested) break;
 
                 batchPollContext.Reset(_executionContext.GetNextPollIndex());
-                SinkRecordBatch batch = null; 
+                ConnectRecordBatch batch = null; 
                 using (LogContext.PushProperty("Batch", batchPollContext.Iteration))
                 {
                     try

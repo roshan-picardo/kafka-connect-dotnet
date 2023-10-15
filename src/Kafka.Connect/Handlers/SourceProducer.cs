@@ -28,7 +28,7 @@ public class SourceProducer : ISourceProducer
         }
     }
 
-    public async Task Produce(IProducer<byte[], byte[]> producer, string connector, int taskId, SinkRecordBatch batch)
+    public async Task Produce(IProducer<byte[], byte[]> producer, string connector, int taskId, ConnectRecordBatch batch)
     {
         using (_logger.Track("Producing Kafka messages"))
         {

@@ -5,5 +5,5 @@ namespace Kafka.Connect.Plugin.Providers;
 
 public interface IWriteStrategyProvider
 {
-    IWriteStrategy GetWriteStrategy(string connector, SinkRecord record);
+    IWriteStrategy GetWriteStrategy(string connector, ConnectRecord record);
 }

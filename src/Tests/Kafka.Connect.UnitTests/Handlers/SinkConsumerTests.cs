@@ -102,16 +102,16 @@ namespace UnitTests.Kafka.Connect.Handlers
         [InlineData(false)]
         public async Task Consume_WhenConsumedIsNullOrEmpty(bool isNull)
         {
-            var batch = isNull ?  null : new SinkRecordBatch("");
+            var batch = isNull ?  null : new ConnectRecordBatch("");
 
-            _retriableHandler.Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(),  Arg.Any<string>())
+            _retriableHandler.Retry(Arg.Any<Func<Task<ConnectRecordBatch>>>(),  Arg.Any<string>())
                 .Returns(await Task.FromResult(batch));
 
             var actual = await _sinkConsumer.Consume(_consumer, "connector", 1);
              
             Assert.Equal(actual, batch);
             await _retriableHandler.Received()
-                .Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(), Arg.Any<string>());
+                .Retry(Arg.Any<Func<Task<ConnectRecordBatch>>>(), Arg.Any<string>());
             _consumer.DidNotReceive().Consume(Arg.Any<CancellationToken>());
             _logger.Debug("There aren't any messages in the batch to process.");
         }
@@ -119,17 +119,17 @@ namespace UnitTests.Kafka.Connect.Handlers
         [Fact]
         public async Task Consume_WhenConsumedReturnsABatch()
         {
-            var record1 = new global::Kafka.Connect.Models.SinkRecord(new ConsumeResult<byte[], byte[]>() { Message = new Message<byte[], byte[]>()});
-            var record2 = new global::Kafka.Connect.Models.SinkRecord(new ConsumeResult<byte[], byte[]>() {Message = new Message<byte[], byte[]>()});
-            var batch = new SinkRecordBatch("") {record1, record2};
-            _retriableHandler.Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(),  Arg.Any<string>())
+            var record1 = new global::Kafka.Connect.Models.ConnectRecord(new ConsumeResult<byte[], byte[]>() { Message = new Message<byte[], byte[]>()});
+            var record2 = new global::Kafka.Connect.Models.ConnectRecord(new ConsumeResult<byte[], byte[]>() {Message = new Message<byte[], byte[]>()});
+            var batch = new ConnectRecordBatch("") {record1, record2};
+            _retriableHandler.Retry(Arg.Any<Func<Task<ConnectRecordBatch>>>(),  Arg.Any<string>())
                 .Returns(await Task.FromResult(batch));
 
             var actual = await _sinkConsumer.Consume(_consumer, "connector", 1);
              
             Assert.Equal(actual, batch);
             await _retriableHandler.Received()
-                .Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(), Arg.Any<string>());
+                .Retry(Arg.Any<Func<Task<ConnectRecordBatch>>>(), Arg.Any<string>());
         }
         
         [Theory]
@@ -152,15 +152,15 @@ namespace UnitTests.Kafka.Connect.Handlers
             _executionContext.GetOrSetBatchContext(Arg.Any<string>(), Arg.Any<int>()).Returns(pollContext);
             _configurationProvider.GetBatchConfig(Arg.Any<string>()).Returns(new BatchConfig {Size = size});
             _consumer.Consume(Arg.Any<CancellationToken>()).Returns(consumed);
-            Task<SinkRecordBatch> batch = null;
+            Task<ConnectRecordBatch> batch = null;
             await _retriableHandler.Retry(
-                Arg.Do<Func<Task<SinkRecordBatch>>>(b => batch =  b.Invoke()), Arg.Any<string>());
+                Arg.Do<Func<Task<ConnectRecordBatch>>>(b => batch =  b.Invoke()), Arg.Any<string>());
 
             await _sinkConsumer.Consume(_consumer, "connector", 1);
             var consumedBatch = await batch;
             
             await _retriableHandler.Received()
-                .Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(), Arg.Any<string>());
+                .Retry(Arg.Any<Func<Task<ConnectRecordBatch>>>(), Arg.Any<string>());
             _consumer.Received(expectedCount).Consume(Arg.Any<CancellationToken>());
             Assert.Equal(expectedCount, consumedBatch.Count);
             _logger.Received().Trace("Polling for messages.", Arg.Any<object>());
@@ -183,15 +183,15 @@ namespace UnitTests.Kafka.Connect.Handlers
             _executionContext.GetOrSetBatchContext(Arg.Any<string>(), Arg.Any<int>()).Returns(pollContext);
             _configurationProvider.GetBatchConfig(Arg.Any<string>()).Returns(new BatchConfig {Size = 5});
             _consumer.Consume(Arg.Any<CancellationToken>()).Returns(consumed, null, consumed, consumed, null);
-            Task<SinkRecordBatch> batch = null;
+            Task<ConnectRecordBatch> batch = null;
             await _retriableHandler.Retry(
-                Arg.Do<Func<Task<SinkRecordBatch>>>(b => batch =  b.Invoke()), Arg.Any<string>());
+                Arg.Do<Func<Task<ConnectRecordBatch>>>(b => batch =  b.Invoke()), Arg.Any<string>());
 
             await _sinkConsumer.Consume(_consumer, "connector", 1);
             var consumedBatch = await batch;
             
             await _retriableHandler.Received()
-                .Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(), Arg.Any<string>());
+                .Retry(Arg.Any<Func<Task<ConnectRecordBatch>>>(), Arg.Any<string>());
             _consumer.Received(5).Consume(Arg.Any<CancellationToken>());
             Assert.Equal(3, consumedBatch.Count);
             _logger.Received().Trace("Polling for messages.", Arg.Any<object>());
@@ -223,15 +223,15 @@ namespace UnitTests.Kafka.Connect.Handlers
             _executionContext.GetOrSetBatchContext(Arg.Any<string>(), Arg.Any<int>()).Returns(pollContext);
             _configurationProvider.GetBatchConfig(Arg.Any<string>()).Returns(new BatchConfig {Size = 5});
             _consumer.Consume(Arg.Any<CancellationToken>()).Returns(consumed, consumed, consumedEof, consumed, consumed);
-            Task<SinkRecordBatch> batch = null;
+            Task<ConnectRecordBatch> batch = null;
             await _retriableHandler.Retry(
-                Arg.Do<Func<Task<SinkRecordBatch>>>(b => batch =  b.Invoke()), Arg.Any<string>());
+                Arg.Do<Func<Task<ConnectRecordBatch>>>(b => batch =  b.Invoke()), Arg.Any<string>());
 
             await _sinkConsumer.Consume(_consumer, "connector", 1);
             var consumedBatch = await batch;
             
             await _retriableHandler.Received()
-                .Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(), Arg.Any<string>());
+                .Retry(Arg.Any<Func<Task<ConnectRecordBatch>>>(), Arg.Any<string>());
             _consumer.Received(3).Consume(Arg.Any<CancellationToken>());
             Assert.Equal(2, consumedBatch.Count);
             Assert.Single(consumedBatch.GetEofPartitions());
@@ -256,15 +256,15 @@ namespace UnitTests.Kafka.Connect.Handlers
             _executionContext.GetOrSetBatchContext(Arg.Any<string>(), Arg.Any<int>()).Returns(pollContext);
             _configurationProvider.GetBatchConfig(Arg.Any<string>()).Returns(new BatchConfig {Size = 5});
             _consumer.Consume(Arg.Any<CancellationToken>()).Returns(_=> consumed, _=>  consumed, _=> throw new Exception());
-            Task<SinkRecordBatch> batch = null;
+            Task<ConnectRecordBatch> batch = null;
             await _retriableHandler.Retry(
-                Arg.Do<Func<Task<SinkRecordBatch>>>(b => batch =  b.Invoke()), Arg.Any<string>());
+                Arg.Do<Func<Task<ConnectRecordBatch>>>(b => batch =  b.Invoke()), Arg.Any<string>());
 
             await _sinkConsumer.Consume(_consumer, "connector", 1);
             var consumedBatch = await batch;
             
             await _retriableHandler.Received()
-                .Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(), Arg.Any<string>());
+                .Retry(Arg.Any<Func<Task<ConnectRecordBatch>>>(), Arg.Any<string>());
             _consumer.Received(3).Consume(Arg.Any<CancellationToken>());
             Assert.Equal(2, consumedBatch.Count);
             _logger.Received().Trace("Polling for messages.", Arg.Any<object>());
@@ -280,15 +280,15 @@ namespace UnitTests.Kafka.Connect.Handlers
             _executionContext.GetOrSetBatchContext(Arg.Any<string>(), Arg.Any<int>()).Returns(pollContext);
             _configurationProvider.GetBatchConfig(Arg.Any<string>()).Returns(new BatchConfig {Size = 5});
             _consumer.Consume(Arg.Any<CancellationToken>()).Throws<OperationCanceledException>();
-            Task<SinkRecordBatch> batch = null;
+            Task<ConnectRecordBatch> batch = null;
             await _retriableHandler.Retry(
-                Arg.Do<Func<Task<SinkRecordBatch>>>(b => batch =  b.Invoke()), Arg.Any<string>());
+                Arg.Do<Func<Task<ConnectRecordBatch>>>(b => batch =  b.Invoke()), Arg.Any<string>());
 
             await _sinkConsumer.Consume(_consumer, "connector", 1);
             var consumedBatch = await batch;
             
             await _retriableHandler.Received()
-                .Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(), Arg.Any<string>());
+                .Retry(Arg.Any<Func<Task<ConnectRecordBatch>>>(), Arg.Any<string>());
             _consumer.Received(1).Consume(Arg.Any<CancellationToken>());
             Assert.Empty(consumedBatch);
             _logger.Received().Trace("Polling for messages.", Arg.Any<object>());
@@ -312,15 +312,15 @@ namespace UnitTests.Kafka.Connect.Handlers
             _executionContext.GetOrSetBatchContext(Arg.Any<string>(), Arg.Any<int>()).Returns(pollContext);
             _configurationProvider.GetBatchConfig(Arg.Any<string>()).Returns(new BatchConfig {Size = 5});
             _consumer.Consume(Arg.Any<CancellationToken>()).Throws( _=> new ConsumeException(consumed, ErrorCode.Unknown));
-            Task<SinkRecordBatch> batch = null;
+            Task<ConnectRecordBatch> batch = null;
             await _retriableHandler.Retry(
-                Arg.Do<Func<Task<SinkRecordBatch>>>(b => batch =  b.Invoke()), Arg.Any<string>());
+                Arg.Do<Func<Task<ConnectRecordBatch>>>(b => batch =  b.Invoke()), Arg.Any<string>());
 
             await _sinkConsumer.Consume(_consumer, "connector", 1);
             await Assert.ThrowsAsync<ConnectRetriableException>( () =>  batch);
             
             await _retriableHandler.Received()
-                .Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(), Arg.Any<string>());
+                .Retry(Arg.Any<Func<Task<ConnectRecordBatch>>>(), Arg.Any<string>());
             _consumer.Received(1).Consume(Arg.Any<CancellationToken>());
             _logger.Received().Trace("Polling for messages.", Arg.Any<object>());
             //_logger.Received().Log(LogLevel.Debug, Constants.AtLog, new {Message="Message consumed.", Topic = "topic", Partition = 0, Offset = 0, IsPartitionEOF = false, TimeStamp = timestamp.UtcDateTime });
@@ -333,15 +333,15 @@ namespace UnitTests.Kafka.Connect.Handlers
             _executionContext.GetOrSetBatchContext(Arg.Any<string>(), Arg.Any<int>()).Returns(pollContext);
             _configurationProvider.GetBatchConfig(Arg.Any<string>()).Returns(new BatchConfig {Size = 5});
             _consumer.Consume(Arg.Any<CancellationToken>()).Throws<Exception>();
-            Task<SinkRecordBatch> batch = null;
+            Task<ConnectRecordBatch> batch = null;
             await _retriableHandler.Retry(
-                Arg.Do<Func<Task<SinkRecordBatch>>>(b => batch =  b.Invoke()), Arg.Any<string>());
+                Arg.Do<Func<Task<ConnectRecordBatch>>>(b => batch =  b.Invoke()), Arg.Any<string>());
 
             await _sinkConsumer.Consume(_consumer, "connector", 1);
             await Assert.ThrowsAsync<ConnectDataException>( () =>  batch);
             
             await _retriableHandler.Received()
-                .Retry(Arg.Any<Func<Task<SinkRecordBatch>>>(), Arg.Any<string>());
+                .Retry(Arg.Any<Func<Task<ConnectRecordBatch>>>(), Arg.Any<string>());
             _consumer.Received(1).Consume(Arg.Any<CancellationToken>());
             _logger.Received().Trace("Polling for messages.", Arg.Any<object>());
             //_logger.Received().Log(LogLevel.Debug, Constants.AtLog, new {Message="Message consumed.", Topic = "topic", Partition = 0, Offset = 0, IsPartitionEOF = false, TimeStamp = timestamp.UtcDateTime });

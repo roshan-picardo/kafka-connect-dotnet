@@ -80,7 +80,7 @@ namespace Kafka.Connect.Plugin.Logging
         public void None(string message, object data = null, Exception exception = null) =>
             Log(LogLevel.None, message, exception, data);
 
-        public void Record(SinkRecordBatch batch, string provider, string connector)
+        public void Record(ConnectRecordBatch batch, string provider, string connector)
         {
             var endTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             var logRecord = _logRecords?.SingleOrDefault(l => l.GetType().FullName == provider);

@@ -45,7 +45,7 @@ namespace UnitTests.Kafka.Connect.Connectors
                 Offset = 100
             };
             var exception = new Exception("Current data exception");
-            var records = new List<global::Kafka.Connect.Models.SinkRecord>() { new(consumed) };
+            var records = new List<global::Kafka.Connect.Models.ConnectRecord>() { new(consumed) };
             var deliveryResult = new DeliveryResult<byte[], byte[]>()
                 { Topic = "dead-letter-topic", Partition = 2, Offset = 200 };
             _producer.ProduceAsync(Arg.Any<string>(), Arg.Any<Message<byte[], byte[]>>()).Returns(deliveryResult);

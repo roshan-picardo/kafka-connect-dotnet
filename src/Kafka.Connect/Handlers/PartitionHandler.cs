@@ -28,7 +28,7 @@ namespace Kafka.Connect.Handlers
             _configurationProvider = configurationProvider;
         }
 
-        public void CommitOffsets(SinkRecordBatch batch, IConsumer<byte[], byte[]> consumer)
+        public void CommitOffsets(ConnectRecordBatch batch, IConsumer<byte[], byte[]> consumer)
         {
             using (_logger.Track("Committing offsets."))
             {
@@ -53,7 +53,7 @@ namespace Kafka.Connect.Handlers
             }
         }
 
-        public async Task NotifyEndOfPartition(SinkRecordBatch batch, string connector, int taskId)
+        public async Task NotifyEndOfPartition(ConnectRecordBatch batch, string connector, int taskId)
         {
             if(batch == null || !batch.Any()) return;
             using (_logger.Track("Notify end of the partition."))

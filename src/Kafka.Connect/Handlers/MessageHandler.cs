@@ -24,7 +24,7 @@ namespace Kafka.Connect.Handlers
             _configurationProvider = configurationProvider;
         }
 
-        public async Task<(bool, JToken)> Process(SinkRecord record, string connector)
+        public async Task<(bool, JToken)> Process(ConnectRecord record, string connector)
         {
             using (_logger.Track("Processing the message."))
             {

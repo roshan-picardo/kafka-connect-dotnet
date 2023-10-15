@@ -30,12 +30,12 @@ namespace Kafka.Connect.Handlers
             _configurationProvider = configurationProvider;
         }
 
-        public async Task Process(SinkRecordBatch batch, string connector)
+        public async Task Process(ConnectRecordBatch batch, string connector)
         {
             using (_logger.Track("Processing the batch."))
             {
-                batch ??= new SinkRecordBatch(connector);
-                foreach (var topicBatch in batch.GetByTopicPartition<Models.SinkRecord>())
+                batch ??= new ConnectRecordBatch(connector);
+                foreach (var topicBatch in batch.GetByTopicPartition<Models.ConnectRecord>())
                 {
                     using (LogContext.Push(new PropertyEnricher(Constants.Topic, topicBatch.Topic),
                                new PropertyEnricher(Constants.Partition, topicBatch.Partition)))
@@ -59,7 +59,7 @@ namespace Kafka.Connect.Handlers
             }
         }
 
-        public async Task<T> Process<T>(Kafka.Connect.Models.SinkRecord record, string connector)
+        public async Task<T> Process<T>(Kafka.Connect.Models.ConnectRecord record, string connector)
         {
             using (_logger.Track("Processing record"))
             {
@@ -69,7 +69,7 @@ namespace Kafka.Connect.Handlers
             }
         }
 
-        public async Task Sink(SinkRecordBatch batch, string connector, int taskId)
+        public async Task Sink(ConnectRecordBatch batch, string connector, int taskId)
         {
             using (_logger.Track("Sinking the batch."))
             {

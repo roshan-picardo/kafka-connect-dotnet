@@ -32,8 +32,8 @@ namespace UnitTests.Kafka.Connect.Handlers
         public async Task Retry_ConsumeReturnsSinkRecordBatch()
         {
             _configurationProvider.GetRetriesConfig(Arg.Any<string>()).Returns(new RetryConfig {Attempts = 3, DelayTimeoutMs = 1});
-            var sinkRecordBatch = new SinkRecordBatch("");
-            Task<SinkRecordBatch> Consume() => Task.FromResult(sinkRecordBatch);
+            var sinkRecordBatch = new ConnectRecordBatch("");
+            Task<ConnectRecordBatch> Consume() => Task.FromResult(sinkRecordBatch);
 
             var actual = await _retriableHandler.Retry(Consume, "connector");
             
@@ -45,7 +45,7 @@ namespace UnitTests.Kafka.Connect.Handlers
         public async Task Retry_ThrowsSingleConnectAggregateException()
         {
             _configurationProvider.GetRetriesConfig(Arg.Any<string>()).Returns(new RetryConfig {Attempts = 3, DelayTimeoutMs = 1});
-            Task<SinkRecordBatch> Process() => throw new ConnectAggregateException(ErrorCode.Unknown.GetReason(), new Exception());
+            Task<ConnectRecordBatch> Process() => throw new ConnectAggregateException(ErrorCode.Unknown.GetReason(), new Exception());
 
             await Assert.ThrowsAsync<ConnectToleranceExceededException>(() =>
                 _retriableHandler.Retry(_ => Process(), GetBatch(), "connector"));
@@ -55,7 +55,7 @@ namespace UnitTests.Kafka.Connect.Handlers
         public async Task Retry_ThrowsSingleConnectDataException()
         {
             _configurationProvider.GetRetriesConfig(Arg.Any<string>()).Returns(new RetryConfig {Attempts = 3, DelayTimeoutMs = 1});
-            Task<SinkRecordBatch> Process() => throw new ConnectDataException(ErrorCode.Unknown.GetReason(), new Exception());
+            Task<ConnectRecordBatch> Process() => throw new ConnectDataException(ErrorCode.Unknown.GetReason(), new Exception());
             
             await Assert.ThrowsAsync<ConnectToleranceExceededException>(() =>
                 _retriableHandler.Retry(_ => Process(), GetBatch(), "connector"));
@@ -65,7 +65,7 @@ namespace UnitTests.Kafka.Connect.Handlers
         public async Task Retry_ThrowsSingleGenericException()
         {
             _configurationProvider.GetRetriesConfig(Arg.Any<string>()).Returns(new RetryConfig {Attempts = 3, DelayTimeoutMs = 1});
-            Task<SinkRecordBatch> Process() => throw new Exception();
+            Task<ConnectRecordBatch> Process() => throw new Exception();
             
             await Assert.ThrowsAsync<ConnectToleranceExceededException>(() =>
                 _retriableHandler.Retry(_ => Process(), GetBatch(), "connector"));
@@ -75,7 +75,7 @@ namespace UnitTests.Kafka.Connect.Handlers
         public async Task Retry_ThrowsSingleRetriableException()
         {
             _configurationProvider.GetRetriesConfig(Arg.Any<string>()).Returns(new RetryConfig {Attempts = 3, DelayTimeoutMs = 1});
-            Task<SinkRecordBatch> Process() => throw new ConnectRetriableException(ErrorCode.Unknown.GetReason(), new Exception());
+            Task<ConnectRecordBatch> Process() => throw new ConnectRetriableException(ErrorCode.Unknown.GetReason(), new Exception());
             
             await Assert.ThrowsAsync<ConnectToleranceExceededException>(() =>
                 _retriableHandler.Retry(_ => Process(), GetBatch(), "connector"));
@@ -102,7 +102,7 @@ namespace UnitTests.Kafka.Connect.Handlers
         {
             var sinkRecordBatch = GetBatch(batchSize, exceptions);
             var callCounter = 0;
-            Task<SinkRecordBatch> Process(SinkRecordBatch batch)
+            Task<ConnectRecordBatch> Process(ConnectRecordBatch batch)
             {
                 ++callCounter;
                 var innerExceptions = new List<Exception>();
@@ -145,7 +145,7 @@ namespace UnitTests.Kafka.Connect.Handlers
         {
             var sinkRecordBatch = GetBatch();
             var callCounter = 0;
-            Task<SinkRecordBatch> Process(SinkRecordBatch batch)
+            Task<ConnectRecordBatch> Process(ConnectRecordBatch batch)
             {
                 ++callCounter;
                 return Task.FromResult(batch);
@@ -166,7 +166,7 @@ namespace UnitTests.Kafka.Connect.Handlers
             var sinkRecordBatch = GetBatch(2, "retriable-exception", "data-exception");
             var callCounter = 0;
 
-            Task<SinkRecordBatch> Process(SinkRecordBatch batch)
+            Task<ConnectRecordBatch> Process(ConnectRecordBatch batch)
             {
                 ++callCounter;
                 var innerExceptions = new List<Exception>();
@@ -205,14 +205,14 @@ namespace UnitTests.Kafka.Connect.Handlers
             Assert.Equal(3, callCounter);
         }
         
-        private static SinkRecordBatch GetBatch(int length = 2, params string[] topics)
+        private static ConnectRecordBatch GetBatch(int length = 2, params string[] topics)
         {
-            var batch = new SinkRecordBatch("connector");
+            var batch = new ConnectRecordBatch("connector");
 
             for (var i = 0; i < length; i++)
             {
                 var topic = topics != null && topics.Length > i ? topics[i] : string.Empty;
-                batch.Add(new global::Kafka.Connect.Models.SinkRecord(new ConsumeResult<byte[], byte[]>
+                batch.Add(new global::Kafka.Connect.Models.ConnectRecord(new ConsumeResult<byte[], byte[]>
                     {Topic = topic, Message = new Message<byte[], byte[]>() {Headers = new Headers()}}));
             }
 

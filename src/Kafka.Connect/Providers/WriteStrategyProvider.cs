@@ -23,7 +23,7 @@ public class WriteStrategyProvider : IWriteStrategyProvider
         _configurationProvider = configurationProvider;
     }
 
-    public IWriteStrategy GetWriteStrategy(string connector, Plugin.Models.SinkRecord record)
+    public IWriteStrategy GetWriteStrategy(string connector, Plugin.Models.ConnectRecord record)
     {
         var strategyConfig = _configurationProvider.GetSinkConfig(connector);
         IWriteStrategy strategy = null;

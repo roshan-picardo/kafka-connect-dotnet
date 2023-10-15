@@ -17,7 +17,7 @@ public class UpsertStrategy : WriteStrategy<string>
         _logger = logger;
         _configurationProvider = configurationProvider;
     }
-    protected override async Task<(SinkStatus Status, IList<string> Models)> BuildModels(string connector, SinkRecord record)
+    protected override async Task<(SinkStatus Status, IList<string> Models)> BuildModels(string connector, ConnectRecord record)
     {
         using (_logger.Track("Building upsert statements"))
         {

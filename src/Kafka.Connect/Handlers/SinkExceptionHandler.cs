@@ -99,13 +99,13 @@ namespace Kafka.Connect.Handlers
             }
         }
 
-        public async Task HandleDeadLetter(SinkRecordBatch batch, Exception exception, string connector)
+        public async Task HandleDeadLetter(ConnectRecordBatch batch, Exception exception, string connector)
         {
             using (_logger.Track("Handle dead-letter."))
             {
                 if (_configurationProvider.IsDeadLetterEnabled(connector))
                 {
-                    await _connectDeadLetter.Send(batch.GetAll<Models.SinkRecord>().Where(r => r.Status == SinkStatus.Failed), exception,
+                    await _connectDeadLetter.Send(batch.GetAll<Models.ConnectRecord>().Where(r => r.Status == SinkStatus.Failed), exception,
                         connector);
                 }
             }

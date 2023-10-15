@@ -8,6 +8,6 @@ namespace Kafka.Connect.MongoDb.Collections
 {
     public interface IMongoWriter
     {
-        Task WriteMany(IList<SinkRecord<WriteModel<BsonDocument>>> batch, string connector, int taskId);
+        Task WriteMany(IList<ConnectRecord<WriteModel<BsonDocument>>> batch, string connector, int taskId);
     }
 }

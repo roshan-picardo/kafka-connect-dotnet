@@ -19,7 +19,7 @@ namespace Kafka.Connect.MongoDb.Strategies
             _logger = logger;
         }
 
-        protected override async Task<(SinkStatus Status, IList<WriteModel<BsonDocument>> Models)> BuildModels(string connector, SinkRecord record)
+        protected override async Task<(SinkStatus Status, IList<WriteModel<BsonDocument>> Models)> BuildModels(string connector, ConnectRecord record)
         {
             using (_logger.Track("Creating write models"))
             {

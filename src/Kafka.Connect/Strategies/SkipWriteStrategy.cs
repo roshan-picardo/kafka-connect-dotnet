@@ -9,7 +9,7 @@ namespace Kafka.Connect.Strategies;
 
 public class SkipWriteStrategy : IWriteStrategy
 {
-    public Task<(SinkStatus Status, IList<T> Models)> BuildModels<T>(string connector, SinkRecord record)
+    public Task<(SinkStatus Status, IList<T> Models)> BuildModels<T>(string connector, ConnectRecord record)
     {
         return Task.FromResult<(SinkStatus, IList<T>)>((SinkStatus.Skipping, Array.Empty<T>()));
     }

@@ -4,11 +4,11 @@ using Newtonsoft.Json.Linq;
 
 namespace Kafka.Connect.Plugin.Models
 {
-    public class SinkRecord
+    public class ConnectRecord
     {
         private readonly LogTimestamp _logTimestamp;
 
-        protected SinkRecord(string topic, int partition, long offset)
+        protected ConnectRecord(string topic, int partition, long offset)
         {
             Topic = topic;
             Partition = partition;

@@ -4,11 +4,11 @@ using Kafka.Connect.Plugin.Extensions;
 
 namespace Kafka.Connect.Models
 {
-    public class SinkRecord : Plugin.Models.SinkRecord
+    public class ConnectRecord : Plugin.Models.ConnectRecord
     {
         private readonly ConsumeResult<byte[], byte[]> _consumed;
 
-        public SinkRecord(ConsumeResult<byte[], byte[]> consumed) :
+        public ConnectRecord(ConsumeResult<byte[], byte[]> consumed) :
             base(consumed.Topic, consumed.Partition, consumed.Offset)
         {
             _consumed = consumed;

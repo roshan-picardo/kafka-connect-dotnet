@@ -38,7 +38,7 @@ namespace UnitTests.Kafka.Connect.Handlers
         [InlineData(false, false)]
         public void CommitOffsets_WhenNoOffsetsToCommit(bool isEmpty, bool canCommit)
         {
-            var batch = new SinkRecordBatch("commits");
+            var batch = new ConnectRecordBatch("commits");
             if (!isEmpty)
             {
                 var record = GetRecord("topicA", 0, 10);
@@ -62,7 +62,7 @@ namespace UnitTests.Kafka.Connect.Handlers
         public void CommitOffsets_WhenCommitOrStore(bool enableAutoCommit, bool enableAutoOffsetStore, int callCountCommit, int callCountStoreOffset)
         {
             _configurationProvider.GetAutoCommitConfig().Returns((enableAutoCommit, enableAutoOffsetStore));
-            var batch = new SinkRecordBatch("commits") {GetRecord("topicA", 0, 10)};
+            var batch = new ConnectRecordBatch("commits") {GetRecord("topicA", 0, 10)};
 
             _partitionHandler.CommitOffsets(batch, _consumer);
 
@@ -77,7 +77,7 @@ namespace UnitTests.Kafka.Connect.Handlers
         {
             _configurationProvider.GetAutoCommitConfig().Returns((true, false));
 
-            var batch = new SinkRecordBatch("commits")
+            var batch = new ConnectRecordBatch("commits")
             {
                 GetRecord("topicA", 0, 10), 
                 GetRecord("topicA", 0, 100), 
@@ -100,7 +100,7 @@ namespace UnitTests.Kafka.Connect.Handlers
         {
             _configurationProvider.GetEofSignalConfig(Arg.Any<string>()).Returns((_) => isnull ? null : new EofConfig {Enabled = isEnabled, Topic = topic});
 
-            var batch = new SinkRecordBatch("commits") {GetRecord("topicA", 0, 10)};
+            var batch = new ConnectRecordBatch("commits") {GetRecord("topicA", 0, 10)};
 
             await _partitionHandler.NotifyEndOfPartition(batch, "connector", 1);
 
@@ -113,7 +113,7 @@ namespace UnitTests.Kafka.Connect.Handlers
         {
             _configurationProvider.GetEofSignalConfig(Arg.Any<string>()).Returns(new EofConfig {Enabled = true, Topic = "eof-topic"});
 
-            var batch = new SinkRecordBatch("commits") {GetRecord("topicA", 0, 10)};
+            var batch = new ConnectRecordBatch("commits") {GetRecord("topicA", 0, 10)};
 
             await _partitionHandler.NotifyEndOfPartition(batch, "connector", 1);
 
@@ -129,7 +129,7 @@ namespace UnitTests.Kafka.Connect.Handlers
         {
             _configurationProvider.GetEofSignalConfig(Arg.Any<string>()).Returns(new EofConfig {Enabled = true, Topic = "eof-topic"});
 
-            var batch = new SinkRecordBatch("commits") {GetRecord(topic, partition, offset)};
+            var batch = new ConnectRecordBatch("commits") {GetRecord(topic, partition, offset)};
             batch.SetPartitionEof("data-topic", 0, 101);
 
             await _partitionHandler.NotifyEndOfPartition(batch, "connector", 1);
@@ -143,7 +143,7 @@ namespace UnitTests.Kafka.Connect.Handlers
         {
             _configurationProvider.GetEofSignalConfig(Arg.Any<string>()).Returns(new EofConfig {Enabled = true, Topic = "eof-topic"});
 
-            var batch = new SinkRecordBatch("commits") {GetRecord("data-topic", 0, 100)};
+            var batch = new ConnectRecordBatch("commits") {GetRecord("data-topic", 0, 100)};
             batch.SetPartitionEof("data-topic", 0, 101);
             _kafkaClientBuilder.GetProducer(Arg.Any<string>()).Returns((IProducer<byte[], byte[]>) null);
 
@@ -159,7 +159,7 @@ namespace UnitTests.Kafka.Connect.Handlers
         {
             _configurationProvider.GetEofSignalConfig(Arg.Any<string>()).Returns(new EofConfig {Enabled = true, Topic = "eof-topic"});
 
-            var batch = new SinkRecordBatch("commits") {GetRecord("data-topic", 0, 100)};
+            var batch = new ConnectRecordBatch("commits") {GetRecord("data-topic", 0, 100)};
             batch.SetPartitionEof("data-topic", 0, 101);
             _kafkaClientBuilder.GetProducer(Arg.Any<string>()).Returns(_producer);
             var delivered = new DeliveryResult<byte[], byte[]>
@@ -177,9 +177,9 @@ namespace UnitTests.Kafka.Connect.Handlers
             _logger.Received().Info( "EOF message delivered.", Arg.Any<object>());
         }
         
-        private static SinkRecord GetRecord(string topic, int partition, int offset)
+        private static ConnectRecord GetRecord(string topic, int partition, int offset)
         {
-            return  new global::Kafka.Connect.Models.SinkRecord(new ConsumeResult<byte[], byte[]>
+            return  new global::Kafka.Connect.Models.ConnectRecord(new ConsumeResult<byte[], byte[]>
             {
                 Message = new Message<byte[], byte[]>
                 {
