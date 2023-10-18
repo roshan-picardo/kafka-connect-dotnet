@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -21,6 +22,8 @@ namespace Kafka.Connect.Plugin.Models
         public string Connector { get; }
         
         public bool IsEmpty => Count == 0;
+
+        public int EofCount => _eofPartitions.Count;
 
         public IEnumerable<(string Topic, int Partition, long Offset)> GetCommitReadyOffsets()
         {
@@ -63,6 +66,8 @@ namespace Kafka.Connect.Plugin.Models
         }
 
         public IEnumerable<T> GetAll<T>() where T : class => this.Select(r => r as T);
+
+        public bool Any<T>(Func<T, bool> condition) => this.Select(r => r.GetValue<T>()).Any(condition);
         
         public IEnumerable<(string Topic, int Partition, IEnumerable<T> Batch)> GetByTopicPartition<T>() where T : class
         {
@@ -74,7 +79,7 @@ namespace Kafka.Connect.Plugin.Models
 
         public void SetPartitionEof(string topic, int partition, long offset) => _eofPartitions.Add((topic, partition, offset));
 
-        public IEnumerable<(string Topic, int Partition, long Offset)> GetEofPartitions() => _eofPartitions;
+        public IList<(string Topic, int Partition, long Offset)> GetEofPartitions() => _eofPartitions;
 
         public dynamic GetBatchStatus()
         {

@@ -112,7 +112,7 @@ namespace Kafka.Connect.Providers
             return GetConnectorConfig(connector).Log?.Provider;
         }
 
-        public (string Key, string Value) GetMessageConverters(string connector, string topic)
+        public (string Key, string Value) GetDeserializers(string connector, string topic)
         {
             var shared = _workerConfig.Batches?.Deserializers;
             var deserializers = GetConnectorConfig(connector).Batches?.Deserializers;
@@ -125,6 +125,21 @@ namespace Kafka.Connect.Providers
                                  ?? shared?.Overrides?.SingleOrDefault(t => t.Topic == topic)?.Value 
                                  ?? shared?.Value;
             return (keyConverter ?? Constants.DefaultDeserializer, valueConverter ?? Constants.DefaultDeserializer);
+        }
+        
+        public (string Key, string Value) GetSerializers(string connector, string topic)
+        {
+            var shared = _workerConfig.Batches?.Serializers;
+            var deserializers = GetConnectorConfig(connector).Batches?.Serializers;
+            var keyConverter = deserializers?.Overrides?.SingleOrDefault(t => t.Topic == topic)?.Key 
+                               ?? deserializers?.Key
+                               ?? shared?.Overrides?.SingleOrDefault(t => t.Topic == topic)?.Key 
+                               ?? shared?.Key;
+            var valueConverter = deserializers?.Overrides?.SingleOrDefault(t => t.Topic == topic)?.Value 
+                                 ?? deserializers?.Value
+                                 ?? shared?.Overrides?.SingleOrDefault(t => t.Topic == topic)?.Value 
+                                 ?? shared?.Value;
+            return (keyConverter ?? Constants.DefaultSerializer, valueConverter ?? Constants.DefaultSerializer);
         }
 
         public IList<string> GetTopics(string connector)
@@ -143,6 +158,14 @@ namespace Kafka.Connect.Providers
             var sinkConfig = connectorConfig.Sink ?? new SinkConfig();
             sinkConfig.Plugin ??= connectorConfig.Plugin;
             return sinkConfig;
+        }
+
+        public SourceConfig GetSourceConfig(string connector)
+        {
+            var connectorConfig = GetConnectorConfig(connector);
+            var sourceConfig = connectorConfig.Source ?? new SourceConfig();
+            sourceConfig.Plugin = connectorConfig.Plugin;
+            return sourceConfig;
         }
 
         public bool IsErrorTolerated(string connector)

@@ -19,9 +19,11 @@ namespace Kafka.Connect.Providers
         EofConfig GetEofSignalConfig(string connector);
         BatchConfig GetBatchConfig(string connector);
         IList<string> GetTopics(string connector);
-        (string Key, string Value) GetMessageConverters(string connector, string topic);
+        (string Key, string Value) GetDeserializers(string connector, string topic);
+        (string Key, string Value) GetSerializers(string connector, string topic);
         IList<ProcessorConfig> GetMessageProcessors(string connector, string topic);
         SinkConfig GetSinkConfig(string connector);
+        SourceConfig GetSourceConfig(string connector);
         bool IsErrorTolerated(string connector);
         bool IsDeadLetterEnabled(string connector);
         (bool EnableAutoCommit, bool EnableAutoOffsetStore) GetAutoCommitConfig();

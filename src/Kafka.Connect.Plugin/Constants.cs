@@ -9,5 +9,6 @@ namespace Kafka.Connect.Plugin
         public const string Offset = "Offset";
         public const string AtLog = "{@Log}";
         public const string DefaultDeserializer = "Kafka.Connect.Serializers.AvroDeserializer";
+        public const string DefaultSerializer = "Kafka.Connect.Serializers.AvroSerializer";
     }
 }

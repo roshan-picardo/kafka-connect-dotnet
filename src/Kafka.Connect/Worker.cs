@@ -2,7 +2,12 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Confluent.Kafka;
+using Confluent.Kafka.Admin;
+using Kafka.Connect.Builders;
+using Kafka.Connect.Configurations;
 using Kafka.Connect.Connectors;
+using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Providers;
 using Kafka.Connect.Tokens;
@@ -17,15 +22,17 @@ public class Worker : IWorker
     private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly IExecutionContext _executionContext;
     private readonly IConfigurationProvider _configurationProvider;
+    private readonly IKafkaClientBuilder _kafkaClientBuilder;
     private PauseTokenSource _pauseTokenSource;
 
     public Worker(ILogger<Worker> logger, IServiceScopeFactory serviceScopeFactory,
-        IExecutionContext executionContext, IConfigurationProvider configurationProvider)
+        IExecutionContext executionContext, IConfigurationProvider configurationProvider, IKafkaClientBuilder kafkaClientBuilder)
     {
         _logger = logger;
         _serviceScopeFactory = serviceScopeFactory;
         _executionContext = executionContext;
         _configurationProvider = configurationProvider;
+        _kafkaClientBuilder = kafkaClientBuilder;
     }
 
     public bool IsPaused => _pauseTokenSource.IsPaused;
@@ -48,8 +55,36 @@ public class Worker : IWorker
             }
             try
             {
-                _logger.Debug("Starting connectors.", new { _configurationProvider.GetAllConnectorConfigs().Count});
-                var connectors = from job in _configurationProvider.GetAllConnectorConfigs().Select(s =>
+                var allConnectorConfigs = _configurationProvider.GetAllConnectorConfigs();
+                var adminClient = _kafkaClientBuilder.GetAdminClient();
+                
+                // create the source topic if required
+                await allConnectorConfigs.Where(c => c.Type == ConnectorType.Source).ForEachAsync( async config =>
+                {
+                    var meta = adminClient.GetMetadata(config.Topic, TimeSpan.FromSeconds(2));
+                    if (!meta.Topics.Exists(t => t.Topic == config.Topic  && !t.Error.IsError && t.Partitions.Count > 0))
+                    {
+                        try
+                        {
+                            await adminClient.CreateTopicsAsync(new[]
+                            {
+                                new TopicSpecification
+                                {
+                                    Name = config.Topic, 
+                                    NumPartitions = 50,
+                                    ReplicationFactor = (short)(meta.Brokers.Count > 3 ? 3 : meta.Brokers.Count)
+                                }
+                            });
+                        }
+                        catch (Exception)
+                        {
+                            //
+                        }
+                    }
+                });
+                
+                _logger.Debug("Starting connectors.", new { allConnectorConfigs.Count});
+                var connectors = from job in allConnectorConfigs.Select(s =>
                         new { s.Name, Scope = _serviceScopeFactory.CreateScope()})
                     let connector = job.Scope.ServiceProvider.GetService<IConnector>()
                     select new {Connector = connector, job.Name};

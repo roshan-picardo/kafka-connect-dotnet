@@ -1,6 +1,7 @@
 using System;
 using Confluent.Kafka;
 using Kafka.Connect.Plugin.Extensions;
+using Newtonsoft.Json.Linq;
 
 namespace Kafka.Connect.Models
 {
@@ -13,6 +14,12 @@ namespace Kafka.Connect.Models
         {
             _consumed = consumed;
             StartTiming(_consumed.Message.Timestamp.UnixTimestampMs);
+        }
+
+        public ConnectRecord(string topic, JToken key, JToken value) : base(topic, -1, -1)
+        {
+            Parsed(key, value);
+            StartTiming();
         }
 
         public Message<byte[], byte[]> GetDeadLetterMessage(Exception ex)
