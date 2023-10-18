@@ -59,6 +59,7 @@ namespace Kafka.Connect.Utilities
                 .AddScoped<ISinkConsumer, SinkConsumer>()
                 .AddScoped<ISourceProducer, SourceProducer>()
                 .AddScoped<ISinkProcessor, SinkProcessor>()
+                .AddScoped<ISourceProcessor, SourceProcessor>()
                 .AddScoped<IPartitionHandler, PartitionHandler>()
                 .AddScoped<ISinkExceptionHandler, SinkExceptionHandler>()
 

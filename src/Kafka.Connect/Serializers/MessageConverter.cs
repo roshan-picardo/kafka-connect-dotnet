@@ -24,7 +24,7 @@ namespace Kafka.Connect.Serializers
         {
             using (_logger.Track("Deserializing the message."))
             {
-                var (keyConfig, valueConfig) = _configurationProvider.GetMessageConverters(connector, topic);
+                var (keyConfig, valueConfig) = _configurationProvider.GetDeserializers(connector, topic);
                 var keyToken =
                     await _processorServiceProvider.GetDeserializer(keyConfig).Deserialize(message.Key,
                         topic, message?.Headers?.ToDictionary(h => h.Key, h => h.GetValueBytes()),

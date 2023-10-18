@@ -261,7 +261,7 @@ namespace UnitTests.Kafka.Connect.Providers
                 {
                     {"connector", new ConnectorConfig {Batches = connectorBatch}}
                 }
-            }).GetMessageConverters("connector", "test-topic");
+            }).GetDeserializers("connector", "test-topic");
 
             Assert.Equal(expectedSerializer.Key, key);
             Assert.Equal(expectedSerializer.Value, value);

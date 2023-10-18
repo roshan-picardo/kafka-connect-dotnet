@@ -66,11 +66,11 @@ namespace Kafka.Connect.Handlers
         }
 
 
-        public async Task<ConnectRecordBatch> Consume(IConsumer<byte[], byte[]> consumer, string connector, int taskId)
+        public async Task<ConnectRecordBatch> Consume(IConsumer<byte[], byte[]> consumer, string connector, int taskId, bool consumeAll = false)
         {
             using (_logger.Track("Consume and batch messages."))
             {
-                var batch = await _retriableHandler.Retry(() => ConsumeInternal(consumer, connector, taskId),
+                var batch = await _retriableHandler.Retry(() => ConsumeInternal(consumer, connector, taskId, consumeAll),
                     connector);
                 if (batch == null || batch.IsEmpty)
                 {
@@ -82,7 +82,7 @@ namespace Kafka.Connect.Handlers
             }
         }
 
-        private async Task<ConnectRecordBatch> ConsumeInternal(IConsumer<byte[], byte[]> consumer, string connector, int taskId)
+        private async Task<ConnectRecordBatch> ConsumeInternal(IConsumer<byte[], byte[]> consumer, string connector, int taskId, bool consumeAll)
         {
             ConsumeResult<byte[], byte[]> Consuming(IConsumer<byte[], byte[]> consumerInternal, CancellationToken token)
             {
@@ -120,11 +120,15 @@ namespace Kafka.Connect.Handlers
                     if (consumed.IsPartitionEOF)
                     {
                         batch.SetPartitionEof(consumed.Topic, consumed.Partition.Value, consumed.Offset.Value);
-                        break;
+                        if (batch.EofCount == consumer.Assignment.Count)
+                        {
+                            break;
+                        }
+                        continue;
                     }
                     batch.Add(new Models.ConnectRecord(consumed));
 
-                } while (--maxBatchSize > 0);
+                } while (consumeAll || --maxBatchSize > 0);
             }
             catch (Exception ex)
             {

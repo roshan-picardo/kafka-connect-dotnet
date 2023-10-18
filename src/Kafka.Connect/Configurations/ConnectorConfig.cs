@@ -9,6 +9,7 @@ namespace Kafka.Connect.Configurations
         private readonly IList<string> _topics = new List<string>();
         private readonly string _groupId;
         private readonly string _clientId;
+        private string _topic;
         private readonly IDictionary<string, ProcessorConfig> _processors;
         private readonly LogConfig _log;
 
@@ -22,16 +23,29 @@ namespace Kafka.Connect.Configurations
         }
         public bool Disabled { get; init; }
 
-        public string Topic { get; init; }
+        public string Topic
+        {
+            get
+            {
+                if (Type == ConnectorType.Source && string.IsNullOrWhiteSpace(_topic))
+                {
+                    _topic = _topics.FirstOrDefault();
+                }
+
+                return _topic;
+            }
+            init => _topic = value;
+        }
 
         public IList<string> Topics
         {
             get
             {
-                if (!string.IsNullOrWhiteSpace(Topic) && !_topics.Contains(Topic))
+                if (Type == ConnectorType.Sink && !string.IsNullOrWhiteSpace(_topic) && !_topics.Contains(_topic))
                 {
-                    _topics.Add(Topic);
+                    _topics.Add(_topic);
                 }
+
                 return _topics;
             }
             init => _topics = value?.ToList() ?? new List<string>();
@@ -40,6 +54,8 @@ namespace Kafka.Connect.Configurations
         public bool Paused { get; init; }
         public string Plugin { get; init; }
         public SinkConfig Sink { get; init; }
+        
+        public SourceConfig Source { get; set; }
 
         public LogConfig Log
         {
