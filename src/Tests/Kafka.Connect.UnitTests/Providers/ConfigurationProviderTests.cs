@@ -254,7 +254,7 @@ namespace UnitTests.Kafka.Connect.Providers
         public void GetMessageConverters_Tests(BatchConfig connectorBatch, BatchConfig workerBatch,
             (string Key, string Value) expectedSerializer)
         {
-            var (key, value) = GetProvider(new WorkerConfig
+            var converterConfig = GetProvider(new WorkerConfig
             {
                 Batches = workerBatch,
                 Connectors = new Dictionary<string, ConnectorConfig>
@@ -263,8 +263,8 @@ namespace UnitTests.Kafka.Connect.Providers
                 }
             }).GetDeserializers("connector", "test-topic");
 
-            Assert.Equal(expectedSerializer.Key, key);
-            Assert.Equal(expectedSerializer.Value, value);
+            Assert.Equal(expectedSerializer.Key, converterConfig.Key);
+            Assert.Equal(expectedSerializer.Value, converterConfig.Value);
         }
 
         [Theory]

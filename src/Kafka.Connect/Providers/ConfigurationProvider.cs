@@ -7,246 +7,250 @@ using Kafka.Connect.Plugin;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 
-namespace Kafka.Connect.Providers
+namespace Kafka.Connect.Providers;
+
+public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugin.Providers.IConfigurationProvider
 {
-    public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugin.Providers.IConfigurationProvider
+    private readonly IConfiguration _configuration;
+    private readonly WorkerConfig _workerConfig;
+    public ConfigurationProvider(IOptions<WorkerConfig> options, IConfiguration configuration)
     {
-        private readonly IConfiguration _configuration;
-        private readonly WorkerConfig _workerConfig;
-        public ConfigurationProvider(IOptions<WorkerConfig> options, IConfiguration configuration)
-        {
-            _configuration = configuration;
-            _workerConfig = options?.Value ?? throw new ArgumentNullException(nameof(options));
-        }
+        _configuration = configuration;
+        _workerConfig = options?.Value ?? throw new ArgumentNullException(nameof(options));
+    }
 
-        public FailOverConfig GetFailOverConfig()
-        {
-            return _workerConfig.FailOver ?? new FailOverConfig();
-        }
+    public FailOverConfig GetFailOverConfig()
+    {
+        return _workerConfig.FailOver ?? new FailOverConfig();
+    }
         
-        public HealthCheckConfig GetHealthCheckConfig()
-        {
-            return _workerConfig.HealthCheck ?? new HealthCheckConfig();
-        }
+    public HealthCheckConfig GetHealthCheckConfig()
+    {
+        return _workerConfig.HealthCheck ?? new HealthCheckConfig();
+    }
         
-        public ConnectorConfig GetConnectorConfig(string connector)
-        {
-            return _workerConfig.Connectors?.Values.SingleOrDefault(c => c.Name == connector) ??
-                   throw new ArgumentException($"{connector} isn't configured.");
-        }
+    public ConnectorConfig GetConnectorConfig(string connector)
+    {
+        return _workerConfig.Connectors?.Values.SingleOrDefault(c => c.Name == connector) ??
+               throw new ArgumentException($"{connector} isn't configured.");
+    }
 
-        public ConsumerConfig GetConsumerConfig(string connector = null)
+    public ConsumerConfig GetConsumerConfig(string connector = null)
+    {
+        if (connector == null)
         {
-            if (connector == null)
-            {
-                return _workerConfig;
-            }
-            var config = GetConnectorConfig(connector);
-            _workerConfig.GroupId = config.GroupId;
-            _workerConfig.ClientId = config.ClientId;
             return _workerConfig;
         }
+        var config = GetConnectorConfig(connector);
+        _workerConfig.GroupId = config.GroupId;
+        _workerConfig.ClientId = config.ClientId;
+        return _workerConfig;
+    }
 
-        public ProducerConfig GetProducerConfig(string connector = null)
-        {
-            var consumerConfig = GetConsumerConfig(connector);
-            return new ProducerConfig(consumerConfig);
-        }
+    public ProducerConfig GetProducerConfig(string connector = null)
+    {
+        var consumerConfig = GetConsumerConfig(connector);
+        return new ProducerConfig(consumerConfig);
+    }
 
-        public IList<ConnectorConfig> GetAllConnectorConfigs(bool includeDisabled = false)
-        {
-            return _workerConfig.Connectors?.Values.Where(c => includeDisabled || !c.Disabled).ToList() ??
-                   throw new ArgumentException("Connectors aren't configured.");
-        }
+    public IList<ConnectorConfig> GetAllConnectorConfigs(bool includeDisabled = false)
+    {
+        return _workerConfig.Connectors?.Values.Where(c => includeDisabled || !c.Disabled).ToList() ??
+               throw new ArgumentException("Connectors aren't configured.");
+    }
 
-        public string GetWorkerName()
-        {
-            return _workerConfig.Name;
-        }
+    public string GetWorkerName()
+    {
+        return _workerConfig.Name;
+    }
 
-        public RestartsConfig GetRestartsConfig()
-        {
-            return _workerConfig.Restarts ?? new RestartsConfig();
-        }
+    public RestartsConfig GetRestartsConfig()
+    {
+        return _workerConfig.Restarts ?? new RestartsConfig();
+    }
 
-        public ErrorsConfig GetErrorsConfig(string connector)
-        {
-            return GetConnectorConfig(connector).Retries?.Errors 
-                   ?? _workerConfig.Retries?.Errors 
-                   ?? new ErrorsConfig {Tolerance = ErrorTolerance.All};
-        }
+    public ErrorsConfig GetErrorsConfig(string connector)
+    {
+        return GetConnectorConfig(connector).Retries?.Errors 
+               ?? _workerConfig.Retries?.Errors 
+               ?? new ErrorsConfig {Tolerance = ErrorTolerance.All};
+    }
         
-        public RetryConfig GetRetriesConfig(string connector)
+    public RetryConfig GetRetriesConfig(string connector)
+    {
+        return GetConnectorConfig(connector)?.Retries 
+               ?? _workerConfig.Retries 
+               ?? new RetryConfig();
+    }
+
+    public EofConfig GetEofSignalConfig(string connector)
+    {
+        return GetConnectorConfig(connector)?.Batches?.EofSignal
+               ?? _workerConfig.Batches?.EofSignal
+               ?? new EofConfig();
+    }
+
+    public BatchConfig GetBatchConfig(string connector)
+    {
+        if (!(_workerConfig.EnablePartitionEof ?? false))
         {
-            return GetConnectorConfig(connector)?.Retries 
-                   ?? _workerConfig.Retries 
-                   ?? new RetryConfig();
+            return new BatchConfig {Size = 1, Parallelism = 1};
         }
 
-        public EofConfig GetEofSignalConfig(string connector)
-        {
-            return GetConnectorConfig(connector)?.Batches?.EofSignal
-                   ?? _workerConfig.Batches?.EofSignal
-                   ?? new EofConfig();
-        }
+        return GetConnectorConfig(connector)?.Batches
+               ?? _workerConfig.Batches
+               ?? new BatchConfig();
+    }
 
-        public BatchConfig GetBatchConfig(string connector)
-        {
-            if (!(_workerConfig.EnablePartitionEof ?? false))
+    public string GetGroupId(string connector)
+    {
+        return GetConnectorConfig(connector).GroupId;
+    }
+
+    public string GetLogEnhancer(string connector)
+    {
+        return GetConnectorConfig(connector).Log?.Provider;
+    }
+
+    public ConverterConfig GetDeserializers(string connector, string topic)
+    {
+        var shared = _workerConfig.Batches?.Deserializers;
+        var deserializers = GetConnectorConfig(connector).Batches?.Deserializers;
+        return FindConverterConfig(deserializers?.Overrides?.SingleOrDefault(t => t.Topic == topic), deserializers,
+            shared?.Overrides?.SingleOrDefault(t => t.Topic == topic), shared, Constants.DefaultDeserializer);
+    }
+
+    public ConverterConfig GetSerializers(string connector, string topic)
+    {
+        var shared = _workerConfig.Batches?.Serializers;
+        var serializers = GetConnectorConfig(connector).Batches?.Serializers;
+        return FindConverterConfig(serializers?.Overrides?.SingleOrDefault(t => t.Topic == topic), serializers,
+            shared?.Overrides?.SingleOrDefault(t => t.Topic == topic), shared, Constants.DefaultSerializer);
+    }
+
+    private static ConverterConfig FindConverterConfig(
+        ConverterOverrideConfig localOverride,
+        ConverterConfig localConfig,
+        ConverterOverrideConfig globalOverride,
+        ConverterConfig globalConfig,
+        string defaultValue)
+        =>
+            new()
             {
-                return new BatchConfig {Size = 1, Parallelism = 1};
-            }
+                Key = localOverride?.Key ??
+                      localConfig?.Key ?? globalOverride?.Key ?? globalConfig?.Key ?? defaultValue,
+                Value = localOverride?.Value ??
+                        localConfig?.Value ?? globalOverride?.Value ?? globalConfig?.Value ?? defaultValue,
+                Subject = localOverride?.Subject ?? localConfig?.Subject ??
+                    globalOverride?.Subject ?? globalConfig?.Subject ?? "Topic",
+                Record = localOverride?.Record ??
+                         localConfig?.Record ?? globalOverride?.Record ?? globalConfig?.Record,
+            };
 
-            return GetConnectorConfig(connector)?.Batches
-                   ?? _workerConfig.Batches
-                   ?? new BatchConfig();
-        }
+    public IList<string> GetTopics(string connector)
+    {
+        return GetConnectorConfig(connector).Topics;
+    }
 
-        public string GetGroupId(string connector)
-        {
-            return GetConnectorConfig(connector).GroupId;
-        }
+    public IList<ProcessorConfig> GetMessageProcessors(string connector, string topic)
+    {
+        return GetConnectorConfig(connector).Processors?.Values.Where(p=> p.Topics == null || p.Topics.Contains(topic)).ToList() ?? new List<ProcessorConfig>();
+    }
 
-        public string GetLogEnhancer(string connector)
-        {
-            return GetConnectorConfig(connector).Log?.Provider;
-        }
+    public SinkConfig GetSinkConfig(string connector)
+    {
+        var connectorConfig = GetConnectorConfig(connector);
+        var sinkConfig = connectorConfig.Sink ?? new SinkConfig();
+        sinkConfig.Plugin ??= connectorConfig.Plugin;
+        return sinkConfig;
+    }
 
-        public (string Key, string Value) GetDeserializers(string connector, string topic)
-        {
-            var shared = _workerConfig.Batches?.Deserializers;
-            var deserializers = GetConnectorConfig(connector).Batches?.Deserializers;
-            var keyConverter = deserializers?.Overrides?.SingleOrDefault(t => t.Topic == topic)?.Key 
-                               ?? deserializers?.Key
-                               ?? shared?.Overrides?.SingleOrDefault(t => t.Topic == topic)?.Key 
-                               ?? shared?.Key;
-            var valueConverter = deserializers?.Overrides?.SingleOrDefault(t => t.Topic == topic)?.Value 
-                                 ?? deserializers?.Value
-                                 ?? shared?.Overrides?.SingleOrDefault(t => t.Topic == topic)?.Value 
-                                 ?? shared?.Value;
-            return (keyConverter ?? Constants.DefaultDeserializer, valueConverter ?? Constants.DefaultDeserializer);
-        }
-        
-        public (string Key, string Value) GetSerializers(string connector, string topic)
-        {
-            var shared = _workerConfig.Batches?.Serializers;
-            var deserializers = GetConnectorConfig(connector).Batches?.Serializers;
-            var keyConverter = deserializers?.Overrides?.SingleOrDefault(t => t.Topic == topic)?.Key 
-                               ?? deserializers?.Key
-                               ?? shared?.Overrides?.SingleOrDefault(t => t.Topic == topic)?.Key 
-                               ?? shared?.Key;
-            var valueConverter = deserializers?.Overrides?.SingleOrDefault(t => t.Topic == topic)?.Value 
-                                 ?? deserializers?.Value
-                                 ?? shared?.Overrides?.SingleOrDefault(t => t.Topic == topic)?.Value 
-                                 ?? shared?.Value;
-            return (keyConverter ?? Constants.DefaultSerializer, valueConverter ?? Constants.DefaultSerializer);
-        }
+    public SourceConfig GetSourceConfig(string connector)
+    {
+        var connectorConfig = GetConnectorConfig(connector);
+        var sourceConfig = connectorConfig.Source ?? new SourceConfig();
+        sourceConfig.Plugin = connectorConfig.Plugin;
+        return sourceConfig;
+    }
 
-        public IList<string> GetTopics(string connector)
-        {
-            return GetConnectorConfig(connector).Topics;
-        }
+    public bool IsErrorTolerated(string connector)
+    {
+        return GetErrorsConfig(connector).Tolerance == ErrorTolerance.All;
+    }
 
-        public IList<ProcessorConfig> GetMessageProcessors(string connector, string topic)
-        {
-            return GetConnectorConfig(connector).Processors?.Values.Where(p=> p.Topics == null || p.Topics.Contains(topic)).ToList() ?? new List<ProcessorConfig>();
-        }
+    public bool IsDeadLetterEnabled(string connector)
+    {
+        var errors = GetErrorsConfig(connector);
+        return errors.Tolerance == ErrorTolerance.All && !string.IsNullOrWhiteSpace(errors.Topic);
+    }
 
-        public SinkConfig GetSinkConfig(string connector)
-        {
-            var connectorConfig = GetConnectorConfig(connector);
-            var sinkConfig = connectorConfig.Sink ?? new SinkConfig();
-            sinkConfig.Plugin ??= connectorConfig.Plugin;
-            return sinkConfig;
-        }
+    public (bool EnableAutoCommit, bool EnableAutoOffsetStore) GetAutoCommitConfig()
+    {
+        return (_workerConfig.EnableAutoCommit ?? false, _workerConfig.EnableAutoOffsetStore ?? false);
+    }
 
-        public SourceConfig GetSourceConfig(string connector)
-        {
-            var connectorConfig = GetConnectorConfig(connector);
-            var sourceConfig = connectorConfig.Source ?? new SourceConfig();
-            sourceConfig.Plugin = connectorConfig.Plugin;
-            return sourceConfig;
-        }
+    public T GetProcessorSettings<T>(string connector, string processor)
+    {
+        var connectors = _configuration.GetSection("worker:connectors").Get<IDictionary<string, ConnectorConfig<T>>>();
+        var config = connectors?.SingleOrDefault(c => (c.Value.Name ?? c.Key) == connector).Value
+            ?.Processors?.SingleOrDefault(p => p.Value != null && p.Value.Name == processor).Value;
+        return config != null ? config.Settings : default;
+    }
 
-        public bool IsErrorTolerated(string connector)
-        {
-            return GetErrorsConfig(connector).Tolerance == ErrorTolerance.All;
-        }
+    public T GetSinkConfigProperties<T>(string connector, string plugin = null)
+    {
+        var connectors = _configuration.GetSection("worker:connectors").Get<IDictionary<string, ConnectorSinkConfig<T>>>();
+        var config = connectors?.SingleOrDefault(c => (c.Value.Name ?? c.Key) == connector && (string.IsNullOrWhiteSpace(plugin) || c.Value.Plugin == plugin)).Value?.Sink;
+        return config != null ? config.Properties : default;
+    }
 
-        public bool IsDeadLetterEnabled(string connector)
-        {
-            var errors = GetErrorsConfig(connector);
-            return errors.Tolerance == ErrorTolerance.All && !string.IsNullOrWhiteSpace(errors.Topic);
-        }
+    public  T GetLogAttributes<T>(string connector)
+    {
+        var connectors = _configuration.GetSection("worker:connectors").Get<IDictionary<string, ConnectorLogConfig<T>>>();
+        var config = connectors?.SingleOrDefault(c => (c.Value.Name ?? c.Key) == connector).Value?.Log;
+        return config == null ? default : config.Attributes;
+    }
 
-        public (bool EnableAutoCommit, bool EnableAutoOffsetStore) GetAutoCommitConfig()
-        {
-            return (_workerConfig.EnableAutoCommit ?? false, _workerConfig.EnableAutoOffsetStore ?? false);
-        }
+    public string GetPluginName(string connector)
+    {
+        return GetConnectorConfig(connector)?.Plugin;
+    }
 
-        public T GetProcessorSettings<T>(string connector, string processor)
+    public void Validate()  
+    {
+        if (string.IsNullOrWhiteSpace(_workerConfig.BootstrapServers))
         {
-            var connectors = _configuration.GetSection("worker:connectors").Get<IDictionary<string, ConnectorConfig<T>>>();
-            var config = connectors?.SingleOrDefault(c => (c.Value.Name ?? c.Key) == connector).Value
-                             ?.Processors?.SingleOrDefault(p => p.Value != null && p.Value.Name == processor).Value;
-            return config != null ? config.Settings : default;
+            throw new ArgumentException("Bootstrap Servers isn't configured for worker.");
         }
-
-        public T GetSinkConfigProperties<T>(string connector, string plugin = null)
+        if (!(_workerConfig.Connectors?.Any() ?? false))
         {
-            var connectors = _configuration.GetSection("worker:connectors").Get<IDictionary<string, ConnectorSinkConfig<T>>>();
-            var config = connectors?.SingleOrDefault(c => (c.Value.Name ?? c.Key) == connector && (string.IsNullOrWhiteSpace(plugin) || c.Value.Plugin == plugin)).Value?.Sink;
-            return config != null ? config.Properties : default;
+            throw new ArgumentException("At least one connector is required for the worker to start.");
         }
-
-        public  T GetLogAttributes<T>(string connector)
-        {
-            var connectors = _configuration.GetSection("worker:connectors").Get<IDictionary<string, ConnectorLogConfig<T>>>();
-            var config = connectors?.SingleOrDefault(c => (c.Value.Name ?? c.Key) == connector).Value?.Log;
-            return config == null ? default : config.Attributes;
-        }
-
-        public string GetPluginName(string connector)
-        {
-            return GetConnectorConfig(connector)?.Plugin;
-        }
-
-        public void Validate()  
-        {
-            if (string.IsNullOrWhiteSpace(_workerConfig.BootstrapServers))
-            {
-                throw new ArgumentException("Bootstrap Servers isn't configured for worker.");
-            }
-            if (!(_workerConfig.Connectors?.Any() ?? false))
-            {
-                throw new ArgumentException("At least one connector is required for the worker to start.");
-            }
             
-            var hash = new HashSet<string>();
-            hash.Clear();
-            if (!_workerConfig.Connectors.Values.All(c => c!= null && hash.Add(c.Name) && !string.IsNullOrEmpty(c.Name)))
-            {
-                throw new ArgumentException("Connector Name configuration property must be specified and must be unique.");
-            }
+        var hash = new HashSet<string>();
+        hash.Clear();
+        if (!_workerConfig.Connectors.Values.All(c => c!= null && hash.Add(c.Name) && !string.IsNullOrEmpty(c.Name)))
+        {
+            throw new ArgumentException("Connector Name configuration property must be specified and must be unique.");
+        }
             
-            if (!(_workerConfig.Plugins?.Initializers?.Any() ?? false))
-            {
-                throw new ArgumentException("At least one plugin is required for the worker to start.");
-            }
+        if (!(_workerConfig.Plugins?.Initializers?.Any() ?? false))
+        {
+            throw new ArgumentException("At least one plugin is required for the worker to start.");
+        }
             
-            hash.Clear();
-            if (!_workerConfig.Plugins.Initializers.All(p => hash.Add(p.Key) && !string.IsNullOrEmpty(p.Key)))
-            {
-                throw new ArgumentException("Plugin Name configuration property must be specified and must be unique.");
-            }
+        hash.Clear();
+        if (!_workerConfig.Plugins.Initializers.All(p => hash.Add(p.Key) && !string.IsNullOrEmpty(p.Key)))
+        {
+            throw new ArgumentException("Plugin Name configuration property must be specified and must be unique.");
+        }
 
-            foreach (var connector in _workerConfig.Connectors?.Values ?? new List<ConnectorConfig>())
+        foreach (var connector in _workerConfig.Connectors?.Values ?? new List<ConnectorConfig>())
+        {
+            if (!_workerConfig.Plugins.Initializers.Select(p => p.Key).Contains(connector.Plugin))
             {
-                if (!_workerConfig.Plugins.Initializers.Select(p => p.Key).Contains(connector.Plugin))
-                {
-                    throw new ArgumentException(
-                        $"Connector: {connector.Name} is not associated to any of the available Plugins: [ {string.Join(", ", _workerConfig.Plugins.Initializers.Select(p => p.Key))} ].");
-                }
+                throw new ArgumentException(
+                    $"Connector: {connector.Name} is not associated to any of the available Plugins: [ {string.Join(", ", _workerConfig.Plugins.Initializers.Select(p => p.Key))} ].");
             }
         }
     }

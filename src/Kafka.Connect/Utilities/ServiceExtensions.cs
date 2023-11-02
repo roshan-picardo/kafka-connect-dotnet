@@ -54,6 +54,7 @@ namespace Kafka.Connect.Utilities
                 .AddScoped<ISinkHandlerProvider, SinkHandlerProvider>()
 
                 .AddScoped<IGenericRecordParser, GenericRecordParser>()
+                .AddScoped<IGenericRecordBuilder, GenericRecordBuilder>()
                 .AddScoped<IRecordFlattener, JsonRecordFlattener>()
                 .AddScoped<IMessageHandler, MessageHandler>()
                 .AddScoped<ISinkConsumer, SinkConsumer>()
@@ -77,11 +78,18 @@ namespace Kafka.Connect.Utilities
                     var config = configuration.GetSection("worker:schemaRegistry").Get<SchemaRegistryConfig>();
                     return string.IsNullOrEmpty(config?.Url) ? null : new CachedSchemaRegistryClient(config);
                 })
+                .AddScoped<IAsyncSerializer<GenericRecord>>(provider => new AvroSerializer<GenericRecord>(provider.GetService<ISchemaRegistryClient>()))
+                .AddScoped<IAsyncSerializer<JToken>>(provider => new JsonSerializer<JToken>(provider.GetService<ISchemaRegistryClient>()))
                 .AddScoped<IDeserializer, AvroDeserializer>()
                 .AddScoped<IDeserializer, JsonDeserializer>()
                 .AddScoped<IDeserializer, JsonSchemaDeserializer>()
                 .AddScoped<IDeserializer, StringDeserializer>()
                 .AddScoped<IDeserializer, IgnoreDeserializer>()
+                .AddScoped<ISerializer, AvroSerializer>()
+                .AddScoped<ISerializer, IgnoreSerializer>()
+                .AddScoped<ISerializer, StringSerializer>()
+                .AddScoped<ISerializer, JsonSerializer>()
+                .AddScoped<ISerializer, JsonSchemaSerializer>()
                 .AddScoped<IMessageConverter, MessageConverter>()
                 
                 .AddScoped<IWriteStrategyProvider, WriteStrategyProvider>()

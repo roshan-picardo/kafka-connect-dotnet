@@ -43,7 +43,7 @@ namespace UnitTests.Kafka.Connect.Serializers
             var expected = new JObject {{"value", "this is a test sample!"}};
 
             var data = new byte[]
-                {116, 104, 105, 115, 32,116, 104, 105, 115, 32, 105, 115, 32, 97, 32, 116, 101, 115, 116, 32, 115, 97, 109, 112, 108, 101, 33};
+                {116, 104, 105, 115, 32, 105, 115, 32, 97, 32, 116, 101, 115, 116, 32, 115, 97, 109, 112, 108, 101, 33};
 
             var actual = await _stringDeserializer.Deserialize(data, "", null);
             

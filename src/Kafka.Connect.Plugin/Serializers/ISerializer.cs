@@ -2,11 +2,16 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 
-namespace Kafka.Connect.Plugin.Serializers
+namespace Kafka.Connect.Plugin.Serializers;
+
+public interface ISerializer
 {
-    public interface ISerializer
-    {
-        Task<byte[]> Serialize<T>(JToken data, string topic, IDictionary<string, byte[]> headers, T schema, bool isValue = true);
-        bool IsOfType(string type);
-    }
+    Task<byte[]> Serialize(
+        string topic,
+        JToken data,
+        string subject = null,
+        IDictionary<string, byte[]> headers = null,
+        bool isValue = true);
+        
+    bool IsOfType(string type);
 }

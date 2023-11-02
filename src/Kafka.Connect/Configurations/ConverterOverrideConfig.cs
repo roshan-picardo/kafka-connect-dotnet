@@ -1,9 +1,10 @@
-namespace Kafka.Connect.Configurations
+namespace Kafka.Connect.Configurations;
+
+public class ConverterOverrideConfig
 {
-    public class ConverterOverrideConfig
-    {
-        public string Key { get; set; }
-        public string Value { get; set; }
-        public string Topic { get; set; }
-    }
+    public string Key { get; init; }
+    public string Value { get; init; }
+    public string Topic { get; init; }
+    public string Subject { get; init; }
+    public string Record { get; init; }
 }
