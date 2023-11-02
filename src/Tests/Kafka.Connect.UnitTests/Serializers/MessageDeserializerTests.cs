@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Confluent.Kafka;
+using Kafka.Connect.Configurations;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Serializers;
 using Kafka.Connect.Providers;
@@ -33,7 +34,7 @@ namespace UnitTests.Kafka.Connect.Serializers
         {
             var keyToken = new JObject {{"json", "this is a key token sample!"}};
             var valueToken = new JObject {{"json", "this is a value token sample!"}};
-            _configurationProvider.GetDeserializers(Arg.Any<string>(), Arg.Any<string>()).Returns(("key", "value"));
+            _configurationProvider.GetDeserializers(Arg.Any<string>(), Arg.Any<string>()).Returns(new ConverterConfig { Key = "key", Value = "value" });
             _processorServiceProvider.GetDeserializer(Arg.Any<string>()).Returns(_deserializer);
             _processorServiceProvider.GetDeserializer(Arg.Any<string>()).Returns(_deserializer);
             _deserializer.Deserialize(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<string>(), Arg.Any<Dictionary<string, byte[]>>(), Arg.Any<bool>())

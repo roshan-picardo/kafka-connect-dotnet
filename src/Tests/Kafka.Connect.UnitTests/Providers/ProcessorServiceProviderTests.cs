@@ -13,6 +13,7 @@ namespace UnitTests.Kafka.Connect.Providers
     {
         private IEnumerable<IProcessor> _processors;
         private IEnumerable<IDeserializer> _deserializers;
+        private IEnumerable<ISerializer> _serializers;
         private readonly ILogger<ProcessorServiceProvider> _logger;
 
         private ProcessorServiceProvider _processorServiceProvider;
@@ -21,6 +22,7 @@ namespace UnitTests.Kafka.Connect.Providers
         {
             _processors = Substitute.For<IEnumerable<IProcessor>>();
             _deserializers = Substitute.For<IEnumerable<IDeserializer>>();
+            _serializers = Substitute.For<IEnumerable<ISerializer>>();
             _logger = Substitute.For<ILogger<ProcessorServiceProvider>>();
         }
 
@@ -30,7 +32,7 @@ namespace UnitTests.Kafka.Connect.Providers
             _processors = new[] {Substitute.For<IProcessor>(), Substitute.For<IProcessor>()};
 
             _processorServiceProvider =
-                new ProcessorServiceProvider(_logger, _processors, _deserializers);
+                new ProcessorServiceProvider(_logger, _processors, _deserializers, _serializers);
 
             var expected = _processorServiceProvider.GetProcessors();
 
@@ -45,7 +47,7 @@ namespace UnitTests.Kafka.Connect.Providers
             _deserializers = new[] {Substitute.For<IDeserializer>()};
             _deserializers.First().IsOfType(Arg.Any<string>()).Returns(exists);
 
-            _processorServiceProvider = new ProcessorServiceProvider(_logger, _processors, _deserializers);
+            _processorServiceProvider = new ProcessorServiceProvider(_logger, _processors, _deserializers, _serializers);
 
             var expected = _processorServiceProvider.GetDeserializer("Kafka.Connect.Serializers.AvroDeserializer");
 

@@ -1,23 +1,19 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Kafka.Connect.Configurations;
+using Confluent.Kafka;
 using Kafka.Connect.Models;
 using Kafka.Connect.Plugin;
 using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Serializers;
+using Newtonsoft.Json.Linq;
 using Serilog.Context;
 using Serilog.Core.Enrichers;
 using IConfigurationProvider = Kafka.Connect.Providers.IConfigurationProvider;
 
 namespace Kafka.Connect.Handlers;
-
-public interface ISourceProcessor
-{
-    Task<IList<CommandContext>> Process(ConnectRecordBatch batch, string connector);
-}
 
 public class SourceProcessor : ISourceProcessor
 {
@@ -55,9 +51,10 @@ public class SourceProcessor : ISourceProcessor
                                         connector);
                                 record.Parsed(keyToken, valueToken);
                                 var context = record.GetValue<CommandContext>();
-                                if (sourceConfig.Commands.ContainsKey(context.Topic) && 
+                                if (context.Command != null && 
+                                    sourceConfig.Commands.ContainsKey(context.Command.Topic) && 
                                     context.Connector == connector &&
-                                    !trackBatch.Any<CommandContext>(c => c.Connector == connector && c.Topic == context.Topic))
+                                    !trackBatch.Any<CommandContext>(c => c.Connector == connector && c.Command?.Topic == context.Command.Topic))
                                 {
                                     trackBatch.Add(context);
                                 }
@@ -69,22 +66,28 @@ public class SourceProcessor : ISourceProcessor
                 }
             }
 
-            foreach (var ((topic, command), index) in sourceConfig.Commands.Select((commands, i) => (commands, i))) 
+            foreach (var ((topic, command), index) in sourceConfig.Commands.Select((commands, i) => (commands, i)))
             {
-                if (!trackBatch.Exists(c => c.Topic == topic) && batch.GetEofPartitions().Any(p => p.Partition == index))
+                var eof = batch.GetEofPartitions().SingleOrDefault(p => p.Partition == index);
+                if (!trackBatch.Exists(c => c.Topic == topic) && !string.IsNullOrWhiteSpace(eof.Topic))
                 {
                     trackBatch.Add(new CommandContext
                     {
                         Connector = connector,
                         Partition = index, 
-                        Offset = -1,
+                        Offset = eof.Offset,
                         Command = command,
-                        Topic = topic
+                        Topic = eof.Topic
                     });
                 }
             }
 
             return trackBatch;
         }
+    }
+
+    public Task<Message<byte[], byte[]>> GetMessage(CommandContext context)
+    {
+        return _messageConverter.Serialize(context.Topic, null, JToken.FromObject(context), context.Connector);
     }
 }

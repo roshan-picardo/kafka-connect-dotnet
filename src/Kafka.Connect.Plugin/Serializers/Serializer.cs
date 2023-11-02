@@ -2,15 +2,19 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 
-namespace Kafka.Connect.Plugin.Serializers
-{
-    public abstract class Serializer : ISerializer
-    {
-        public abstract Task<byte[]> Serialize<T>(JToken data, string topic, IDictionary<string, byte[]> headers, T schema, bool isValue = true);
+namespace Kafka.Connect.Plugin.Serializers;
 
-        public bool IsOfType(string type)
-        {
-            return GetType().FullName == type;
-        }
+public abstract class Serializer : ISerializer
+{
+    public abstract Task<byte[]> Serialize(
+        string topic,
+        JToken data,
+        string subject = null,
+        IDictionary<string, byte[]> headers = null,
+        bool isValue = true);
+
+    public bool IsOfType(string type)
+    {
+        return GetType().FullName == type;
     }
 }
