@@ -17,17 +17,11 @@ namespace Kafka.Connect.Plugin.Models
             _logTimestamp = new LogTimestamp();
         }
 
-        public void Parsed(JToken key, JToken value)
-        {
-            Message = new JObject
-            {
-                {Constants.Key, key?[Constants.Key]},
-                {Constants.Value, value?[Constants.Value]}
-            };
-        }
+        public ConnectMessage<JToken, JToken> Deserialized { get; set; }
+        
+        //public ConnectMessage<JToken, JToken> Deserialized { get; set; }
+        public ConnectMessage<byte[], byte[]> Serialized { get; set; }
 
-        public JToken Message { get; set; }
-       
         public string Topic { get; }
         public int Partition { get; }
         public long Offset { get; }
@@ -71,10 +65,10 @@ namespace Kafka.Connect.Plugin.Models
 
         public T GetValue<T>() => JsonConvert.DeserializeObject<T>(Value?.ToString() ?? string.Empty);
 
-        public T GetMessage<T>() => JsonConvert.DeserializeObject<T>(Message?.ToString() ?? string.Empty);
+        public T GetMessage<T>() => JsonConvert.DeserializeObject<T>(Deserialized?.ToString() ?? string.Empty);
 
-        public JToken Key =>  Message?[Constants.Key];
-        public JToken Value => Message?[Constants.Value];
+        public JToken Key =>  Deserialized?.Key;
+        public JToken Value => Deserialized?.Value;
 
         public void UpdateStatus(bool failed = false)
         {

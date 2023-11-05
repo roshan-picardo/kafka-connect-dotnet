@@ -105,7 +105,7 @@ namespace Kafka.Connect.Handlers
             {
                 if (_configurationProvider.IsDeadLetterEnabled(connector))
                 {
-                    await _connectDeadLetter.Send(batch.GetAll<Models.ConnectRecord>().Where(r => r.Status == SinkStatus.Failed), exception,
+                    await _connectDeadLetter.Send(batch.GetAll<Models.SinkRecord>().Where(r => r.Status == SinkStatus.Failed), exception,
                         connector);
                 }
             }

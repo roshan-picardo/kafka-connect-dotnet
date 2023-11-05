@@ -119,8 +119,8 @@ namespace UnitTests.Kafka.Connect.Handlers
         [Fact]
         public async Task Consume_WhenConsumedReturnsABatch()
         {
-            var record1 = new global::Kafka.Connect.Models.ConnectRecord(new ConsumeResult<byte[], byte[]>() { Message = new Message<byte[], byte[]>()});
-            var record2 = new global::Kafka.Connect.Models.ConnectRecord(new ConsumeResult<byte[], byte[]>() {Message = new Message<byte[], byte[]>()});
+            var record1 = new global::Kafka.Connect.Models.SinkRecord(new ConsumeResult<byte[], byte[]>() { Message = new Message<byte[], byte[]>()});
+            var record2 = new global::Kafka.Connect.Models.SinkRecord(new ConsumeResult<byte[], byte[]>() {Message = new Message<byte[], byte[]>()});
             var batch = new ConnectRecordBatch("") {record1, record2};
             _retriableHandler.Retry(Arg.Any<Func<Task<ConnectRecordBatch>>>(),  Arg.Any<string>())
                 .Returns(await Task.FromResult(batch));
@@ -223,6 +223,7 @@ namespace UnitTests.Kafka.Connect.Handlers
             _executionContext.GetOrSetBatchContext(Arg.Any<string>(), Arg.Any<int>()).Returns(pollContext);
             _configurationProvider.GetBatchConfig(Arg.Any<string>()).Returns(new BatchConfig {Size = 5});
             _consumer.Consume(Arg.Any<CancellationToken>()).Returns(consumed, consumed, consumedEof, consumed, consumed);
+            _executionContext.AllPartitionEof(Arg.Any<string>(), Arg.Any<int>()).Returns(true);
             Task<ConnectRecordBatch> batch = null;
             await _retriableHandler.Retry(
                 Arg.Do<Func<Task<ConnectRecordBatch>>>(b => batch =  b.Invoke()), Arg.Any<string>());

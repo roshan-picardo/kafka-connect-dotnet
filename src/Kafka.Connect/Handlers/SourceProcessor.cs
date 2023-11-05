@@ -20,28 +20,68 @@ public class SourceProcessor : ISourceProcessor
     private readonly ILogger<SourceProcessor> _logger;
     private readonly IMessageConverter _messageConverter;
     private readonly IConfigurationProvider _configurationProvider;
+    private readonly IMessageHandler _messageHandler;
 
     public SourceProcessor(
         ILogger<SourceProcessor> logger, 
         IMessageConverter messageConverter,
-        IConfigurationProvider configurationProvider)
+        IConfigurationProvider configurationProvider,
+        IMessageHandler messageHandler)
     {
         _logger = logger;
         _messageConverter = messageConverter;
         _configurationProvider = configurationProvider;
+        _messageHandler = messageHandler;
     }
+
+    public async Task Process(ConnectRecordBatch batch, CommandContext command, string connector)
+    {
+        using (_logger.Track("Processing the source batch."))
+        {
+            var sourceConfig = _configurationProvider.GetSourceConfig(connector);
+            batch ??= new ConnectRecordBatch(connector);
+
+            await batch.ForEachAsync(async record =>
+            {
+                record.Status = SinkStatus.Processing;
+                await _messageHandler.Process(record, connector);
+                await _messageConverter.Serialize(record.Topic, record.Key, record.Value, connector);
+            }, (record, exception) => exception.SetLogContext(batch));
+           
+        }
+    }
+    
     public async Task<IList<CommandContext>> Process(ConnectRecordBatch batch, string connector)
     {
-        using (_logger.Track("Processing the batch."))
+        using (_logger.Track("Processing the command batch."))
         {
             var sourceConfig = _configurationProvider.GetSourceConfig(connector);
             var trackBatch = new List<CommandContext>();
             batch ??= new ConnectRecordBatch(connector);
-            foreach (var topicBatch in batch.GetByTopicPartition<Models.ConnectRecord>())
+            foreach (var topicBatch in batch.GetByTopicPartition<SinkRecord>())
             {
                 using (LogContext.Push(new PropertyEnricher(Constants.Topic, topicBatch.Topic),
                            new PropertyEnricher(Constants.Partition, topicBatch.Partition)))
                 {
+                    foreach (var record in topicBatch.Batch.OrderByDescending(r=>r.Offset))
+                    {
+                        using (LogContext.PushProperty(Constants.Offset, record.Offset))
+                        {
+                            record.Deserialized = await _messageConverter.Deserialize(record.Topic, record.GetConsumedMessage(), connector);
+                            var context = record.GetValue<CommandContext>();
+                            if (context.Command != null && 
+                                sourceConfig.Commands.ContainsKey(context.Command.Topic ?? "") && 
+                                context.Connector == connector &&
+                                !trackBatch.Any(c => c.Connector == connector && c.Command?.Topic == context.Command.Topic))
+                            {
+                                context.Offset = record.Offset;
+                                trackBatch.Add(context);
+                            }
+
+                            _logger.Document(((ConnectRecord)record).Deserialized);
+                        }
+                    }
+                    /*
                     await topicBatch.Batch.OrderByDescending(r => r.Offset).ForEachAsync(async record =>
                         {
                             using (LogContext.PushProperty(Constants.Offset, record.Offset))
@@ -52,24 +92,24 @@ public class SourceProcessor : ISourceProcessor
                                 record.Parsed(keyToken, valueToken);
                                 var context = record.GetValue<CommandContext>();
                                 if (context.Command != null && 
-                                    sourceConfig.Commands.ContainsKey(context.Command.Topic) && 
+                                    sourceConfig.Commands.ContainsKey(context.Command.Topic ?? "") && 
                                     context.Connector == connector &&
                                     !trackBatch.Any<CommandContext>(c => c.Connector == connector && c.Command?.Topic == context.Command.Topic))
                                 {
+                                    context.Offset = record.Offset;
                                     trackBatch.Add(context);
                                 }
 
                                 _logger.Document(record.Message);
                             }
-                        }, (record, exception) => exception.SetLogContext(record),
-                        _configurationProvider.GetBatchConfig(connector).Parallelism);
+                        }, (record, exception) => exception.SetLogContext(record), 1);*/
                 }
             }
 
             foreach (var ((topic, command), index) in sourceConfig.Commands.Select((commands, i) => (commands, i)))
             {
                 var eof = batch.GetEofPartitions().SingleOrDefault(p => p.Partition == index);
-                if (!trackBatch.Exists(c => c.Topic == topic) && !string.IsNullOrWhiteSpace(eof.Topic))
+                if (!trackBatch.Exists(c => c.Command.Topic == topic) && !string.IsNullOrWhiteSpace(eof.Topic))
                 {
                     trackBatch.Add(new CommandContext
                     {
@@ -86,8 +126,11 @@ public class SourceProcessor : ISourceProcessor
         }
     }
 
-    public Task<Message<byte[], byte[]>> GetMessage(CommandContext context)
+    public Task<Message<byte[], byte[]>> GetCommandMessage(CommandContext context)
     {
-        return _messageConverter.Serialize(context.Topic, null, JToken.FromObject(context), context.Connector);
+        using (_logger.Track("Generating command message."))
+        {
+            return _messageConverter.Serialize(context.Topic, null, JToken.FromObject(context), context.Connector);
+        }
     }
 }

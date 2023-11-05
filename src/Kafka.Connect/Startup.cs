@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Kafka.Connect.Background;
@@ -85,7 +86,12 @@ using Serilog.Formatting.Json;
                      {
                          while (!(executionContext?.IsStopped ?? true))
                          {
-                             // wait here
+                             Log.ForContext<Worker>().Information("{@Log}",
+                                 new
+                                 {
+                                     Message = "Shutting down Kafka Connect."
+                                 });
+                             Thread.Sleep(5000);
                          }
 
                          return;

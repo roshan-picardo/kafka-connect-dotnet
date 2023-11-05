@@ -12,7 +12,6 @@ using Kafka.Connect.Providers;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Xunit;
-using ConnectRecord = Kafka.Connect.Models.ConnectRecord;
 
 namespace UnitTests.Kafka.Connect.Connectors;
 
@@ -67,7 +66,7 @@ public class SinkTaskTests
         const string connector = "connector";
         const int taskId = 1;
         var cts = GetCancellationToken();
-        var batch = new ConnectRecordBatch("") { new ConnectRecord(new ConsumeResult<byte[], byte[]>(){Message = new Message<byte[], byte[]>()}) };
+        var batch = new ConnectRecordBatch("") { new SinkRecord(new ConsumeResult<byte[], byte[]>(){Message = new Message<byte[], byte[]>()}) };
         _sinkConsumer.Subscribe(Arg.Any<string>(), Arg.Any<int>()).Returns(_consumer);
         _executionContext.GetOrSetBatchContext(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(new BatchPollContext());
@@ -100,7 +99,7 @@ public class SinkTaskTests
         const string connector = "connector";
         const int taskId = 1;
         var cts = GetCancellationToken();
-        var batch = new ConnectRecordBatch("") { new ConnectRecord(new ConsumeResult<byte[], byte[]>(){Message = new Message<byte[], byte[]>()}) };
+        var batch = new ConnectRecordBatch("") { new SinkRecord(new ConsumeResult<byte[], byte[]>(){Message = new Message<byte[], byte[]>()}) };
         _sinkConsumer.Subscribe(Arg.Any<string>(), Arg.Any<int>()).Returns(_consumer);
         _executionContext.GetOrSetBatchContext(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(new BatchPollContext());
@@ -135,7 +134,7 @@ public class SinkTaskTests
         const string connector = "connector";
         const int taskId = 1;
         var cts = GetCancellationToken();
-        var batch = new ConnectRecordBatch("") { new ConnectRecord(new ConsumeResult<byte[], byte[]>(){Message = new Message<byte[], byte[]>()}) };
+        var batch = new ConnectRecordBatch("") { new SinkRecord(new ConsumeResult<byte[], byte[]>(){Message = new Message<byte[], byte[]>()}) };
         _sinkConsumer.Subscribe(Arg.Any<string>(), Arg.Any<int>()).Returns(_consumer);
         _executionContext.GetOrSetBatchContext(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(new BatchPollContext());
@@ -212,7 +211,7 @@ public class SinkTaskTests
         const string connector = "connector";
         const int taskId = 1;
         var cts = GetCancellationToken();
-        var batch = new ConnectRecordBatch("") { new ConnectRecord(new ConsumeResult<byte[], byte[]>(){Message = new Message<byte[], byte[]>()}) };
+        var batch = new ConnectRecordBatch("") { new SinkRecord(new ConsumeResult<byte[], byte[]>(){Message = new Message<byte[], byte[]>()}) };
         _sinkConsumer.Subscribe(Arg.Any<string>(), Arg.Any<int>()).Returns(_consumer);
         _executionContext.GetOrSetBatchContext(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(new BatchPollContext());
@@ -251,7 +250,7 @@ public class SinkTaskTests
         const string connector = "connector";
         const int taskId = 1;
         var cts = GetCancellationToken();
-        var batch = new ConnectRecordBatch("") { new ConnectRecord(new ConsumeResult<byte[], byte[]>(){Message = new Message<byte[], byte[]>()}) };
+        var batch = new ConnectRecordBatch("") { new SinkRecord(new ConsumeResult<byte[], byte[]>(){Message = new Message<byte[], byte[]>()}) };
         _sinkConsumer.Subscribe(Arg.Any<string>(), Arg.Any<int>()).Returns(_consumer);
         _executionContext.GetOrSetBatchContext(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(new BatchPollContext());
@@ -295,7 +294,7 @@ public class SinkTaskTests
         const string connector = "connector";
         const int taskId = 1;
         var cts = GetCancellationToken();
-        var batch = new ConnectRecordBatch("") { new ConnectRecord(new ConsumeResult<byte[], byte[]>(){Message = new Message<byte[], byte[]>()}) };
+        var batch = new ConnectRecordBatch("") { new SinkRecord(new ConsumeResult<byte[], byte[]>(){Message = new Message<byte[], byte[]>()}) };
         _sinkConsumer.Subscribe(Arg.Any<string>(), Arg.Any<int>()).Returns(_consumer);
         _executionContext.GetOrSetBatchContext(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(new BatchPollContext());

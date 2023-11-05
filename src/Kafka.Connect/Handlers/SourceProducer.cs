@@ -1,6 +1,7 @@
 using System.Threading.Tasks;
 using Confluent.Kafka;
 using Kafka.Connect.Builders;
+using Kafka.Connect.Models;
 using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
@@ -35,5 +36,10 @@ public class SourceProducer : ISourceProducer
             await batch.ForEachAsync(record => producer.ProduceAsync(record.Topic,
                 new Message<byte[], byte[]>()));
         }
+    }
+
+    public async Task Produce(IProducer<byte[], byte[]> producer, string connector, int taskId, CommandContext command)
+    {
+        
     }
 }

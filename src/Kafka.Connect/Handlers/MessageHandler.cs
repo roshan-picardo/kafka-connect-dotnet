@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using Kafka.Connect.Models;
 using Kafka.Connect.Plugin.Converters;
 using Kafka.Connect.Plugin.Logging;
+using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Providers;
 using Newtonsoft.Json.Linq;
 
@@ -24,23 +25,24 @@ namespace Kafka.Connect.Handlers
             _configurationProvider = configurationProvider;
         }
 
-        public async Task<(bool, JToken)> Process(ConnectRecord record, string connector)
+        public async Task<(bool, ConnectMessage<JToken, JToken>)> Process(ConnectRecord record, string connector)
         {
             using (_logger.Track("Processing the message."))
             {
                 var configs = _configurationProvider.GetMessageProcessors(connector, record.Topic);
                 if (!(configs?.Any() ?? false))
                 {
-                    return (record.Skip, record.Message);
+                    return (record.Skip, record.Deserialized);
                 }
 
                 var processors = _processorServiceProvider.GetProcessors()?.ToList();
                 if (!(processors?.Any() ?? false))
                 {
-                    return (record.Skip, record.Message);
+                    return (record.Skip, record.Deserialized);
                 }
 
-                var flattened = _recordFlattener.Flatten(record.Message);
+                var flattened = _recordFlattener.Flatten(new JObject
+                    { { "Key", record.Deserialized.Key }, { "Value", record.Deserialized.Value } });
                 var skip = false;
                 foreach (var config in configs.OrderBy(p => p.Order))
                 {
@@ -58,7 +60,7 @@ namespace Kafka.Connect.Handlers
                 }
 
                 var unflattened = _recordFlattener.Unflatten(flattened);
-                return (skip, unflattened);
+                return (skip, new ConnectMessage<JToken, JToken> { Key = unflattened?["Key"], Value = unflattened?["Value"]});
             }
         }
     }

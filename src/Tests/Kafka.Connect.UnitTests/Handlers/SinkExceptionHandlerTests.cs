@@ -154,7 +154,7 @@ namespace UnitTests.Kafka.Connect.Handlers
             
             await _sinkExceptionHandler.HandleDeadLetter(batch, exception, "connector");
 
-            await _connectDeadLetter.Received(expected).Send(Arg.Is<IEnumerable<global::Kafka.Connect.Models.ConnectRecord>>(s => s.Count() == failedCount),
+            await _connectDeadLetter.Received(expected).Send(Arg.Is<IEnumerable<global::Kafka.Connect.Models.SinkRecord>>(s => s.Count() == failedCount),
                 exception, "connector");
         }
         
@@ -214,7 +214,7 @@ namespace UnitTests.Kafka.Connect.Handlers
 
             for (var i = 0; i < length; i++)
             {
-                batch.Add(new global::Kafka.Connect.Models.ConnectRecord(new ConsumeResult<byte[], byte[]>
+                batch.Add(new global::Kafka.Connect.Models.SinkRecord(new ConsumeResult<byte[], byte[]>
                     {Topic = "topic", Message = new Message<byte[], byte[]>() {Headers = new Headers()}})
                 {
                     Status = failed-- > 0 ? SinkStatus.Failed : SinkStatus.Updated
