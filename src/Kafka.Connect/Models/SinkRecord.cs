@@ -31,7 +31,7 @@ public class SinkRecord : Plugin.Models.ConnectRecord
 
     public void Parsed(JToken key, JToken value)
     {
-        Deserialized = new ConnectMessage<JToken, JToken>
+        Deserialized = new ConnectMessage<JToken>
         {
             Key = key,
             Value = value

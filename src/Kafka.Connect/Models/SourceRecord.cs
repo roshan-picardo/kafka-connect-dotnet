@@ -7,7 +7,7 @@ public class SourceRecord : Plugin.Models.ConnectRecord
 {
     public SourceRecord(string topic, JToken key, JToken value) : base(topic, -1, -1)
     {
-        Deserialized = new ConnectMessage<JToken, JToken>
+        Deserialized = new ConnectMessage<JToken>
         {
             Key = key,
             Value = value

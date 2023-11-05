@@ -17,10 +17,10 @@ namespace Kafka.Connect.Plugin.Models
             _logTimestamp = new LogTimestamp();
         }
 
-        public ConnectMessage<JToken, JToken> Deserialized { get; set; }
+        public ConnectMessage<JToken> Deserialized { get; set; }
         
         //public ConnectMessage<JToken, JToken> Deserialized { get; set; }
-        public ConnectMessage<byte[], byte[]> Serialized { get; set; }
+        public ConnectMessage<byte[]> Serialized { get; set; }
 
         public string Topic { get; }
         public int Partition { get; }

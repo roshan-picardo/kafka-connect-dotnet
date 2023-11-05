@@ -7,6 +7,6 @@ namespace Kafka.Connect.Serializers;
 
 public interface IMessageConverter
 {
-    Task<ConnectMessage<JToken, JToken>> Deserialize(string topic, Message<byte[], byte[]> message, string connector);
+    Task<ConnectMessage<JToken>> Deserialize(string topic, Message<byte[], byte[]> message, string connector);
     Task<Message<byte[], byte[]>> Serialize(string topic, JToken key, JToken value, string connector);
 }

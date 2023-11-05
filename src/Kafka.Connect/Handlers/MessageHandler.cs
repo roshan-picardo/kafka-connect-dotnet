@@ -25,7 +25,7 @@ namespace Kafka.Connect.Handlers
             _configurationProvider = configurationProvider;
         }
 
-        public async Task<(bool, ConnectMessage<JToken, JToken>)> Process(ConnectRecord record, string connector)
+        public async Task<(bool, ConnectMessage<JToken>)> Process(ConnectRecord record, string connector)
         {
             using (_logger.Track("Processing the message."))
             {
@@ -60,7 +60,7 @@ namespace Kafka.Connect.Handlers
                 }
 
                 var unflattened = _recordFlattener.Unflatten(flattened);
-                return (skip, new ConnectMessage<JToken, JToken> { Key = unflattened?["Key"], Value = unflattened?["Value"]});
+                return (skip, new ConnectMessage<JToken> { Key = unflattened?["Key"], Value = unflattened?["Value"]});
             }
         }
     }
