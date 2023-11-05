@@ -47,7 +47,7 @@ namespace UnitTests.Kafka.Connect.Handlers
                 }
             })
             {
-                Deserialized = new ConnectMessage<JToken, JToken> { Value = new JObject {{"field", "test.value"}}},
+                Deserialized = new ConnectMessage<JToken> { Value = new JObject {{"field", "test.value"}}},
                 Skip = true
             };
 
@@ -77,7 +77,7 @@ namespace UnitTests.Kafka.Connect.Handlers
                 }
             })
             {
-                Deserialized = new ConnectMessage<JToken, JToken> { Value = new JObject {{"field", "test.value"}}},
+                Deserialized = new ConnectMessage<JToken> { Value = new JObject {{"field", "test.value"}}},
                 Skip = true
             };
 
@@ -106,7 +106,7 @@ namespace UnitTests.Kafka.Connect.Handlers
                 }
             })
             {
-                Deserialized = new ConnectMessage<JToken, JToken> { Value = new JObject {{"field", "test.value"}}},
+                Deserialized = new ConnectMessage<JToken> { Value = new JObject {{"field", "test.value"}}},
                 Skip = true
             };
             _processor = Substitute.For<IProcessor>();
@@ -141,7 +141,7 @@ namespace UnitTests.Kafka.Connect.Handlers
                 }
             })
             {
-                Deserialized = new ConnectMessage<JToken, JToken> { Value = new JObject {{"field", "test.value"}}},
+                Deserialized = new ConnectMessage<JToken> { Value = new JObject {{"field", "test.value"}}},
                 Skip = true
             };
             _processor = Substitute.For<IProcessor>();
@@ -176,7 +176,7 @@ namespace UnitTests.Kafka.Connect.Handlers
                 }
             })
             {
-                Deserialized = new ConnectMessage<JToken, JToken> { Value = new JObject {{"field", "test.value"}}},
+                Deserialized = new ConnectMessage<JToken> { Value = new JObject {{"field", "test.value"}}},
                 Skip = true
             };
             var pExecute = Substitute.For<IProcessor>();
@@ -216,7 +216,7 @@ namespace UnitTests.Kafka.Connect.Handlers
                 }
             })
             {
-                Deserialized = new ConnectMessage<JToken, JToken> { Value = new JObject {{"field", "test.value"}}},
+                Deserialized = new ConnectMessage<JToken> { Value = new JObject {{"field", "test.value"}}},
                 Skip = true
             };
             var pNotFound = Substitute.For<IProcessor>();
@@ -260,7 +260,7 @@ namespace UnitTests.Kafka.Connect.Handlers
                 }
             })
             {
-                Deserialized = new ConnectMessage<JToken, JToken> { Value = new JObject {{"field", "test.value"}}},
+                Deserialized = new ConnectMessage<JToken> { Value = new JObject {{"field", "test.value"}}},
                 Skip = true
             };
             var pSecond = Substitute.For<IProcessor>();

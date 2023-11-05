@@ -59,13 +59,13 @@ namespace UnitTests.Kafka.Connect.Handlers
             var record = batch.First();
             var key = new JObject{{"keyData", new JObject()}};
             var value = new JObject{{"valueData", new JObject()}};
-            var data = new ConnectMessage<JToken, JToken>()
+            var data = new ConnectMessage<JToken>()
             {
                 Key = key,
                 Value = value
             };
 
-            _messageConverter.Deserialize(Arg.Any<string>(),Arg.Any<Message<byte[], byte[]>>(), Arg.Any<string>()).Returns(new ConnectMessage<JToken, JToken>(){ Key = key, Value = value});
+            _messageConverter.Deserialize(Arg.Any<string>(),Arg.Any<Message<byte[], byte[]>>(), Arg.Any<string>()).Returns(new ConnectMessage<JToken> { Key = key, Value = value});
             _messageHandler.Process(Arg.Any<SinkRecord>(), Arg.Any<string>()).Returns((true, data));
             _configurationProvider.GetBatchConfig(Arg.Any<string>()).Returns(new BatchConfig {Parallelism = 1});
 
