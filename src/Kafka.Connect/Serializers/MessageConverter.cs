@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Confluent.Kafka;
 using Confluent.SchemaRegistry;
 using Kafka.Connect.Plugin.Logging;
+using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Providers;
 using Newtonsoft.Json.Linq;
 
@@ -22,20 +23,21 @@ public class MessageConverter : IMessageConverter
         _configurationProvider = configurationProvider;
     }
 
-    public async Task<(JToken, JToken)> Deserialize(string topic, Message<byte[], byte[]> message, string connector)
+    public async Task<ConnectMessage<JToken, JToken>> Deserialize(string topic, Message<byte[], byte[]> message, string connector)
     {
         using (_logger.Track("Deserializing the message."))
         {
             var converterConfig = _configurationProvider.GetDeserializers(connector, topic);
-            var keyToken =
-                await _processorServiceProvider.GetDeserializer(converterConfig.Key).Deserialize(message.Key,
+            var deserialized = new ConnectMessage<JToken, JToken>
+            {
+                Key = await _processorServiceProvider.GetDeserializer(converterConfig.Key).Deserialize(message.Key,
                     topic, message?.Headers?.ToDictionary(h => h.Key, h => h.GetValueBytes()),
-                    false);
-            var valueToken =
-                await _processorServiceProvider.GetDeserializer(converterConfig.Value)
+                    false),
+                Value = await _processorServiceProvider.GetDeserializer(converterConfig.Value)
                     .Deserialize(message?.Value, topic,
-                        message?.Headers?.ToDictionary(h => h.Key, h => h.GetValueBytes()));
-            return (keyToken, valueToken);
+                        message?.Headers?.ToDictionary(h => h.Key, h => h.GetValueBytes()))
+            };
+            return deserialized;
         }
     }
 

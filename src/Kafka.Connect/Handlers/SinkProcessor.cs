@@ -20,8 +20,12 @@ namespace Kafka.Connect.Handlers
         private readonly ISinkHandlerProvider _sinkHandlerProvider;
         private readonly IConfigurationProvider _configurationProvider;
 
-        public SinkProcessor(ILogger<SinkProcessor> logger, IMessageConverter messageConverter,
-            IMessageHandler messageHandler, ISinkHandlerProvider sinkHandlerProvider, IConfigurationProvider configurationProvider)
+        public SinkProcessor(
+            ILogger<SinkProcessor> logger,
+            IMessageConverter messageConverter,
+            IMessageHandler messageHandler,
+            ISinkHandlerProvider sinkHandlerProvider,
+            IConfigurationProvider configurationProvider)
         {
             _logger = logger;
             _messageConverter = messageConverter;
@@ -35,7 +39,7 @@ namespace Kafka.Connect.Handlers
             using (_logger.Track("Processing the batch."))
             {
                 batch ??= new ConnectRecordBatch(connector);
-                foreach (var topicBatch in batch.GetByTopicPartition<Models.ConnectRecord>())
+                foreach (var topicBatch in batch.GetByTopicPartition<Models.SinkRecord>())
                 {
                     using (LogContext.Push(new PropertyEnricher(Constants.Topic, topicBatch.Topic),
                                new PropertyEnricher(Constants.Partition, topicBatch.Partition)))
@@ -45,11 +49,9 @@ namespace Kafka.Connect.Handlers
                                 using (LogContext.PushProperty(Constants.Offset, record.Offset))
                                 {
                                     record.Status = SinkStatus.Processing;
-                                    var (keyToken, valueToken) =
-                                        await _messageConverter.Deserialize(record.Topic, record.GetConsumedMessage(), connector);
-                                    record.Parsed(keyToken, valueToken);
-                                    _logger.Document(record.Message); 
-                                    (record.Skip, record.Message) = await _messageHandler.Process(record, connector);
+                                    record.Deserialized = await _messageConverter.Deserialize(record.Topic, record.GetConsumedMessage(), connector);
+                                    _logger.Document(record.Deserialized); 
+                                    (record.Skip, record.Deserialized) = await _messageHandler.Process(record, connector);
                                     record.Status = SinkStatus.Processed;
                                 }
                             }, (record, exception) => exception.SetLogContext(record),
@@ -59,13 +61,11 @@ namespace Kafka.Connect.Handlers
             }
         }
 
-        public async Task<T> Process<T>(Kafka.Connect.Models.ConnectRecord record, string connector)
+        public async Task<T> Process<T>(Models.SinkRecord record, string connector)
         {
             using (_logger.Track("Processing record"))
             {
-                var (keyToken, valueToken) =
-                    await _messageConverter.Deserialize(record.Topic, record.GetConsumedMessage(), connector);
-                return valueToken.Value<T>(""); //TODO: fix this
+                throw new NotImplementedException();
             }
         }
 

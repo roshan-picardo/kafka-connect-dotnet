@@ -157,18 +157,18 @@ public class ExecutionContextTests
     [InlineData("topic-new", 5, 2)]
     public void AssignPartitions_AddsOrUpdatesNewPartition(string topic, int partition, int expectedCount)
     {
-        var topicPartitions = new List<(string, int)>() { ("topic", 4) };
+        var assignments = new List<AssignmentContext>() { new() { Topic = "topic", Partition = 4 } };
         var workerContext = GetPrivateWorkerContext();
         workerContext.Connectors.Add(new ConnectorContext
         {
             Name = "connector",
-            Tasks = { new TaskContext() { Id = 10, TopicPartitions = topicPartitions } }
+            Tasks = { new TaskContext() { Id = 10, Assignments = assignments } }
         });
 
         _executionContext.AssignPartitions("connector", 10, new List<TopicPartition>() { new(topic, partition) });
 
-        Assert.Equal(topicPartitions.Count, expectedCount);
-        Assert.Contains(topicPartitions, tp => tp.Item1 == topic && tp.Item2 == partition);
+        Assert.Equal(assignments.Count, expectedCount);
+        Assert.Contains(assignments, tp => tp.Topic == topic && tp.Partition == partition);
     }
     
     [Theory]
@@ -193,18 +193,18 @@ public class ExecutionContextTests
     [InlineData("topic-new", 5, 1)]
     public void AssignPartitions_RemovesOrSkipsNewPartition(string topic, int partition, int expectedCount)
     {
-        var topicPartitions = new List<(string, int)>() { ("topic", 4) };
+        var assignments = new List<AssignmentContext>() { new() { Topic = "topic", Partition = 4 } };;
         var workerContext = GetPrivateWorkerContext();
         workerContext.Connectors.Add(new ConnectorContext
         {
             Name = "connector",
-            Tasks = { new TaskContext() { Id = 10, TopicPartitions = topicPartitions } }
+            Tasks = { new TaskContext() { Id = 10, Assignments = assignments } }
         });
 
         _executionContext.RevokePartitions("connector", 10, new List<TopicPartition>() { new(topic, partition) });
 
-        Assert.Equal(topicPartitions.Count, expectedCount);
-        Assert.DoesNotContain(topicPartitions, tp => tp.Item1 == topic && tp.Item2 == partition);
+        Assert.Equal(assignments.Count, expectedCount);
+        Assert.DoesNotContain(assignments, tp => tp.Topic == topic && tp.Partition == partition);
     }
 
     [Theory]

@@ -87,7 +87,7 @@ public class ExecutionContext : IExecutionContext
         taskContext.Task = task;
         taskContext.RestartContext =
             new RestartContext(_configurationProvider.GetRestartsConfig(), RestartsLevel.Task);
-        taskContext.TopicPartitions.Clear();
+        taskContext.Assignments.Clear();
     }
 
     public void AssignPartitions(string connector, int task, IEnumerable<TopicPartition> partitions)
@@ -97,9 +97,9 @@ public class ExecutionContext : IExecutionContext
         if(taskContext == null) return;
         foreach (var partition in partitions)
         {
-            if (!taskContext.TopicPartitions.Contains((partition.Topic, partition.Partition.Value)))
+            if (!taskContext.Assignments.Any(a=> a.Topic == partition.Topic && a.Partition == partition.Partition.Value))
             {
-                taskContext.TopicPartitions.Add((partition.Topic, partition.Partition.Value));
+                taskContext.Assignments.Add(new AssignmentContext { Topic = partition.Topic, Partition = partition.Partition.Value });
             }
         }
     }
@@ -111,9 +111,10 @@ public class ExecutionContext : IExecutionContext
         if(taskContext == null) return;
         foreach (var partition in partitions)
         {
-            if (taskContext.TopicPartitions.Contains((partition.Topic, partition.Partition.Value)))
+            var assignment = taskContext.Assignments.SingleOrDefault(a => a.Topic == partition.Topic && a.Partition == partition.Partition.Value);
+            if (assignment != null)
             {
-                taskContext.TopicPartitions.Remove((partition.Topic, partition.Partition.Value));
+                taskContext.Assignments.Remove(assignment);
             }
         }
     }
@@ -242,6 +243,24 @@ public class ExecutionContext : IExecutionContext
             ?.SingleOrDefault(t => t.Id == task)?.RestartContext.Retry()!;
     }
 
+    public void SetPartitionEof(string connector, int task, string topic, int partition, bool eof)
+    {
+        var taskContext = _workerContext.Connectors.SingleOrDefault(c => c.Name == connector)?.Tasks
+            .SingleOrDefault(t => t.Id == task);
+        var assignment = taskContext?.Assignments?.SingleOrDefault(a => a.Topic == topic && a.Partition == partition);
+        if (assignment != null)
+        {
+            assignment.IsEof = eof;
+        }
+    }
+
+    public bool AllPartitionEof(string connector, int task)
+    {
+        var taskContext = _workerContext.Connectors.SingleOrDefault(c => c.Name == connector)?.Tasks
+            .SingleOrDefault(t => t.Id == task);
+        return taskContext?.Assignments?.All(a => a.IsEof) ?? true;
+    }
+
     private static dynamic GetTaskStatus(TaskContext taskContext)
     {
         return new
@@ -249,15 +268,7 @@ public class ExecutionContext : IExecutionContext
             Id = taskContext.Id.ToString("00"),
             taskContext.Status,
             Uptime = taskContext.Uptime.ToString(@"dd\.hh\:mm\:ss"),
-            Assignments = taskContext.TopicPartitions.Select(p =>
-            {
-                var (topic, partition) = p;
-                return new
-                {
-                    Topic = topic,
-                    Partition = partition
-                };
-            })
+            Assignments = taskContext.Assignments.Select(a => new { a.Topic, a.Partition })
         };
     }
     private static dynamic GetConnectorStatus(ConnectorContext connectorContext)
@@ -273,7 +284,7 @@ public class ExecutionContext : IExecutionContext
                 Running = connectorContext.Tasks.Count(t => !t.Task.IsPaused && !t.IsStopped),
                 Paused = connectorContext.Tasks.Count(t => t.Task.IsPaused),
                 Stopped = connectorContext.Tasks.Count(t => !t.Task.IsPaused && t.IsStopped),
-                Assigned = connectorContext.Tasks.Count(t => t.TopicPartitions != null && t.TopicPartitions.Any())
+                Assigned = connectorContext.Tasks.Count(t => t.Assignments != null && t.Assignments.Any())
             },
             Tasks = connectorContext.Tasks.Select(t => GetTaskStatus(t))
         };

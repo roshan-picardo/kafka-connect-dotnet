@@ -23,7 +23,7 @@ namespace Kafka.Connect.Connectors
             _configurationProvider = configurationProvider;
         }
 
-        public async Task Send(IEnumerable<ConnectRecord> sinkRecords, Exception exception, string connector)
+        public async Task Send(IEnumerable<SinkRecord> sinkRecords, Exception exception, string connector)
         {
             using (_logger.Track("Sending message to dead letter queue."))
             {

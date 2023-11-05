@@ -179,7 +179,7 @@ namespace UnitTests.Kafka.Connect.Handlers
         
         private static ConnectRecord GetRecord(string topic, int partition, int offset)
         {
-            return  new global::Kafka.Connect.Models.ConnectRecord(new ConsumeResult<byte[], byte[]>
+            return  new global::Kafka.Connect.Models.SinkRecord(new ConsumeResult<byte[], byte[]>
             {
                 Message = new Message<byte[], byte[]>
                 {

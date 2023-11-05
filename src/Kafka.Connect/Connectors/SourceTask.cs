@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Confluent.Kafka;
 using Kafka.Connect.Handlers;
+using Kafka.Connect.Models;
 using Kafka.Connect.Plugin;
 using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Logging;
@@ -11,6 +12,7 @@ using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Plugin.Tokens;
 using Kafka.Connect.Providers;
 using Kafka.Connect.Tokens;
+using Newtonsoft.Json.Linq;
 using Serilog.Context;
 using Serilog.Core.Enrichers;
 
@@ -101,19 +103,14 @@ public class SourceTask : ISourceTask
                     try
                     {
                         var triggerBatch = await _sinkConsumer.Consume(_consumer, connector, taskId, true);
-                        if (triggerBatch.IsEmpty)
-                        {
-                            //_logger.Error($"All Partitions are empty! {triggerBatch.EofCount}");
-                            // Write only the required message based on the target config
-                        }
 
                         var commandContexts = await _sourceProcessor.Process(triggerBatch, connector);
                         var batches = new Dictionary<string, ConnectRecordBatch>();
                         await commandContexts.ForEachAsync(async command =>
                         {
-                            _logger.Warning($"Loading for {command.Command.Topic}");
                             var batch = new ConnectRecordBatch(connector);
                             batches.Add(command.Topic, batch);
+                            batch.Add(new SourceRecord("", new JArray(), new JArray()));
                             //query database and add result to batch
                             // process the records
                             // serialize the records
@@ -123,15 +120,19 @@ public class SourceTask : ISourceTask
                             // note the last successful timestamp
                             // create new command context and publish tracking message - this should be produced to the exact partition
                             // commit the command.offset
-                            var delivered = await _producer.ProduceAsync(
-                                new TopicPartition(command.Topic, command.Partition),
-                                await _sourceProcessor.GetMessage(command));
-                            _logger.Warning($"Delivered{delivered.Topic} - {delivered.Partition} - {delivered.Offset}");
+                            
+                          
+                            
+                            // var delivered = await _producer.ProduceAsync(
+                            //     new TopicPartition(command.Topic, command.Partition),
+                            //     await _sourceProcessor.GetMessage(command));
+                            _consumer.Commit(new[]
+                                { new TopicPartitionOffset(command.Topic, command.Partition, command.Offset + 1) });
                         }, (context, exception) => exception.SetLogContext(batches[context.Topic]));
                     }
                     catch (Exception ex)
                     {
-                        //_sinkExceptionHandler.Handle(ex, Cancel);
+                        _logger.Critical("FAILED", ex);
                     }
                     finally
                     {

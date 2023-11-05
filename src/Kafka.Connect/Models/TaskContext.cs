@@ -13,7 +13,7 @@ public class TaskContext
     public string Status =>
         Task == null ? "Stopped" : Task.IsPaused ? "Paused" : Task.IsStopped ? "Stopped" : "Running";
     public TimeSpan Uptime => _stopwatch.Elapsed;
-    public IList<(string, int)> TopicPartitions { get; init; } = new List<(string, int)>();
+    public IList<AssignmentContext> Assignments { get; init; } = new List<AssignmentContext>();
     public BatchPollContext BatchContext { get; set; }
     public bool IsStopped => Task == null || Task.IsStopped;
     public ITask Task { get; internal set; }

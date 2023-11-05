@@ -27,4 +27,6 @@ public interface IExecutionContext
     IConnector GetConnector(string connector);
     ITask GetSinkTask(string connector, int task);
     Task<bool> Retry(string connector = null, int task = 0);
+    void SetPartitionEof(string connector, int task, string topic, int partition, bool eof);
+    bool AllPartitionEof(string connector, int task);
 }

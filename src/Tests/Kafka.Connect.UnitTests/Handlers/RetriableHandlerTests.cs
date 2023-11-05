@@ -212,7 +212,7 @@ namespace UnitTests.Kafka.Connect.Handlers
             for (var i = 0; i < length; i++)
             {
                 var topic = topics != null && topics.Length > i ? topics[i] : string.Empty;
-                batch.Add(new global::Kafka.Connect.Models.ConnectRecord(new ConsumeResult<byte[], byte[]>
+                batch.Add(new global::Kafka.Connect.Models.SinkRecord(new ConsumeResult<byte[], byte[]>
                     {Topic = topic, Message = new Message<byte[], byte[]>() {Headers = new Headers()}}));
             }
 

@@ -107,6 +107,7 @@ namespace Kafka.Connect.Handlers
                         //unlikely that we reach here when we using Consume(cts.Token).
                         continue;
                     }
+                    _executionContext.SetPartitionEof(connector, taskId, consumed.Topic, consumed.Partition, false);
 
                     _logger.Debug("Message consumed.", new
                     {
@@ -120,13 +121,14 @@ namespace Kafka.Connect.Handlers
                     if (consumed.IsPartitionEOF)
                     {
                         batch.SetPartitionEof(consumed.Topic, consumed.Partition.Value, consumed.Offset.Value);
-                        if (batch.EofCount == consumer.Assignment.Count)
+                        _executionContext.SetPartitionEof(connector, taskId, consumed.Topic, consumed.Partition, true);
+                        if (_executionContext.AllPartitionEof(connector, taskId))
                         {
                             break;
                         }
                         continue;
                     }
-                    batch.Add(new Models.ConnectRecord(consumed));
+                    batch.Add(new Models.SinkRecord(consumed));
 
                 } while (consumeAll || --maxBatchSize > 0);
             }
