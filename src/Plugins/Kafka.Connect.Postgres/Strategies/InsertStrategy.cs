@@ -23,7 +23,7 @@ public class InsertStrategy : WriteStrategy<string>
         {
             var config = _configurationProvider.GetSinkConfigProperties<PostgresSinkConfig>(connector);
             var insertQuery =
-                $"INSERT INTO {config.Schema}.{config.Table} SELECT * FROM json_populate_record(null::{config.Schema}.{config.Table}, '{record.Value}');";
+                $"INSERT INTO {config.Schema}.{config.Table} SELECT * FROM json_populate_record(null::{config.Schema}.{config.Table}, '{record.Deserialized.Value}');";
             return await Task.FromResult((SinkStatus.Inserting, new[] { insertQuery }));
         }
     }

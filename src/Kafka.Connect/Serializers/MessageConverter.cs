@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using System.Threading.Tasks;
 using Confluent.Kafka;
 using Confluent.SchemaRegistry;
@@ -23,19 +22,16 @@ public class MessageConverter : IMessageConverter
         _configurationProvider = configurationProvider;
     }
 
-    public async Task<ConnectMessage<JToken>> Deserialize(string topic, Message<byte[], byte[]> message, string connector)
+    public async Task<ConnectMessage<JToken>> Deserialize(string topic, ConnectMessage<byte[]> message, string connector)
     {
         using (_logger.Track("Deserializing the message."))
         {
             var converterConfig = _configurationProvider.GetDeserializers(connector, topic);
             var deserialized = new ConnectMessage<JToken>
             {
-                Key = await _processorServiceProvider.GetDeserializer(converterConfig.Key).Deserialize(message.Key,
-                    topic, message?.Headers?.ToDictionary(h => h.Key, h => h.GetValueBytes()),
-                    false),
+                Key = await _processorServiceProvider.GetDeserializer(converterConfig.Key).Deserialize(message.Key, topic, message.Headers, false),
                 Value = await _processorServiceProvider.GetDeserializer(converterConfig.Value)
-                    .Deserialize(message?.Value, topic,
-                        message?.Headers?.ToDictionary(h => h.Key, h => h.GetValueBytes()))
+                    .Deserialize(message.Value, topic, message.Headers)
             };
             return deserialized;
         }
