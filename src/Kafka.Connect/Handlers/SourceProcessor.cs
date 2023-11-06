@@ -45,7 +45,7 @@ public class SourceProcessor : ISourceProcessor
             {
                 record.Status = SinkStatus.Processing;
                 await _messageHandler.Process(record, connector);
-                await _messageConverter.Serialize(record.Topic, record.Key, record.Value, connector);
+                await _messageConverter.Serialize(record.Topic, record.Deserialized.Key, record.Deserialized.Value, connector);
             }, (record, exception) => exception.SetLogContext(batch));
            
         }
@@ -67,7 +67,7 @@ public class SourceProcessor : ISourceProcessor
                     {
                         using (LogContext.PushProperty(Constants.Offset, record.Offset))
                         {
-                            record.Deserialized = await _messageConverter.Deserialize(record.Topic, record.GetConsumedMessage(), connector);
+                            record.Deserialized = await _messageConverter.Deserialize(record.Topic, record.Serialized, connector);
                             var context = record.GetValue<CommandContext>();
                             if (context.Command != null && 
                                 sourceConfig.Commands.ContainsKey(context.Command.Topic ?? "") && 
@@ -78,7 +78,7 @@ public class SourceProcessor : ISourceProcessor
                                 trackBatch.Add(context);
                             }
 
-                            _logger.Document(((ConnectRecord)record).Deserialized);
+                            _logger.Document(record.Deserialized);
                         }
                     }
                     /*

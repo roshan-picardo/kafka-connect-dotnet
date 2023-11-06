@@ -123,9 +123,9 @@ public class SourceTask : ISourceTask
                             
                           
                             
-                            // var delivered = await _producer.ProduceAsync(
-                            //     new TopicPartition(command.Topic, command.Partition),
-                            //     await _sourceProcessor.GetMessage(command));
+                             var delivered = await _producer.ProduceAsync(
+                                 new TopicPartition(command.Topic, command.Partition),
+                                 await _sourceProcessor.GetCommandMessage(command));
                             _consumer.Commit(new[]
                                 { new TopicPartitionOffset(command.Topic, command.Partition, command.Offset + 1) });
                         }, (context, exception) => exception.SetLogContext(batches[context.Topic]));

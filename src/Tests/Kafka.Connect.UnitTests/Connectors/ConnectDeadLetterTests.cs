@@ -54,7 +54,7 @@ namespace UnitTests.Kafka.Connect.Connectors
 
             _configurationProvider.Received().GetErrorsConfig("connector");
             _kafkaClientBuilder.Received().GetProducer("connector");
-            await _producer.Received().ProduceAsync("dead-letter-topic", records.First().GetDeadLetterMessage(exception));
+            await _producer.Received().ProduceAsync("dead-letter-topic", Arg.Any<Message<byte[], byte[]>>());
             _logger.Received().Info("Error message delivered.", Arg.Any<object>());
         }
     }

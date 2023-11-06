@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Confluent.Kafka;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Plugin.Logging;
+using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Plugin.Serializers;
 using Kafka.Connect.Providers;
 using Kafka.Connect.Serializers;
@@ -40,7 +40,7 @@ namespace UnitTests.Kafka.Connect.Serializers
             _deserializer.Deserialize(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<string>(), Arg.Any<Dictionary<string, byte[]>>(), Arg.Any<bool>())
                 .Returns(_ => keyToken, _ => valueToken);
 
-            var connectMessage = await _messageConverter.Deserialize("", new Message<byte[], byte[]>(), "");
+            var connectMessage = await _messageConverter.Deserialize("", new ConnectMessage<byte[]>(), "");
 
             Assert.Equal(keyToken, connectMessage.Key);
             Assert.Equal(valueToken, connectMessage.Value);

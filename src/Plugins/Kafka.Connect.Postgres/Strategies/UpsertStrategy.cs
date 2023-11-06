@@ -26,24 +26,24 @@ public class UpsertStrategy : WriteStrategy<string>
             if (config.Filter != null)
             {
                 whereClause = string.Format(config.Filter.Condition,
-                    config.Filter.Keys?.Select(key => record.Value.Value<object>(key)).ToArray() ?? Array.Empty<object>());
+                    config.Filter.Keys?.Select(key => record.Deserialized.Value.Value<object>(key)).ToArray() ?? Array.Empty<object>());
             }
 
             var fields = string.Join(',',
-                record.Value.ToObject<IDictionary<string, object>>().Select(k => $"\"{k.Key}\""));
+                record.Deserialized.Value.ToObject<IDictionary<string, object>>().Select(k => $"\"{k.Key}\""));
 
             var selectQuery = $"SELECT 1 FROM {config.Schema}.{config.Table} WHERE {whereClause}";
             
             var updateQuery = new StringBuilder($"UPDATE {config.Schema}.{config.Table} SET ");
             updateQuery.Append($" ({fields}) = ");
             updateQuery.Append(
-                $"(SELECT {fields} FROM json_populate_record(null::{config.Schema}.{config.Table}, '{record.Value}')) ");
+                $"(SELECT {fields} FROM json_populate_record(null::{config.Schema}.{config.Table}, '{record.Deserialized.Value}')) ");
             updateQuery.Append($"WHERE {whereClause};");
 
             var insertQuery = new StringBuilder($"INSERT INTO {config.Schema}.{config.Table} ");
             insertQuery.Append($" ({fields}) ");
             insertQuery.Append(
-                $"SELECT {fields} FROM json_populate_record(null::{config.Schema}.{config.Table}, '{record.Value}') ");
+                $"SELECT {fields} FROM json_populate_record(null::{config.Schema}.{config.Table}, '{record.Deserialized.Value}') ");
             insertQuery.Append($"WHERE {whereClause};");
 
             var finalQuery = new StringBuilder($"DO $do$ BEGIN IF EXISTS ({selectQuery}) THEN ");

@@ -19,7 +19,6 @@ namespace Kafka.Connect.Plugin.Models
 
         public ConnectMessage<JToken> Deserialized { get; set; }
         
-        //public ConnectMessage<JToken, JToken> Deserialized { get; set; }
         public ConnectMessage<byte[]> Serialized { get; set; }
 
         public string Topic { get; }
@@ -61,14 +60,9 @@ namespace Kafka.Connect.Plugin.Models
             }
         }
 
-        public T GetKey<T>() => JsonConvert.DeserializeObject<T>(Key?.ToString() ?? string.Empty);
+        public T GetKey<T>() => JsonConvert.DeserializeObject<T>(Deserialized.Key?.ToString() ?? string.Empty);
 
-        public T GetValue<T>() => JsonConvert.DeserializeObject<T>(Value?.ToString() ?? string.Empty);
-
-        public T GetMessage<T>() => JsonConvert.DeserializeObject<T>(Deserialized?.ToString() ?? string.Empty);
-
-        public JToken Key =>  Deserialized?.Key;
-        public JToken Value => Deserialized?.Value;
+        public T GetValue<T>() => JsonConvert.DeserializeObject<T>(Deserialized.Value?.ToString() ?? string.Empty);
 
         public void UpdateStatus(bool failed = false)
         {

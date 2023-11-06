@@ -36,10 +36,6 @@ namespace Kafka.Connect.Plugin.Models
             }
         }
 
-        public TData GetKey<TData>() => _connectRecord.GetKey<TData>();
-        public TData GetValue<TData>() => _connectRecord.GetValue<TData>();
-        public TData GetMessage<TData>() => _connectRecord.GetMessage<TData>();
-
         public SinkStatus Status
         {
             set => _connectRecord.Status = value;

@@ -8,5 +8,5 @@ public class ConnectMessage<T>
 
     public T Value { get; set; }
 
-    private IDictionary<string, T> Headers { get; set; }
+    public IDictionary<string, T> Headers { get; set; }
 }
