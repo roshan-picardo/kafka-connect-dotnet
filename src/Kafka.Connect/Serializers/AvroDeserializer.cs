@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Avro.Generic;
 using Confluent.Kafka;
 using Kafka.Connect.Converters;
+using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Serializers;
 using Kafka.Connect.Utilities;
@@ -32,7 +33,7 @@ namespace Kafka.Connect.Serializers
                 var context = new SerializationContext(isValue ? MessageComponentType.Value : MessageComponentType.Key,
                     topic, headers.ToMessageHeaders());
                 var record = await _deserializer.DeserializeAsync(data, isNull, context);
-                return Wrap(_genericRecordParser.Parse(record), isValue);
+                return Wrap(_genericRecordParser.Parse(record).ToJToken(), isValue);
             }
         }
     }
