@@ -2,10 +2,10 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json.Nodes;
 using Avro;
 using Avro.Generic;
 using Kafka.Connect.Plugin.Logging;
-using Newtonsoft.Json.Linq;
 
 namespace Kafka.Connect.Converters;
 
@@ -17,17 +17,17 @@ public class GenericRecordParser : IGenericRecordParser
     {
         _logger = logger;
     }
-    public JToken Parse(GenericRecord genericRecord)
+    public JsonNode Parse(GenericRecord genericRecord)
     {
         using (_logger.Track("Parsing generic record."))
         {
             return ParseRecord(genericRecord);
         }
     }
-
-    private JToken ParseRecord(GenericRecord genericRecord)
+    
+    private JsonNode ParseRecord(GenericRecord genericRecord)
     {
-        var jsonRecord = new JObject();
+        var jsonRecord = new JsonObject();
         foreach (var field in genericRecord.Schema.Fields)
         {
             if (genericRecord.TryGetValue(field.Name, out var value))
@@ -67,10 +67,10 @@ public class GenericRecordParser : IGenericRecordParser
         return jsonRecord;
     }
 
-    private JToken ParseArray(ArraySchema arraySchema, IEnumerable array)
+    private JsonNode ParseArray(ArraySchema arraySchema, IEnumerable array)
     {
         if (array == null) return null;
-        var jsonArray = new JArray();
+        var jsonArray = new JsonArray();
         foreach (var entry in array)
         {
             switch (arraySchema.ItemSchema)
@@ -107,7 +107,7 @@ public class GenericRecordParser : IGenericRecordParser
         return jsonArray;
     }
 
-    private JToken ParseUnion(UnionSchema unionSchema, object value)
+    private JsonNode ParseUnion(UnionSchema unionSchema, object value)
     {
         if (IsPrimitive(value))
         {
@@ -117,28 +117,23 @@ public class GenericRecordParser : IGenericRecordParser
         return value switch
         {
             GenericRecord genericRecord when unionSchema.Schemas.Any(s =>
-                    s.Tag == Schema.Type.Record && s.Name == genericRecord.Schema.Name) =>
-                ParseRecord(genericRecord),
+                    s.Tag == Schema.Type.Record && s.Name == genericRecord.Schema.Name) => ParseRecord(genericRecord),
             GenericEnum genericEnum when unionSchema.Schemas.Any(s =>
-                    s.Tag == Schema.Type.Enumeration && s.Name == genericEnum.Schema.Name) =>
-                ParseEnum(genericEnum),
+                    s.Tag == Schema.Type.Enumeration && s.Name == genericEnum.Schema.Name) => ParseEnum(genericEnum),
             GenericFixed genericFixed when unionSchema.Schemas.Any(s =>
-                s.Tag == Schema.Type.Fixed && s.Name == genericFixed.Schema.Name) => ParseFixed(
-                genericFixed),
+                s.Tag == Schema.Type.Fixed && s.Name == genericFixed.Schema.Name) => ParseFixed(genericFixed),
             IList array when
-                unionSchema.Schemas.SingleOrDefault(s => s.Tag == Schema.Type.Array) is ArraySchema arraySchema =>
-                ParseArray(arraySchema, array),
+                unionSchema.Schemas.SingleOrDefault(s => s.Tag == Schema.Type.Array) is ArraySchema arraySchema => ParseArray(arraySchema, array),
             IDictionary dictionary when
-                unionSchema.Schemas.SingleOrDefault(s => s.Tag == Schema.Type.Map) is MapSchema mapSchema => ParseMap(
-                    mapSchema, dictionary as IDictionary<string, object>),
+                unionSchema.Schemas.SingleOrDefault(s => s.Tag == Schema.Type.Map) is MapSchema mapSchema => ParseMap(mapSchema, dictionary as IDictionary<string, object>),
             _ => null
         };
     }
 
-    private JToken ParseMap(MapSchema mapSchema, IDictionary<string, object> dictionary)
+    private JsonNode ParseMap(MapSchema mapSchema, IDictionary<string, object> dictionary)
     {
         if (dictionary == null) return null;
-        var jsonObject = new JObject();
+        var jsonObject = new JsonObject();
         foreach (var (key, value) in dictionary)
         {
             switch (mapSchema.ValueSchema)
@@ -175,30 +170,30 @@ public class GenericRecordParser : IGenericRecordParser
         return jsonObject;
     }
 
-    private static JToken ParseEnum(GenericEnum genericEnum)
+    private static JsonNode ParseEnum(GenericEnum genericEnum)
     {
-        return new JValue(genericEnum.Value);
+        return JsonValue.Create(genericEnum.Value);
     }
 
-    private static JToken ParsePrimitive(Schema primitiveSchema, object value)
+    private static JsonNode ParsePrimitive(Schema primitiveSchema, object value)
     {
         return value switch
         {
-            string s when primitiveSchema.Tag == Schema.Type.String => new JValue(s),
-            int i when primitiveSchema.Tag == Schema.Type.Int => new JValue(i),
-            bool b when primitiveSchema.Tag == Schema.Type.Boolean => new JValue(b),
-            double d when primitiveSchema.Tag == Schema.Type.Double => new JValue(d),
-            float f when primitiveSchema.Tag == Schema.Type.Float => new JValue(f),
-            long l when primitiveSchema.Tag == Schema.Type.Long => new JValue(l),
-            byte[] b when primitiveSchema.Tag == Schema.Type.Bytes => new JValue(b),
+            string s when primitiveSchema.Tag == Schema.Type.String => JsonValue.Create(s),
+            int i when primitiveSchema.Tag == Schema.Type.Int => JsonValue.Create(i),
+            bool b when primitiveSchema.Tag == Schema.Type.Boolean => JsonValue.Create(b),
+            double d when primitiveSchema.Tag == Schema.Type.Double => JsonValue.Create(d),
+            float f when primitiveSchema.Tag == Schema.Type.Float => JsonValue.Create(f),
+            long l when primitiveSchema.Tag == Schema.Type.Long => JsonValue.Create(l),
+            byte[] b when primitiveSchema.Tag == Schema.Type.Bytes => JsonValue.Create(b),
             _ when primitiveSchema.Tag == Schema.Type.Null => null,
             _ => throw new SchemaParseException("Unexpected primitive type detected")
         };
     }
 
-    private static JToken ParseFixed(GenericFixed genericFixed)
+    private static JsonNode ParseFixed(GenericFixed genericFixed)
     {
-        return new JValue(genericFixed.Value);
+        return JsonValue.Create(genericFixed.Value);
     }
 
     private static bool IsPrimitive(object value)
