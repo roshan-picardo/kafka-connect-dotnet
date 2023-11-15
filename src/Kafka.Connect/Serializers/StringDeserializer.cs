@@ -2,10 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Serializers;
-using Newtonsoft.Json.Linq;
 
 namespace Kafka.Connect.Serializers;
 
@@ -18,7 +18,7 @@ public class StringDeserializer : Deserializer
         _logger = logger;
     }
 
-    public override async Task<JToken> Deserialize(ReadOnlyMemory<byte> data, string topic, IDictionary<string, byte[]> headers, bool isValue = true)
+    public override async Task<JsonNode> Deserialize(ReadOnlyMemory<byte> data, string topic, IDictionary<string, byte[]> headers, bool isValue = true)
     {
         using (_logger.Track("Deserializing the record using string deserializer."))
         {

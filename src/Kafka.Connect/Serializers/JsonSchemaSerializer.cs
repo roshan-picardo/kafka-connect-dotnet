@@ -1,25 +1,25 @@
 using System.Collections.Generic;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Confluent.Kafka;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Serializers;
 using Kafka.Connect.Utilities;
-using Newtonsoft.Json.Linq;
 
 namespace Kafka.Connect.Serializers;
 
 public class JsonSchemaSerializer : Serializer
 {
     private readonly ILogger<JsonSchemaSerializer> _logger;
-    private readonly IAsyncSerializer<JToken> _serializer;
+    private readonly IAsyncSerializer<JsonNode> _serializer;
 
-    public JsonSchemaSerializer(ILogger<JsonSchemaSerializer> logger, IAsyncSerializer<JToken> serializer)
+    public JsonSchemaSerializer(ILogger<JsonSchemaSerializer> logger, IAsyncSerializer<JsonNode> serializer)
     {
         _logger = logger;
         _serializer = serializer;
     }
 
-    public override async Task<byte[]> Serialize(string topic, JToken data, string subject = null, IDictionary<string, byte[]> headers = null, bool isValue = true)
+    public override async Task<byte[]> Serialize(string topic, JsonNode data, string subject = null, IDictionary<string, byte[]> headers = null, bool isValue = true)
     {
         using (_logger.Track("Serializing the record using avro serializer."))
         {

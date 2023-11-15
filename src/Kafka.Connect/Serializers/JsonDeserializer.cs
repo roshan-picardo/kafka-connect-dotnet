@@ -2,10 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Serializers;
-using Newtonsoft.Json.Linq;
 
 namespace Kafka.Connect.Serializers;
 
@@ -18,11 +18,11 @@ public class JsonDeserializer : Deserializer
         _logger = logger;
     }
 
-    public override async Task<JToken> Deserialize(ReadOnlyMemory<byte> data, string topic, IDictionary<string, byte[]> headers, bool isValue = true)
+    public override async Task<JsonNode> Deserialize(ReadOnlyMemory<byte> data, string topic, IDictionary<string, byte[]> headers, bool isValue = true)
     {
         using (_logger.Track("Deserializing the record using json deserializer."))
         {
-            JToken token;
+            JsonNode token;
             var isNull = data.IsEmpty || data.Length == 0;
             if (isNull || data.IsEmpty) return Wrap(null, isValue);
             try
@@ -37,7 +37,7 @@ public class JsonDeserializer : Deserializer
 
                 await using var stream = new MemoryStream(array, 0, array.Length);
                 using var sr = new StreamReader(stream, Encoding.UTF8);
-                token = Newtonsoft.Json.JsonConvert.DeserializeObject<JToken>(await sr.ReadToEndAsync());
+                token = JsonNode.Parse(await sr.ReadToEndAsync());
             }
             catch (AggregateException ae)
             {

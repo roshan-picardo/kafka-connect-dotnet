@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using Confluent.Kafka;
 using Confluent.SchemaRegistry;
+using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Providers;
@@ -29,9 +30,10 @@ public class MessageConverter : IMessageConverter
             var converterConfig = _configurationProvider.GetDeserializers(connector, topic);
             var deserialized = new ConnectMessage<JToken>
             {
-                Key = await _processorServiceProvider.GetDeserializer(converterConfig.Key).Deserialize(message.Key, topic, message.Headers, false),
-                Value = await _processorServiceProvider.GetDeserializer(converterConfig.Value)
-                    .Deserialize(message.Value, topic, message.Headers)
+                Key = (await _processorServiceProvider.GetDeserializer(converterConfig.Key)
+                    .Deserialize(message.Key, topic, message.Headers, false)).ToJToken(),
+                Value = (await _processorServiceProvider.GetDeserializer(converterConfig.Value)
+                    .Deserialize(message.Value, topic, message.Headers)).ToJToken()
             };
             return deserialized;
         }
@@ -48,9 +50,9 @@ public class MessageConverter : IMessageConverter
             var message = new Message<byte[], byte[]>
             {
                 Key = await _processorServiceProvider.GetSerializer(converterConfig.Key)
-                    .Serialize(topic, key, schemaSubject),
+                    .Serialize(topic, key?.ToJsonNode(), schemaSubject),
                 Value = await _processorServiceProvider.GetSerializer(converterConfig.Value)
-                    .Serialize(topic, value, schemaSubject)
+                    .Serialize(topic, value?.ToJsonNode(), schemaSubject)
             };
 
             return message;
