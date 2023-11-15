@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
@@ -10,28 +11,40 @@ namespace Kafka.Connect.Plugin.Extensions;
 public static class ConverterExtensions
 {
     private static readonly Regex RegexFieldNameSeparator =
-        new Regex(@"('([^']*)')|(?!\.)([^.^\[\]]+)|(?!\[)(\d+)(?=\])", RegexOptions.Compiled);
-    
-    public static Dictionary<string, object> ToDictionary(this JsonNode token, string prefix = "")
+        new(@"('([^']*)')|(?!\.)([^.^\[\]]+)|(?!\[)(\d+)(?=\])", RegexOptions.Compiled);
+
+    public static Dictionary<string, object> ToDictionary(this JsonNode node, string prefix = "")
     {
-        object GetValue(JsonElement element)
+        object GetValue(JsonNode jn)
         {
-            switch (element.ValueKind)
+            switch (jn)
             {
-                case JsonValueKind.String:
-                    return element.GetString();
-                case JsonValueKind.Number when element.TryGetInt32(out var intValue):
-                    return intValue;
-                case JsonValueKind.Number when element.TryGetInt64(out var longValue):
-                    return longValue;
-                case JsonValueKind.Number when element.TryGetDouble(out var doubleValue):
-                    return doubleValue;
-                case JsonValueKind.Number:
-                    return 0;
-                case JsonValueKind.True or JsonValueKind.False:
-                    return element.GetBoolean();
-                case JsonValueKind.Undefined or JsonValueKind.Null:
-                    return null;
+                case JsonObject:
+                    return new object();
+                case JsonArray:
+                    return Array.Empty<object>();
+                case JsonValue:
+                    var je = jn.GetValue<JsonElement>();
+                    switch (je.ValueKind)
+                    {
+                        case JsonValueKind.String:
+                            return je.GetString();
+                        case JsonValueKind.Number when je.TryGetInt32(out var intValue):
+                            return intValue;
+                        case JsonValueKind.Number when je.TryGetInt64(out var longValue):
+                            return longValue;
+                        case JsonValueKind.Number when je.TryGetSingle(out var singleValue):
+                            return singleValue;
+                        case JsonValueKind.Number when je.TryGetDouble(out var doubleValue):
+                            return doubleValue;
+                        case JsonValueKind.Number:
+                            return 0;
+                        case JsonValueKind.True or JsonValueKind.False:
+                            return je.GetBoolean();
+                        case JsonValueKind.Undefined or JsonValueKind.Null:
+                            return null;
+                    }
+                    break;
             }
 
             return null;
@@ -47,52 +60,57 @@ public static class ConverterExtensions
 
             return key;
         }
-        
-        var result = new Dictionary<string, object>();
-        switch (token)
+
+        IEnumerable<JsonNode> Parse(JsonNode jn)
         {
-            case JsonValue jv:
-                result.Add(GetKey(jv), GetValue(jv.GetValue<JsonElement>()));
-                return result;
-            case JsonObject jo:
-                if (jo.Count == 0 && jo.ToJsonString() == "{}")
+            return jn switch
+            {
+                JsonValue jv => new List<JsonNode> { jv },
+                JsonObject jo => ParseObject(jo),
+                JsonArray ja => ParseArray(ja),
+                _ => null
+            };
+        }
+        
+        List<JsonNode> ParseObject(JsonObject jo)
+        {
+            var nodes = new List<JsonNode>();
+            if (jo.Count == 0 && jo.ToJsonString() == "{}")
+            {
+                nodes.Add(jo); 
+            }
+            else
+            {
+                foreach (var (_, value) in jo)
                 {
-                    result.Add(GetKey(jo), new object());
+                    nodes.AddRange(Parse(value));
                 }
-                else
-                {
-                    foreach (var (_, node) in jo)
-                    {
-                        foreach (var (key, value) in ToDictionary(node))
-                        {
-                            result.Add(key, value);
-                        }
-                    }
-                }
+            }
 
-                return result;
-            case JsonArray ja:
-                if (ja.Count == 0 && ja.ToJsonString() == "[]")
+            return nodes;
+        }
+        
+        List<JsonNode> ParseArray(JsonArray ja)
+        {
+            var nodes = new List<JsonNode>();
+            if (ja.Count == 0 && ja.ToJsonString() == "[]")
+            {
+                nodes.Add(ja);
+            }
+            else
+            {
+                foreach (var item in ja)
                 {
-                    result.Add(GetKey(ja), Enumerable.Empty<object>());
+                    nodes.AddRange(Parse(item));
                 }
-                else
-                {
-                    foreach (var node in ja)
-                    {
-                        foreach (var (key, value) in ToDictionary(node))
-                        {
-                            result.Add(key, value);
-                        }
-                    }
-                }
+            }
 
-                return result;
+            return nodes;
         }
 
-        return result;
+        return Parse(node)?.ToDictionary(GetKey, GetValue);
     }
-    
+
     public static JsonNode ToJson(this IDictionary<string, object> flattened)
     {
         var result = new Dictionary<string, object>();
@@ -187,5 +205,6 @@ public static class ConverterExtensions
     }
     
     public static JToken ToJToken(this JsonNode jsonNode) => JToken.Parse(jsonNode.ToJsonString());
+    
     public static JsonNode ToJsonNode(this JToken jToken) => JsonNode.Parse(jToken.ToString());
 }
