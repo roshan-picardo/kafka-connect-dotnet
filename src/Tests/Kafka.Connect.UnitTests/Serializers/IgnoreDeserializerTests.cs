@@ -1,27 +1,26 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Serializers;
-using Newtonsoft.Json.Linq;
 using NSubstitute;
 using Xunit;
 
-namespace UnitTests.Kafka.Connect.Serializers
+namespace UnitTests.Kafka.Connect.Serializers;
+
+public class IgnoreDeserializerTests
 {
-    public class IgnoreDeserializerTests
+    [Fact]
+    public async  Task Deserialize()
     {
-        [Fact]
-        public async  Task Deserialize()
-        {
-            var ignoreDeserializer = new IgnoreDeserializer(Substitute.For<ILogger<IgnoreDeserializer>>());
+        var ignoreDeserializer = new IgnoreDeserializer(Substitute.For<ILogger<IgnoreDeserializer>>());
             
-            var expected = new JObject{{"value", null}};
+        var expected = new JsonObject{{"value", null}};
 
-            var actual = await ignoreDeserializer.Deserialize(ReadOnlyMemory<byte>.Empty, "", new Dictionary<string, byte[]>());
+        var actual = await ignoreDeserializer.Deserialize(ReadOnlyMemory<byte>.Empty, "", new Dictionary<string, byte[]>());
             
-            Assert.Equal(expected, actual);
+        Assert.Equal(expected, actual);
 
-        }
     }
 }

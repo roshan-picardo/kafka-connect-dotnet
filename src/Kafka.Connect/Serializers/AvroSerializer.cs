@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Avro;
 using Avro.Generic;
@@ -7,11 +8,9 @@ using Confluent.Kafka;
 using Confluent.SchemaRegistry;
 using Kafka.Connect.Converters;
 using Kafka.Connect.Plugin.Exceptions;
-using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Serializers;
 using Kafka.Connect.Utilities;
-using Newtonsoft.Json.Linq;
 
 namespace Kafka.Connect.Serializers;
 
@@ -34,14 +33,14 @@ public class AvroSerializer : Serializer
         _schemaRegistryClient = schemaRegistryClient;
     }
         
-    public override async Task<byte[]> Serialize(string topic, JToken data, string subject = null, IDictionary<string, byte[]> headers = null, bool isValue = true)
+    public override async Task<byte[]> Serialize(string topic, JsonNode data, string subject = null, IDictionary<string, byte[]> headers = null, bool isValue = true)
     {
         using (_logger.Track("Serializing the record using avro serializer."))
         {
             var context = new SerializationContext(isValue ? MessageComponentType.Value : MessageComponentType.Key,
                 topic, headers?.ToMessageHeaders());
             var serialized = await _serializer.SerializeAsync(
-                _genericRecordBuilder.Build(await GetRecordSchema(subject), data.ToJsonNode()), context);
+                _genericRecordBuilder.Build(await GetRecordSchema(subject), data), context);
             return serialized;
         }
     }

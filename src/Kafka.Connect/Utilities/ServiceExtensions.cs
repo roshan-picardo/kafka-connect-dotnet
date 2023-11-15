@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Text.Json.Nodes;
 using Avro.Generic;
 using Confluent.Kafka;
 using Confluent.SchemaRegistry;
@@ -72,14 +73,14 @@ namespace Kafka.Connect.Utilities
                 .AddScoped<ILogRecord, DefaultLogRecord>()
                 
                 .AddScoped<IAsyncDeserializer<GenericRecord>, AvroDeserializer<GenericRecord>>()
-                .AddScoped<IAsyncDeserializer<JObject>, AvroDeserializer<JObject>>()
+                .AddScoped<IAsyncDeserializer<JsonNode>, AvroDeserializer<JsonNode>>()
                 .AddScoped<ISchemaRegistryClient>(_ =>
                 {
                     var config = configuration.GetSection("worker:schemaRegistry").Get<SchemaRegistryConfig>();
                     return string.IsNullOrEmpty(config?.Url) ? null : new CachedSchemaRegistryClient(config);
                 })
                 .AddScoped<IAsyncSerializer<GenericRecord>>(provider => new AvroSerializer<GenericRecord>(provider.GetService<ISchemaRegistryClient>()))
-                .AddScoped<IAsyncSerializer<JToken>>(provider => new JsonSerializer<JToken>(provider.GetService<ISchemaRegistryClient>()))
+                .AddScoped<IAsyncSerializer<JsonNode>>(provider => new JsonSerializer<JsonNode>(provider.GetService<ISchemaRegistryClient>()))
                 .AddScoped<IDeserializer, AvroDeserializer>()
                 .AddScoped<IDeserializer, JsonDeserializer>()
                 .AddScoped<IDeserializer, JsonSchemaDeserializer>()
