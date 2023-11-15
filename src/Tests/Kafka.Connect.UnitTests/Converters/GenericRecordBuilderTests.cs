@@ -1,11 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Text.Json.Nodes;
 using Avro;
 using Avro.Generic;
 using Kafka.Connect.Converters;
 using Kafka.Connect.Plugin.Exceptions;
 using Kafka.Connect.Plugin.Logging;
-using Newtonsoft.Json.Linq;
 using NSubstitute;
 using Xunit;
 
@@ -37,18 +38,9 @@ public class GenericRecordBuilderTests
     [InlineData(Schema.Type.Union)]
     public void Build_ConnectException_WhenSchemaIsNotRecord(Schema.Type type)
     {
-        var schemaContent =
-            new
-        {
-            type = type.ToString().ToLower(),
-            name = "unit",
-            items = "string",
-            size = 3,
-            values = "string"
-        };
-        var schema = Schema.Parse(JToken.FromObject(schemaContent).ToString());
-
-        Assert.Throws<ConnectDataException>(() => _genericRecordBuilder.Build(schema, new JObject()));
+        var json ="{\"type\":\""+ type.ToString().ToLower() +"\",\"name\":\"unit\",\"items\":\"string\",\"size\":3,\"values\":\"string\"}";
+        var schema = Schema.Parse(json);
+        Assert.Throws<ConnectDataException>(() => _genericRecordBuilder.Build(schema, new JsonObject()));
     }
 
     [Theory]
@@ -62,22 +54,10 @@ public class GenericRecordBuilderTests
     [InlineData(Schema.Type.String, "my-simple-id")]
     public void Build_Record_Primitive(Schema.Type type, dynamic value)
     {
-        var schema = new
-        {
-            type = "record",
-            name = "data",
-            fields = new[]
-            {
-                new
-                {
-                    name = "correlationId",
-                    type = type.ToString().ToLower()
-                }
-            }
-        };
-        var recordSchema = (RecordSchema)Schema.Parse(JToken.FromObject(schema).ToString());
+        var schema = "{\"type\":\"record\",\"name\":\"data\",\"fields\":[{\"name\":\"correlationId\",\"type\":\""+ type.ToString().ToLower() +"\"}]}";
+        var recordSchema = (RecordSchema)Schema.Parse(schema);
 
-        var actual = _genericRecordBuilder.Build(recordSchema, new JObject { { "correlationId", value } });
+        var actual = _genericRecordBuilder.Build(recordSchema, new JsonObject { { "correlationId", JsonValue.Create((object)value) } });
 
         var expected = new GenericRecord(recordSchema);
         expected.Add("correlationId", value);
@@ -87,28 +67,11 @@ public class GenericRecordBuilderTests
     [Fact]
     public void Build_Record_Enum()
     {
-        var schema = new
-        {
-            type = "record",
-            name = "data",
-            fields = new[]
-            {
-                new
-                {
-                    name = "correlationId",
-                    type = new
-                    {
-                        name = "enumTypeForCorrelationId",
-                        type = "enum",
-                        symbols = new[] {"SPADES", "HEARTS", "DIAMONDS", "CLUBS"}
-                    }
-                }
-            }
-        };
+        const string schema = "{\"type\":\"record\",\"name\":\"data\",\"fields\":[{\"name\":\"correlationId\",\"type\":{\"name\":\"enumTypeForCorrelationId\",\"type\":\"enum\",\"symbols\":[\"SPADES\",\"HEARTS\",\"DIAMONDS\",\"CLUBS\"]}}]}";
         
-        var recordSchema = (RecordSchema)Schema.Parse(JToken.FromObject(schema).ToString());
+        var recordSchema = (RecordSchema)Schema.Parse(schema);
 
-        var actual = _genericRecordBuilder.Build(recordSchema, new JObject { { "correlationId", "SPADES" } });
+        var actual = _genericRecordBuilder.Build(recordSchema, new JsonObject { { "correlationId", "SPADES" } });
 
         var expected = new GenericRecord(recordSchema);
         expected.Add("correlationId", new GenericEnum((EnumSchema) recordSchema.Fields[0].Schema, "SPADES"));
@@ -118,28 +81,11 @@ public class GenericRecordBuilderTests
     [Fact]
     public void Build_Record_Enum_Exception()
     {
-        var schema = new
-        {
-            type = "record",
-            name = "data",
-            fields = new[]
-            {
-                new
-                {
-                    name = "correlationId",
-                    type = new
-                    {
-                        name = "enumTypeForCorrelationId",
-                        type = "enum",
-                        symbols = new[] {"SPADES", "HEARTS", "DIAMONDS", "CLUBS"}
-                    }
-                }
-            }
-        };
+        var schema = "{\"type\":\"record\",\"name\":\"data\",\"fields\":[{\"name\":\"correlationId\",\"type\":{\"name\":\"enumTypeForCorrelationId\",\"type\":\"enum\",\"symbols\":[\"SPADES\",\"HEARTS\",\"DIAMONDS\",\"CLUBS\"]}}]}";
         
-        var recordSchema = (RecordSchema)Schema.Parse(JToken.FromObject(schema).ToString());
+        var recordSchema = (RecordSchema)Schema.Parse(schema);
 
-        Assert.Throws<ArgumentException>(() => _genericRecordBuilder.Build(recordSchema, new JObject { { "correlationId", "NOT_IN_LIST" } }));
+        Assert.Throws<ArgumentException>(() => _genericRecordBuilder.Build(recordSchema, new JsonObject { { "correlationId", "NOT_IN_LIST" } }));
     }
 
     [Theory]
@@ -153,28 +99,13 @@ public class GenericRecordBuilderTests
     [InlineData(Schema.Type.String, "my-simple-id", "my-simple-second", "my-simple-third")]
     public void Build_Record_Array_Primitive(Schema.Type type, params dynamic[] values)
     {
-        var schema = new
-        {
-            type = "record",
-            name = "data",
-            fields = new[]
-            {
-                new
-                {
-                    name = "information",
-                    type = new
-                    {
-                        name = "arrayOfInformation",
-                        type = "array",
-                        items = type.ToString().ToLower()
-                    }
-                }
-            }
-        };
+        var schema = "{\"type\":\"record\",\"name\":\"data\",\"fields\":[{\"name\":\"information\",\"type\":{\"name\":\"arrayOfInformation\",\"type\":\"array\",\"items\":\""+ type.ToString().ToLower() +"\"}}]}";
         
-        var recordSchema = (RecordSchema)Schema.Parse(JToken.FromObject(schema).ToString());
+        var recordSchema = (RecordSchema)Schema.Parse(schema);
 
-        var actual = _genericRecordBuilder.Build(recordSchema, new JObject { { "information", new JArray(values) } });
+        var actual = _genericRecordBuilder.Build(recordSchema,
+            new JsonObject
+                { { "information", new JsonArray(values.Select(v =>  (JsonNode)JsonValue.Create((object)v)).ToArray()) } });
 
         var expected = new GenericRecord(recordSchema);
         expected.Add("information", values);
@@ -184,48 +115,14 @@ public class GenericRecordBuilderTests
     [Fact]
     public void Build_Record_Array_Record()
     {
-        var schema = new
-        {
-            type = "record",
-            name = "data",
-            fields = new[]
-            {
-                new
-                {
-                    name = "information",
-                    type = new
-                    {
-                        name = "arrayOfInformation",
-                        type = "array",
-                        items = new
-                        {
-                            name = "employee",
-                            type = "record",
-                            fields = new[]
-                            {
-                                new
-                                {
-                                    name = "id",
-                                    type = "int"
-                                },
-                                new
-                                {
-                                    name = "name",
-                                    type = "string"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        };
+        const string schema = "{\"type\":\"record\",\"name\":\"data\",\"fields\":[{\"name\":\"information\",\"type\":{\"name\":\"arrayOfInformation\",\"type\":\"array\",\"items\":{\"name\":\"employee\",\"type\":\"record\",\"fields\":[{\"name\":\"id\",\"type\":\"int\"},{\"name\":\"name\",\"type\":\"string\"}]}}}]}";
         
-        var recordSchema = (RecordSchema)Schema.Parse(JToken.FromObject(schema).ToString());
-        var token = new JObject
+        var recordSchema = (RecordSchema)Schema.Parse(schema);
+        var token = new JsonObject
         {
             {
                 "information",
-                new JArray { new JObject { { "id", 1111 }, { "name", "Test" } } }
+                new JsonArray { new JsonObject { { "id", 1111 }, { "name", "Test" } } }
             }
         };
 
@@ -242,28 +139,9 @@ public class GenericRecordBuilderTests
     [Fact]
     public void Build_Record_Array_Union()
     {
-        var schema = new
-        {
-            type = "record",
-            name = "data",
-            fields = new[]
-            {
-                new
-                {
-                    name = "information",
-                    type = new
-                    {
-                        name = "arrayOfInformation",
-                        type = "array",
-                        items = new[] {"null", "string", "double"}
-                    }
-                }
-            }
-        };
-        
-        var recordSchema = (RecordSchema)Schema.Parse(JToken.FromObject(schema).ToString());
-
-        var token = JToken.Parse("{\"information\": [ null, { \"double\": 10.5}, {\"string\":\"text\" } ]}");
+        const string schema = "{\"type\":\"record\",\"name\":\"data\",\"fields\":[{\"name\":\"information\",\"type\":{\"name\":\"arrayOfInformation\",\"type\":\"array\",\"items\":[\"null\",\"string\",\"double\"]}}]}";
+        var recordSchema = (RecordSchema)Schema.Parse(schema);
+        var token = JsonNode.Parse("{\"information\": [ null, { \"double\": 10.5}, {\"string\":\"text\" } ]}");
 
         var actual = _genericRecordBuilder.Build(recordSchema, token);
 
@@ -275,32 +153,9 @@ public class GenericRecordBuilderTests
     [Fact]
     public void Build_Record_Array_Array()
     {
-        var schema = new
-        {
-            type = "record",
-            name = "data",
-            fields = new[]
-            {
-                new
-                {
-                    name = "information",
-                    type = new
-                    {
-                        name = "arrayOfInformation",
-                        type = "array",
-                        items = new
-                        {
-                            type = "array",
-                            name = "children",
-                            items = "string"
-                        }
-                    }
-                }
-            }
-        };
-        
-        var recordSchema = (RecordSchema)Schema.Parse(JToken.FromObject(schema).ToString());
-        var token = new JObject { { "information", new JArray { new JArray { "item" } } } };
+        const string schema = "{\"type\":\"record\",\"name\":\"data\",\"fields\":[{\"name\":\"information\",\"type\":{\"name\":\"arrayOfInformation\",\"type\":\"array\",\"items\":{\"type\":\"array\",\"name\":\"children\",\"items\":\"string\"}}}]}";
+        var recordSchema = (RecordSchema)Schema.Parse(schema);
+        var token =  JsonNode.Parse("{\"information\":[[\"item\"]]}");
 
         var actual = _genericRecordBuilder.Build(recordSchema, token);
 
@@ -312,32 +167,9 @@ public class GenericRecordBuilderTests
     [Fact]
     public void Build_Record_Array_Enum()
     {
-        var schema = new
-        {
-            type = "record",
-            name = "data",
-            fields = new[]
-            {
-                new
-                {
-                    name = "information",
-                    type = new
-                    {
-                        name = "arrayOfInformation",
-                        type = "array",
-                        items = new
-                        {
-                            name = "cards",
-                            type = "enum",
-                            symbols = new[] {"SPADES", "HEARTS", "DIAMONDS", "CLUBS"}
-                        }
-                    }
-                }
-            }
-        };
-        
-        var recordSchema = (RecordSchema)Schema.Parse(JToken.FromObject(schema).ToString());
-        var token = new JObject { { "information", new JArray {"SPADES", "DIAMONDS", "CLUBS"}} };
+        const string schema = "{\"type\":\"record\",\"name\":\"data\",\"fields\":[{\"name\":\"information\",\"type\":{\"name\":\"arrayOfInformation\",\"type\":\"array\",\"items\":{\"name\":\"cards\",\"type\":\"enum\",\"symbols\":[\"SPADES\",\"HEARTS\",\"DIAMONDS\",\"CLUBS\"]}}}]}";
+        var recordSchema = (RecordSchema)Schema.Parse(schema);
+        var token = JsonNode.Parse("{\"information\":[\"SPADES\",\"DIAMONDS\",\"CLUBS\"]}");
 
         var actual = _genericRecordBuilder.Build(recordSchema, token);
 
@@ -356,32 +188,9 @@ public class GenericRecordBuilderTests
     [Fact]
     public void Build_Record_Array_Map()
     {
-        var schema = new
-        {
-            type = "record",
-            name = "data",
-            fields = new[]
-            {
-                new
-                {
-                    name = "information",
-                    type = new
-                    {
-                        name = "arrayOfInformation",
-                        type = "array",
-                        items = new
-                        {
-                            type = "map",
-                            name = "children",
-                            values = "string"
-                        }
-                    }
-                }
-            }
-        };
-        
-        var recordSchema = (RecordSchema)Schema.Parse(JToken.FromObject(schema).ToString());
-        var token = new JObject { { "information", new JArray {new JObject {{"key1", "item"}, {"key2", "item"}}} } };
+        const string schema = "{\"type\":\"record\",\"name\":\"data\",\"fields\":[{\"name\":\"information\",\"type\":{\"name\":\"arrayOfInformation\",\"type\":\"array\",\"items\":{\"type\":\"map\",\"name\":\"children\",\"values\":\"string\"}}}]}";
+        var recordSchema = (RecordSchema)Schema.Parse(schema);
+        var token = JsonNode.Parse("{\"information\":[{\"key1\":\"item\",\"key2\":\"item\"}]}");
 
         var actual = _genericRecordBuilder.Build(recordSchema, token);
 
@@ -393,70 +202,26 @@ public class GenericRecordBuilderTests
     [Fact]
     public void Build_Record_Array_Logical()
     {
-        var schema = new
-        {
-            type = "record",
-            name = "data",
-            fields = new[]
-            {
-                new
-                {
-                    name = "information",
-                    type = new
-                    {
-                        name = "arrayOfInformation",
-                        type = "array",
-                        items = new
-                        {
-                            name = "expiry",
-                            type = "int",
-                            logicalType = "date"
-                        }
-                    }
-                }
-            }
-        };
+        const string schema = "{\"type\":\"record\",\"name\":\"data\",\"fields\":[{\"name\":\"information\",\"type\":{\"name\":\"arrayOfInformation\",\"type\":\"array\",\"items\":{\"name\":\"expiry\",\"type\":\"int\",\"logicalType\":\"date\"}}}]}";
         
-        var recordSchema = (RecordSchema)Schema.Parse(JToken.FromObject(schema).ToString());
+        var recordSchema = (RecordSchema)Schema.Parse(schema);
 
         Assert.Throws<NotImplementedException>(() =>
-            _genericRecordBuilder.Build(recordSchema, new JObject { { "information", new JArray(1111, 2222) } }));
+            _genericRecordBuilder.Build(recordSchema, new JsonObject { { "information", new JsonArray(1111, 2222) } }));
     }
     
     [Fact]
     public void Build_Record_Array_Fixed()
     {
-        var schema = new
-        {
-            type = "record",
-            name = "data",
-            fields = new[]
-            {
-                new
-                {
-                    name = "information",
-                    type = new
-                    {
-                        name = "arrayOfInformation",
-                        type = "array",
-                        items = new
-                        {
-                            name = "expiry",
-                            type = "fixed",
-                            size = 32
-                        }
-                    }
-                }
-            }
-        };
+        const string schema = "{\"type\":\"record\",\"name\":\"data\",\"fields\":[{\"name\":\"information\",\"type\":{\"name\":\"arrayOfInformation\",\"type\":\"array\",\"items\":{\"name\":\"expiry\",\"type\":\"fixed\",\"size\":32}}}]}";
         
-        var recordSchema = (RecordSchema)Schema.Parse(JToken.FromObject(schema).ToString());
+        var recordSchema = (RecordSchema)Schema.Parse(schema);
 
         Assert.Throws<NotImplementedException>(() =>
             _genericRecordBuilder.Build(recordSchema,
-                new JObject
+                new JsonObject
                 {
-                    { "information", new JArray { new JValue("NjFkMjFiZWY5ZTdiNGE5ODgzNmM0MWIwMmVlNDFlMWQ=") } }
+                    { "information", new JsonArray { JsonValue.Create("NjFkMjFiZWY5ZTdiNGE5ODgzNmM0MWIwMmVlNDFlMWQ=") } }
                 }));
 
     }
@@ -467,40 +232,23 @@ public class GenericRecordBuilderTests
     [InlineData(Schema.Type.Double, 38.19, 88.19, 38.00)]
     [InlineData(Schema.Type.Float, 38.19F, 99.19F)]
     [InlineData(Schema.Type.Int, 100, 102)]
-    [InlineData(Schema.Type.Long, 3800L, 4800L)]
+    [InlineData(Schema.Type.Long, 385172538158317835L, 485172538158317835L)]
     [InlineData(Schema.Type.Null, null, null)]
     [InlineData(Schema.Type.String, "my-simple-id", "my-simple-second", "my-simple-third")]
     public void Build_Record_Map_Primitive(Schema.Type type, params dynamic[] values)
     {
-        var schema = new
-        {
-            type = "record",
-            name = "data",
-            fields = new[]
-            {
-                new
-                {
-                    name = "information",
-                    type = new
-                    {
-                        name = "mapOfInformation",
-                        type = "map",
-                        values = type.ToString().ToLower()
-                    }
-                }
-            }
-        };
+        var schema = "{\"type\":\"record\",\"name\":\"data\",\"fields\":[{\"name\":\"information\",\"type\":{\"name\":\"mapOfInformation\",\"type\":\"map\",\"values\":\""+ type.ToString().ToLower() +"\"}}]}";
         
-        var recordSchema = (RecordSchema)Schema.Parse(JToken.FromObject(schema).ToString());
-        var jObject = new JObject();
+        var recordSchema = (RecordSchema)Schema.Parse(schema);
+        var jObject = new JsonObject();
         var dObject = new Dictionary<string, object>();
         foreach (var value in values)
         {
-            dObject.Add($"Key{dObject.Count}", value);
-            jObject.Add($"Key{jObject.Count}", value);
+            dObject.Add($"Key{dObject.Count}", (object)value);
+            jObject.Add($"Key{jObject.Count}", JsonValue.Create((object)value));
         }
         
-        var actual = _genericRecordBuilder.Build(recordSchema, new JObject { { "information", jObject } });
+        var actual = _genericRecordBuilder.Build(recordSchema, new JsonObject { { "information", jObject } });
 
         var expected = new GenericRecord(recordSchema);
         expected.Add("information", dObject);
@@ -510,50 +258,9 @@ public class GenericRecordBuilderTests
     [Fact]
     public void Build_Record_Map_Record()
     {
-        var schema = new
-        {
-            type = "record",
-            name = "data",
-            fields = new[]
-            {
-                new
-                {
-                    name = "information",
-                    type = new
-                    {
-                        name = "arrayOfInformation",
-                        type = "map",
-                        values = new
-                        {
-                            name = "employee",
-                            type = "record",
-                            fields = new[]
-                            {
-                                new
-                                {
-                                    name = "id",
-                                    type = "int"
-                                },
-                                new
-                                {
-                                    name = "name",
-                                    type = "string"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        };
-        
-        var recordSchema = (RecordSchema)Schema.Parse(JToken.FromObject(schema).ToString());
-        var token = new JObject
-        {
-            {
-                "information", 
-                new JObject { { "Key1", new JObject { { "id", 1111 }, { "name", "name1" } } }, { "Key2", new JObject { { "id", 2222 }, { "name", "name2" } } }  }
-            }
-        };
+        const string schema = "{\"type\":\"record\",\"name\":\"data\",\"fields\":[{\"name\":\"information\",\"type\":{\"name\":\"arrayOfInformation\",\"type\":\"map\",\"values\":{\"name\":\"employee\",\"type\":\"record\",\"fields\":[{\"name\":\"id\",\"type\":\"int\"},{\"name\":\"name\",\"type\":\"string\"}]}}}]}";
+        var recordSchema = (RecordSchema)Schema.Parse(schema);
+        var token = JsonNode.Parse("{\"information\":{\"Key1\":{\"id\":1111,\"name\":\"name1\"},\"Key2\":{\"id\":2222,\"name\":\"name2\"}}}");
 
         var actual = _genericRecordBuilder.Build(recordSchema, token);
 
@@ -563,7 +270,6 @@ public class GenericRecordBuilderTests
         var childRecord2 = new GenericRecord((recordSchema.Fields[0].Schema as MapSchema)?.ValueSchema as RecordSchema);
         childRecord2.Add("id", 2222);
         childRecord2.Add("name", "name2");
-        
         var expected = new GenericRecord(recordSchema);
         expected.Add("information",
             new Dictionary<string, object> { { "Key1", childRecord1 }, { "Key2", childRecord2 } });
@@ -573,30 +279,11 @@ public class GenericRecordBuilderTests
     [Fact]
     public void Build_Record_Map_Union()
     {
-        var schema = new
-        {
-            type = "record",
-            name = "data",
-            fields = new[]
-            {
-                new
-                {
-                    name = "information",
-                    type = new
-                    {
-                        name = "mapOfInformation",
-                        type = "map",
-                        values = new[] {"null", "string"}
-                    }
-                }
-            }
-        };
-        
-        var recordSchema = (RecordSchema)Schema.Parse(JToken.FromObject(schema).ToString());
+        const string schema = "{\"type\":\"record\",\"name\":\"data\",\"fields\":[{\"name\":\"information\",\"type\":{\"name\":\"mapOfInformation\",\"type\":\"map\",\"values\":[\"null\",\"string\"]}}]}";
+        var recordSchema = (RecordSchema)Schema.Parse(schema);
+        const string token = "{\"information\": { \"item1\": null, \"item2\":  \"two\" }}";
 
-        const string token = "{\"information\": { \"item1\": null, \"item2\":  \"two\" }}"; //new JObject {{"information", new JObject {{"item1", null}, {"item2", "two"}}}};;
-
-        var actual = _genericRecordBuilder.Build(recordSchema,  JToken.Parse(token));
+        var actual = _genericRecordBuilder.Build(recordSchema,  JsonNode.Parse(token));
 
         var expected = new GenericRecord(recordSchema);
         expected.Add("information", new Dictionary<string, object> { { "item1", null }, { "item2", "two" } });

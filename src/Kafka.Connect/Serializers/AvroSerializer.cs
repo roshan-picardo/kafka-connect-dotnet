@@ -7,6 +7,7 @@ using Confluent.Kafka;
 using Confluent.SchemaRegistry;
 using Kafka.Connect.Converters;
 using Kafka.Connect.Plugin.Exceptions;
+using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Serializers;
 using Kafka.Connect.Utilities;
@@ -40,7 +41,7 @@ public class AvroSerializer : Serializer
             var context = new SerializationContext(isValue ? MessageComponentType.Value : MessageComponentType.Key,
                 topic, headers?.ToMessageHeaders());
             var serialized = await _serializer.SerializeAsync(
-                _genericRecordBuilder.Build(await GetRecordSchema(subject), data), context);
+                _genericRecordBuilder.Build(await GetRecordSchema(subject), data.ToJsonNode()), context);
             return serialized;
         }
     }

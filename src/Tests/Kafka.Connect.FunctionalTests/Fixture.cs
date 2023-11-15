@@ -5,6 +5,7 @@ using Confluent.SchemaRegistry;
 using Confluent.SchemaRegistry.Serdes;
 using Kafka.Connect.Converters;
 using Kafka.Connect.FunctionalTests.Targets;
+using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Logging;
 using NSubstitute;
 
@@ -76,7 +77,7 @@ public class Fixture : IDisposable
         foreach (var message in messages)
         {
             var schemaValue = (RecordSchema) Avro.Schema.Parse(schema.Value?.ToString());
-            var genericRecord = _genericRecordBuilder.Build(schemaValue, message.Value);
+            var genericRecord = _genericRecordBuilder.Build(schemaValue, message.Value.ToJsonNode());
 
             TopicPartitionOffset delivered;
             if (schema.Key == null)
@@ -95,7 +96,7 @@ public class Fixture : IDisposable
             else
             {
                 var schemaKey = (RecordSchema) Avro.Schema.Parse(schema.Key?.ToString());
-                var keyRecord = _genericRecordBuilder.Build(schemaKey, message.Key);
+                var keyRecord = _genericRecordBuilder.Build(schemaKey, message.Key.ToJsonNode());
                 delivered = (await _keyGenericProducer.ProduceAsync(topic,
                         new Message<GenericRecord, GenericRecord>
                             {Key = keyRecord, Value = genericRecord}))
