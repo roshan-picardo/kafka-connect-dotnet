@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Text.Json.Nodes;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -17,9 +19,13 @@ namespace Kafka.Connect.Plugin.Models
             _logTimestamp = new LogTimestamp();
         }
 
-        public ConnectMessage<JToken> Deserialized { get; set; }
+        public ConnectMessage<JToken> DeserializedToken { get; set; }
+        
+        public ConnectMessage<JsonNode> Deserialized { get; set; }
         
         public ConnectMessage<byte[]> Serialized { get; set; }
+        
+        public ConnectMessage<IDictionary<string, object>> Flattened { get; set; }
 
         public string Topic { get; }
         public int Partition { get; }
@@ -60,9 +66,9 @@ namespace Kafka.Connect.Plugin.Models
             }
         }
 
-        public T GetKey<T>() => JsonConvert.DeserializeObject<T>(Deserialized.Key?.ToString() ?? string.Empty);
+        public T GetKey<T>() => JsonConvert.DeserializeObject<T>(DeserializedToken.Key?.ToString() ?? string.Empty);
 
-        public T GetValue<T>() => JsonConvert.DeserializeObject<T>(Deserialized.Value?.ToString() ?? string.Empty);
+        public T GetValue<T>() => JsonConvert.DeserializeObject<T>(DeserializedToken.Value?.ToString() ?? string.Empty);
 
         public void UpdateStatus(bool failed = false)
         {

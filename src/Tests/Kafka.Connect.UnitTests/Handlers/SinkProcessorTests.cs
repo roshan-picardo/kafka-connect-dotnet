@@ -72,7 +72,7 @@ namespace UnitTests.Kafka.Connect.Handlers
             await _sinkProcessor.Process(batch, "connector");
             
             Assert.True(record.Skip);
-            Assert.Equal(data, record.Deserialized);
+            Assert.Equal(data, record.DeserializedToken);
             Assert.Equal(SinkStatus.Processed, record.Status);
             await _messageConverter.Received().Deserialize(Arg.Any<string>(),Arg.Any<ConnectMessage<byte[]>>(), Arg.Any<string>());
             await _messageHandler.Received().Process(Arg.Any<SinkRecord>(), Arg.Any<string>());

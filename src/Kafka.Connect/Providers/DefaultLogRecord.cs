@@ -15,7 +15,7 @@ namespace Kafka.Connect.Providers
         public object Enrich(ConnectRecord record, string connector)
         {
             var attributes = _configurationProvider.GetLogAttributes<string[]>(connector);
-            return record.Deserialized.Value is not { HasValues: true } ? null : attributes?.ToDictionary<string, string, object>(a => a, a => record.Deserialized.Value?[a]);
+            return record.DeserializedToken.Value is not { HasValues: true } ? null : attributes?.ToDictionary<string, string, object>(a => a, a => record.DeserializedToken.Value?[a]);
         }
     }
 }

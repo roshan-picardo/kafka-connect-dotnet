@@ -26,7 +26,7 @@ public class DeleteStrategy : WriteStrategy<string>
             if (config.Filter != null)
             {
                 whereClause = string.Format(config.Filter.Condition,
-                    config.Filter.Keys?.Select(key => record.Deserialized.Value.Value<object>(key)).ToArray() ?? Array.Empty<object>());
+                    config.Filter.Keys?.Select(key => record.DeserializedToken.Value.Value<object>(key)).ToArray() ?? Array.Empty<object>());
             }
             var deleteQuery = $"DELETE FROM {config.Schema}.{config.Table} WHERE {whereClause};";
             return await Task.FromResult((SinkStatus.Inserting, new[] { deleteQuery }));

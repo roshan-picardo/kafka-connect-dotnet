@@ -32,7 +32,7 @@ public class AvroDeserializer : Deserializer
             var context = new SerializationContext(isValue ? MessageComponentType.Value : MessageComponentType.Key,
                 topic, headers.ToMessageHeaders());
             var record = await _deserializer.DeserializeAsync(data, isNull, context);
-            return Wrap(_genericRecordParser.Parse(record), isValue);
+            return _genericRecordParser.Parse(record);
         }
     }
 }

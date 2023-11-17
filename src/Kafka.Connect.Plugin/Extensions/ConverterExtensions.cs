@@ -13,7 +13,7 @@ public static class ConverterExtensions
     private static readonly Regex RegexFieldNameSeparator =
         new(@"('([^']*)')|(?!\.)([^.^\[\]]+)|(?!\[)(\d+)(?=\])", RegexOptions.Compiled);
 
-    public static Dictionary<string, object> ToDictionary(this JsonNode node, string prefix = "")
+    public static IDictionary<string, object> ToDictionary(this JsonNode node, string prefix = "")
     {
         object GetValue(JsonNode jn)
         {
@@ -83,7 +83,10 @@ public static class ConverterExtensions
             {
                 foreach (var (_, value) in jo)
                 {
-                    nodes.AddRange(Parse(value));
+                    if (value != null)
+                    {
+                        nodes.AddRange(Parse(value).Where(i => i is JsonValue));
+                    }
                 }
             }
 
@@ -101,14 +104,15 @@ public static class ConverterExtensions
             {
                 foreach (var item in ja)
                 {
-                    nodes.AddRange(Parse(item));
+                    nodes.AddRange(Parse(item).Where(i => i is JsonValue));
                 }
             }
 
             return nodes;
         }
 
-        return Parse(node)?.ToDictionary(GetKey, GetValue);
+        var all = Parse(node);
+        return all?.ToDictionary(GetKey, GetValue);
     }
 
     public static JsonNode ToJson(this IDictionary<string, object> flattened)
@@ -203,7 +207,12 @@ public static class ConverterExtensions
         });
         return JsonNode.Parse(jsonString);
     }
-    
+
+    public static T ToObject<T>(this IDictionary<string, object> flattened) => flattened.ToJson().Deserialize<T>();
+
+    public static IDictionary<string, object> FromObject<T>(this T data) =>
+        JsonSerializer.SerializeToNode(data).ToDictionary();
+
     public static JToken ToJToken(this JsonNode jsonNode) => JToken.Parse(jsonNode.ToJsonString());
     
     public static JsonNode ToJsonNode(this JToken jToken) => JsonNode.Parse(jToken.ToString());

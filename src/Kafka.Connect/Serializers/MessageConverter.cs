@@ -1,4 +1,5 @@
 using System;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Confluent.Kafka;
 using Confluent.SchemaRegistry;
@@ -31,9 +32,9 @@ public class MessageConverter : IMessageConverter
             var deserialized = new ConnectMessage<JToken>
             {
                 Key = (await _processorServiceProvider.GetDeserializer(converterConfig.Key)
-                    .Deserialize(message.Key, topic, message.Headers, false)).ToJToken(),
+                    .Deserialize(message.Key, topic, message.Headers, false))?.ToJToken() ?? JToken.Parse("{}"),
                 Value = (await _processorServiceProvider.GetDeserializer(converterConfig.Value)
-                    .Deserialize(message.Value, topic, message.Headers)).ToJToken()
+                    .Deserialize(message.Value, topic, message.Headers))?.ToJToken() ?? JToken.Parse("{}")
             };
             return deserialized;
         }
@@ -56,6 +57,40 @@ public class MessageConverter : IMessageConverter
             };
 
             return message;
+        }
+    }
+
+    public async Task<ConnectMessage<byte[]>> Serialize(string connector, string topic, ConnectMessage<JsonNode> message)
+    {
+        using (_logger.Track("Serializing the message."))
+        {
+            var converterConfig = _configurationProvider.GetSerializers(connector, topic);
+            var schemaSubject = Enum.Parse<SubjectNameStrategy>(converterConfig.Subject).ToDelegate()(
+                new SerializationContext(MessageComponentType.Key, topic), converterConfig.Record);
+
+            return new ConnectMessage<byte[]>
+            {
+                Key = await _processorServiceProvider.GetSerializer(converterConfig.Key)
+                    .Serialize(topic, message.Key, schemaSubject),
+                Value = await _processorServiceProvider.GetSerializer(converterConfig.Value)
+                    .Serialize(topic, message.Value, schemaSubject)
+            };
+        }
+    }
+
+    public async Task<ConnectMessage<JsonNode>> Deserialize(string connector, string topic, ConnectMessage<byte[]> message)
+    {
+        using (_logger.Track("Deserializing the message."))
+        {
+            var converterConfig = _configurationProvider.GetDeserializers(connector, topic);
+            
+            return new ConnectMessage<JsonNode>
+            {
+                Key = await _processorServiceProvider.GetDeserializer(converterConfig.Key)
+                    .Deserialize(message.Key, topic, message.Headers, false),
+                Value = await _processorServiceProvider.GetDeserializer(converterConfig.Value)
+                    .Deserialize(message.Value, topic, message.Headers)
+            };
         }
     }
 }

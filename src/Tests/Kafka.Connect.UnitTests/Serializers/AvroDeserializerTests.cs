@@ -31,7 +31,7 @@ public class AvroDeserializerTests
     [Fact]
     public async Task AvroDeserializer_TestAsIs()
     {
-        var expected = new JsonObject {{"value", "this is a test sample!"}};
+        var expected = JsonValue.Create("this is a test sample!");
         _parser.Parse(Arg.Any<GenericRecord>()).Returns("this is a test sample!");
             
         var actual = await _avroDeserializer.Deserialize(new ReadOnlyMemory<byte>(), "", new Dictionary<string, byte[]>());

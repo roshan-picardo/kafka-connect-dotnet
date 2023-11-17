@@ -26,16 +26,16 @@ public class UpdateStrategy : WriteStrategy<string>
             if (config.Filter != null)
             {
                 whereClause = string.Format(config.Filter.Condition,
-                    config.Filter.Keys?.Select(key => record.Deserialized.Value.Value<object>(key)).ToArray() ?? Array.Empty<object>());
+                    config.Filter.Keys?.Select(key => record.DeserializedToken.Value.Value<object>(key)).ToArray() ?? Array.Empty<object>());
             }
 
             var fields = string.Join(',',
-                record.Deserialized.Value.ToObject<IDictionary<string, object>>().Select(k => $"\"{k.Key}\""));
+                record.DeserializedToken.Value.ToObject<IDictionary<string, object>>().Select(k => $"\"{k.Key}\""));
 
             var updateQuery = new StringBuilder($"UPDATE {config.Schema}.{config.Table} SET ");
             updateQuery.Append($" ({fields}) = ");
             updateQuery.Append(
-                $"(SELECT {fields} FROM json_populate_record(null::{config.Schema}.{config.Table}, '{record.Deserialized.Value}')) ");
+                $"(SELECT {fields} FROM json_populate_record(null::{config.Schema}.{config.Table}, '{record.DeserializedToken.Value}')) ");
             updateQuery.Append($"WHERE {whereClause};");
             
             return await Task.FromResult((SinkStatus.Updating, new[] { updateQuery.ToString() }));

@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Kafka.Connect.Plugin.Converters;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Providers;
 using Kafka.Connect.Processors;
@@ -15,16 +14,14 @@ namespace UnitTests.Kafka.Connect.Processors
     public class JsonTypeOverriderTests
     {
         private readonly JsonTypeOverrider _jsonTypeOverrider;
-        private readonly IRecordFlattener _recordFlattener;
         private readonly ILogger<JsonTypeOverrider> _logger;
         private readonly IConfigurationProvider _configurationProvider;
 
         public JsonTypeOverriderTests()
         {
-            _recordFlattener = Substitute.For<IRecordFlattener>();
             _logger = Substitute.For<ILogger<JsonTypeOverrider>>();
             _configurationProvider = Substitute.For<IConfigurationProvider>();
-            _jsonTypeOverrider = new JsonTypeOverrider(_logger, _recordFlattener, _configurationProvider);
+            _jsonTypeOverrider = new JsonTypeOverrider(_logger, _configurationProvider);
         }
         
         [Theory]
@@ -67,17 +64,6 @@ namespace UnitTests.Kafka.Connect.Processors
                 };
             }
 
-            switch (jsonFlattened)
-            {
-                case "object":
-                    _recordFlattener.Flatten(Arg.Any<JToken>())
-                        .Returns(new Dictionary<string, object>(){{"field", "some-value" }});
-                    break;
-                case "array":
-                    _recordFlattener.Flatten(Arg.Any<JToken>())
-                        .Returns(new Dictionary<string, object>(){{"[0].field", "some-value" }, {"[1].field", "some-value" }});
-                    break;
-            }
 
             foreach (var prefix in new[] {"key.", "value.", ""})
             {
@@ -91,14 +77,9 @@ namespace UnitTests.Kafka.Connect.Processors
                 var expectedJsons = expected.Select(JToken.Parse).ToList();
                 var actualJsons = new List<JToken>();
                 
-                _recordFlattener
-                    .When(x => x.Flatten(Arg.Any<JToken>()))
-                    .Do(x => actualJsons.Add(x.Arg<JToken>()));
-                
                 var (skip, actual) =
                     await _jsonTypeOverrider.Apply(new Dictionary<string, object>(flattened), "connector-name");
                 Assert.False(skip);
-                _recordFlattener.Received(expected.Length).Flatten(Arg.Any<JToken>());
                 _logger.Received(log ? 1 : 0).Warning( $"Error while parsing JSON for key: {flattened.Keys.First()}.", Arg.Any<Exception>());
 
                 for (var i = 0; i < expectedJsons.Count; i++)
@@ -118,7 +99,6 @@ namespace UnitTests.Kafka.Connect.Processors
                 }
 
                 _logger.ClearReceivedCalls();
-                _recordFlattener.ClearReceivedCalls();
             }
         }
     }

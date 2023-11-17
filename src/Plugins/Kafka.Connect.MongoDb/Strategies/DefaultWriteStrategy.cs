@@ -23,11 +23,11 @@ namespace Kafka.Connect.MongoDb.Strategies
         {
             using (_logger.Track("Creating write models"))
             {
-                var document = BsonDocument.Parse(record.Deserialized.Value.ToString());
-                var keyDoc = record.Deserialized.Key == null || record.Deserialized.Key.Type == JTokenType.Null ||
-                             record.Deserialized.Key.Type == JTokenType.None
+                var document = BsonDocument.Parse(record.DeserializedToken.Value.ToString());
+                var keyDoc = record.DeserializedToken.Key == null || record.DeserializedToken.Key.Type == JTokenType.Null ||
+                             record.DeserializedToken.Key.Type == JTokenType.None
                     ? new JObject { { "id", Guid.NewGuid() } }
-                    : new JObject { { "id", record.Deserialized.Key } };
+                    : new JObject { { "id", record.DeserializedToken.Key } };
                 var key = BsonDocument.Parse(keyDoc.ToString());
                 //convert JToken to BSON
                 var model = new UpdateOneModel<BsonDocument>(

@@ -5,7 +5,6 @@ using Confluent.Kafka;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Handlers;
 using Kafka.Connect.Models;
-using Kafka.Connect.Plugin.Converters;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Plugin.Processors;
@@ -19,7 +18,6 @@ namespace UnitTests.Kafka.Connect.Handlers
     public class MessageHandlerTests
     {
         private readonly ILogger<MessageHandler> _logger;
-        private readonly IRecordFlattener _recordFlattener;
         private readonly IProcessorServiceProvider _processorServiceProvider;
         private readonly IConfigurationProvider _configurationProvider;
         private readonly IMessageHandler _messageHandler;
@@ -28,10 +26,9 @@ namespace UnitTests.Kafka.Connect.Handlers
         public MessageHandlerTests()
         {
             _logger = Substitute.For<ILogger<MessageHandler>>();
-            _recordFlattener = Substitute.For<IRecordFlattener>();
             _processorServiceProvider = Substitute.For<IProcessorServiceProvider>();
             _configurationProvider = Substitute.For<IConfigurationProvider>();
-            _messageHandler = new MessageHandler(_logger, _recordFlattener, _processorServiceProvider, _configurationProvider);
+            _messageHandler = new MessageHandler(_logger, _processorServiceProvider, _configurationProvider);
         }
 
         [Theory]
@@ -58,8 +55,6 @@ namespace UnitTests.Kafka.Connect.Handlers
             
             Assert.Equal(sinkRecord.Skip, skip);
             Assert.Equal(((ConnectRecord)sinkRecord).Deserialized, data);
-            _recordFlattener.DidNotReceive().Flatten(Arg.Any<JToken>());
-            _recordFlattener.DidNotReceive().Unflatten(Arg.Any<IDictionary<string, object>>());
             _processorServiceProvider.DidNotReceive().GetProcessors();
             _configurationProvider.Received().GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>());
         }
@@ -89,8 +84,6 @@ namespace UnitTests.Kafka.Connect.Handlers
             
             Assert.Equal(sinkRecord.Skip, skip);
             Assert.Equal(((ConnectRecord)sinkRecord).Deserialized, data);
-            _recordFlattener.DidNotReceive().Flatten(Arg.Any<JToken>());
-            _recordFlattener.DidNotReceive().Unflatten(Arg.Any<IDictionary<string, object>>());
             _processorServiceProvider.Received().GetProcessors();
             _configurationProvider.Received().GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>());
         }
@@ -114,17 +107,12 @@ namespace UnitTests.Kafka.Connect.Handlers
             _configurationProvider.GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>())
                 .Returns(new List<ProcessorConfig>() {new() {Name = "Kafka.Connect.Processors.Unknown"}});
             _processorServiceProvider.GetProcessors().Returns( new List<IProcessor> {_processor});
-            _recordFlattener.Flatten(Arg.Any<JToken>()).Returns(ImmutableDictionary<string, object>.Empty);
-            _recordFlattener.Unflatten(Arg.Any<IDictionary<string, object>>()).Returns(new JObject
-                { { "Key", sinkRecord.Deserialized.Key }, { "Value", sinkRecord.Deserialized.Value } });
             
             var (skip, data) = await _messageHandler.Process(sinkRecord, "");
             
             Assert.False(skip);
             Assert.Equivalent(sinkRecord.Deserialized.Value, data.Value);
             _processor.Received().IsOfType(Arg.Any<string>());
-            _recordFlattener.Received().Flatten(Arg.Any<JObject>());
-            _recordFlattener.Received().Unflatten(Arg.Any<IDictionary<string, object>>());
             _processorServiceProvider.Received().GetProcessors();
             _configurationProvider.Received().GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>());
             _logger.Received().Trace("Processor is not registered.", Arg.Any<object>());
@@ -149,9 +137,6 @@ namespace UnitTests.Kafka.Connect.Handlers
             _configurationProvider.GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>())
                 .Returns(new List<ProcessorConfig> {new() {Name = "Kafka.Connect.Processors.One"}, new() {Name = "Kafka.Connect.Processors.Two"}});
             _processorServiceProvider.GetProcessors().Returns( new List<IProcessor> {_processor});
-            _recordFlattener.Flatten(Arg.Any<JToken>()).Returns(ImmutableDictionary<string, object>.Empty);
-            _recordFlattener.Unflatten(Arg.Any<IDictionary<string, object>>()).Returns(new JObject
-                { { "Key", sinkRecord.Deserialized.Key }, { "Value", sinkRecord.Deserialized.Value } });
             
             var (skip, data) = await _messageHandler.Process(sinkRecord, "");
             
@@ -159,8 +144,6 @@ namespace UnitTests.Kafka.Connect.Handlers
             Assert.Equal(sinkRecord.Deserialized.Value, data.Value);
             _processor.Received(2).IsOfType(Arg.Any<string>());
             await _processor.Received(2).Apply(Arg.Any<IDictionary<string, object>>(), Arg.Any<string>());
-            _recordFlattener.Received().Flatten(Arg.Any<JObject>());
-            _recordFlattener.Received().Unflatten(Arg.Any<IDictionary<string, object>>());
             _processorServiceProvider.Received().GetProcessors();
             _configurationProvider.Received().GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>());
         }
@@ -187,9 +170,6 @@ namespace UnitTests.Kafka.Connect.Handlers
                 .Returns(new List<ProcessorConfig> {new() {Name = "Kafka.Connect.Processors.Execute"}, new() {Name = "Kafka.Connect.Processors.Skip"}});
             _processorServiceProvider.GetProcessors().Returns( new List<IProcessor> {pExecute, pSkip});
             pExecute.Apply(Arg.Any<IDictionary<string, object>>(), Arg.Any<string>()).Returns((true, new Dictionary<string, object>()));
-            _recordFlattener.Flatten(Arg.Any<JToken>()).Returns(ImmutableDictionary<string, object>.Empty);
-            _recordFlattener.Unflatten(Arg.Any<IDictionary<string, object>>()).Returns(new JObject
-                { { "Key", sinkRecord.Deserialized.Key }, { "Value", sinkRecord.Deserialized.Value } });
             
             var (skip, data) = await _messageHandler.Process(sinkRecord, "");
             
@@ -197,8 +177,6 @@ namespace UnitTests.Kafka.Connect.Handlers
             Assert.Equal(sinkRecord.Deserialized.Value, data.Value);
             await pExecute.Received().Apply(Arg.Any<IDictionary<string, object>>(), Arg.Any<string>());
             await pSkip.DidNotReceive().Apply(Arg.Any<IDictionary<string, object>>(), Arg.Any<string>());
-            _recordFlattener.Received().Flatten(Arg.Any<JObject>());
-            _recordFlattener.Received().Unflatten(Arg.Any<IDictionary<string, object>>());
             _processorServiceProvider.Received().GetProcessors();
             _configurationProvider.Received().GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>());
             _logger.Received().Trace("Message will be skipped from further processing.");
@@ -229,9 +207,6 @@ namespace UnitTests.Kafka.Connect.Handlers
                 .Returns(new List<ProcessorConfig> {new() {Name = "Kafka.Connect.Processors.NotFound"}, new() {Name = "Kafka.Connect.Processors.Execute"}, new() {Name="Kafka.Connect.Processors.Skip"}});
             _processorServiceProvider.GetProcessors().Returns( new List<IProcessor> {pNotFound, pExecute, pSkip});
             pExecute.Apply(Arg.Any<IDictionary<string, object>>(), Arg.Any<string>()).Returns((true, new Dictionary<string, object>()));
-            _recordFlattener.Flatten(Arg.Any<JToken>()).Returns(ImmutableDictionary<string, object>.Empty);
-            _recordFlattener.Unflatten(Arg.Any<IDictionary<string, object>>()).Returns(new JObject
-                { { "Key", sinkRecord.Deserialized.Key }, { "Value", sinkRecord.Deserialized.Value } });
             
             var (skip, data) = await _messageHandler.Process(sinkRecord, "");
             
@@ -240,8 +215,6 @@ namespace UnitTests.Kafka.Connect.Handlers
             await pExecute.Received().Apply(Arg.Any<IDictionary<string, object>>(), Arg.Any<string>());
             await pNotFound.DidNotReceive().Apply(Arg.Any<IDictionary<string, object>>(), Arg.Any<string>());
             await pSkip.DidNotReceive().Apply(Arg.Any<IDictionary<string, object>>(), Arg.Any<string>());
-            _recordFlattener.Received().Flatten(Arg.Any<JObject>());
-            _recordFlattener.Received().Unflatten(Arg.Any<IDictionary<string, object>>());
             _processorServiceProvider.Received().GetProcessors();
             _configurationProvider.Received().GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>());
             _logger.Received().Trace("Message will be skipped from further processing.");
@@ -272,9 +245,6 @@ namespace UnitTests.Kafka.Connect.Handlers
             _configurationProvider.GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>())
                 .Returns(new List<ProcessorConfig> {new() {Name = "Kafka.Connect.Processors.Second", Order = 2}, new() {Name = "Kafka.Connect.Processors.Third", Order = 3}, new() {Name="Kafka.Connect.Processors.First", Order = 1}});
             _processorServiceProvider.GetProcessors().Returns( new List<IProcessor> {pSecond, pThird, pFirst});
-            _recordFlattener.Flatten(Arg.Any<JToken>()).Returns(ImmutableDictionary<string, object>.Empty);
-            _recordFlattener.Unflatten(Arg.Any<IDictionary<string, object>>()).Returns(new JObject
-                { { "Key", sinkRecord.Deserialized.Key }, { "Value", sinkRecord.Deserialized.Value } });
             
             var (skip, data) = await _messageHandler.Process(sinkRecord, "");
             
@@ -286,8 +256,6 @@ namespace UnitTests.Kafka.Connect.Handlers
                 pSecond.Apply(Arg.Any<IDictionary<string, object>>(), Arg.Any<string>());
                 pThird.Apply(Arg.Any<IDictionary<string, object>>(), Arg.Any<string>());
             });
-            _recordFlattener.Received().Flatten(Arg.Any<JObject>());
-            _recordFlattener.Received().Unflatten(Arg.Any<IDictionary<string, object>>());
             _processorServiceProvider.Received().GetProcessors();
             _configurationProvider.Received().GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>());
         }

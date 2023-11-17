@@ -16,11 +16,9 @@ public class IgnoreDeserializerTests
     {
         var ignoreDeserializer = new IgnoreDeserializer(Substitute.For<ILogger<IgnoreDeserializer>>());
             
-        var expected = new JsonObject{{"value", null}};
-
         var actual = await ignoreDeserializer.Deserialize(ReadOnlyMemory<byte>.Empty, "", new Dictionary<string, byte[]>());
             
-        Assert.Equal(expected, actual);
+        Assert.Null(actual);
 
     }
 }

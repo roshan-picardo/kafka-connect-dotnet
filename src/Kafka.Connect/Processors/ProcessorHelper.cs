@@ -23,7 +23,7 @@ namespace Kafka.Connect.Processors
         public static IEnumerable<string> GetMatchingKeys(this IEnumerable<string> options, IDictionary<string, object> flattened)
         {
             var flattenedKeys = new List<string>();
-            foreach (var field in options ?? Enumerable.Empty<string>())
+            foreach (var field in (options ?? Enumerable.Empty<string>()).Select(f=>f.Trim()))
             {
                 if (ReplaceBrackets(field).Contains('*'))
                 {
@@ -44,7 +44,7 @@ namespace Kafka.Connect.Processors
             maps ??= new Dictionary<string, string>();
             var flattenedMaps = new Dictionary<string, string>();
             var sb = new StringBuilder();
-            foreach (var (key, value) in maps)
+            foreach (var (key, value) in maps.ToDictionary(m=> m.Key.Trim(), m=>m.Value))
             {
                 if (ReplaceBrackets(key).Contains('*'))
                 {
@@ -95,6 +95,11 @@ namespace Kafka.Connect.Processors
             return key.StartsWith($"{Constants.Key}.") || key.StartsWith($"{Constants.Value}.")
                 ? key
                 : $"{Constants.Value}.{key}";
+        }
+        
+        public static string Trim(this string key)
+        {
+            return key.TrimStart("key.".ToCharArray()).TrimStart("value.".ToCharArray());
         }
     }
 }

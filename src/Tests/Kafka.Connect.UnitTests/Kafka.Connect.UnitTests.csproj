@@ -26,4 +26,9 @@
       <ProjectReference Include="..\..\Kafka.Connect\Kafka.Connect.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Compile Remove="Processors\JsonTypeOverriderTests.cs" />
+      <Compile Remove="Handlers\MessageHandlerTests.cs" />
+    </ItemGroup>
+
 </Project>

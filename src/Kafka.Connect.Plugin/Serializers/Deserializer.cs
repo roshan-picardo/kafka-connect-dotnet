@@ -13,10 +13,4 @@ public abstract class Deserializer : IDeserializer
     {
         return GetType().FullName == type;
     }
-
-    protected static JsonNode Wrap(JsonNode token, bool isValue)
-    {
-        var component = isValue ? "value" : "key";
-        return new JsonObject {{component, token}}; 
-    }
 }
