@@ -10,7 +10,6 @@ using Kafka.Connect.Builders;
 using Kafka.Connect.Connectors;
 using Kafka.Connect.Converters;
 using Kafka.Connect.Handlers;
-using Kafka.Connect.Plugin.Converters;
 using Kafka.Connect.Processors;
 using Kafka.Connect.Serializers;
 using Kafka.Connect.Plugin.Processors;
@@ -20,7 +19,6 @@ using Kafka.Connect.Providers;
 using Kafka.Connect.Tokens;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Newtonsoft.Json.Linq;
 using Serilog;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Plugin;
@@ -56,7 +54,6 @@ namespace Kafka.Connect.Utilities
 
                 .AddScoped<IGenericRecordParser, GenericRecordParser>()
                 .AddScoped<IGenericRecordBuilder, GenericRecordBuilder>()
-                .AddScoped<IRecordFlattener, JsonRecordFlattener>()
                 .AddScoped<IMessageHandler, MessageHandler>()
                 .AddScoped<ISinkConsumer, SinkConsumer>()
                 .AddScoped<ISourceProducer, SourceProducer>()

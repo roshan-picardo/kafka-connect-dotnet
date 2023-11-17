@@ -49,9 +49,9 @@ namespace Kafka.Connect.Handlers
                                 using (LogContext.PushProperty(Constants.Offset, record.Offset))
                                 {
                                     record.Status = SinkStatus.Processing;
-                                    record.Deserialized = await _messageConverter.Deserialize(record.Topic, record.Serialized, connector);
-                                    _logger.Document(record.Deserialized); 
-                                    (record.Skip, record.Deserialized) = await _messageHandler.Process(record, connector);
+                                    record.DeserializedToken = await _messageConverter.Deserialize(record.Topic, record.Serialized, connector);
+                                    _logger.Document(record.DeserializedToken); 
+                                    (record.Skip, record.DeserializedToken) = await _messageHandler.Process(record, connector);
                                     record.Status = SinkStatus.Processed;
                                 }
                             }, (record, exception) => exception.SetLogContext(record),

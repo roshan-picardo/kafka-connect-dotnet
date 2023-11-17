@@ -20,12 +20,10 @@ public class StringDeserializerTests
     [Fact]
     public async Task Deserialize_EmptyOrNull()
     {
-        var expected = new JsonObject{{"value", null}};
-            
         var data =  Array.Empty<byte>() ;
         var actual = await _stringDeserializer.Deserialize(data, "", null);
             
-        Assert.Equal(expected, actual);
+        Assert.Null(actual);
     }
         
     [Fact]
@@ -40,7 +38,7 @@ public class StringDeserializerTests
     [Fact]
     public async Task Deserialize_SuccessfulConvert()
     {
-        var expected = new JsonObject {{"value", "this is a test sample!"}};
+        var expected = JsonValue.Create("this is a test sample!");
 
         var data = new byte[]
             {116, 104, 105, 115, 32, 105, 115, 32, 97, 32, 116, 101, 115, 116, 32, 115, 97, 109, 112, 108, 101, 33};

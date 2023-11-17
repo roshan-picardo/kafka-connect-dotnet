@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Kafka.Connect.Plugin.Logging;
+using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Plugin.Providers;
 using Kafka.Connect.Processors;
 using NSubstitute;
@@ -41,18 +42,19 @@ namespace UnitTests.Kafka.Connect.Processors
             foreach (var prefix in new[] {"key.", "value.", ""})
             {
                 _configurationProvider.GetProcessorSettings<IDictionary<string, string>>(connector, processor).Returns(
-                    settings.ToDictionary(s => $"{prefix}{s.Split(':')[0]}", s => $"{prefix}{s.Split(':')[1]}"));
+                    settings.ToDictionary(s => s.Split(':')[0], s => s.Split(':')[1]));
+    
+                var flattened = keys.ToDictionary(x => x, _ => (object) "");
 
-                var flattened = keys.ToDictionary(x => prefix == "" ? $"value.{x}" : $"{prefix}{x}", _ => (object) "");
-
-                var (skip, actual) =
-                    await _fieldRenamer.Apply(new Dictionary<string, object>(flattened), "connector-name");
-                Assert.False(skip);
-                Assert.Equal(actual.Count, expected.Length);
-                foreach (var (key, _) in actual)
+                var actual =
+                    await _fieldRenamer.Apply("connector-name",
+                        new ConnectMessage<IDictionary<string, object>>()
+                            { Key = new Dictionary<string, object>(), Value = flattened });
+                Assert.False(actual.Skip);
+                Assert.Equal(actual.Value.Count, expected.Length);
+                foreach (var (key, _) in actual.Value)
                 {
-                    Assert.Contains(key,
-                        expected.Select(x => prefix == "" ? $"value.{x.Split(':')[0]}" : $"{prefix}{x.Split(':')[0]}"));
+                    Assert.Contains(key, expected.Select(x => x.Split(':')[0]));
                 }
             }
         }

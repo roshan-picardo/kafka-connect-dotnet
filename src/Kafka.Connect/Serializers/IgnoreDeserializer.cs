@@ -20,7 +20,7 @@ public class IgnoreDeserializer : Deserializer
     {
         using (_logger.Track("Ignoring the deserialization of the record."))
         {
-            return Task.FromResult(Wrap(null, isValue));
+            return Task.FromResult((JsonNode)null);
         }
     }
 }

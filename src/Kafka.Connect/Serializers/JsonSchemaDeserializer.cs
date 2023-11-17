@@ -27,7 +27,7 @@ namespace Kafka.Connect.Serializers
                 var isNull = data.IsEmpty || data.Length == 0;
                 var context = new SerializationContext(isValue ? MessageComponentType.Value : MessageComponentType.Key,
                     topic, headers.ToMessageHeaders());
-                return Wrap(await _deserializer.DeserializeAsync(data, isNull, context), isValue);
+                return await _deserializer.DeserializeAsync(data, isNull, context);
             }
         }
     }

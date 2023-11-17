@@ -24,7 +24,7 @@ public class JsonDeserializer : Deserializer
         {
             JsonNode token;
             var isNull = data.IsEmpty || data.Length == 0;
-            if (isNull || data.IsEmpty) return Wrap(null, isValue);
+            if (isNull || data.IsEmpty) return null;
             try
             {
                 var array = data.ToArray();
@@ -44,7 +44,7 @@ public class JsonDeserializer : Deserializer
                 throw ae.InnerException ?? ae;
             }
 
-            return Wrap(token, isValue);
+            return token;
         }
     }
 }

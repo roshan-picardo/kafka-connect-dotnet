@@ -37,14 +37,14 @@ public class GenericRecordBuilder : IGenericRecordBuilder
     {
         return primitiveSchema.Tag switch
         {
-            Schema.Type.Boolean => data.GetValue<bool>(),
+            Schema.Type.Boolean => bool.Parse(data?.ToString() ?? string.Empty),
             Schema.Type.Bytes => data.GetValue<byte[]>(),
             Schema.Type.Double =>  double.Parse(data?.ToString() ?? "0"),
             Schema.Type.Float => float.Parse(data?.ToString() ?? "0"),
             Schema.Type.Int => int.Parse(data?.ToString() ?? "0"),
             Schema.Type.Long => long.Parse(data?.ToString() ?? "0"),
             Schema.Type.Null => null,
-            Schema.Type.String =>  data.GetValue<string>(),
+            Schema.Type.String =>  data?.ToString(),
             _ => throw new SchemaParseException("Unexpected primitive type detected.")
         };
     }

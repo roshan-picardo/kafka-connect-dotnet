@@ -24,7 +24,7 @@ public class StringDeserializer : Deserializer
         {
             string strData;
             var isNull = data.IsEmpty || data.Length == 0;
-            if (isNull || data.IsEmpty) return Wrap(null, isValue);
+            if (isNull || data.IsEmpty) return null;
             try
             {
                 var array = data.ToArray();
@@ -44,7 +44,7 @@ public class StringDeserializer : Deserializer
                 throw ae.InnerException ?? ae;
             }
 
-            return Wrap(strData, isValue);
+            return strData;
         }
     }
 }

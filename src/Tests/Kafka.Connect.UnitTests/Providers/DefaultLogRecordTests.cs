@@ -39,7 +39,7 @@ public class DefaultLogRecordTests
             Message = new Message<byte[], byte[]>()
         })
         {
-            Deserialized = new ConnectMessage<JToken>()
+            DeserializedToken = new ConnectMessage<JToken>()
             {
                 Key = "none",
                 Value =
@@ -64,7 +64,7 @@ public class DefaultLogRecordTests
             Message = new Message<byte[], byte[]>()
         })
         {
-            Deserialized = new ConnectMessage<JToken>()
+            DeserializedToken = new ConnectMessage<JToken>()
             {
                 Key = "none",
                 Value =
@@ -89,7 +89,7 @@ public class DefaultLogRecordTests
             Message = new Message<byte[], byte[]>()
         })
         {
-            Deserialized = new ConnectMessage<JToken>()
+            DeserializedToken = new ConnectMessage<JToken>()
             {
                 
                 Key = "none",
