@@ -22,13 +22,6 @@ namespace Kafka.Connect.Plugin.Processors
         
         protected abstract Task<ConnectMessage<IDictionary<string, object>>> Apply(TSettings settings, ConnectMessage<IDictionary<string, object>> message);
         
-        public Task<(bool, IDictionary<string, object>)> Apply(IDictionary<string, object> flattened, string connector)
-        {
-            return Apply(flattened, _configurationProvider.GetProcessorSettings<TSettings>(connector, GetType().FullName));
-        }
-
-        protected abstract Task<(bool, IDictionary<string, object>)> Apply(IDictionary<string, object> flattened, TSettings settings);
-        
         public bool IsOfType(string type)
         {
             return GetType().FullName == type;
