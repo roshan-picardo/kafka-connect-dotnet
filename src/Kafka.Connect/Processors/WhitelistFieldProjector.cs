@@ -31,14 +31,6 @@ namespace Kafka.Connect.Processors
             }
         }
 
-        protected override Task<(bool, IDictionary<string, object>)> Apply(IDictionary<string, object> flattened, IList<string> settings)
-        {
-            using (_logger.Track("Applying whitelist field projector."))
-            {
-                return Task.FromResult((false, ApplyInternal(flattened, settings?.Select(s => s.Prefix()))));
-            }
-        }
-
         private static IDictionary<string, object> ApplyInternal(IDictionary<string, object> flattened,
             IEnumerable<string> fields = null)
         {

@@ -37,15 +37,6 @@ namespace Kafka.Connect.Processors
             }
         }
 
-        protected override Task<(bool, IDictionary<string, object>)> Apply(IDictionary<string, object> flattened, IDictionary<string, string> settings)
-        {
-            using (_logger.Track("Applying datetime type overrider."))
-            {
-                return Task.FromResult((false, ApplyInternal(flattened,
-                    settings?.ToDictionary(k => k.Key.Prefix(), v => v.Value))));
-            }
-        }
-
         private static IDictionary<string, object> ApplyInternal(IDictionary<string, object> flattened, IDictionary<string, string> maps = null)
         {
             maps ??= new Dictionary<string, string>();
