@@ -21,7 +21,7 @@ namespace Kafka.Connect.Providers
         public ISinkHandler GetSinkHandler(string connector)
         {
             var config = _configurationProvider.GetSinkConfig(connector);
-            var sinkHandler = _sinkHandlers.SingleOrDefault(s => s.IsOfType(connector, config.Plugin, config.Handler));
+            var sinkHandler = _sinkHandlers.SingleOrDefault(s => s.Is(connector, config.Plugin, config.Handler));
             _logger.Trace("Selected sink handler.", new { config.Plugin, Handler = sinkHandler?.GetType().FullName });
             return sinkHandler;
         }

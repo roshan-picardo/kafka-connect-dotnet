@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Processors;
 using Kafka.Connect.Plugin.Serializers;
@@ -32,14 +33,14 @@ public class ProcessorServiceProvider : IProcessorServiceProvider
 
     public IDeserializer GetDeserializer(string typeName)
     {
-        var deserializer = _deserializers.SingleOrDefault(d => d.IsOfType(typeName));
+        var deserializer = _deserializers.SingleOrDefault(d => d.Is(typeName));
         _logger.Trace($"Configured deserializer: {deserializer?.GetType().FullName}");
         return deserializer;
     }
         
     public ISerializer GetSerializer(string typeName)
     {
-        var serializer = _serializers.SingleOrDefault(d => d.IsOfType(typeName));
+        var serializer = _serializers.SingleOrDefault(d => d.Is(typeName));
         _logger.Trace($"Configured deserializer: {serializer?.GetType().FullName}");
         return serializer;
     }

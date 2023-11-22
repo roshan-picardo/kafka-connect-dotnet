@@ -9,7 +9,7 @@ using Kafka.Connect.Utilities;
 
 namespace Kafka.Connect.Serializers
 {
-    public class JsonSchemaDeserializer : Deserializer
+    public class JsonSchemaDeserializer : IDeserializer
     {
         private readonly IAsyncDeserializer<JsonNode> _deserializer;
         private readonly ILogger<JsonSchemaDeserializer> _logger;
@@ -20,7 +20,7 @@ namespace Kafka.Connect.Serializers
             _logger = logger;
         }
 
-        public override async Task<JsonNode> Deserialize(ReadOnlyMemory<byte> data, string topic, IDictionary<string, byte[]> headers, bool isValue = true)
+        public async Task<JsonNode> Deserialize(ReadOnlyMemory<byte> data, string topic, IDictionary<string, byte[]> headers, bool isValue = true)
         {
             using (_logger.Track("Deserializing the record using json schema deserializer."))
             {

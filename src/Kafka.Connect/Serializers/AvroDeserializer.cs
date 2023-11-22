@@ -11,7 +11,7 @@ using Kafka.Connect.Utilities;
 
 namespace Kafka.Connect.Serializers;
 
-public class AvroDeserializer : Deserializer
+public class AvroDeserializer : IDeserializer
 {
     private readonly IAsyncDeserializer<GenericRecord> _deserializer;
     private readonly IGenericRecordParser _genericRecordParser;
@@ -24,7 +24,7 @@ public class AvroDeserializer : Deserializer
         _logger = logger;
     }
 
-    public override async Task<JsonNode> Deserialize(ReadOnlyMemory<byte> data, string topic, IDictionary<string, byte[]> headers, bool isValue = true)
+    public async Task<JsonNode> Deserialize(ReadOnlyMemory<byte> data, string topic, IDictionary<string, byte[]> headers, bool isValue = true)
     {
         using (_logger.Track("Deserializing the record using avro deserializer."))
         {

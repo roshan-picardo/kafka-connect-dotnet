@@ -50,7 +50,7 @@ namespace Kafka.Connect.Handlers
 
                 foreach (var config in configs.OrderBy(p => p.Order))
                 {
-                    var processor = processors.SingleOrDefault(p => p.IsOfType(config.Name));
+                    var processor = processors.SingleOrDefault(p => p.Is(config.Name));
                     if (processor == null)
                     {
                         _logger.Trace("Processor is not registered.", new { Processor = config.Name });
