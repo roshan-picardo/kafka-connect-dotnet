@@ -41,10 +41,10 @@ public class MessageConverterTests
         _deserializer.Deserialize(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<string>(), Arg.Any<Dictionary<string, byte[]>>(), Arg.Any<bool>())
             .Returns(_ => keyToken, _ => valueToken);
 
-        var connectMessage = await _messageConverter.Deserialize("", new ConnectMessage<byte[]>(), "");
+        var connectMessage = await _messageConverter.Deserialize("", "", new ConnectMessage<byte[]>());
 
-        Assert.Equal(keyToken.ToJsonString(), connectMessage.Key.ToJsonNode().ToJsonString());
-        Assert.Equal(valueToken.ToJsonString(), connectMessage.Value.ToJsonNode().ToJsonString());
+        Assert.Equal(keyToken.ToJsonString(), connectMessage.Key.ToJsonString());
+        Assert.Equal(valueToken.ToJsonString(), connectMessage.Value.ToJsonString());
         await _deserializer.Received(2)
             .Deserialize(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<string>(), Arg.Any<IDictionary<string, byte[]>>(), Arg.Any<bool>());
     }

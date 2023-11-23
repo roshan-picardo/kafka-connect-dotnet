@@ -15,40 +15,7 @@ public static class ConverterExtensions
 
     public static IDictionary<string, object> ToDictionary(this JsonNode node, string prefix = "")
     {
-        object GetValue(JsonNode jn)
-        {
-            switch (jn)
-            {
-                case JsonObject:
-                    return new object();
-                case JsonArray:
-                    return Array.Empty<object>();
-                case JsonValue:
-                    var je = jn.GetValue<JsonElement>();
-                    switch (je.ValueKind)
-                    {
-                        case JsonValueKind.String:
-                            return je.GetString();
-                        case JsonValueKind.Number when je.TryGetInt32(out var intValue):
-                            return intValue;
-                        case JsonValueKind.Number when je.TryGetInt64(out var longValue):
-                            return longValue;
-                        case JsonValueKind.Number when je.TryGetSingle(out var singleValue):
-                            return singleValue;
-                        case JsonValueKind.Number when je.TryGetDouble(out var doubleValue):
-                            return doubleValue;
-                        case JsonValueKind.Number:
-                            return 0;
-                        case JsonValueKind.True or JsonValueKind.False:
-                            return je.GetBoolean();
-                        case JsonValueKind.Undefined or JsonValueKind.Null:
-                            return null;
-                    }
-                    break;
-            }
-
-            return null;
-        }
+        
 
         string GetKey(JsonNode jn)
         {
@@ -213,7 +180,40 @@ public static class ConverterExtensions
     public static IDictionary<string, object> FromObject<T>(this T data) =>
         JsonSerializer.SerializeToNode(data).ToDictionary();
 
-    public static JToken ToJToken(this JsonNode jsonNode) => JToken.Parse(jsonNode.ToJsonString());
-    
     public static JsonNode ToJsonNode(this JToken jToken) => JsonNode.Parse(jToken.ToString());
+
+    public static object GetValue(this JsonNode jn)
+    {
+        switch (jn)
+        {
+            case JsonObject:
+                return new object();
+            case JsonArray:
+                return Array.Empty<object>();
+            case JsonValue:
+                var je = jn.Deserialize<JsonElement>(); 
+                switch (je.ValueKind)
+                {
+                    case JsonValueKind.String:
+                        return je.GetString();
+                    case JsonValueKind.Number when je.TryGetInt32(out var intValue):
+                        return intValue;
+                    case JsonValueKind.Number when je.TryGetInt64(out var longValue):
+                        return longValue;
+                    case JsonValueKind.Number when je.TryGetSingle(out var singleValue):
+                        return singleValue;
+                    case JsonValueKind.Number when je.TryGetDouble(out var doubleValue):
+                        return doubleValue;
+                    case JsonValueKind.Number:
+                        return 0;
+                    case JsonValueKind.True or JsonValueKind.False:
+                        return je.GetBoolean();
+                    case JsonValueKind.Undefined or JsonValueKind.Null:
+                        return null;
+                }
+                break;
+        }
+
+        return null;
+    }
 }

@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Plugin.Providers;
@@ -26,24 +27,24 @@ public class UpsertStrategy : WriteStrategy<string>
             if (config.Filter != null)
             {
                 whereClause = string.Format(config.Filter.Condition,
-                    config.Filter.Keys?.Select(key => record.DeserializedToken.Value.Value<object>(key)).ToArray() ?? Array.Empty<object>());
+                    config.Filter.Keys?.Select(key => record.Deserialized.Value[key]).ToArray() ?? Array.Empty<object>());
             }
 
             var fields = string.Join(',',
-                record.DeserializedToken.Value.ToObject<IDictionary<string, object>>().Select(k => $"\"{k.Key}\""));
+                record.Deserialized.Value.Deserialize<IDictionary<string, object>>().Select(k => $"\"{k.Key}\""));
 
             var selectQuery = $"SELECT 1 FROM {config.Schema}.{config.Table} WHERE {whereClause}";
             
             var updateQuery = new StringBuilder($"UPDATE {config.Schema}.{config.Table} SET ");
             updateQuery.Append($" ({fields}) = ");
             updateQuery.Append(
-                $"(SELECT {fields} FROM json_populate_record(null::{config.Schema}.{config.Table}, '{record.DeserializedToken.Value}')) ");
+                $"(SELECT {fields} FROM json_populate_record(null::{config.Schema}.{config.Table}, '{record.Deserialized.Value}')) ");
             updateQuery.Append($"WHERE {whereClause};");
 
             var insertQuery = new StringBuilder($"INSERT INTO {config.Schema}.{config.Table} ");
             insertQuery.Append($" ({fields}) ");
             insertQuery.Append(
-                $"SELECT {fields} FROM json_populate_record(null::{config.Schema}.{config.Table}, '{record.DeserializedToken.Value}') ");
+                $"SELECT {fields} FROM json_populate_record(null::{config.Schema}.{config.Table}, '{record.Deserialized.Value}') ");
             insertQuery.Append($"WHERE {whereClause};");
 
             var finalQuery = new StringBuilder($"DO $do$ BEGIN IF EXISTS ({selectQuery}) THEN ");

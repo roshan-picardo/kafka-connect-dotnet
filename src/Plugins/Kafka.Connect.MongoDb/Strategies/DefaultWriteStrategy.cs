@@ -1,12 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Plugin.Strategies;
 using MongoDB.Bson;
 using MongoDB.Driver;
-using Newtonsoft.Json.Linq;
 
 namespace Kafka.Connect.MongoDb.Strategies
 {
@@ -23,11 +23,10 @@ namespace Kafka.Connect.MongoDb.Strategies
         {
             using (_logger.Track("Creating write models"))
             {
-                var document = BsonDocument.Parse(record.DeserializedToken.Value.ToString());
-                var keyDoc = record.DeserializedToken.Key == null || record.DeserializedToken.Key.Type == JTokenType.Null ||
-                             record.DeserializedToken.Key.Type == JTokenType.None
-                    ? new JObject { { "id", Guid.NewGuid() } }
-                    : new JObject { { "id", record.DeserializedToken.Key } };
+                var document = BsonDocument.Parse(record.Deserialized.Value.ToJsonString());
+                var keyDoc = record.Deserialized.Key == null 
+                    ? new JsonObject { { "id", Guid.NewGuid() } }
+                    : new JsonObject { { "id", record.Deserialized.Key.ToString() } };
                 var key = BsonDocument.Parse(keyDoc.ToString());
                 //convert JToken to BSON
                 var model = new UpdateOneModel<BsonDocument>(

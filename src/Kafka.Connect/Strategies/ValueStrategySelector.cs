@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using Kafka.Connect.Plugin.Strategies;
 
 namespace Kafka.Connect.Strategies;
@@ -19,7 +20,7 @@ public class ValueStrategySelector : IWriteStrategySelector
             return null;
         }
 
-        var values = record.DeserializedToken.Value.ToObject<IDictionary<string, object>>().Select(d => $"{d.Key}={d.Value}").ToList();
+        var values = record.Deserialized.Value.Deserialize<IDictionary<string, object>>().Select(d => $"{d.Key}={d.Value}").ToList();
         return (from @override in overrides
                 where values.Contains(@override.Key)
                 select _writeStrategies.SingleOrDefault(s => s.GetType().FullName == overrides[@override.Key]))

@@ -9,5 +9,5 @@ namespace Kafka.Connect.Handlers;
 public interface ISourceProcessor
 {
     Task<IList<CommandContext>> Process(ConnectRecordBatch batch, string connector);
-    Task<Message<byte[], byte[]>> GetCommandMessage(CommandContext context);
+    Task<ConnectMessage<byte[]>> GetCommandMessage(CommandContext context);
 }

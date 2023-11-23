@@ -1,13 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Plugin.Processors;
 using Kafka.Connect.Plugin.Providers;
-using Newtonsoft.Json.Linq;
 
 namespace Kafka.Connect.Processors
 {
@@ -38,34 +38,26 @@ namespace Kafka.Connect.Processors
             }
         }
 
-        private  IDictionary<string, object> ApplyInternal(IDictionary<string, object> flattened,
-            IEnumerable<string> fields = null)
+        private  IDictionary<string, object> ApplyInternal(IDictionary<string, object> flattened, IEnumerable<string> fields = null)
         {
             foreach (var key in fields.GetMatchingKeys(flattened).ToList())
             {
-                JToken jToken = null;
+                JsonNode jn = null;
                 if (flattened[key] == null || flattened[key] is not string s) continue;
                 try
                 {
-                    if (s.Trim().StartsWith("{") && s.Trim().EndsWith("}"))
-                    {
-                        jToken = JObject.Parse(s);
-                    }
-                    else if (s.Trim().StartsWith("[") && s.Trim().EndsWith("]"))
-                    {
-                        jToken = JArray.Parse(s);
-                    }
+                    jn = JsonNode.Parse(s);
                 }
                 catch (Exception ex)
                 {
                     _logger.Warning($"Error while parsing JSON for key: {key}.", ex);
                 }
 
-                if (jToken == null) continue;
+                if (jn == null) continue;
                 flattened.Remove(key);
-                foreach (var (k, v) in  jToken.ToJsonNode().ToDictionary())
+                foreach (var (k, v) in  jn.ToDictionary())
                 {
-                    flattened.Add(jToken is JObject ? $"{key}.{k}" : $"{key}{k}", v);
+                    flattened.Add(jn is JsonObject ? $"{key}.{k}" : $"{key}{k}", v);
                 }
             }
 

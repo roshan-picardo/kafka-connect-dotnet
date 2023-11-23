@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using Confluent.Kafka;
 using Kafka.Connect.Models;
@@ -44,8 +46,15 @@ public class SourceProcessor : ISourceProcessor
             await batch.ForEachAsync(async record =>
             {
                 record.Status = SinkStatus.Processing;
-                await _messageHandler.Process(record, connector);
-                await _messageConverter.Serialize(record.Topic, record.DeserializedToken.Key, record.DeserializedToken.Value, connector);
+                record.Deserialized = await _messageHandler.Process(connector, record.Topic,
+                    new ConnectMessage<IDictionary<string, object>>
+                    {
+                        Key = record.Deserialized.Key?.ToDictionary(),
+                        Value = record.Deserialized.Value?.ToDictionary()
+                    });
+                
+                
+                await _messageConverter.Serialize(connector, record.Topic, record.Deserialized);
             }, (record, exception) => exception.SetLogContext(batch));
            
         }
@@ -67,7 +76,7 @@ public class SourceProcessor : ISourceProcessor
                     {
                         using (LogContext.PushProperty(Constants.Offset, record.Offset))
                         {
-                            record.DeserializedToken = await _messageConverter.Deserialize(record.Topic, record.Serialized, connector);
+                            record.Deserialized = await _messageConverter.Deserialize(connector, record.Topic, record.Serialized);
                             var context = record.GetValue<CommandContext>();
                             if (context.Command != null && 
                                 sourceConfig.Commands.ContainsKey(context.Command.Topic ?? "") && 
@@ -78,7 +87,7 @@ public class SourceProcessor : ISourceProcessor
                                 trackBatch.Add(context);
                             }
 
-                            _logger.Document(record.DeserializedToken);
+                            _logger.Document(record.Deserialized);
                         }
                     }
                     /*
@@ -126,11 +135,15 @@ public class SourceProcessor : ISourceProcessor
         }
     }
 
-    public Task<Message<byte[], byte[]>> GetCommandMessage(CommandContext context)
+    public Task<ConnectMessage<byte[]>> GetCommandMessage(CommandContext context)
     {
         using (_logger.Track("Generating command message."))
         {
-            return _messageConverter.Serialize(context.Topic, null, JToken.FromObject(context), context.Connector);
+            return _messageConverter.Serialize(context.Connector, context.Topic,   new ConnectMessage<JsonNode>
+            {
+                Key = null,
+                Value = System.Text.Json.JsonSerializer.SerializeToNode(context)
+            });
         }
     }
 }
