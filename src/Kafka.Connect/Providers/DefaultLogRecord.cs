@@ -1,4 +1,5 @@
 using System.Linq;
+using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Plugin.Providers;
 
@@ -15,7 +16,7 @@ namespace Kafka.Connect.Providers
         public object Enrich(ConnectRecord record, string connector)
         {
             var attributes = _configurationProvider.GetLogAttributes<string[]>(connector);
-            return record.DeserializedToken.Value is not { HasValues: true } ? null : attributes?.ToDictionary<string, string, object>(a => a, a => record.DeserializedToken.Value?[a]);
+            return record.Deserialized?.Value == null ? null : attributes?.ToDictionary(a => a, a => record.Deserialized.Value?[a]?.GetValue());
         }
     }
 }

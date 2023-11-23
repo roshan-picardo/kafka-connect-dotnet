@@ -1,12 +1,15 @@
+using System.Collections.Generic;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using Kafka.Connect.Models;
 using Kafka.Connect.Plugin.Models;
-using Newtonsoft.Json.Linq;
 
 namespace Kafka.Connect.Handlers
 {
     public interface IMessageHandler
     {
-        Task<(bool, ConnectMessage<JToken>)> Process(ConnectRecord record, string connector);
+        Task<ConnectMessage<JsonNode>> Process(
+            string connector,
+            string topic,
+            ConnectMessage<IDictionary<string, object>> flattened);
     }
 }

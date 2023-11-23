@@ -115,7 +115,7 @@ namespace Kafka.Connect.Plugin.Logging
 
         public void Health(object health) => _sinkLogger.Log(LogLevel.Information, "{@Health}", health);
 
-        public SinkLog Track(string message) => new SinkLog(_logger, message);
+        public SinkLog Track(string message) => new(_logger, message);
     }
 }
 

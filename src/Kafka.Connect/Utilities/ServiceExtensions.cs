@@ -111,7 +111,6 @@ namespace Kafka.Connect.Utilities
             Log.Logger = new LoggerConfiguration()
                 .ReadFrom.Configuration(configuration)
                 .AddDefaultEnrichers()
-                .Destructure.With<JTokenDestructurePolicy>()
                 .CreateLogger();
             return services;
         }

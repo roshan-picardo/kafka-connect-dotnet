@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using Confluent.Kafka;
@@ -12,7 +13,6 @@ using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Plugin.Tokens;
 using Kafka.Connect.Providers;
 using Kafka.Connect.Tokens;
-using Newtonsoft.Json.Linq;
 using Serilog.Context;
 using Serilog.Core.Enrichers;
 
@@ -110,7 +110,7 @@ public class SourceTask : ISourceTask
                         {
                             var batch = new ConnectRecordBatch(connector);
                             batches.Add(command.Topic, batch);
-                            batch.Add(new SourceRecord("", new JArray(), new JArray()));
+                            batch.Add(new SourceRecord("", new JsonArray(), new JsonArray()));
                             //query database and add result to batch
                             // process the records
                             // serialize the records
@@ -120,12 +120,13 @@ public class SourceTask : ISourceTask
                             // note the last successful timestamp
                             // create new command context and publish tracking message - this should be produced to the exact partition
                             // commit the command.offset
-                            
-                          
+
+
+                            var message = await _sourceProcessor.GetCommandMessage(command);
                             
                              var delivered = await _producer.ProduceAsync(
                                  new TopicPartition(command.Topic, command.Partition),
-                                 await _sourceProcessor.GetCommandMessage(command));
+                                 new Message<byte[], byte[]> { Key = message.Key, Value = message.Value});
                             _consumer.Commit(new[]
                                 { new TopicPartitionOffset(command.Topic, command.Partition, command.Offset + 1) });
                         }, (context, exception) => exception.SetLogContext(batches[context.Topic]));
