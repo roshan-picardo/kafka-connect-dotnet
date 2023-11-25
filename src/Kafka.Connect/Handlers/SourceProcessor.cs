@@ -1,16 +1,13 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Nodes;
-using System.Text.Json.Serialization;
 using System.Threading.Tasks;
-using Confluent.Kafka;
 using Kafka.Connect.Models;
 using Kafka.Connect.Plugin;
 using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Serializers;
-using Newtonsoft.Json.Linq;
 using Serilog.Context;
 using Serilog.Core.Enrichers;
 using IConfigurationProvider = Kafka.Connect.Providers.IConfigurationProvider;

@@ -69,7 +69,7 @@ public class SinkProcessor : ISinkProcessor
         }
     }
 
-    public async Task<T> Process<T>(Models.SinkRecord record, string connector)
+    public Task<T> Process<T>(Models.SinkRecord record, string connector)
     {
         using (_logger.Track("Processing record"))
         {
