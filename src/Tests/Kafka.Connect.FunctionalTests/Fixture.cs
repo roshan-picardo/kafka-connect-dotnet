@@ -4,8 +4,6 @@ using Confluent.Kafka;
 using Confluent.SchemaRegistry;
 using Confluent.SchemaRegistry.Serdes;
 using Kafka.Connect.Converters;
-using Kafka.Connect.FunctionalTests.Targets;
-using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Logging;
 using NSubstitute;
 
@@ -16,7 +14,7 @@ public class Fixture : IDisposable
     private IProducer<Null, GenericRecord> _keyNullProducer;
     private IProducer<string, GenericRecord> _keyStringProducer;
     private IProducer<GenericRecord, GenericRecord> _keyGenericProducer;
-    private readonly TargetHelperProvider _targetHelperProvider;
+    //private readonly TargetHelperProvider _targetHelperProvider;
     private readonly GenericRecordBuilder _genericRecordBuilder;
 
     private readonly InitConfig _settings; 
@@ -53,31 +51,31 @@ public class Fixture : IDisposable
             .SetKeySerializer(new AvroSerializer<GenericRecord>(schemaRegistry, avroSerializerConfig))
             .SetValueSerializer(new AvroSerializer<GenericRecord>(schemaRegistry, avroSerializerConfig))
             .Build();
-        _targetHelperProvider = new TargetHelperProvider(_settings);
+        //_targetHelperProvider = new TargetHelperProvider(_settings);
         _genericRecordBuilder = new GenericRecordBuilder(Substitute.For<ILogger<GenericRecordBuilder>>());
     }
 
-    public Task Setup(Sink sink)
-    {
-        return _targetHelperProvider.GetHelper(sink.Type).Setup(sink);
-    }
+    // public Task Setup(Sink sink)
+    // {
+    //     return _targetHelperProvider.GetHelper(sink.Type).Setup(sink);
+    // }
     
-    public Task<(bool, string)> Validate(Sink sink)
-    {
-        return _targetHelperProvider.GetHelper(sink.Type).Validate(sink);
-    }
+    // public Task<(bool, string)> Validate(Sink sink)
+    // {
+    //     return _targetHelperProvider.GetHelper(sink.Type).Validate(sink);
+    // }
     
-    public Task Cleanup(Sink sink)
-    {
-        return _targetHelperProvider.GetHelper(sink.Type).Cleanup(sink);
-    }
+    // public Task Cleanup(Sink sink)
+    // {
+    //     return _targetHelperProvider.GetHelper(sink.Type).Cleanup(sink);
+    // }
     
-    public async Task Send(string topic, dynamic schema, IEnumerable<Record> messages)
+    public async Task Send(string topic, Record schema, IEnumerable<Record> messages)
     {
         foreach (var message in messages)
         {
-            var schemaValue = (RecordSchema) Avro.Schema.Parse(schema.Value?.ToString());
-            var genericRecord = _genericRecordBuilder.Build(schemaValue, message.Value.ToJsonNode());
+            var schemaValue = (RecordSchema) Avro.Schema.Parse(schema.Value?.ToJsonString());
+            var genericRecord = _genericRecordBuilder.Build(schemaValue, message.Value);
 
             TopicPartitionOffset delivered;
             if (schema.Key == null)
@@ -96,7 +94,7 @@ public class Fixture : IDisposable
             else
             {
                 var schemaKey = (RecordSchema) Avro.Schema.Parse(schema.Key?.ToString());
-                var keyRecord = _genericRecordBuilder.Build(schemaKey, message.Key.ToJsonNode());
+                var keyRecord = _genericRecordBuilder.Build(schemaKey, message.Key);
                 delivered = (await _keyGenericProducer.ProduceAsync(topic,
                         new Message<GenericRecord, GenericRecord>
                             {Key = keyRecord, Value = genericRecord}))

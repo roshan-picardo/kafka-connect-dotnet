@@ -3,7 +3,7 @@
     <PropertyGroup>
         <TargetFramework>net6.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
-        <Nullable>enable</Nullable>
+        <Nullable>disable</Nullable>
 
         <IsPackable>false</IsPackable>
     </PropertyGroup>
@@ -49,6 +49,12 @@
 
     <ItemGroup>
       <Folder Include="Records" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Compile Remove="Targets\Mongodb\MongodbHelper.cs" />
+      <Compile Remove="Targets\ITargetHelper.cs" />
+      <Compile Remove="Targets\TargetHelperProvider.cs" />
     </ItemGroup>
 
 </Project>
