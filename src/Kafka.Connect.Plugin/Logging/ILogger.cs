@@ -1,4 +1,5 @@
 using System;
+using System.Text.Json.Nodes;
 using Kafka.Connect.Plugin.Models;
 
 namespace Kafka.Connect.Plugin.Logging
@@ -14,7 +15,7 @@ namespace Kafka.Connect.Plugin.Logging
         void None(string message, object data = null, Exception exception = null);
         void Record(ConnectRecordBatch batch, string provider, string connector);
         void Health(dynamic health);
-        void Document(object document);
+        void Document(ConnectMessage<JsonNode> document);
         SinkLog Track(string message);
     }
 }

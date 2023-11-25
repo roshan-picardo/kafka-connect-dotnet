@@ -14,8 +14,6 @@ public static class ConverterExtensions
 
     public static IDictionary<string, object> ToDictionary(this JsonNode node, string prefix = "")
     {
-        
-
         string GetKey(JsonNode jn)
         {
             var key = jn.GetPath().TrimStart('$', '.').Replace("['", "").Replace("']", "");
@@ -80,8 +78,18 @@ public static class ConverterExtensions
         var all = Parse(node);
         return all?.ToDictionary(GetKey, GetValue);
     }
-
+    
     public static JsonNode ToJson(this IDictionary<string, object> flattened)
+    {
+        var result = ToNestedDictionary(flattened);
+        var jsonString = JsonSerializer.Serialize(result, new JsonSerializerOptions
+        {
+            WriteIndented = true
+        });
+        return JsonNode.Parse(jsonString);
+    }
+
+    private static IDictionary<string, object> ToNestedDictionary(IDictionary<string, object> flattened)
     {
         var result = new Dictionary<string, object>();
         string previousKey = null;
@@ -166,13 +174,12 @@ public static class ConverterExtensions
                 }
             } while (segments != null);
         }
-        
-        var jsonString = JsonSerializer.Serialize(result, new JsonSerializerOptions
-        {
-            WriteIndented = true
-        });
-        return JsonNode.Parse(jsonString);
+
+        return result;
     }
+
+    public static IDictionary<string, object> ToNestedDictionary(this JsonNode jn) =>
+        ToNestedDictionary(jn.ToDictionary());
 
     public static T ToObject<T>(this IDictionary<string, object> flattened) => flattened.ToJson().Deserialize<T>();
 

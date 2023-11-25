@@ -2,7 +2,6 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Confluent.Kafka;
 using Confluent.Kafka.Admin;
 using Kafka.Connect.Builders;
 using Kafka.Connect.Configurations;
