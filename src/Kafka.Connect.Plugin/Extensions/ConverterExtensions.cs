@@ -4,7 +4,6 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
-using Newtonsoft.Json.Linq;
 
 namespace Kafka.Connect.Plugin.Extensions;
 
@@ -179,8 +178,6 @@ public static class ConverterExtensions
 
     public static IDictionary<string, object> FromObject<T>(this T data) =>
         JsonSerializer.SerializeToNode(data).ToDictionary();
-
-    public static JsonNode ToJsonNode(this JToken jToken) => JsonNode.Parse(jToken.ToString());
 
     public static object GetValue(this JsonNode jn)
     {
