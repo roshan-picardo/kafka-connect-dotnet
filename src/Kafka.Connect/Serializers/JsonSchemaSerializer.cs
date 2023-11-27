@@ -8,7 +8,7 @@ using Kafka.Connect.Utilities;
 
 namespace Kafka.Connect.Serializers;
 
-public class JsonSchemaSerializer : Serializer
+public class JsonSchemaSerializer : ISerializer
 {
     private readonly ILogger<JsonSchemaSerializer> _logger;
     private readonly IAsyncSerializer<JsonNode> _serializer;
@@ -19,7 +19,7 @@ public class JsonSchemaSerializer : Serializer
         _serializer = serializer;
     }
 
-    public override async Task<byte[]> Serialize(string topic, JsonNode data, string subject = null, IDictionary<string, byte[]> headers = null, bool isValue = true)
+    public async Task<byte[]> Serialize(string topic, JsonNode data, string subject = null, IDictionary<string, byte[]> headers = null, bool isValue = true)
     {
         using (_logger.Track("Serializing the record using avro serializer."))
         {

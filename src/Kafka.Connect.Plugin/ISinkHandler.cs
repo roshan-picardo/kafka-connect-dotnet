@@ -8,6 +8,6 @@ namespace Kafka.Connect.Plugin
         Task<ConnectRecordBatch> Put(ConnectRecordBatch connectRecordBatch, string connector, int taskId, int parallelism = 100);
         Task Startup(string connector);
         Task Cleanup(string connector);
-        bool IsOfType(string connector, string plugin, string handler);
+        bool Is(string connector, string plugin, string handler);
     }
 }

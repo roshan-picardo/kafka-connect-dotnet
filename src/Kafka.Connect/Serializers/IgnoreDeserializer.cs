@@ -7,7 +7,7 @@ using Kafka.Connect.Plugin.Serializers;
 
 namespace Kafka.Connect.Serializers;
 
-public class IgnoreDeserializer : Deserializer
+public class IgnoreDeserializer : IDeserializer
 {
     private readonly ILogger<IgnoreDeserializer> _logger;
 
@@ -16,7 +16,7 @@ public class IgnoreDeserializer : Deserializer
         _logger = logger;
     }
 
-    public override Task<JsonNode> Deserialize(ReadOnlyMemory<byte> data, string topic, IDictionary<string, byte[]> headers, bool isValue = true)
+    public Task<JsonNode> Deserialize(ReadOnlyMemory<byte> data, string topic, IDictionary<string, byte[]> headers, bool isValue = true)
     {
         using (_logger.Track("Ignoring the deserialization of the record."))
         {

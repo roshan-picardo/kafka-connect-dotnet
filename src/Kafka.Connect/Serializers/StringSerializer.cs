@@ -7,7 +7,7 @@ using Kafka.Connect.Plugin.Serializers;
 
 namespace Kafka.Connect.Serializers;
 
-public class StringSerializer : Serializer
+public class StringSerializer : ISerializer
 {
     private readonly ILogger<StringSerializer> _logger;
 
@@ -16,7 +16,7 @@ public class StringSerializer : Serializer
         _logger = logger;
     }
         
-    public override Task<byte[]> Serialize(string topic, JsonNode data, string subject = null, IDictionary<string, byte[]> headers = null, bool isValue = true)
+    public Task<byte[]> Serialize(string topic, JsonNode data, string subject = null, IDictionary<string, byte[]> headers = null, bool isValue = true)
     {
         using (_logger.Track("Serializing the record using string serializer."))
         {
