@@ -31,7 +31,7 @@ namespace UnitTests.Kafka.Connect.Providers
 
             _sinkHandlers = new[] {Substitute.For<ISinkHandler>()};
 
-            _sinkHandlers.First().IsOfType(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>()).Returns(exists);
+            _sinkHandlers.First().Is(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>()).Returns(exists);
 
             _sinkHandlerProvider = new SinkHandlerProvider(_logger, _sinkHandlers, _configurationProvider);
 

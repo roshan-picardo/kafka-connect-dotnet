@@ -103,6 +103,6 @@ public abstract class SinkHandler<TModel> : ISinkHandler
 
     public Task Cleanup(string connector) => Task.CompletedTask;
 
-    public bool IsOfType(string connector, string plugin, string handler) =>
-        plugin == _configurationProvider.GetPluginName(connector) && GetType().FullName == handler;
+    public bool Is(string connector, string plugin, string handler) =>
+        plugin == _configurationProvider.GetPluginName(connector) && this.Is(handler);
 }

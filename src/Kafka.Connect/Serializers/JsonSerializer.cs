@@ -6,7 +6,7 @@ using Kafka.Connect.Plugin.Serializers;
 
 namespace Kafka.Connect.Serializers;
 
-public class JsonSerializer : Serializer
+public class JsonSerializer : ISerializer
 {
     private readonly ILogger<JsonSerializer> _logger;
 
@@ -15,7 +15,7 @@ public class JsonSerializer : Serializer
         _logger = logger;
     }
 
-    public override Task<byte[]> Serialize(string topic, JsonNode data, string subject = null, IDictionary<string, byte[]> headers = null, bool isValue = true)
+    public Task<byte[]> Serialize(string topic, JsonNode data, string subject = null, IDictionary<string, byte[]> headers = null, bool isValue = true)
     {
         using (_logger.Track("Serializing the record using json serializer."))
         {

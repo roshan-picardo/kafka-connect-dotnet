@@ -12,6 +12,4 @@ public interface ISerializer
         string subject = null,
         IDictionary<string, byte[]> headers = null,
         bool isValue = true);
-        
-    bool IsOfType(string type);
 }
