@@ -58,13 +58,13 @@ public class SourceTask : ISourceTask
     
     public async Task Execute(string connector, int taskId, CancellationTokenSource cts)
     {
-        void Cancel()
-        {
-            if (!_configurationProvider.IsErrorTolerated(connector))
-            {
-                cts.Cancel();
-            }
-        }
+        // void Cancel()
+        // {
+        //     if (!_configurationProvider.IsErrorTolerated(connector))
+        //     {
+        //         cts.Cancel();
+        //     }
+        // }
 
         _executionContext.Initialize(connector, taskId, this);
 

@@ -261,7 +261,7 @@ namespace UnitTests.Kafka.Connect.Providers
                 {
                     {"connector", new ConnectorConfig {Batches = connectorBatch}}
                 }
-            }).GetDeserializers("connector", "test-topic");
+            }).GetMessageConverters("connector", "test-topic");
 
             Assert.Equal(expectedSerializer.Key, converterConfig.Key);
             Assert.Equal(expectedSerializer.Value, converterConfig.Value);
@@ -662,31 +662,31 @@ namespace UnitTests.Kafka.Connect.Providers
                 };
                 yield return new object[]
                 {
-                    new BatchConfig(), new BatchConfig {Deserializers = new ConverterConfig()},
+                    new BatchConfig(), new BatchConfig {Converters = new ConverterConfig()},
                     (Constants.DefaultDeserializer, Constants.DefaultDeserializer)
                 };
                 yield return new object[]
                 {
-                    new BatchConfig {Deserializers = new ConverterConfig()},
-                    new BatchConfig {Deserializers = new ConverterConfig()},
+                    new BatchConfig {Converters = new ConverterConfig()},
+                    new BatchConfig {Converters = new ConverterConfig()},
                     (Constants.DefaultDeserializer, Constants.DefaultDeserializer)
                 };
                 yield return new object[]
                 {
-                    new BatchConfig {Deserializers = new ConverterConfig()},
+                    new BatchConfig {Converters = new ConverterConfig()},
                     new BatchConfig
                     {
-                        Deserializers = new ConverterConfig
+                        Converters = new ConverterConfig
                             {Key = "worker-key-deserializer", Value = "worker-value-deserializer"}
                     },
                     ("worker-key-deserializer", "worker-value-deserializer")
                 };
                 yield return new object[]
                 {
-                    new BatchConfig {Deserializers = new ConverterConfig()},
+                    new BatchConfig {Converters = new ConverterConfig()},
                     new BatchConfig
                     {
-                        Deserializers = new ConverterConfig
+                        Converters = new ConverterConfig
                         {
                             Key = "worker-key-deserializer", Value = "worker-value-deserializer",
                             Overrides = new List<ConverterOverrideConfig>
@@ -705,12 +705,12 @@ namespace UnitTests.Kafka.Connect.Providers
                 {
                     new BatchConfig
                     {
-                        Deserializers = new ConverterConfig
+                        Converters = new ConverterConfig
                             {Key = "connector-key-deserializer", Value = "connector-value-deserializer"}
                     },
                     new BatchConfig
                     {
-                        Deserializers = new ConverterConfig
+                        Converters = new ConverterConfig
                         {
                             Key = "worker-key-deserializer", Value = "worker-value-deserializer",
                             Overrides = new List<ConverterOverrideConfig>
@@ -729,7 +729,7 @@ namespace UnitTests.Kafka.Connect.Providers
                 {
                     new BatchConfig
                     {
-                        Deserializers = new ConverterConfig
+                        Converters = new ConverterConfig
                         {
                             Key = "connector-key-deserializer", Value = "connector-value-deserializer",
                             Overrides = new List<ConverterOverrideConfig>
@@ -744,7 +744,7 @@ namespace UnitTests.Kafka.Connect.Providers
                     },
                     new BatchConfig
                     {
-                        Deserializers = new ConverterConfig
+                        Converters = new ConverterConfig
                         {
                             Key = "worker-key-deserializer", Value = "worker-value-deserializer",
                             Overrides = new List<ConverterOverrideConfig>

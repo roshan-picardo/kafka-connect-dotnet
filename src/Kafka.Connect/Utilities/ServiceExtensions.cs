@@ -11,9 +11,7 @@ using Kafka.Connect.Connectors;
 using Kafka.Connect.Converters;
 using Kafka.Connect.Handlers;
 using Kafka.Connect.Processors;
-using Kafka.Connect.Serializers;
 using Kafka.Connect.Plugin.Processors;
-using Kafka.Connect.Plugin.Serializers;
 using Kafka.Connect.Plugin.Tokens;
 using Kafka.Connect.Providers;
 using Kafka.Connect.Tokens;
@@ -21,7 +19,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 using Kafka.Connect.Configurations;
+using Kafka.Connect.Converters.Generic;
 using Kafka.Connect.Plugin;
+using Kafka.Connect.Plugin.Converters;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Providers;
 using Kafka.Connect.Plugin.Strategies;
@@ -78,17 +78,11 @@ namespace Kafka.Connect.Utilities
                 })
                 .AddScoped<IAsyncSerializer<GenericRecord>>(provider => new AvroSerializer<GenericRecord>(provider.GetService<ISchemaRegistryClient>()))
                 .AddScoped<IAsyncSerializer<JsonNode>>(provider => new JsonSerializer<JsonNode>(provider.GetService<ISchemaRegistryClient>()))
-                .AddScoped<IDeserializer, AvroDeserializer>()
-                .AddScoped<IDeserializer, JsonDeserializer>()
-                .AddScoped<IDeserializer, JsonSchemaDeserializer>()
-                .AddScoped<IDeserializer, StringDeserializer>()
-                .AddScoped<IDeserializer, IgnoreDeserializer>()
-                .AddScoped<ISerializer, AvroSerializer>()
-                .AddScoped<ISerializer, IgnoreSerializer>()
-                .AddScoped<ISerializer, StringSerializer>()
-                .AddScoped<ISerializer, JsonSerializer>()
-                .AddScoped<ISerializer, JsonSchemaSerializer>()
-                .AddScoped<IMessageConverter, MessageConverter>()
+                .AddScoped<IMessageConverter, AvroConverter>()
+                .AddScoped<IMessageConverter, NullConverter>()
+                .AddScoped<IMessageConverter, JsonConverter>()
+                .AddScoped<IMessageConverter, JsonSchemaConverter>()
+                .AddScoped<IMessageConverter, StringConverter>()
                 
                 .AddScoped<IWriteStrategyProvider, WriteStrategyProvider>()
                 .AddScoped<IWriteStrategySelector, TopicStrategySelector>()

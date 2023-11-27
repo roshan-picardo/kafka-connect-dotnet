@@ -29,6 +29,16 @@
     <ItemGroup>
       <Compile Remove="Processors\JsonTypeOverriderTests.cs" />
       <Compile Remove="Handlers\MessageHandlerTests.cs" />
+      <Compile Remove="Providers\ProcessorServiceProviderTests.cs" />
+      <Compile Remove="Serializers\**" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <EmbeddedResource Remove="Serializers\**" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Remove="Serializers\**" />
     </ItemGroup>
 
 </Project>

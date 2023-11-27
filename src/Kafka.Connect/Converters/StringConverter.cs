@@ -4,23 +4,31 @@ using System.IO;
 using System.Text;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
+using Kafka.Connect.Plugin.Converters;
 using Kafka.Connect.Plugin.Logging;
-using Kafka.Connect.Plugin.Serializers;
 
-namespace Kafka.Connect.Serializers;
+namespace Kafka.Connect.Converters;
 
-public class StringDeserializer : IDeserializer
+public class StringConverter : IMessageConverter
 {
-    private readonly ILogger<StringDeserializer> _logger;
+    private readonly ILogger<StringConverter> _logger;
 
-    public StringDeserializer(ILogger<StringDeserializer> logger)
+    public StringConverter(ILogger<StringConverter> logger)
     {
         _logger = logger;
     }
-
-    public async Task<JsonNode> Deserialize(ReadOnlyMemory<byte> data, string topic, IDictionary<string, byte[]> headers, bool isValue = true)
+    
+    public Task<byte[]> Serialize(string topic, JsonNode data, string subject = null, IDictionary<string, byte[]> headers = null, bool isValue = true)
     {
-        using (_logger.Track("Deserializing the record using string deserializer."))
+        using (_logger.Track($"Serializing the record {(isValue ? "value" : "key")}."))
+        {
+            return Task.FromResult(Encoding.UTF8.GetBytes(data.ToJsonString()));
+        }
+    }
+
+    public async Task<JsonNode> Deserialize(string topic, ReadOnlyMemory<byte> data, IDictionary<string, byte[]> headers, bool isValue = true)
+    {
+        using (_logger.Track($"Deserializing the record {(isValue ? "value" : "key")}."))
         {
             string strData;
             var isNull = data.IsEmpty || data.Length == 0;

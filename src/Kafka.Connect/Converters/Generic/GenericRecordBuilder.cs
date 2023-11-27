@@ -9,7 +9,7 @@ using Kafka.Connect.Plugin.Exceptions;
 using Kafka.Connect.Plugin.Logging;
 using Schema = Avro.Schema;
 
-namespace Kafka.Connect.Converters;
+namespace Kafka.Connect.Converters.Generic;
 
 public class GenericRecordBuilder : IGenericRecordBuilder
 {

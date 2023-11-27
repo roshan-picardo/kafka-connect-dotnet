@@ -19,8 +19,7 @@ public interface IConfigurationProvider
     EofConfig GetEofSignalConfig(string connector);
     BatchConfig GetBatchConfig(string connector);
     IList<string> GetTopics(string connector);
-    ConverterConfig GetDeserializers(string connector, string topic);
-    ConverterConfig GetSerializers(string connector, string topic);
+    ConverterConfig GetMessageConverters(string connector, string topic);
     IList<ProcessorConfig> GetMessageProcessors(string connector, string topic);
     SinkConfig GetSinkConfig(string connector);
     SourceConfig GetSourceConfig(string connector);

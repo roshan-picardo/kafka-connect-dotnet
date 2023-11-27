@@ -2,15 +2,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
-using System.Threading.Tasks;
 using Confluent.Kafka;
 using Kafka.Connect;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Connectors;
 using Kafka.Connect.Models;
 using Kafka.Connect.Plugin;
+using Kafka.Connect.Plugin.Converters;
 using Kafka.Connect.Plugin.Processors;
-using Kafka.Connect.Plugin.Serializers;
 using Kafka.Connect.Plugin.Strategies;
 using Kafka.Connect.Providers;
 using NSubstitute;
@@ -24,7 +23,7 @@ public class ExecutionContextTests
     private readonly IEnumerable<IPluginInitializer> _plugins;
     private readonly IEnumerable<IProcessor> _processors;
     private readonly IEnumerable<ISinkHandler> _handlers;
-    private readonly IEnumerable<IDeserializer> _deserializers;
+    private readonly IEnumerable<IMessageConverter> _messageConverters;
     private readonly IConfigurationProvider _configurationProvider;
     private readonly ExecutionContext _executionContext;
     
@@ -40,11 +39,11 @@ public class ExecutionContextTests
         _plugins = Substitute.For<IEnumerable<IPluginInitializer>>();
         _processors = Substitute.For<IEnumerable<IProcessor>>();
         _handlers = Substitute.For<IEnumerable<ISinkHandler>>();
-        _deserializers = Substitute.For<IEnumerable<IDeserializer>>();
+        _messageConverters = Substitute.For<IEnumerable<IMessageConverter>>();
         _configurationProvider = Substitute.For<IConfigurationProvider>();
 
         _executionContext =
-            new ExecutionContext(_plugins, _processors, _handlers, _deserializers,
+            new ExecutionContext(_plugins, _processors, _handlers, _messageConverters,
                 Substitute.For<IEnumerable<IWriteStrategySelector>>(), Substitute.For<IEnumerable<IWriteStrategy>>(),
                 _configurationProvider);
 

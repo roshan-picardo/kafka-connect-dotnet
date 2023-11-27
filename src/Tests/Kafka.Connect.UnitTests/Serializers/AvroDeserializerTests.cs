@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Avro.Generic;
 using Confluent.Kafka;
 using Kafka.Connect.Converters;
+using Kafka.Connect.Converters.Generic;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Serializers;
 using NSubstitute;

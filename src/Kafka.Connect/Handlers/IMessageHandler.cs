@@ -11,5 +11,8 @@ namespace Kafka.Connect.Handlers
             string connector,
             string topic,
             ConnectMessage<IDictionary<string, object>> flattened);
+
+        Task<ConnectMessage<byte[]>> Serialize(string connector, string topic, ConnectMessage<JsonNode> message);
+        Task<ConnectMessage<JsonNode>> Deserialize(string connector, string topic, ConnectMessage<byte[]> message);
     }
 }

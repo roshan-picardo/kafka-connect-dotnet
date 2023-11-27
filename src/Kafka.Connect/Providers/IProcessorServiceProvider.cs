@@ -1,12 +1,11 @@
 using System.Collections.Generic;
+using Kafka.Connect.Plugin.Converters;
 using Kafka.Connect.Plugin.Processors;
-using Kafka.Connect.Plugin.Serializers;
 
 namespace Kafka.Connect.Providers;
 
 public interface IProcessorServiceProvider
 {
     IEnumerable<IProcessor> GetProcessors();
-    IDeserializer GetDeserializer(string typeName);
-    ISerializer GetSerializer(string typeName);
+    IMessageConverter GetMessageConverter(string typeName);
 }

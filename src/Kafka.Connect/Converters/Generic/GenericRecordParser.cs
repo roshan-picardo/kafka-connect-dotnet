@@ -7,7 +7,7 @@ using Avro;
 using Avro.Generic;
 using Kafka.Connect.Plugin.Logging;
 
-namespace Kafka.Connect.Converters;
+namespace Kafka.Connect.Converters.Generic;
 
 public class GenericRecordParser : IGenericRecordParser
 {

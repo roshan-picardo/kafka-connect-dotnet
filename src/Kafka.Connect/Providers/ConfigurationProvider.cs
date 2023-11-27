@@ -112,20 +112,12 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
         return GetConnectorConfig(connector).Log?.Provider;
     }
 
-    public ConverterConfig GetDeserializers(string connector, string topic)
+    public ConverterConfig GetMessageConverters(string connector, string topic)
     {
-        var shared = _workerConfig.Batches?.Deserializers;
-        var deserializers = GetConnectorConfig(connector).Batches?.Deserializers;
+        var shared = _workerConfig.Batches?.Converters;
+        var deserializers = GetConnectorConfig(connector).Batches?.Converters;
         return FindConverterConfig(deserializers?.Overrides?.SingleOrDefault(t => t.Topic == topic), deserializers,
             shared?.Overrides?.SingleOrDefault(t => t.Topic == topic), shared, Constants.DefaultDeserializer);
-    }
-
-    public ConverterConfig GetSerializers(string connector, string topic)
-    {
-        var shared = _workerConfig.Batches?.Serializers;
-        var serializers = GetConnectorConfig(connector).Batches?.Serializers;
-        return FindConverterConfig(serializers?.Overrides?.SingleOrDefault(t => t.Topic == topic), serializers,
-            shared?.Overrides?.SingleOrDefault(t => t.Topic == topic), shared, Constants.DefaultSerializer);
     }
 
     private static ConverterConfig FindConverterConfig(
