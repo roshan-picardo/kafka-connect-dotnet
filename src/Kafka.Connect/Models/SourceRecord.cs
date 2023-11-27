@@ -1,13 +1,13 @@
+using System.Text.Json.Nodes;
 using Kafka.Connect.Plugin.Models;
-using Newtonsoft.Json.Linq;
 
 namespace Kafka.Connect.Models;
 
-public class SourceRecord : Plugin.Models.ConnectRecord
+public class SourceRecord : ConnectRecord
 {
-    public SourceRecord(string topic, JToken key, JToken value) : base(topic, -1, -1)
+    public SourceRecord(string topic, JsonNode key, JsonNode value) : base(topic, -1, -1)
     {
-        DeserializedToken = new ConnectMessage<JToken>
+        Deserialized = new ConnectMessage<JsonNode>
         {
             Key = key,
             Value = value

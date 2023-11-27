@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Plugin.Providers;
@@ -111,11 +113,12 @@ namespace Kafka.Connect.Plugin.Logging
             });
         }
 
-        public void Document(object document) => _sinkLogger.Log(LogLevel.Debug, "{@Document}", document);
+        public void Document(ConnectMessage<JsonNode> document) => _sinkLogger.Log(LogLevel.Debug, "{@Document}",
+            new { Key = document.Key?.ToNestedDictionary(), Value = document.Value?.ToNestedDictionary() });
 
         public void Health(object health) => _sinkLogger.Log(LogLevel.Information, "{@Health}", health);
 
-        public SinkLog Track(string message) => new SinkLog(_logger, message);
+        public SinkLog Track(string message) => new(_logger, message);
     }
 }
 

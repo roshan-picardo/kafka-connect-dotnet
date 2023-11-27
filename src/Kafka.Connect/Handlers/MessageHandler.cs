@@ -6,7 +6,6 @@ using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Providers;
-using Newtonsoft.Json.Linq;
 
 namespace Kafka.Connect.Handlers
 {
@@ -26,27 +25,31 @@ namespace Kafka.Connect.Handlers
             _configurationProvider = configurationProvider;
         }
 
-        public async Task<(bool, ConnectMessage<JToken>)> Process(ConnectRecord record, string connector)
+        public async Task<ConnectMessage<JsonNode>> Process(string connector, string topic,  ConnectMessage<IDictionary<string, object>> flattened)
         {
             using (_logger.Track("Processing the message."))
             {
-                var configs = _configurationProvider.GetMessageProcessors(connector, record.Topic);
+                var configs = _configurationProvider.GetMessageProcessors(connector, topic);
                 if (!(configs?.Any() ?? false))
                 {
-                    return (record.Skip, record.DeserializedToken);
+                    return new ConnectMessage<JsonNode>
+                    {
+                        Skip = flattened.Skip,
+                        Key = flattened.Key.ToJson(),
+                        Value = flattened.Key.ToJson()
+                    };
                 }
 
                 var processors = _processorServiceProvider.GetProcessors()?.ToList();
                 if (!(processors?.Any() ?? false))
                 {
-                    return (record.Skip, record.DeserializedToken);
+                    return new ConnectMessage<JsonNode>
+                    {
+                        Skip = flattened.Skip,
+                        Key = flattened.Key.ToJson(),
+                        Value = flattened.Key.ToJson()
+                    };
                 }
-
-                record.Flattened = new ConnectMessage<IDictionary<string, object>>
-                {
-                    Key = record.DeserializedToken.Key?.ToJsonNode().ToDictionary(),
-                    Value = record.DeserializedToken.Value?.ToJsonNode().ToDictionary()
-                };
 
                 foreach (var config in configs.OrderBy(p => p.Order))
                 {
@@ -57,18 +60,17 @@ namespace Kafka.Connect.Handlers
                         continue;
                     }
 
-                    record.Flattened = await processor.Apply(connector, record.Flattened);
-                    if (!record.Flattened.Skip) continue;
+                    flattened = await processor.Apply(connector, flattened);
+                    if (!flattened.Skip) continue;
                     _logger.Trace("Message will be skipped from further processing.");
                     break;
                 }
 
-                return (record.Flattened.Skip,
-                    new ConnectMessage<JToken>
-                    {
-                        Key = record.Flattened.Key.ToJson().ToJToken(),
-                        Value = record.Flattened.Value.ToJson().ToJToken()
-                    });
+                return new ConnectMessage<JsonNode>
+                {
+                    Key = flattened.Key.ToJson(),
+                    Value = flattened.Value.ToJson()
+                };
             }
         }
     }

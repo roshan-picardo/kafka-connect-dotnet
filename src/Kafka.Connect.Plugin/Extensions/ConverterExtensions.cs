@@ -4,7 +4,6 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
-using Newtonsoft.Json.Linq;
 
 namespace Kafka.Connect.Plugin.Extensions;
 
@@ -15,41 +14,6 @@ public static class ConverterExtensions
 
     public static IDictionary<string, object> ToDictionary(this JsonNode node, string prefix = "")
     {
-        object GetValue(JsonNode jn)
-        {
-            switch (jn)
-            {
-                case JsonObject:
-                    return new object();
-                case JsonArray:
-                    return Array.Empty<object>();
-                case JsonValue:
-                    var je = jn.GetValue<JsonElement>();
-                    switch (je.ValueKind)
-                    {
-                        case JsonValueKind.String:
-                            return je.GetString();
-                        case JsonValueKind.Number when je.TryGetInt32(out var intValue):
-                            return intValue;
-                        case JsonValueKind.Number when je.TryGetInt64(out var longValue):
-                            return longValue;
-                        case JsonValueKind.Number when je.TryGetSingle(out var singleValue):
-                            return singleValue;
-                        case JsonValueKind.Number when je.TryGetDouble(out var doubleValue):
-                            return doubleValue;
-                        case JsonValueKind.Number:
-                            return 0;
-                        case JsonValueKind.True or JsonValueKind.False:
-                            return je.GetBoolean();
-                        case JsonValueKind.Undefined or JsonValueKind.Null:
-                            return null;
-                    }
-                    break;
-            }
-
-            return null;
-        }
-
         string GetKey(JsonNode jn)
         {
             var key = jn.GetPath().TrimStart('$', '.').Replace("['", "").Replace("']", "");
@@ -114,8 +78,18 @@ public static class ConverterExtensions
         var all = Parse(node);
         return all?.ToDictionary(GetKey, GetValue);
     }
-
+    
     public static JsonNode ToJson(this IDictionary<string, object> flattened)
+    {
+        var result = ToNestedDictionary(flattened);
+        var jsonString = JsonSerializer.Serialize(result, new JsonSerializerOptions
+        {
+            WriteIndented = true
+        });
+        return JsonNode.Parse(jsonString);
+    }
+
+    private static IDictionary<string, object> ToNestedDictionary(IDictionary<string, object> flattened)
     {
         var result = new Dictionary<string, object>();
         string previousKey = null;
@@ -200,20 +174,50 @@ public static class ConverterExtensions
                 }
             } while (segments != null);
         }
-        
-        var jsonString = JsonSerializer.Serialize(result, new JsonSerializerOptions
-        {
-            WriteIndented = true
-        });
-        return JsonNode.Parse(jsonString);
+
+        return result;
     }
+
+    public static IDictionary<string, object> ToNestedDictionary(this JsonNode jn) =>
+        ToNestedDictionary(jn.ToDictionary());
 
     public static T ToObject<T>(this IDictionary<string, object> flattened) => flattened.ToJson().Deserialize<T>();
 
     public static IDictionary<string, object> FromObject<T>(this T data) =>
         JsonSerializer.SerializeToNode(data).ToDictionary();
 
-    public static JToken ToJToken(this JsonNode jsonNode) => JToken.Parse(jsonNode.ToJsonString());
-    
-    public static JsonNode ToJsonNode(this JToken jToken) => JsonNode.Parse(jToken.ToString());
+    public static object GetValue(this JsonNode jn)
+    {
+        switch (jn)
+        {
+            case JsonObject:
+                return new object();
+            case JsonArray:
+                return Array.Empty<object>();
+            case JsonValue:
+                var je = jn.Deserialize<JsonElement>(); 
+                switch (je.ValueKind)
+                {
+                    case JsonValueKind.String:
+                        return je.GetString();
+                    case JsonValueKind.Number when je.TryGetInt32(out var intValue):
+                        return intValue;
+                    case JsonValueKind.Number when je.TryGetInt64(out var longValue):
+                        return longValue;
+                    case JsonValueKind.Number when je.TryGetSingle(out var singleValue):
+                        return singleValue;
+                    case JsonValueKind.Number when je.TryGetDouble(out var doubleValue):
+                        return doubleValue;
+                    case JsonValueKind.Number:
+                        return 0;
+                    case JsonValueKind.True or JsonValueKind.False:
+                        return je.GetBoolean();
+                    case JsonValueKind.Undefined or JsonValueKind.Null:
+                        return null;
+                }
+                break;
+        }
+
+        return null;
+    }
 }

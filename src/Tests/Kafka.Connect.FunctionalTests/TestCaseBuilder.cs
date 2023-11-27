@@ -1,5 +1,6 @@
-using Newtonsoft.Json;
 using System.Collections;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace Kafka.Connect.FunctionalTests
 {
@@ -8,15 +9,11 @@ namespace Kafka.Connect.FunctionalTests
         public IEnumerator<object[]> GetEnumerator()
         {
             var initConfig = InitConfig.Get();
-            
-            var settings = new JsonSerializerSettings
-            {
-                DateParseHandling = DateParseHandling.None
-            };
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 
-            foreach (var config in JsonConvert.DeserializeObject<Config[]>(
-                         File.ReadAllText($"{initConfig.RootFolder.TrimEnd('/')}/{initConfig.ConfigFile}"), settings)!)
+            foreach (var node in JsonNode.Parse(File.ReadAllText($"{initConfig.RootFolder.TrimEnd('/')}/{initConfig.ConfigFile}")).AsArray())
             {
+                var config = node.Deserialize<Config>(options);
                 IList<string> files = new List<string>();
                 if (!string.IsNullOrEmpty(config.Folder) && Directory.Exists($"{initConfig.RootFolder.TrimEnd('/')}/{config.Folder.TrimStart('/')}"))
                 {
@@ -40,23 +37,25 @@ namespace Kafka.Connect.FunctionalTests
                     }
                 }
 
-                dynamic? schema = null;
+                Record schema = null;
                 if (File.Exists($"{initConfig.RootFolder.TrimEnd('/')}/{config.Schema.TrimStart('/')}"))
                 {
-                    schema = JsonConvert.DeserializeObject<dynamic>(File.ReadAllText($"{initConfig.RootFolder.TrimEnd('/')}/{config.Schema.TrimStart('/')}"));
+                    var schemaNode =
+                        JsonNode.Parse(
+                            File.ReadAllText($"{initConfig.RootFolder.TrimEnd('/')}/{config.Schema.TrimStart('/')}"))?.AsObject();
+                    schema = new Record(schemaNode?["Key"], schemaNode?["Value"]);
                 }
 
                 foreach (var dataFile in files)
                 {
                     if (string.IsNullOrEmpty(dataFile) || !File.Exists(dataFile)) continue;
-                    var data = JsonConvert.DeserializeObject<TestData>(File.ReadAllText(dataFile), settings);
+                    var data =  JsonSerializer.Deserialize<TestData>(File.ReadAllText(dataFile), options);
                     if (data != null)
                     {
                         yield return new object[]
                         {
                             new TestCase(data.Title ?? dataFile?[dataFile.LastIndexOf('/')..] ?? "", config.Topic, 
-                                schema, data.Records,
-                                data.Sink)
+                                schema, data.Records)
                         };
                     }
                 }

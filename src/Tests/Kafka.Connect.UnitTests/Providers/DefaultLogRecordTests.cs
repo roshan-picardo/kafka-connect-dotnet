@@ -1,9 +1,9 @@
 using System.Collections.Generic;
+using System.Text.Json.Nodes;
 using Confluent.Kafka;
 using Kafka.Connect.Models;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Providers;
-using Newtonsoft.Json.Linq;
 using NSubstitute;
 using Xunit;
 using IConfigurationProvider = Kafka.Connect.Plugin.Providers.IConfigurationProvider;
@@ -28,10 +28,10 @@ public class DefaultLogRecordTests
             { "fieldPresent", "fieldNotPresent", "fieldBoolean", "fieldInteger", "field.secondLevel" });
         var expected = new Dictionary<string, object>()
         {
-            { "fieldPresent", new JValue("Exists") },
+            { "fieldPresent", "Exists" },
             { "fieldNotPresent", null },
-            { "fieldBoolean", new JValue(true) },
-            { "fieldInteger", new JValue(1000) },
+            { "fieldBoolean", true },
+            { "fieldInteger", 1000 },
             { "field.secondLevel", null },
         };
         var record = new SinkRecord(new ConsumeResult<byte[], byte[]>()
@@ -39,39 +39,39 @@ public class DefaultLogRecordTests
             Message = new Message<byte[], byte[]>()
         })
         {
-            DeserializedToken = new ConnectMessage<JToken>()
+            Deserialized = new ConnectMessage<JsonNode>()
             {
                 Key = "none",
                 Value =
-                    new JObject
+                    new JsonObject()
                     {
                         { "fieldPresent", "Exists" }, { "fieldBoolean", true },
-                        { "fieldInteger", 1000 }, { "field", new JObject { { "secondLevel", "secondLevel" } } }
+                        { "fieldInteger", 1000 }, { "field", new JsonObject { { "secondLevel", "secondLevel" } } }
                     }
             }
         };
         var actual = _defaultLogRecord.Enrich(record, "connector");
         Assert.IsType<Dictionary<string, object>>(actual);
-        Assert.Equivalent(expected, actual);
+        Assert.Equivalent(expected, actual  as Dictionary<string, object>);
     }
     
     [Fact]
     public void EnrichReturnsNullTests()
     {
         _configurationProvider.GetLogAttributes<string[]>("connector").Returns(null as string[]);
-        var record = new SinkRecord(new ConsumeResult<byte[], byte[]>()
+        var record = new SinkRecord(new ConsumeResult<byte[], byte[]>
         {
             Message = new Message<byte[], byte[]>()
         })
         {
-            DeserializedToken = new ConnectMessage<JToken>()
+            Deserialized = new ConnectMessage<JsonNode>()
             {
                 Key = "none",
                 Value =
-                    new JObject
+                    new JsonObject
                     {
                         { "fieldPresent", "Exists" }, { "fieldBoolean", true },
-                        { "fieldInteger", 1000 }, { "field", new JObject { { "secondLevel", "secondLevel" } } }
+                        { "fieldInteger", 1000 }, { "field", new JsonObject { { "secondLevel", "secondLevel" } } }
                     }
             }
         };
@@ -89,7 +89,7 @@ public class DefaultLogRecordTests
             Message = new Message<byte[], byte[]>()
         })
         {
-            DeserializedToken = new ConnectMessage<JToken>()
+            Deserialized = new ConnectMessage<JsonNode>()
             {
                 
                 Key = "none",
