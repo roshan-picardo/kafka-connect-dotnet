@@ -7,7 +7,6 @@ using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Providers;
-using Kafka.Connect.Serializers;
 using Serilog.Context;
 using Serilog.Core.Enrichers;
 
@@ -16,20 +15,17 @@ namespace Kafka.Connect.Handlers;
 public class SinkProcessor : ISinkProcessor
 {
     private readonly ILogger<SinkProcessor> _logger;
-    private readonly IMessageConverter _messageConverter;
     private readonly IMessageHandler _messageHandler;
     private readonly ISinkHandlerProvider _sinkHandlerProvider;
     private readonly IConfigurationProvider _configurationProvider;
 
     public SinkProcessor(
         ILogger<SinkProcessor> logger,
-        IMessageConverter messageConverter,
         IMessageHandler messageHandler,
         ISinkHandlerProvider sinkHandlerProvider,
         IConfigurationProvider configurationProvider)
     {
         _logger = logger;
-        _messageConverter = messageConverter;
         _messageHandler = messageHandler;
         _sinkHandlerProvider = sinkHandlerProvider;
         _configurationProvider = configurationProvider;
@@ -50,7 +46,7 @@ public class SinkProcessor : ISinkProcessor
                             using (LogContext.PushProperty(Constants.Offset, record.Offset))
                             {
                                 record.Status = SinkStatus.Processing;
-                                record.Deserialized = await _messageConverter.Deserialize(connector, record.Topic, record.Serialized);
+                                record.Deserialized = await _messageHandler.Deserialize(connector, record.Topic, record.Serialized);
                                 _logger.Document(record.Deserialized);
                                 record.Deserialized = await _messageHandler.Process(connector, record.Topic,
                                     new ConnectMessage<IDictionary<string, object>>

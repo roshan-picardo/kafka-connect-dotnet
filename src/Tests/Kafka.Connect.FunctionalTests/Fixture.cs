@@ -4,6 +4,7 @@ using Confluent.Kafka;
 using Confluent.SchemaRegistry;
 using Confluent.SchemaRegistry.Serdes;
 using Kafka.Connect.Converters;
+using Kafka.Connect.Converters.Generic;
 using Kafka.Connect.Plugin.Logging;
 using NSubstitute;
 

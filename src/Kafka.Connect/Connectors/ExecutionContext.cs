@@ -6,8 +6,8 @@ using Confluent.Kafka;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Models;
 using Kafka.Connect.Plugin;
+using Kafka.Connect.Plugin.Converters;
 using Kafka.Connect.Plugin.Processors;
-using Kafka.Connect.Plugin.Serializers;
 using Kafka.Connect.Plugin.Strategies;
 using Kafka.Connect.Providers;
 
@@ -18,7 +18,7 @@ public class ExecutionContext : IExecutionContext
     private readonly IEnumerable<IPluginInitializer> _plugins;
     private readonly IEnumerable<IProcessor> _processors;
     private readonly IEnumerable<ISinkHandler> _handlers;
-    private readonly IEnumerable<IDeserializer> _deserializers;
+    private readonly IEnumerable<IMessageConverter> _messageConverters;
     private readonly IEnumerable<IWriteStrategySelector> _strategySelectors;
     private readonly IEnumerable<IWriteStrategy> _writeStrategies;
     private readonly IConfigurationProvider _configurationProvider;
@@ -31,7 +31,7 @@ public class ExecutionContext : IExecutionContext
         IEnumerable<IPluginInitializer> plugins, 
         IEnumerable<IProcessor> processors,
         IEnumerable<ISinkHandler> handlers, 
-        IEnumerable<IDeserializer> deserializers, 
+        IEnumerable<IMessageConverter> messageConverters, 
         IEnumerable<IWriteStrategySelector> strategySelectors,
         IEnumerable<IWriteStrategy> writeStrategies,
         IConfigurationProvider configurationProvider)
@@ -39,7 +39,7 @@ public class ExecutionContext : IExecutionContext
         _plugins = plugins;
         _processors = processors;
         _handlers = handlers;
-        _deserializers = deserializers;
+        _messageConverters = messageConverters;
         _strategySelectors = strategySelectors;
         _writeStrategies = writeStrategies;
         _configurationProvider = configurationProvider;
@@ -135,7 +135,7 @@ public class ExecutionContext : IExecutionContext
             Plugins = _plugins?.Select(p => p?.GetType().Assembly.GetName().Name),
             Initializers = _plugins?.Select(p => p?.GetType().FullName),
             Processors = _processors?.Select(p => p?.GetType().FullName),
-            Deserializers = _deserializers?.Select(d => d?.GetType().FullName),
+            Deserializers = _messageConverters?.Select(d => d?.GetType().FullName),
             Handlers = _handlers?.Select(h => h?.GetType().FullName),
             Writers = new
             {

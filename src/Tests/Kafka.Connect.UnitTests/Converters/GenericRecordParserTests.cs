@@ -6,6 +6,7 @@ using System.Text.Json.Nodes;
 using Avro;
 using Avro.Generic;
 using Kafka.Connect.Converters;
+using Kafka.Connect.Converters.Generic;
 using Kafka.Connect.Plugin.Logging;
 using NSubstitute;
 using Xunit;

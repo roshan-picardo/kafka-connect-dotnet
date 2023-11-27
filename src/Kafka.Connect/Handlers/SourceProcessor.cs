@@ -7,7 +7,6 @@ using Kafka.Connect.Plugin;
 using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
-using Kafka.Connect.Serializers;
 using Serilog.Context;
 using Serilog.Core.Enrichers;
 using IConfigurationProvider = Kafka.Connect.Providers.IConfigurationProvider;
@@ -17,18 +16,15 @@ namespace Kafka.Connect.Handlers;
 public class SourceProcessor : ISourceProcessor
 {
     private readonly ILogger<SourceProcessor> _logger;
-    private readonly IMessageConverter _messageConverter;
     private readonly IConfigurationProvider _configurationProvider;
     private readonly IMessageHandler _messageHandler;
 
     public SourceProcessor(
-        ILogger<SourceProcessor> logger, 
-        IMessageConverter messageConverter,
+        ILogger<SourceProcessor> logger,
         IConfigurationProvider configurationProvider,
         IMessageHandler messageHandler)
     {
         _logger = logger;
-        _messageConverter = messageConverter;
         _configurationProvider = configurationProvider;
         _messageHandler = messageHandler;
     }
@@ -51,7 +47,7 @@ public class SourceProcessor : ISourceProcessor
                     });
                 
                 
-                await _messageConverter.Serialize(connector, record.Topic, record.Deserialized);
+                await _messageHandler.Serialize(connector, record.Topic, record.Deserialized);
             }, (record, exception) => exception.SetLogContext(batch));
            
         }
@@ -73,7 +69,7 @@ public class SourceProcessor : ISourceProcessor
                     {
                         using (LogContext.PushProperty(Constants.Offset, record.Offset))
                         {
-                            record.Deserialized = await _messageConverter.Deserialize(connector, record.Topic, record.Serialized);
+                            record.Deserialized = await _messageHandler.Deserialize(connector, record.Topic, record.Serialized);
                             var context = record.GetValue<CommandContext>();
                             if (context.Command != null && 
                                 sourceConfig.Commands.ContainsKey(context.Command.Topic ?? "") && 
@@ -136,7 +132,7 @@ public class SourceProcessor : ISourceProcessor
     {
         using (_logger.Track("Generating command message."))
         {
-            return _messageConverter.Serialize(context.Connector, context.Topic,   new ConnectMessage<JsonNode>
+            return _messageHandler.Serialize(context.Connector, context.Topic,   new ConnectMessage<JsonNode>
             {
                 Key = null,
                 Value = System.Text.Json.JsonSerializer.SerializeToNode(context)

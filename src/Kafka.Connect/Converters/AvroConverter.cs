@@ -6,36 +6,42 @@ using Avro;
 using Avro.Generic;
 using Confluent.Kafka;
 using Confluent.SchemaRegistry;
-using Kafka.Connect.Converters;
+using Kafka.Connect.Converters.Generic;
+using Kafka.Connect.Plugin.Converters;
 using Kafka.Connect.Plugin.Exceptions;
 using Kafka.Connect.Plugin.Logging;
-using Kafka.Connect.Plugin.Serializers;
 using Kafka.Connect.Utilities;
 
-namespace Kafka.Connect.Serializers;
+namespace Kafka.Connect.Converters;
 
-public class AvroSerializer : ISerializer
+public class AvroConverter : IMessageConverter
 {
-    private readonly ILogger<AvroSerializer> _logger;
+    private readonly ILogger<AvroConverter> _logger;
     private readonly IAsyncSerializer<GenericRecord> _serializer;
     private readonly IGenericRecordBuilder _genericRecordBuilder;
+    private readonly IAsyncDeserializer<GenericRecord> _deserializer;
+    private readonly IGenericRecordParser _genericRecordParser;
     private readonly ISchemaRegistryClient _schemaRegistryClient;
 
-    public AvroSerializer(
-        ILogger<AvroSerializer> logger,
+    public AvroConverter(
+        ILogger<AvroConverter> logger,
         IAsyncSerializer<GenericRecord> serializer,
         IGenericRecordBuilder genericRecordBuilder,
+        IAsyncDeserializer<GenericRecord> deserializer,
+        IGenericRecordParser genericRecordParser,
         ISchemaRegistryClient schemaRegistryClient)
     {
         _logger = logger;
         _serializer = serializer;
         _genericRecordBuilder = genericRecordBuilder;
+        _deserializer = deserializer;
+        _genericRecordParser = genericRecordParser;
         _schemaRegistryClient = schemaRegistryClient;
     }
-        
+
     public async Task<byte[]> Serialize(string topic, JsonNode data, string subject = null, IDictionary<string, byte[]> headers = null, bool isValue = true)
     {
-        using (_logger.Track("Serializing the record using avro serializer."))
+        using (_logger.Track($"Serializing the record {(isValue ? "value": "key")}."))
         {
             var context = new SerializationContext(isValue ? MessageComponentType.Value : MessageComponentType.Key,
                 topic, headers?.ToMessageHeaders());
@@ -45,6 +51,18 @@ public class AvroSerializer : ISerializer
         }
     }
 
+    public async Task<JsonNode> Deserialize(string topic, ReadOnlyMemory<byte> data, IDictionary<string, byte[]> headers, bool isValue = true)
+    {
+        using (_logger.Track($"Deserializing the record {(isValue ? "value": "key")}."))
+        {
+            var isNull = data.IsEmpty || data.Length == 0;
+            var context = new SerializationContext(isValue ? MessageComponentType.Value : MessageComponentType.Key,
+                topic, headers.ToMessageHeaders());
+            var record = await _deserializer.DeserializeAsync(data, isNull, context);
+            return _genericRecordParser.Parse(record);
+        }
+    }
+    
     private async Task<RecordSchema> GetRecordSchema(string subject)
     {
         try

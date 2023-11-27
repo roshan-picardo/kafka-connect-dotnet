@@ -38,8 +38,8 @@ public class SourceProducer : ISourceProducer
         }
     }
 
-    public async Task Produce(IProducer<byte[], byte[]> producer, string connector, int taskId, CommandContext command)
+    public Task Produce(IProducer<byte[], byte[]> producer, string connector, int taskId, CommandContext command)
     {
-        
+        return Task.CompletedTask;
     }
 }

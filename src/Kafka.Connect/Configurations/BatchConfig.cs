@@ -18,7 +18,7 @@ namespace Kafka.Connect.Configurations
         }
         
         public EofConfig EofSignal { get; init; }
-        public ConverterConfig Deserializers { get; init; }
+        public ConverterConfig Converters { get; init; }
         public ConverterConfig Serializers { get; init; }
     }
 }
