@@ -4,8 +4,7 @@ using System.Linq;
 using System.Text.Json.Nodes;
 using Avro;
 using Avro.Generic;
-using Kafka.Connect.Converters;
-using Kafka.Connect.Converters.Generic;
+using Kafka.Connect.Handlers;
 using Kafka.Connect.Plugin.Exceptions;
 using Kafka.Connect.Plugin.Logging;
 using NSubstitute;
@@ -15,11 +14,11 @@ namespace UnitTests.Kafka.Connect.Converters;
 
 public class GenericRecordBuilderTests
 {
-    private readonly GenericRecordBuilder _genericRecordBuilder;
+    private readonly GenericRecordHandler _genericRecordHandler;
 
     public GenericRecordBuilderTests()
     {
-        _genericRecordBuilder = new GenericRecordBuilder(Substitute.For<ILogger<GenericRecordBuilder>>());
+        _genericRecordHandler = new GenericRecordHandler(Substitute.For<ILogger<GenericRecordHandler>>());
     }
 
     [Theory]
@@ -41,7 +40,7 @@ public class GenericRecordBuilderTests
     {
         var json ="{\"type\":\""+ type.ToString().ToLower() +"\",\"name\":\"unit\",\"items\":\"string\",\"size\":3,\"values\":\"string\"}";
         var schema = Schema.Parse(json);
-        Assert.Throws<ConnectDataException>(() => _genericRecordBuilder.Build(schema, new JsonObject()));
+        Assert.Throws<ConnectDataException>(() => _genericRecordHandler.Build(schema, new JsonObject()));
     }
 
     [Theory]
@@ -58,7 +57,7 @@ public class GenericRecordBuilderTests
         var schema = "{\"type\":\"record\",\"name\":\"data\",\"fields\":[{\"name\":\"correlationId\",\"type\":\""+ type.ToString().ToLower() +"\"}]}";
         var recordSchema = (RecordSchema)Schema.Parse(schema);
 
-        var actual = _genericRecordBuilder.Build(recordSchema, new JsonObject { { "correlationId", JsonValue.Create((object)value) } });
+        var actual = _genericRecordHandler.Build(recordSchema, new JsonObject { { "correlationId", JsonValue.Create((object)value) } });
 
         var expected = new GenericRecord(recordSchema);
         expected.Add("correlationId", value?.ToString());
@@ -76,7 +75,7 @@ public class GenericRecordBuilderTests
         
         var recordSchema = (RecordSchema)Schema.Parse(schema);
 
-        var actual = _genericRecordBuilder.Build(recordSchema, new JsonObject { { "correlationId", "SPADES" } });
+        var actual = _genericRecordHandler.Build(recordSchema, new JsonObject { { "correlationId", "SPADES" } });
 
         var expected = new GenericRecord(recordSchema);
         expected.Add("correlationId", new GenericEnum((EnumSchema) recordSchema.Fields[0].Schema, "SPADES"));
@@ -90,7 +89,7 @@ public class GenericRecordBuilderTests
         
         var recordSchema = (RecordSchema)Schema.Parse(schema);
 
-        Assert.Throws<ArgumentException>(() => _genericRecordBuilder.Build(recordSchema, new JsonObject { { "correlationId", "NOT_IN_LIST" } }));
+        Assert.Throws<ArgumentException>(() => _genericRecordHandler.Build(recordSchema, new JsonObject { { "correlationId", "NOT_IN_LIST" } }));
     }
 
     [Theory]
@@ -108,7 +107,7 @@ public class GenericRecordBuilderTests
         
         var recordSchema = (RecordSchema)Schema.Parse(schema);
 
-        var actual = _genericRecordBuilder.Build(recordSchema,
+        var actual = _genericRecordHandler.Build(recordSchema,
             new JsonObject
                 { { "information", new JsonArray(values.Select(v =>  (JsonNode)JsonValue.Create((object)v)).ToArray()) } });
 
@@ -131,7 +130,7 @@ public class GenericRecordBuilderTests
             }
         };
 
-        var actual = _genericRecordBuilder.Build(recordSchema, token);
+        var actual = _genericRecordHandler.Build(recordSchema, token);
 
         var childRecord = new GenericRecord((recordSchema.Fields[0].Schema as ArraySchema)?.ItemSchema as RecordSchema);
         childRecord.Add("id", 1111);
@@ -148,7 +147,7 @@ public class GenericRecordBuilderTests
         var recordSchema = (RecordSchema)Schema.Parse(schema);
         var token = JsonNode.Parse("{\"information\": [ null, { \"double\": 10.5}, {\"string\":\"text\" } ]}");
 
-        var actual = _genericRecordBuilder.Build(recordSchema, token);
+        var actual = _genericRecordHandler.Build(recordSchema, token);
 
         var expected = new GenericRecord(recordSchema);
         expected.Add("information", new object[] { null, 10.5, "text" });
@@ -162,7 +161,7 @@ public class GenericRecordBuilderTests
         var recordSchema = (RecordSchema)Schema.Parse(schema);
         var token =  JsonNode.Parse("{\"information\":[[\"item\"]]}");
 
-        var actual = _genericRecordBuilder.Build(recordSchema, token);
+        var actual = _genericRecordHandler.Build(recordSchema, token);
 
         var expected = new GenericRecord(recordSchema);
         expected.Add("information", new object[] {  "item"  });
@@ -176,7 +175,7 @@ public class GenericRecordBuilderTests
         var recordSchema = (RecordSchema)Schema.Parse(schema);
         var token = JsonNode.Parse("{\"information\":[\"SPADES\",\"DIAMONDS\",\"CLUBS\"]}");
 
-        var actual = _genericRecordBuilder.Build(recordSchema, token);
+        var actual = _genericRecordHandler.Build(recordSchema, token);
 
         var expected = new GenericRecord(recordSchema);
         var enumSchema = (EnumSchema) ((ArraySchema) recordSchema.Fields[0].Schema).ItemSchema;
@@ -197,7 +196,7 @@ public class GenericRecordBuilderTests
         var recordSchema = (RecordSchema)Schema.Parse(schema);
         var token = JsonNode.Parse("{\"information\":[{\"key1\":\"item\",\"key2\":\"item\"}]}");
 
-        var actual = _genericRecordBuilder.Build(recordSchema, token);
+        var actual = _genericRecordHandler.Build(recordSchema, token);
 
         var expected = new GenericRecord(recordSchema);
         expected.Add("information", new[] {new Dictionary<string, object> {{"key1", "item"}, {"key2", "item"}}});
@@ -212,7 +211,7 @@ public class GenericRecordBuilderTests
         var recordSchema = (RecordSchema)Schema.Parse(schema);
 
         Assert.Throws<NotImplementedException>(() =>
-            _genericRecordBuilder.Build(recordSchema, new JsonObject { { "information", new JsonArray(1111, 2222) } }));
+            _genericRecordHandler.Build(recordSchema, new JsonObject { { "information", new JsonArray(1111, 2222) } }));
     }
     
     [Fact]
@@ -223,7 +222,7 @@ public class GenericRecordBuilderTests
         var recordSchema = (RecordSchema)Schema.Parse(schema);
 
         Assert.Throws<NotImplementedException>(() =>
-            _genericRecordBuilder.Build(recordSchema,
+            _genericRecordHandler.Build(recordSchema,
                 new JsonObject
                 {
                     { "information", new JsonArray { JsonValue.Create("NjFkMjFiZWY5ZTdiNGE5ODgzNmM0MWIwMmVlNDFlMWQ=") } }
@@ -253,7 +252,7 @@ public class GenericRecordBuilderTests
             jObject.Add($"Key{jObject.Count}", JsonValue.Create((object)value));
         }
         
-        var actual = _genericRecordBuilder.Build(recordSchema, new JsonObject { { "information", jObject } });
+        var actual = _genericRecordHandler.Build(recordSchema, new JsonObject { { "information", jObject } });
 
         var expected = new GenericRecord(recordSchema);
         expected.Add("information", dObject);
@@ -267,7 +266,7 @@ public class GenericRecordBuilderTests
         var recordSchema = (RecordSchema)Schema.Parse(schema);
         var token = JsonNode.Parse("{\"information\":{\"Key1\":{\"id\":1111,\"name\":\"name1\"},\"Key2\":{\"id\":2222,\"name\":\"name2\"}}}");
 
-        var actual = _genericRecordBuilder.Build(recordSchema, token);
+        var actual = _genericRecordHandler.Build(recordSchema, token);
 
         var childRecord1 = new GenericRecord((recordSchema.Fields[0].Schema as MapSchema)?.ValueSchema as RecordSchema);
         childRecord1.Add("id", 1111);
@@ -288,7 +287,7 @@ public class GenericRecordBuilderTests
         var recordSchema = (RecordSchema)Schema.Parse(schema);
         const string token = "{\"information\": { \"item1\": null, \"item2\":  \"two\" }}";
 
-        var actual = _genericRecordBuilder.Build(recordSchema,  JsonNode.Parse(token));
+        var actual = _genericRecordHandler.Build(recordSchema,  JsonNode.Parse(token));
 
         var expected = new GenericRecord(recordSchema);
         expected.Add("information", new Dictionary<string, object> { { "item1", null }, { "item2", "two" } });

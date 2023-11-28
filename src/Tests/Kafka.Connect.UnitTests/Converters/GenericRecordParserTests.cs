@@ -6,7 +6,7 @@ using System.Text.Json.Nodes;
 using Avro;
 using Avro.Generic;
 using Kafka.Connect.Converters;
-using Kafka.Connect.Converters.Generic;
+using Kafka.Connect.Handlers;
 using Kafka.Connect.Plugin.Logging;
 using NSubstitute;
 using Xunit;
@@ -15,11 +15,11 @@ namespace UnitTests.Kafka.Connect.Converters;
 
 public class GenericRecordParserTests
 {
-    private readonly GenericRecordParser _genericRecordParser;
+    private readonly GenericRecordHandler _genericRecordHandler;
 
     public GenericRecordParserTests()
     {
-        _genericRecordParser = new GenericRecordParser(Substitute.For<ILogger<GenericRecordParser>>());
+        _genericRecordHandler = new GenericRecordHandler(Substitute.For<ILogger<GenericRecordHandler>>());
     }
 
     [Theory]
@@ -37,7 +37,7 @@ public class GenericRecordParserTests
         var record = new GenericRecord(recordSchema);
         record.Add("correlationId", value);
 
-        var actual = _genericRecordParser.Parse(record);
+        var actual = _genericRecordHandler.Parse(record);
 
         var expected = new JsonObject {{"correlationId", value}};
         Assert.Equivalent(expected.ToString(), actual.ToString());
@@ -52,7 +52,7 @@ public class GenericRecordParserTests
         var enumSchema = (EnumSchema) recordSchema.Fields[0].Schema;
         record.Add("correlationId", new GenericEnum(enumSchema, "SPADES"));
 
-        var actual = _genericRecordParser.Parse(record);
+        var actual = _genericRecordHandler.Parse(record);
 
         var expected = new JsonObject {{"correlationId", "SPADES"}};
         Assert.Equal(expected.ToString(), actual.ToString());
@@ -73,7 +73,7 @@ public class GenericRecordParserTests
         var record = new GenericRecord(recordSchema);
         record.Add("correlationId", values);
 
-        var actual = _genericRecordParser.Parse(record);
+        var actual = _genericRecordHandler.Parse(record);
 
         var expected = new JsonObject {{"correlationId",  JsonValue.Create(values)}};
         Assert.Equivalent(expected.ToString(), actual.ToString());
@@ -88,7 +88,7 @@ public class GenericRecordParserTests
         var record = new GenericRecord(recordSchema);
         record.Add("correlationId", new[] {new[] {"item"}});
 
-        var actual = _genericRecordParser.Parse(record);
+        var actual = _genericRecordHandler.Parse(record);
 
         var expected = new JsonObject {{"correlationId", new JsonArray {new JsonArray {"item"}}}};
         Assert.Equal(expected.ToString(), actual.ToString());
@@ -102,7 +102,7 @@ public class GenericRecordParserTests
         var record = new GenericRecord(recordSchema);
         record.Add("correlationId", new[] {null, "abc", "xyz"});
 
-        var actual = _genericRecordParser.Parse(record);
+        var actual = _genericRecordHandler.Parse(record);
 
         var expected = new JsonObject {{"correlationId", new JsonArray {null, "abc", "xyz"}}};
         Assert.Equal(expected.ToString(), actual.ToString());
@@ -116,7 +116,7 @@ public class GenericRecordParserTests
         var record = new GenericRecord(recordSchema);
         record.Add("correlationId", new[] {new Dictionary<string, object> {{"key1", "item"}, {"key2", "item"}}});
 
-        var actual = _genericRecordParser.Parse(record);
+        var actual = _genericRecordHandler.Parse(record);
 
         var expected = new JsonObject
         {
@@ -145,7 +145,7 @@ public class GenericRecordParserTests
                 new GenericEnum(enumSchema, "CLUBS")
             });
 
-        var actual = _genericRecordParser.Parse(record);
+        var actual = _genericRecordHandler.Parse(record);
 
         var expected = new JsonObject {{"correlationId", new JsonArray {"SPADES", "DIAMONDS", "CLUBS"}}};
         Assert.Equal(expected.ToString(), actual.ToString());
@@ -166,7 +166,7 @@ public class GenericRecordParserTests
 
         record.Add("correlationId", new[] {childRecord});
 
-        var actual = _genericRecordParser.Parse(record);
+        var actual = _genericRecordHandler.Parse(record);
 
         var expected = new JsonObject
         {
@@ -193,7 +193,7 @@ public class GenericRecordParserTests
                 333333
             });
 
-        Assert.Throws<NotImplementedException>(() => _genericRecordParser.Parse(record));
+        Assert.Throws<NotImplementedException>(() => _genericRecordHandler.Parse(record));
     }
 
     [Fact]
@@ -210,7 +210,7 @@ public class GenericRecordParserTests
                 fixedRecord
             });
 
-        var actual = _genericRecordParser.Parse(record);
+        var actual = _genericRecordHandler.Parse(record);
 
         var expected = new JsonObject
         {
@@ -236,7 +236,7 @@ public class GenericRecordParserTests
         var record = new GenericRecord(recordSchema);
         record.Add("correlationId", value);
 
-        var actual = _genericRecordParser.Parse(record);
+        var actual = _genericRecordHandler.Parse(record);
 
         var expected = new JsonObject {{"correlationId", value}};
         Assert.Equal(expected.ToString(), actual.ToString());
@@ -257,7 +257,7 @@ public class GenericRecordParserTests
 
         record.Add("correlationId", childRecord);
 
-        var actual = _genericRecordParser.Parse(record);
+        var actual = _genericRecordHandler.Parse(record);
 
         var expected = new JsonObject
         {
@@ -279,7 +279,7 @@ public class GenericRecordParserTests
 
         record.Add("correlationId", new GenericEnum(enumSchema, "CLUBS"));
 
-        var actual = _genericRecordParser.Parse(record);
+        var actual = _genericRecordHandler.Parse(record);
 
         var expected = new JsonObject {{"correlationId", "CLUBS"}};
         Assert.Equal(expected.ToString(), actual.ToString());
@@ -295,7 +295,7 @@ public class GenericRecordParserTests
         var fixedRecord = new GenericFixed(fixedSchema, Encoding.UTF8.GetBytes("61d21bef9e7b4a98836c41b02ee41e1d"));
         record.Add("correlationId", fixedRecord);
 
-        var actual = _genericRecordParser.Parse(record);
+        var actual = _genericRecordHandler.Parse(record);
 
         var expected = new JsonObject()
         {
@@ -314,7 +314,7 @@ public class GenericRecordParserTests
         var record = new GenericRecord(recordSchema);
         record.Add("correlationId", new[] {"item"});
 
-        var actual = _genericRecordParser.Parse(record);
+        var actual = _genericRecordHandler.Parse(record);
 
         var expected = new JsonObject {{"correlationId", new JsonArray {"item"}}};
 
@@ -329,7 +329,7 @@ public class GenericRecordParserTests
         var record = new GenericRecord(recordSchema);
         record.Add("correlationId", new Dictionary<string, object> {{"key1", "item"}, {"key2", "item"}});
 
-        var actual = _genericRecordParser.Parse(record);
+        var actual = _genericRecordHandler.Parse(record);
 
         var expected = new JsonObject
         {
@@ -357,7 +357,7 @@ public class GenericRecordParserTests
         var record = new GenericRecord(recordSchema);
         record.Add("correlationId", new Dictionary<string, object> {{"key1", values}, {"key2", values}});
 
-        var actual = _genericRecordParser.Parse(record);
+        var actual = _genericRecordHandler.Parse(record);
 
         var expected = new JsonObject {{"correlationId", new JsonObject {{"key1", values}, {"key2", values}}}};
         Assert.Equivalent(expected.ToString(), actual.ToString());
@@ -375,7 +375,7 @@ public class GenericRecordParserTests
         childRecord.Add("secondPart", "123344");
         record.Add("correlationId", new Dictionary<string, object> {{"key1", childRecord}});
 
-        var actual = _genericRecordParser.Parse(record);
+        var actual = _genericRecordHandler.Parse(record);
 
         var expected = new JsonObject
         {
@@ -398,7 +398,7 @@ public class GenericRecordParserTests
         record.Add("correlationId",
             new Dictionary<string, object> {{"cards", new GenericEnum(enumSchema, "CLUBS")}});
 
-        var actual = _genericRecordParser.Parse(record);
+        var actual = _genericRecordHandler.Parse(record);
 
         var expected = new JsonObject {{"correlationId", new JsonObject {{"cards", "CLUBS"}}}};
         Assert.Equal(expected.ToString(), actual.ToString());
@@ -415,7 +415,7 @@ public class GenericRecordParserTests
         record.Add("correlationId", new Dictionary<string, object> {{"fixed", fixedRecord}});
 
 
-        var actual = _genericRecordParser.Parse(record);
+        var actual = _genericRecordHandler.Parse(record);
 
         var expected = new JsonObject
         {
@@ -434,7 +434,7 @@ public class GenericRecordParserTests
         var record = new GenericRecord(recordSchema);
         record.Add("correlationId", new Dictionary<string, object> {{"items", new[] {"item1", "item2"}}});
 
-        var actual = _genericRecordParser.Parse(record);
+        var actual = _genericRecordHandler.Parse(record);
 
         var expected = new JsonObject {{"correlationId", new JsonObject {{"items", new JsonArray {"item1", "item2"}}}}};
 
@@ -450,7 +450,7 @@ public class GenericRecordParserTests
         record.Add("correlationId",
             new Dictionary<string, object> {{"item1", new Dictionary<string, object> {{"item2", "value"}}}});
 
-        var actual = _genericRecordParser.Parse(record);
+        var actual = _genericRecordHandler.Parse(record);
 
         var expected = new JsonObject {{"correlationId", new JsonObject {{"item1", new JsonObject {{"item2", "value"}}}}}};
 
@@ -466,7 +466,7 @@ public class GenericRecordParserTests
         record.Add("correlationId",
             new Dictionary<string, object> {{"item1", null}, {"item2", "two"}});
 
-        var actual = _genericRecordParser.Parse(record); 
+        var actual = _genericRecordHandler.Parse(record); 
 
         var expected = new JsonObject {{"correlationId", new JsonObject {{"item1", null}, {"item2", "two"}}}};
 
@@ -482,7 +482,7 @@ public class GenericRecordParserTests
         record.Add("correlationId",
             new Dictionary<string, object> {{"item1", 111111}});
 
-        Assert.Throws<NotImplementedException>(() => _genericRecordParser.Parse(record));
+        Assert.Throws<NotImplementedException>(() => _genericRecordHandler.Parse(record));
     }
 
     [Fact]
@@ -498,7 +498,7 @@ public class GenericRecordParserTests
         record.Add("correlationId", "correlationId");
         record.Add("details", childRecord);
 
-        var actual = _genericRecordParser.Parse(record);
+        var actual = _genericRecordHandler.Parse(record);
 
         var expected = new JsonObject
         {
@@ -518,7 +518,7 @@ public class GenericRecordParserTests
         var fixedRecord = new GenericFixed(fixedSchema, Encoding.UTF8.GetBytes("61d21bef9e7b4a98836c41b02ee41e1d"));
         record.Add("correlationId", fixedRecord);
 
-        var actual = _genericRecordParser.Parse(record);
+        var actual = _genericRecordHandler.Parse(record);
 
         var expected = new JsonObject
         {
@@ -538,6 +538,6 @@ public class GenericRecordParserTests
         var record = new GenericRecord(recordSchema);
         record.Add("correlationId", 11111);
 
-        Assert.Throws<NotImplementedException>(() => _genericRecordParser.Parse(record));
+        Assert.Throws<NotImplementedException>(() => _genericRecordHandler.Parse(record));
     }
 }

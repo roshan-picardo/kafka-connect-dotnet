@@ -3,8 +3,7 @@ using Avro.Generic;
 using Confluent.Kafka;
 using Confluent.SchemaRegistry;
 using Confluent.SchemaRegistry.Serdes;
-using Kafka.Connect.Converters;
-using Kafka.Connect.Converters.Generic;
+using Kafka.Connect.Handlers;
 using Kafka.Connect.Plugin.Logging;
 using NSubstitute;
 
@@ -16,7 +15,7 @@ public class Fixture : IDisposable
     private IProducer<string, GenericRecord> _keyStringProducer;
     private IProducer<GenericRecord, GenericRecord> _keyGenericProducer;
     //private readonly TargetHelperProvider _targetHelperProvider;
-    private readonly GenericRecordBuilder _genericRecordBuilder;
+    private readonly GenericRecordHandler _genericRecordHandler;
 
     private readonly InitConfig _settings; 
 
@@ -53,7 +52,7 @@ public class Fixture : IDisposable
             .SetValueSerializer(new AvroSerializer<GenericRecord>(schemaRegistry, avroSerializerConfig))
             .Build();
         //_targetHelperProvider = new TargetHelperProvider(_settings);
-        _genericRecordBuilder = new GenericRecordBuilder(Substitute.For<ILogger<GenericRecordBuilder>>());
+        _genericRecordHandler = new GenericRecordHandler(Substitute.For<ILogger<GenericRecordHandler>>());
     }
 
     // public Task Setup(Sink sink)
@@ -76,7 +75,7 @@ public class Fixture : IDisposable
         foreach (var message in messages)
         {
             var schemaValue = (RecordSchema) Avro.Schema.Parse(schema.Value?.ToJsonString());
-            var genericRecord = _genericRecordBuilder.Build(schemaValue, message.Value);
+            var genericRecord = _genericRecordHandler.Build(schemaValue, message.Value);
 
             TopicPartitionOffset delivered;
             if (schema.Key == null)
@@ -95,7 +94,7 @@ public class Fixture : IDisposable
             else
             {
                 var schemaKey = (RecordSchema) Avro.Schema.Parse(schema.Key?.ToString());
-                var keyRecord = _genericRecordBuilder.Build(schemaKey, message.Key);
+                var keyRecord = _genericRecordHandler.Build(schemaKey, message.Key);
                 delivered = (await _keyGenericProducer.ProduceAsync(topic,
                         new Message<GenericRecord, GenericRecord>
                             {Key = keyRecord, Value = genericRecord}))
