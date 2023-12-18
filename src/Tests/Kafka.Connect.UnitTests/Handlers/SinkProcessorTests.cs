@@ -49,7 +49,7 @@ namespace UnitTests.Kafka.Connect.Handlers
             await _sinkProcessor.Process(batch, "connector");
 
             await _messageHandler.DidNotReceive().Deserialize(Arg.Any<string>(), Arg.Any<string>(),Arg.Any<ConnectMessage<byte[]>>());
-            await _messageHandler.DidNotReceive().Process(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<ConnectMessage<IDictionary<string, object>>>());
+            await _messageHandler.DidNotReceive().Process(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<ConnectMessage<JsonNode>>());
         }
 
         [Fact]
@@ -61,13 +61,12 @@ namespace UnitTests.Kafka.Connect.Handlers
             var value = new JsonObject{{"valueData", new JsonObject()}};
             var data = new ConnectMessage<JsonNode>
             {
-                Skip = true,
                 Key = key,
                 Value = value
             };
 
             _messageHandler.Deserialize(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<ConnectMessage<byte[]>>()).Returns(new ConnectMessage<JsonNode> { Key = key, Value = value});
-            _messageHandler.Process(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<ConnectMessage<IDictionary<string, object>>>()).Returns(data);
+            _messageHandler.Process(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<ConnectMessage<JsonNode>>()).Returns((true, data));
             _configurationProvider.GetBatchConfig(Arg.Any<string>()).Returns(new BatchConfig {Parallelism = 1});
 
             await _sinkProcessor.Process(batch, "connector");
@@ -76,7 +75,7 @@ namespace UnitTests.Kafka.Connect.Handlers
             Assert.Equal(data, record.Deserialized);
             Assert.Equal(SinkStatus.Processed, record.Status);
             await _messageHandler.Received().Deserialize(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<ConnectMessage<byte[]>>());
-            await _messageHandler.Received().Process(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<ConnectMessage<IDictionary<string, object>>>());
+            await _messageHandler.Received().Process(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<ConnectMessage<JsonNode>>());
         }
 
         [Fact]
@@ -95,7 +94,7 @@ namespace UnitTests.Kafka.Connect.Handlers
             Assert.Equal(record.Partition, ce.Partition);
             Assert.Equal(record.Offset, ce.Offset);
             await _messageHandler.Received().Deserialize(Arg.Any<string>(), Arg.Any<string>(),Arg.Any<ConnectMessage<byte[]>>());
-            await _messageHandler.DidNotReceive().Process(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<ConnectMessage<IDictionary<string, object>>>());
+            await _messageHandler.DidNotReceive().Process(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<ConnectMessage<JsonNode>>());
         }
         
         [Fact]
@@ -107,7 +106,7 @@ namespace UnitTests.Kafka.Connect.Handlers
             _configurationProvider.GetBatchConfig(Arg.Any<string>()).Returns(new BatchConfig {Parallelism = 1});
             _messageHandler.Deserialize(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<ConnectMessage<byte[]>>())
                 .Returns(new ConnectMessage<JsonNode>());
-            _messageHandler.Process(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<ConnectMessage<IDictionary<string, object>>>()).Throws(ce);
+            _messageHandler.Process(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<ConnectMessage<JsonNode>>()).Throws(ce);
             
             await Assert.ThrowsAsync<ConnectAggregateException>(()=> _sinkProcessor.Process(batch, "connector"));
             
@@ -116,7 +115,7 @@ namespace UnitTests.Kafka.Connect.Handlers
             Assert.Equal(record.Partition, ce.Partition);
             Assert.Equal(record.Offset, ce.Offset);
             await _messageHandler.Received().Deserialize(Arg.Any<string>(), Arg.Any<string>(),Arg.Any<ConnectMessage<byte[]>>());
-            await _messageHandler.Received().Process(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<ConnectMessage<IDictionary<string, object>>>());
+            await _messageHandler.Received().Process(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<ConnectMessage<JsonNode>>());
         }
         
         [Theory]

@@ -54,8 +54,8 @@ public class BlacklistFieldProjectorTests
                 Value = flattened
             });
         Assert.False(actual.Skip);
-        Assert.Equal(keys.Length - removed.Length, actual.Value.Count);
-        Assert.All(flattened.Keys.Except(removed), key => Assert.True(actual.Value.ContainsKey(key)));
-        Assert.All(removed, key => Assert.False(actual.Value.ContainsKey(key)));
+        Assert.Equal(keys.Length - removed.Length, actual.Flattened.Value.Count);
+        Assert.All(flattened.Keys.Except(removed), key => Assert.True(actual.Flattened.Value.ContainsKey(key)));
+        Assert.All(removed, key => Assert.False(actual.Flattened.Value.ContainsKey(key)));
     }
 }

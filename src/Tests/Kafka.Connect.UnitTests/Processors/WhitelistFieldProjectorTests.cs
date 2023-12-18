@@ -51,9 +51,9 @@ public class WhitelistFieldProjectorTests
                 Value = flattened,
             });
         Assert.False(actual.Skip);
-        Assert.Equal(stays.Length, actual.Value.Count);
-        Assert.All(stays, key => Assert.True(actual.Value.ContainsKey(key)));
-        Assert.All(flattened.Keys.Except(stays), key => Assert.False(actual.Value.ContainsKey(key)));
+        Assert.Equal(stays.Length, actual.Flattened.Value.Count);
+        Assert.All(stays, key => Assert.True(actual.Flattened.Value.ContainsKey(key)));
+        Assert.All(flattened.Keys.Except(stays), key => Assert.False(actual.Flattened.Value.ContainsKey(key)));
     }
 
 }

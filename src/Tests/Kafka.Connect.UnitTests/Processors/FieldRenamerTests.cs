@@ -51,8 +51,8 @@ public class FieldRenamerTests
                     new ConnectMessage<IDictionary<string, object>>()
                         { Key = new Dictionary<string, object>(), Value = flattened });
             Assert.False(actual.Skip);
-            Assert.Equal(actual.Value.Count, expected.Length);
-            foreach (var (key, _) in actual.Value)
+            Assert.Equal(actual.Flattened.Value.Count, expected.Length);
+            foreach (var (key, _) in actual.Flattened.Value)
             {
                 Assert.Contains(key, expected.Select(x => x.Split(':')[0]));
             }
