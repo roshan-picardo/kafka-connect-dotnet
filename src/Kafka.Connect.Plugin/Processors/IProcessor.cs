@@ -6,5 +6,5 @@ namespace Kafka.Connect.Plugin.Processors;
 
 public interface IProcessor
 {
-    Task<ConnectMessage<IDictionary<string, object>>> Apply(string connector, ConnectMessage<IDictionary<string, object>> message);
+    Task<(bool Skip, ConnectMessage<IDictionary<string, object>> Flattened)> Apply(string connector, ConnectMessage<IDictionary<string, object>> message);
 }

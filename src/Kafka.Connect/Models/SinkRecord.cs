@@ -1,15 +1,13 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using Confluent.Kafka;
-using Kafka.Connect.Plugin;
 using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Utilities;
 
 namespace Kafka.Connect.Models;
 
-public class SinkRecord : Plugin.Models.ConnectRecord
+public class SinkRecord : ConnectRecord
 {
     public SinkRecord(ConsumeResult<byte[], byte[]> consumed) :
         base(consumed.Topic, consumed.Partition, consumed.Offset)

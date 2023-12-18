@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Kafka.Connect.Plugin;
@@ -46,16 +45,9 @@ public class SinkProcessor : ISinkProcessor
                             using (LogContext.PushProperty(Constants.Offset, record.Offset))
                             {
                                 record.Status = SinkStatus.Processing;
-                                record.Deserialized = await _messageHandler.Deserialize(connector, record.Topic, record.Serialized);
-                                _logger.Document(record.Deserialized);
-                                record.Deserialized = await _messageHandler.Process(connector, record.Topic,
-                                    new ConnectMessage<IDictionary<string, object>>
-                                    {
-                                        Skip = false,
-                                        Key = record.Deserialized.Key?.ToDictionary(),
-                                        Value = record.Deserialized.Value?.ToDictionary()
-                                    });
-                                record.Skip = record.Deserialized.Skip;
+                                var deserialized = await _messageHandler.Deserialize(connector, record.Topic, record.Serialized);
+                                _logger.Document(deserialized);
+                                (record.Skip, record.Deserialized) = await _messageHandler.Process(connector, record.Topic, deserialized);
                                 record.Status = SinkStatus.Processed;
                             }
                         }, (record, exception) => exception.SetLogContext(record),

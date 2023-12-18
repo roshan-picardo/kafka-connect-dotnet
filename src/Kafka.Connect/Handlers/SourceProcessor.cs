@@ -39,14 +39,7 @@ public class SourceProcessor : ISourceProcessor
             await batch.ForEachAsync(async record =>
             {
                 record.Status = SinkStatus.Processing;
-                record.Deserialized = await _messageHandler.Process(connector, record.Topic,
-                    new ConnectMessage<IDictionary<string, object>>
-                    {
-                        Key = record.Deserialized.Key?.ToDictionary(),
-                        Value = record.Deserialized.Value?.ToDictionary()
-                    });
-                
-                
+                (record.Skip, record.Deserialized) = await _messageHandler.Process(connector, record.Topic, record.Deserialized);
                 await _messageHandler.Serialize(connector, record.Topic, record.Deserialized);
             }, (record, exception) => exception.SetLogContext(batch));
            

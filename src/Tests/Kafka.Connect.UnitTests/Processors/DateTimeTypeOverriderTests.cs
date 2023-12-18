@@ -56,7 +56,7 @@ public class DateTimeTypeOverriderTests
             });
         Assert.False(actual.Skip);
 
-        foreach (var (key, value) in actual.Value)
+        foreach (var (key, value) in actual.Flattened.Value)
         {
             if (expected.Select(x => x.Split(':')[0]).Contains(key))
             {
