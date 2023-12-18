@@ -6,7 +6,7 @@ using Avro;
 using Avro.Generic;
 using Confluent.Kafka;
 using Confluent.SchemaRegistry;
-using Kafka.Connect.Converters.Generic;
+using Kafka.Connect.Handlers;
 using Kafka.Connect.Plugin.Converters;
 using Kafka.Connect.Plugin.Exceptions;
 using Kafka.Connect.Plugin.Logging;
@@ -18,24 +18,21 @@ public class AvroConverter : IMessageConverter
 {
     private readonly ILogger<AvroConverter> _logger;
     private readonly IAsyncSerializer<GenericRecord> _serializer;
-    private readonly IGenericRecordBuilder _genericRecordBuilder;
+    private readonly IGenericRecordHandler _genericRecordHandler;
     private readonly IAsyncDeserializer<GenericRecord> _deserializer;
-    private readonly IGenericRecordParser _genericRecordParser;
     private readonly ISchemaRegistryClient _schemaRegistryClient;
 
     public AvroConverter(
         ILogger<AvroConverter> logger,
         IAsyncSerializer<GenericRecord> serializer,
-        IGenericRecordBuilder genericRecordBuilder,
+        IGenericRecordHandler genericRecordHandler,
         IAsyncDeserializer<GenericRecord> deserializer,
-        IGenericRecordParser genericRecordParser,
         ISchemaRegistryClient schemaRegistryClient)
     {
         _logger = logger;
         _serializer = serializer;
-        _genericRecordBuilder = genericRecordBuilder;
+        _genericRecordHandler = genericRecordHandler;
         _deserializer = deserializer;
-        _genericRecordParser = genericRecordParser;
         _schemaRegistryClient = schemaRegistryClient;
     }
 
@@ -46,7 +43,7 @@ public class AvroConverter : IMessageConverter
             var context = new SerializationContext(isValue ? MessageComponentType.Value : MessageComponentType.Key,
                 topic, headers?.ToMessageHeaders());
             var serialized = await _serializer.SerializeAsync(
-                _genericRecordBuilder.Build(await GetRecordSchema(subject), data), context);
+                _genericRecordHandler.Build(await GetRecordSchema(subject), data), context);
             return serialized;
         }
     }
@@ -59,7 +56,7 @@ public class AvroConverter : IMessageConverter
             var context = new SerializationContext(isValue ? MessageComponentType.Value : MessageComponentType.Key,
                 topic, headers.ToMessageHeaders());
             var record = await _deserializer.DeserializeAsync(data, isNull, context);
-            return _genericRecordParser.Parse(record);
+            return _genericRecordHandler.Parse(record);
         }
     }
     
