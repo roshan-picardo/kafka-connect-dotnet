@@ -43,12 +43,6 @@ public abstract class SinkHandler<TModel> : ISinkHandler
                     {
                         using (LogContext.Push(new PropertyEnricher("offset", record.Offset)))
                         {
-                            if (record.IsSaved)
-                            {
-                                _logger.Debug("Record already saved to mongodb.");
-                                return;
-                            }
-
                             var sinkRecord = new ConnectRecord<TModel>(record);
 
                             if (!record.Skip)

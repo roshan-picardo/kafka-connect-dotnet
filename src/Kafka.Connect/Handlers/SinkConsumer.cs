@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Confluent.Kafka;
 using Kafka.Connect.Builders;
 using Kafka.Connect.Connectors;
+using Kafka.Connect.Models;
 using Kafka.Connect.Plugin.Exceptions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
@@ -80,6 +81,11 @@ namespace Kafka.Connect.Handlers
 
                 return batch;
             }
+        }
+
+        public void Commit(IConsumer<byte[], byte[]> consumer, CommandContext commandContext)
+        {
+            consumer.Commit(new[] { new TopicPartitionOffset(commandContext.Topic, commandContext.Partition, commandContext.Offset + 1) });
         }
 
         private async Task<ConnectRecordBatch> ConsumeInternal(IConsumer<byte[], byte[]> consumer, string connector, int taskId, bool consumeAll)

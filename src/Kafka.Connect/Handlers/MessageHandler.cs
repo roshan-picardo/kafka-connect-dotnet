@@ -70,15 +70,17 @@ public class MessageHandler : IMessageHandler
         using (_logger.Track("Serializing the message."))
         {
             var converterConfig = _configurationProvider.GetMessageConverters(connector, topic);
-            var schemaSubject = Enum.Parse<SubjectNameStrategy>(converterConfig.Subject).ToDelegate()(
+            var keySchemaSubject = Enum.Parse<SubjectNameStrategy>(converterConfig.Subject).ToDelegate()(
                 new SerializationContext(MessageComponentType.Key, topic), converterConfig.Record);
+            var valueSchemaSubject = Enum.Parse<SubjectNameStrategy>(converterConfig.Subject).ToDelegate()(
+                new SerializationContext(MessageComponentType.Value, topic), converterConfig.Record);
 
             return new ConnectMessage<byte[]>
             {
                 Key = await _processorServiceProvider.GetMessageConverter(converterConfig.Key)
-                    .Serialize(topic, message.Key, schemaSubject),
+                    .Serialize(topic, message.Key, keySchemaSubject),
                 Value = await _processorServiceProvider.GetMessageConverter(converterConfig.Value)
-                    .Serialize(topic, message.Value, schemaSubject)
+                    .Serialize(topic, message.Value, valueSchemaSubject)
             };
         }
     }

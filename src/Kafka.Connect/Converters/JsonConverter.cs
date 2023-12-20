@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Kafka.Connect.Plugin.Converters;
@@ -22,7 +23,7 @@ public class JsonConverter : IMessageConverter
     {
         using (_logger.Track($"Serializing the record {(isValue ? "value" : "key")}."))
         {
-            return Task.FromResult(data.GetValue<byte[]>());
+            return Task.FromResult(JsonSerializer.SerializeToUtf8Bytes(data));
         }
     }
 
