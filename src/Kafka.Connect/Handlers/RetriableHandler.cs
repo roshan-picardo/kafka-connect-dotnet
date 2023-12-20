@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Threading.Tasks;
 using Confluent.Kafka;
 using Kafka.Connect.Configurations;
@@ -31,7 +32,14 @@ namespace Kafka.Connect.Handlers
             return consumedBatch;
         }
 
-
+        public Task Retry(Expression<Func<ConnectRecordBatch, string, Task>> handler)
+        {
+            var batch = handler.Parameters[0];
+            var action = handler.Compile();
+            var parameters = action.Method.GetParameters();
+            return Task.CompletedTask;
+        }
+        
         public async Task<ConnectRecordBatch> Retry(Func<ConnectRecordBatch, Task<ConnectRecordBatch>> handler, ConnectRecordBatch batch, string connector)
         {
             batch.Started();

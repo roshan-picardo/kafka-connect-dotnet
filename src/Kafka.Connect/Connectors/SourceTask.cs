@@ -27,6 +27,7 @@ public class SourceTask : ISourceTask
     private readonly ISourceHandler _sourceHandler;
     private readonly ISinkConsumer _sinkConsumer;
     private readonly ISourceProcessor _sourceProcessor;
+    private readonly IRetriableHandler _retriableHandler;
     private readonly ITokenHandler _tokenHandler;
     private IProducer<byte[], byte[]> _producer;
     private IConsumer<byte[], byte[]> _consumer;
@@ -40,6 +41,7 @@ public class SourceTask : ISourceTask
         ISourceHandler sourceHandler,
         ISinkConsumer sinkConsumer,
         ISourceProcessor sourceProcessor,
+        IRetriableHandler retriableHandler,
         ITokenHandler tokenHandler)
     {
         _logger = logger;
@@ -49,6 +51,7 @@ public class SourceTask : ISourceTask
         _sourceHandler = sourceHandler;
         _sinkConsumer = sinkConsumer;
         _sourceProcessor = sourceProcessor;
+        _retriableHandler = retriableHandler;
         _tokenHandler = tokenHandler;
         _pauseTokenSource = PauseTokenSource.New();
     }
@@ -102,54 +105,50 @@ public class SourceTask : ISourceTask
                 {
                     try
                     {
+                        
+                        //TODO: Not a working component as yet
                         var triggerBatch = await _sinkConsumer.Consume(_consumer, connector, taskId, true);
 
-                        var commandContexts = await _sourceProcessor.Process(triggerBatch, connector);
+                        var commandContexts = await _sourceProcessor.Commands(triggerBatch, connector);
                         var batches = new Dictionary<string, ConnectRecordBatch>();
                         await commandContexts.ForEachAsync(async command =>
                         {
-                            var batch = new ConnectRecordBatch(connector);
-                            batches.Add(command.Topic, batch);
-                            batch.Add(new SourceRecord("", new JsonArray(), new JsonArray()));
-                            //query database and add result to batch
-                            // process the records
-                            // serialize the records
-                            // produce messages to command.topic
-
-
-                            // note the last successful timestamp
-                            // create new command context and publish tracking message - this should be produced to the exact partition
-                            // commit the command.offset
-
-
-                            var message = await _sourceProcessor.GetCommandMessage(command);
+                            // Run this in retriable..
+                            // Should have read strategies - those understand the config and query the database
+                            // Read strategies should also be able to create next at the end of processing.
                             
-                             var delivered = await _producer.ProduceAsync(
-                                 new TopicPartition(command.Topic, command.Partition),
-                                 new Message<byte[], byte[]> { Key = message.Key, Value = message.Value});
-                            _consumer.Commit(new[]
-                                { new TopicPartitionOffset(command.Topic, command.Partition, command.Offset + 1) });
+                            // Challenges - What if the boundary records have same condition - must have a mechanism to continue reading until next value? 
+                            // what if same same condition value at boundary one fails but other succeeds..
+                            var batch = await _sourceHandler.Get(connector, taskId);
+                            batches.Add(command.Topic, batch);
+                            // Process and Produce must go within retriable 
+
+                            await _retriableHandler.Retry((b, c) => ProcessAndProduce(b, c, 10));
+                            
+                            var bbb = await _retriableHandler.Retry(b => ProcessAndProduce(b, connector, taskId), batch, connector);
+                            
+                            await _sourceProcessor.Process(batch, connector);
+                            await _sourceProducer.Produce(_producer, connector, taskId, batch);
+                            
+                            // Get the last produced record and calculate next; must be done within 
+                            await _sourceProducer.Produce(_producer, command);
+                            _sinkConsumer.Commit(_consumer, command);
                         }, (context, exception) => exception.SetLogContext(batches[context.Topic]));
                     }
                     catch (Exception ex)
                     {
                         _logger.Critical("FAILED", ex);
                     }
-                    finally
-                    {
-                        // if (!cts.IsCancellationRequested)
-                        // {
-                        //     await CommitAndLog(batch, connector, taskId);
-                        // }
-                        
-                    }
                 }
             }
-
-            //if(cts.IsCancellationRequested) continue;
-            // do the retries!!
         }
-
         IsStopped = true;
+    }
+
+    private async Task<ConnectRecordBatch> ProcessAndProduce(ConnectRecordBatch batch, string connector, int taskId)
+    {
+        await _sourceProcessor.Process(batch, connector);
+        await _sourceProducer.Produce(_producer, connector, taskId, batch);
+        return batch;
     }
 }

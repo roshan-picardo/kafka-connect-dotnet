@@ -29,24 +29,23 @@ public class SourceProcessor : ISourceProcessor
         _messageHandler = messageHandler;
     }
 
-    public async Task Process(ConnectRecordBatch batch, CommandContext command, string connector)
+    public async Task Process(ConnectRecordBatch batch, string connector)
     {
-        using (_logger.Track("Processing the source batch."))
+        using (_logger.Track("Processing the batch."))
         {
-            var sourceConfig = _configurationProvider.GetSourceConfig(connector);
             batch ??= new ConnectRecordBatch(connector);
-
             await batch.ForEachAsync(async record =>
             {
                 record.Status = SinkStatus.Processing;
+                _logger.Document(record.Deserialized);
                 (record.Skip, record.Deserialized) = await _messageHandler.Process(connector, record.Topic, record.Deserialized);
-                await _messageHandler.Serialize(connector, record.Topic, record.Deserialized);
-            }, (record, exception) => exception.SetLogContext(batch));
-           
+                record.Serialized = await _messageHandler.Serialize(connector, record.Topic, record.Deserialized);
+                record.Status = SinkStatus.Processed;
+            }, (record, exception) => exception.SetLogContext(record));
         }
     }
     
-    public async Task<IList<CommandContext>> Process(ConnectRecordBatch batch, string connector)
+    public async Task<IList<CommandContext>> Commands(ConnectRecordBatch batch, string connector)
     {
         using (_logger.Track("Processing the command batch."))
         {
@@ -125,7 +124,7 @@ public class SourceProcessor : ISourceProcessor
     {
         using (_logger.Track("Generating command message."))
         {
-            return _messageHandler.Serialize(context.Connector, context.Topic,   new ConnectMessage<JsonNode>
+            return _messageHandler.Serialize(context.Connector, context.Topic, new ConnectMessage<JsonNode>
             {
                 Key = null,
                 Value = System.Text.Json.JsonSerializer.SerializeToNode(context)

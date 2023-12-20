@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 
 namespace Kafka.Connect.Plugin.Models;
@@ -31,40 +32,12 @@ public class ConnectRecord
     public bool Skip { get; set; } 
         
     public bool CanCommitOffset { get; set; }
-        
-    private SinkStatus _status;
 
-    public SinkStatus Status
-    {
-        get => _status;
-        set
-        {
-            switch (value)
-            {
-                case SinkStatus.Processed:
-                    IsProcessed = true;
-                    break;
-                case SinkStatus.Enriched:
-                case SinkStatus.Excluded:
-                    IsEnriched = true;
-                    break;
-                case SinkStatus.Published:
-                    IsPublished = true;
-                    break;
-                case SinkStatus.Updated:
-                case SinkStatus.Deleted:
-                case SinkStatus.Inserted:
-                case SinkStatus.Skipped:
-                    IsSaved = true;
-                    break;
-            }
-            _status = value;
-        }
-    }
+    public SinkStatus Status { get; set; }
 
-    public T GetKey<T>() => Deserialized.Key.GetValue<T>();
+    public T GetKey<T>() => Deserialized.Key.Deserialize<T>();
 
-    public T GetValue<T>() => Deserialized.Value.GetValue<T>();
+    public T GetValue<T>() => Deserialized.Value.Deserialize<T>();
 
     public void UpdateStatus(bool failed = false)
     {
@@ -81,11 +54,6 @@ public class ConnectRecord
         };
     }
 
-    public bool IsProcessed { get; private set; }
-    public bool IsSaved { get; private set; }
-    public bool IsEnriched { get; private set; }
-    public bool IsPublished { get; private set; }
-        
     public bool IsOperationCompleted { get; set; }
 
     protected void StartTiming(long? millis = null)
