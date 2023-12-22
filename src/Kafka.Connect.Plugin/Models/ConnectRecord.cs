@@ -29,8 +29,20 @@ public class ConnectRecord
     public long Offset { get; }
 
     // indicate the record to stop processing
-    public bool Skip { get; set; } 
-        
+    public bool Skip { get; set; }
+
+    public bool IsCommitReady(bool tolerated) => Status switch
+    {
+        SinkStatus.Inserted => true,
+        SinkStatus.Deleted => true,
+        SinkStatus.Updated => true,
+        SinkStatus.Skipped => true,
+        SinkStatus.Excluded => true,
+        SinkStatus.Published => true,
+        SinkStatus.Failed => tolerated,
+        _ => false
+    };
+
     public bool CanCommitOffset { get; set; }
 
     public SinkStatus Status { get; set; }
@@ -43,6 +55,7 @@ public class ConnectRecord
     {
         Status = Status switch
         {
+            SinkStatus.Processing => failed ? SinkStatus.Failed : SinkStatus.Processed,
             SinkStatus.Updating => failed ? SinkStatus.Failed : SinkStatus.Updated,
             SinkStatus.Skipping => failed ? SinkStatus.Failed : SinkStatus.Skipped,
             SinkStatus.Inserting => failed ? SinkStatus.Failed : SinkStatus.Inserted,
@@ -74,4 +87,6 @@ public class ConnectRecord
             Batch = new { Size = batchSize, Total = _logTimestamp.Batch }
         };
     }
+
+    public Exception Exception { get; set; }
 }

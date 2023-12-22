@@ -12,6 +12,8 @@ namespace Kafka.Connect.Handlers
         void Handle(Exception exception, Action cancelToken);
 
         Task HandleDeadLetter(ConnectRecordBatch batch, Exception exception, string connector);
+        
+        Task HandleDeadLetter(IList<SinkRecord> batch, Exception exception, string connector);
 
         void LogRetryException(ConnectException connectException, int attempts);
     }

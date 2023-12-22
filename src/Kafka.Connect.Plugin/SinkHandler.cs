@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Kafka.Connect.Plugin.Exceptions;
@@ -28,6 +29,47 @@ public abstract class SinkHandler<TModel> : ISinkHandler
         _configurationProvider = configurationProvider;
     }
 
+    public async Task<ConnectRecordModel> BuildModels(ConnectRecord record, string connector)
+    {
+        var sinkRecord = new ConnectRecord<TModel>(record);
+        if (!record.Skip)
+        {
+            var strategy = _writeStrategyProvider.GetWriteStrategy(connector, record);
+            if (strategy == null)
+            {
+                sinkRecord.Status = SinkStatus.Failed;
+                // lets throw retriable as some of the messages might pass on last attempt
+                throw new ConnectRetriableException("Local_WriteStrategy",
+                        new NullReferenceException(
+                            "Failed to load the Write Model Strategy. Check if the strategy is registered and configured for this record."))
+                    .SetLogContext(record);
+            }
+
+            (sinkRecord.Status, sinkRecord.Models) = await strategy.BuildModels<TModel>(connector, record);
+            _logger.Trace("Write Models created successfully", new { Strategy = strategy.GetType().FullName });
+        }
+        else
+        {
+            sinkRecord.Status = SinkStatus.Skipping;
+        }
+
+        _logger.Trace(
+            sinkRecord.Ready
+                ? "Write models created successfully."
+                : "Sink record marked for skipping.",
+            new
+            {
+                Models = sinkRecord.Ready ? sinkRecord.Models.Count() : 0, sinkRecord.Status
+            });
+        
+        return sinkRecord;
+    }
+
+    public Task Put(BlockingCollection<ConnectRecordModel> models, string connector, int taskId) =>
+        Put(models.Select(m => m as ConnectRecord<TModel>), connector, taskId);
+
+    protected abstract Task Put(IEnumerable<ConnectRecord<TModel>> models, string connector, int taskId);
+    
     public async Task<ConnectRecordBatch> Put(ConnectRecordBatch batches, string connector, int taskId, int parallelism = 100)
     {
         using (_logger.Track("Invoking Put"))

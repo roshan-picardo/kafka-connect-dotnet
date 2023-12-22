@@ -19,9 +19,11 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 using Kafka.Connect.Configurations;
+using Kafka.Connect.Models;
 using Kafka.Connect.Plugin;
 using Kafka.Connect.Plugin.Converters;
 using Kafka.Connect.Plugin.Logging;
+using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Plugin.Providers;
 using Kafka.Connect.Plugin.Strategies;
 using Kafka.Connect.Strategies;
@@ -37,6 +39,7 @@ namespace Kafka.Connect.Utilities
             services
                 .AddScoped(typeof(ILogger<>), typeof(Logger<>))
                 .AddScoped<IConnector, Connector>()
+                .AddScoped<IConnectRecordCollection, ConnectRecordCollection>()
                 .AddScoped<ISinkTask, SinkTask>()
                 .AddScoped<ISourceTask, SourceTask>()
                 .AddScoped<IKafkaClientBuilder, KafkaClientBuilder>()

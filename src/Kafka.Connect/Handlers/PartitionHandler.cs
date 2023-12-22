@@ -53,6 +53,103 @@ namespace Kafka.Connect.Handlers
             }
         }
 
+        public void Commit(IConsumer<byte[], byte[]> consumer, IList<(string Topic, int Partition, long Offset)> offsets)
+        {
+            using (_logger.Track("Committing offsets."))
+            {
+                if (!offsets.Any())
+                {
+                    return;
+                }
+
+                var (enableAutoCommit, enableAutoOffsetStore) = _configurationProvider.GetAutoCommitConfig();
+
+                var maxOffsets = GetMaxOffsets(offsets);
+
+                if (!enableAutoCommit)
+                {
+                    consumer.Commit(maxOffsets);
+                }
+                else if (!enableAutoOffsetStore)
+                {
+                    maxOffsets.ForEach(consumer.StoreOffset);
+                }
+            }
+        }
+
+        public async Task NotifyEndOfPartition(
+            IConsumer<byte[], byte[]> consumer,
+            string connector,
+            int taskId,
+            IList<(string Topic, int Partition, long Offset)> eofPartitions,
+            IList<(string Topic, int Partition, long Offset)> commitReadyOffsets)
+        {
+            using (_logger.Track("Notify end of the partition."))
+            {
+                Task<DeliveryResult<byte[], byte[]>> Produce(
+                    IProducer<byte[], byte[]> producer,
+                    string topic,
+                    Message<byte[], byte[]> message)
+                {
+                    using (_logger.Track("Producing EOF notification message."))
+                    {
+                        return producer.ProduceAsync(topic, message);
+                    }
+                }
+
+                var eofSignal = _configurationProvider.GetEofSignalConfig(connector) ?? new EofConfig();
+                if (eofSignal.Enabled && !string.IsNullOrWhiteSpace(eofSignal.Topic))
+                {
+                    if (!eofPartitions.Any())
+                    {
+                        return;
+                    }
+
+                    foreach (var commitReadyOffset in GetMaxOffsets(commitReadyOffsets))
+                    {
+                        var eofPartition = eofPartitions.SingleOrDefault(o =>
+                            o.Topic == commitReadyOffset.Topic &&
+                            o.Partition == commitReadyOffset.Partition.Value &&
+                            o.Offset == commitReadyOffset.Offset.Value);
+                        if (eofPartition == default) continue;
+                        using (LogContext.Push(new PropertyEnricher("Topic", eofPartition.Topic),
+                                   new PropertyEnricher("Partition", eofPartition.Partition)))
+                        {
+                            using var producer = _kafkaClientBuilder.GetProducer(connector);
+                            {
+                                if (producer == null)
+                                {
+                                    _logger.Warning("No producer configured to publish EOF message.");
+                                    continue;
+                                }
+
+                                var message = new Message<byte[], byte[]>
+                                {
+                                    Key = ByteConvert.Serialize(Guid.NewGuid()),
+                                    Value = ByteConvert.Serialize(new EndOfPartitionMessage
+                                    {
+                                        Connector = connector,
+                                        TaskId = taskId,
+                                        Topic = eofPartition.Topic,
+                                        Partition = eofPartition.Partition,
+                                        Offset = eofPartition.Offset
+                                    })
+                                };
+
+                                var delivered = await Produce(producer, eofSignal.Topic, message);
+                                _logger.Info("EOF message delivered.", new
+                                {
+                                    delivered.Topic,
+                                    Partition = delivered.Partition.Value,
+                                    Offset = delivered.Offset.Value
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         public async Task NotifyEndOfPartition(ConnectRecordBatch batch, string connector, int taskId)
         {
             if(batch == null || !batch.Any()) return;

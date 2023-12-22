@@ -2,13 +2,30 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Kafka.Connect.Plugin.Exceptions;
 
 namespace Kafka.Connect.Plugin.Extensions
 {
-    public static class ForEachExtensions
+    public static class ParallelEx
     {
+
+        public static async Task ForEachAsync<T>(IEnumerable<T> source, ParallelOptions parallelOptions, Func<T, Task> body)
+        {
+            await Parallel.ForEachAsync(source, parallelOptions, async (s, _) =>
+            {
+                try
+                {
+                    await body(s);
+                }
+                catch (Exception ex)
+                {
+                    
+                }
+            });
+        }
+
         public static async Task ForEachAsync<T>(
             this IEnumerable<T> source, Func<T, Task> body, Func<T, ConnectException, Exception> setLogContext = null,
             int dop = 100)
@@ -63,13 +80,6 @@ namespace Kafka.Connect.Plugin.Extensions
                 throw new ConnectAggregateException("Local_Application", canRetry, exceptions.ToArray());
             }
 
-            /*if (dop == 1)
-            {
-                foreach (var item in source)
-                { 
-                    body(item);
-                }
-            }*/
             await Task.WhenAll(
                     from partition in Partitioner.Create(source).GetPartitions(dop)
                     select Task.Run(async () =>

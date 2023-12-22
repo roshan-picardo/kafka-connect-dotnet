@@ -58,7 +58,7 @@ public class Worker : IWorker
                 var adminClient = _kafkaClientBuilder.GetAdminClient();
                 
                 // create the source topic if required
-                await allConnectorConfigs.Where(c => c.Type == ConnectorType.Source).ForEachAsync( async config =>
+                await Parallel.ForEachAsync(allConnectorConfigs.Where(c => c.Type == ConnectorType.Source),  async (config, _) =>
                 {
                     var meta = adminClient.GetMetadata(config.Topic, TimeSpan.FromSeconds(2));
                     if (!meta.Topics.Exists(t => t.Topic == config.Topic  && !t.Error.IsError && t.Partitions.Count > 0))

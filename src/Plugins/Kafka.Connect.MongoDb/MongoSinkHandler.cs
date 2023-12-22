@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Kafka.Connect.MongoDb.Collections;
@@ -22,6 +23,16 @@ public class MongoSinkHandler : SinkHandler<WriteModel<BsonDocument>>
         IMongoWriter mongoWriter) : base(logger, writeStrategyProvider, configurationProvider)
     {
         _mongoWriter = mongoWriter;
+    }
+
+    protected override async Task Put(IEnumerable<ConnectRecord<WriteModel<BsonDocument>>> models, string connector, int taskId)
+    {
+        await _mongoWriter.WriteMany(
+            models.Where(s => s.Ready)
+                .OrderBy(s => s.Topic)
+                .ThenBy(s => s.Partition)
+                .ThenBy(s => s.Offset).ToList(),
+            connector, taskId); //lets preserve the order
     }
 
     protected override async Task Put(string connector, int taskId, BlockingCollection<ConnectRecord<WriteModel<BsonDocument>>> sinkBatch)
