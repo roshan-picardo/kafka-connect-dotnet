@@ -102,17 +102,19 @@ public class ConnectRecordCollection : BlockingCollection<ConnectRecord>, IConne
         if (Count <= 0) return;
         using (_logger.Track("Processing the batch."))
         {
-            foreach (var topicBatch in GetByTopicPartition<ConnectRecord>())
+            foreach (var topicBatch in GetByTopicPartition())
             {
                 using (LogContext.Push(new PropertyEnricher(Constants.Topic, topicBatch.Topic),
                            new PropertyEnricher(Constants.Partition, topicBatch.Partition)))
                 {
                     await ForEachAsync(topicBatch.Batch.ToList(), async record =>
                     {
+                        if(record.Status == SinkStatus.Processed) return;
                         using (LogContext.PushProperty(Constants.Offset, record.Offset))
                         {
+                            _logger.Critical("Processing Record.");
                             record.Status = SinkStatus.Processing;
-                            if (record.Offset == 715) throw new Exception("Something is wrong!");
+                            if (record.Offset == 725) throw new Exception("Something is wrong!");
                             var deserialized =
                                 await _messageHandler.Deserialize(_connector, record.Topic, record.Serialized);
                             _logger.Document(deserialized);
@@ -145,13 +147,14 @@ public class ConnectRecordCollection : BlockingCollection<ConnectRecord>, IConne
             }
 
             var sinkBatch = new BlockingCollection<ConnectRecordModel>();
-            foreach (var batch in GetByTopicPartition<ConnectRecord>())
+            foreach (var batch in GetByTopicPartition())
             {
                 using (LogContext.Push(new PropertyEnricher("topic", batch.Topic),
                            new PropertyEnricher("partition", batch.Partition)))
                 {
                     await ForEachAsync(batch.Batch.ToList(), async record =>
                     {
+                        if(record.Status is SinkStatus.Updated or SinkStatus.Deleted or SinkStatus.Inserted or SinkStatus.Skipped) return;
                         using (LogContext.Push(new PropertyEnricher("offset", record.Offset)))
                         {
                             if (!record.Skip)
@@ -227,12 +230,22 @@ public class ConnectRecordCollection : BlockingCollection<ConnectRecord>, IConne
         return new ConnectRecordBatch("internal");
     }
 
-    private IList<(string Topic, int Partition, IEnumerable<T> Batch)> GetByTopicPartition<T>() where T : class
+    private IList<(string Topic, int Partition, IEnumerable<ConnectRecord> Batch)> GetByTopicPartition()
     {
+        IEnumerable<ConnectRecord> StopByStatus(IEnumerable<ConnectRecord> records)
+        {
+            var isErrorTolerated = _configurationProvider.IsErrorTolerated(_connector);
+            foreach (var record in records)
+            {
+                if (!isErrorTolerated && record.Status == SinkStatus.Failed) break;
+                yield return record;
+            }
+        }
+        
         return (from record in this
             group record by new { record.Topic, record.Partition }
             into tp
-            select (tp.Key.Topic, tp.Key.Partition, tp.Select(r => r as T))).ToList();
+            select (tp.Key.Topic, tp.Key.Partition, StopByStatus(tp.Select(r => r)))).ToList();
     }
     
     private IList<(string Topic, int Partition, long Offset)> GetCommitReadyOffsets()
@@ -265,8 +278,8 @@ public class ConnectRecordCollection : BlockingCollection<ConnectRecord>, IConne
                 }
             }
         });
-        
-        if (records.Any( r=>r.Exception != null))
+
+        if (records.Any(r => r.Exception != null))
         {
             throw new ConnectAggregateException("Local_Application", false,
                 records.Select(r => r.Exception).Where(e => e != null).ToArray());
