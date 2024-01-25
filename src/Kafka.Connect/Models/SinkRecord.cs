@@ -22,7 +22,10 @@ public class SinkRecord : ConnectRecord
                 Headers = consumed.Message.Headers?.ToDictionary(h => h.Key, h => h.GetValueBytes())
             };
         }
+        IsPartitionEof = consumed.IsPartitionEOF;
     }
+    
+    public bool IsPartitionEof { get; set; }
 
     public Message<byte[], byte[]> GetDeadLetterMessage(Exception ex)
     {

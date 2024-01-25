@@ -4,40 +4,48 @@ using System.Linq;
 
 namespace Kafka.Connect.Plugin.Models;
 
-public class ConnectRecord<TModel>
+public class ConnectRecordModel
 {
-    private readonly ConnectRecord _connectRecord;
+    protected readonly ConnectRecord ConnectRecord;
 
-    public ConnectRecord(ConnectRecord connectRecord)
+    public ConnectRecordModel(ConnectRecord connectRecord)
     {
-        _connectRecord = connectRecord;
+        ConnectRecord = connectRecord;
+    }
+}
+
+public class ConnectRecord<TModel> : ConnectRecordModel
+{
+
+    public ConnectRecord(ConnectRecord connectRecord) : base(connectRecord)
+    {
     }
 
-    public ConnectRecord GetRecord() => _connectRecord;
+    public ConnectRecord GetRecord() => ConnectRecord;
 
-    public string Topic => _connectRecord.Topic;
-    public int Partition => _connectRecord.Partition;
-    public long Offset => _connectRecord.Offset;
+    public string Topic => ConnectRecord.Topic;
+    public int Partition => ConnectRecord.Partition;
+    public long Offset => ConnectRecord.Offset;
 
     public void UpdateStatus()
     {
-        _connectRecord.CanCommitOffset = _connectRecord.Skip || Ready;
-        _connectRecord.UpdateStatus();
+        ConnectRecord.CanCommitOffset = ConnectRecord.Skip || Ready;
+        ConnectRecord.UpdateStatus();
     }
 
     public bool Ready
     {
         get
         {
-            if (_connectRecord.Skip) return false;
+            if (ConnectRecord.Skip) return false;
             return Models != null && Models.Any();
         }
     }
 
     public SinkStatus Status
     {
-        set => _connectRecord.Status = value;
-        get => _connectRecord.Status;
+        set => ConnectRecord.Status = value;
+        get => ConnectRecord.Status;
     }
     public IEnumerable<TModel> Models { get; set; }
 }

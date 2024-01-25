@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using Confluent.Kafka;
 using Kafka.Connect.Builders;
@@ -9,7 +8,6 @@ using Kafka.Connect.Connectors;
 using Kafka.Connect.Models;
 using Kafka.Connect.Plugin.Exceptions;
 using Kafka.Connect.Plugin.Logging;
-using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Providers;
 
 namespace Kafka.Connect.Handlers
@@ -67,13 +65,12 @@ namespace Kafka.Connect.Handlers
         }
 
 
-        public async Task<ConnectRecordBatch> Consume(IConsumer<byte[], byte[]> consumer, string connector, int taskId, bool consumeAll = false)
+        public async Task<IList<SinkRecord>> Consume(IConsumer<byte[], byte[]> consumer, string connector, int taskId, bool consumeAll = false)
         {
             using (_logger.Track("Consume and batch messages."))
             {
-                var batch = await _retriableHandler.Retry(() => ConsumeInternal(consumer, connector, taskId, consumeAll),
-                    connector);
-                if (batch == null || batch.IsEmpty)
+                var batch =  await ConsumeInternal(consumer, connector, taskId, consumeAll);
+                if (!batch.Any())
                 {
                     _logger.Debug("There aren't any messages in the batch to process.");
                     return batch;
@@ -88,17 +85,9 @@ namespace Kafka.Connect.Handlers
             consumer.Commit(new[] { new TopicPartitionOffset(commandContext.Topic, commandContext.Partition, commandContext.Offset + 1) });
         }
 
-        private async Task<ConnectRecordBatch> ConsumeInternal(IConsumer<byte[], byte[]> consumer, string connector, int taskId, bool consumeAll)
+        private async Task<IList<SinkRecord>> ConsumeInternal(IConsumer<byte[], byte[]> consumer, string connector, int taskId, bool consumeAll)
         {
-            ConsumeResult<byte[], byte[]> Consuming(IConsumer<byte[], byte[]> consumerInternal, CancellationToken token)
-            {
-                using (_logger.Track("Consuming message."))
-                {
-                    return consumerInternal.Consume(token);
-                }
-            }
-            
-            var batch = new ConnectRecordBatch("internal");
+            var batch = new List<SinkRecord>();
             var batchPollContext = _executionContext.GetOrSetBatchContext(connector, taskId);
             try
             {
@@ -106,7 +95,7 @@ namespace Kafka.Connect.Handlers
                 _logger.Trace("Polling for messages.", new { batchPollContext.Iteration });
                 do
                 {
-                    var consumed = await Task.Run(() => Consuming(consumer, batchPollContext.Token));
+                    var consumed =  await Task.Run(() => consumer.Consume(batchPollContext.Token));
                     batchPollContext.StartTiming();
                     if (consumed == null)
                     {
@@ -124,23 +113,23 @@ namespace Kafka.Connect.Handlers
                         Timestamp = consumed.Message?.Timestamp.UtcDateTime
                     });
                     
-                    if (consumed.IsPartitionEOF)
+                    batch.Add(new SinkRecord(consumed));
+
+                    if (!consumed.IsPartitionEOF)
                     {
-                        batch.SetPartitionEof(consumed.Topic, consumed.Partition.Value, consumed.Offset.Value);
-                        _executionContext.SetPartitionEof(connector, taskId, consumed.Topic, consumed.Partition, true);
-                        if (_executionContext.AllPartitionEof(connector, taskId))
-                        {
-                            break;
-                        }
                         continue;
                     }
-                    batch.Add(new Models.SinkRecord(consumed));
-
+                    //batch.SetPartitionEof(consumed.Topic, consumed.Partition.Value, consumed.Offset.Value);
+                    _executionContext.SetPartitionEof(connector, taskId, consumed.Topic, consumed.Partition, true);
+                    if (_executionContext.AllPartitionEof(connector, taskId))
+                    {
+                        break;
+                    }
                 } while (consumeAll || --maxBatchSize > 0);
             }
             catch (Exception ex)
             {
-                if (!batch.IsEmpty)
+                if (batch.Any())
                 {
                     //if batch already got a few records lets process them before failing.
                     _logger.Warning("Consume failed. Part of the batch will be processed.", new {batch.Count}, ex);

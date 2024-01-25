@@ -18,6 +18,7 @@ public interface IConfigurationProvider
     RetryConfig GetRetriesConfig(string connector);
     EofConfig GetEofSignalConfig(string connector);
     BatchConfig GetBatchConfig(string connector);
+    int GetDegreeOfParallelism(string connector);
     IList<string> GetTopics(string connector);
     ConverterConfig GetMessageConverters(string connector, string topic);
     IList<ProcessorConfig> GetMessageProcessors(string connector, string topic);

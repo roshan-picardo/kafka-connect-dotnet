@@ -109,7 +109,7 @@ public class SourceTask : ISourceTask
                         //TODO: Not a working component as yet
                         var triggerBatch = await _sinkConsumer.Consume(_consumer, connector, taskId, true);
 
-                        var commandContexts = await _sourceProcessor.Commands(triggerBatch, connector);
+                        var commandContexts = await _sourceProcessor.Commands(null, connector);
                         var batches = new Dictionary<string, ConnectRecordBatch>();
                         await commandContexts.ForEachAsync(async command =>
                         {

@@ -207,6 +207,8 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
     {
         return GetConnectorConfig(connector)?.Plugin;
     }
+    
+    public int GetDegreeOfParallelism(string connector) => GetBatchConfig(connector).Parallelism;
 
     public void Validate()  
     {
