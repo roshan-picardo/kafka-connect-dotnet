@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using Confluent.Kafka;
 using Kafka.Connect.Configurations;
 
@@ -19,7 +18,7 @@ public interface IConfigurationProvider
     RetryConfig GetRetriesConfig(string connector);
     EofConfig GetEofSignalConfig(string connector);
     BatchConfig GetBatchConfig(string connector);
-    ParallelOptions GetParallelOptions(string connector);
+    int GetDegreeOfParallelism(string connector);
     IList<string> GetTopics(string connector);
     ConverterConfig GetMessageConverters(string connector, string topic);
     IList<ProcessorConfig> GetMessageProcessors(string connector, string topic);

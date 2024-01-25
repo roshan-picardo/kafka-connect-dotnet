@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using Confluent.Kafka;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Plugin;
@@ -209,7 +208,7 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
         return GetConnectorConfig(connector)?.Plugin;
     }
     
-    public ParallelOptions GetParallelOptions(string connector) => new() { MaxDegreeOfParallelism = GetBatchConfig(connector).Parallelism };
+    public int GetDegreeOfParallelism(string connector) => GetBatchConfig(connector).Parallelism;
 
     public void Validate()  
     {

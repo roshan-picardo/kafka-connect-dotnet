@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using Confluent.Kafka;
 using Kafka.Connect.Handlers;
 using Kafka.Connect.Plugin;
-using Kafka.Connect.Plugin.Exceptions;
 using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Plugin.Providers;
@@ -107,14 +106,12 @@ public class ConnectRecordCollection : BlockingCollection<ConnectRecord>, IConne
                 using (LogContext.Push(new PropertyEnricher(Constants.Topic, topicBatch.Topic),
                            new PropertyEnricher(Constants.Partition, topicBatch.Partition)))
                 {
-                    await ForEachAsync(topicBatch.Batch.ToList(), async record =>
+                    await ParallelEx.ForEachAsync(topicBatch.Batch.ToList(), _configurationProvider.GetDegreeOfParallelism(_connector), async record =>
                     {
                         if(record.Status == SinkStatus.Processed) return;
                         using (LogContext.PushProperty(Constants.Offset, record.Offset))
                         {
-                            _logger.Critical("Processing Record.");
                             record.Status = SinkStatus.Processing;
-                            if (record.Offset == 725) throw new Exception("Something is wrong!");
                             var deserialized =
                                 await _messageHandler.Deserialize(_connector, record.Topic, record.Serialized);
                             _logger.Document(deserialized);
@@ -138,7 +135,7 @@ public class ConnectRecordCollection : BlockingCollection<ConnectRecord>, IConne
             {
                 _logger.Warning(
                     "Sink handler is not specified. Check if the handler is configured properly, and restart the connector.");
-                this.ForEach(record =>
+                ParallelEx.ForEach(this, record =>
                 {
                     record.Status = SinkStatus.Skipped;
                     record.Skip = true;
@@ -152,7 +149,7 @@ public class ConnectRecordCollection : BlockingCollection<ConnectRecord>, IConne
                 using (LogContext.Push(new PropertyEnricher("topic", batch.Topic),
                            new PropertyEnricher("partition", batch.Partition)))
                 {
-                    await ForEachAsync(batch.Batch.ToList(), async record =>
+                    await ParallelEx.ForEachAsync(batch.Batch.ToList(), _configurationProvider.GetDegreeOfParallelism(_connector), async record =>
                     {
                         if(record.Status is SinkStatus.Updated or SinkStatus.Deleted or SinkStatus.Inserted or SinkStatus.Skipped) return;
                         using (LogContext.Push(new PropertyEnricher("offset", record.Offset)))
@@ -171,7 +168,7 @@ public class ConnectRecordCollection : BlockingCollection<ConnectRecord>, IConne
             }
 
             await sinkHandler.Put(sinkBatch, _connector, _taskId);
-            Parallel.ForEach(this, record => record.UpdateStatus());
+            ParallelEx.ForEach(this, record => record.UpdateStatus());
         }
     }
 
@@ -187,7 +184,7 @@ public class ConnectRecordCollection : BlockingCollection<ConnectRecord>, IConne
         var provider = _configurationProvider.GetLogEnhancer(_connector);
         var endTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var logRecord = _logRecords?.SingleOrDefault(l => l.GetType().FullName == provider);
-        this.ForEach(record =>
+        ParallelEx.ForEach(this, record =>
         {
             using (LogContext.Push(new PropertyEnricher("Topic", record.Topic),
                        new PropertyEnricher("Partition", record.Partition),
@@ -204,7 +201,7 @@ public class ConnectRecordCollection : BlockingCollection<ConnectRecord>, IConne
                 }
 
                 record.UpdateStatus(true);
-                _logger.Info("{@Record}", new
+                _logger.Record(new
                 {
                     record.Status,
                     Timers = record.EndTiming(Count, endTime),
@@ -232,6 +229,11 @@ public class ConnectRecordCollection : BlockingCollection<ConnectRecord>, IConne
 
     private IList<(string Topic, int Partition, IEnumerable<ConnectRecord> Batch)> GetByTopicPartition()
     {
+        return (from record in this
+            group record by new { record.Topic, record.Partition }
+            into tp
+            select (tp.Key.Topic, tp.Key.Partition, StopByStatus(tp.Select(r => r)))).ToList();
+
         IEnumerable<ConnectRecord> StopByStatus(IEnumerable<ConnectRecord> records)
         {
             var isErrorTolerated = _configurationProvider.IsErrorTolerated(_connector);
@@ -241,11 +243,6 @@ public class ConnectRecordCollection : BlockingCollection<ConnectRecord>, IConne
                 yield return record;
             }
         }
-        
-        return (from record in this
-            group record by new { record.Topic, record.Partition }
-            into tp
-            select (tp.Key.Topic, tp.Key.Partition, StopByStatus(tp.Select(r => r)))).ToList();
     }
     
     private IList<(string Topic, int Partition, long Offset)> GetCommitReadyOffsets()
@@ -254,35 +251,5 @@ public class ConnectRecordCollection : BlockingCollection<ConnectRecord>, IConne
         return (from record in this
             where record.IsCommitReady(isTolerated)
             select (record.Topic, record.Partition, record.Offset)).ToList();
-    }
-
-    private async Task ForEachAsync(IList<ConnectRecord> records, Func<ConnectRecord, Task> body)
-    {
-        await Parallel.ForEachAsync(records, _configurationProvider.GetParallelOptions(_connector), async (record, _) =>
-        {
-            try
-            {
-                await body(record);
-                record.Exception = null;
-            }
-            catch (Exception ex)
-            {
-                var handleEx = ex.InnerException ?? ex;
-                if (handleEx is ConnectException ce)
-                {
-                    record.Exception = ce;
-                }
-                else
-                {
-                    record.Exception = new ConnectDataException("Local_Fatal", handleEx);
-                }
-            }
-        });
-
-        if (records.Any(r => r.Exception != null))
-        {
-            throw new ConnectAggregateException("Local_Application", false,
-                records.Select(r => r.Exception).Where(e => e != null).ToArray());
-        }
     }
 }

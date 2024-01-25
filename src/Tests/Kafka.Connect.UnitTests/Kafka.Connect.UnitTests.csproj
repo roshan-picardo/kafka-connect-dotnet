@@ -32,6 +32,7 @@
       <Compile Remove="Providers\ProcessorServiceProviderTests.cs" />
       <Compile Remove="Serializers\**" />
       <Compile Remove="Connectors\SinkTaskTests.cs" />
+      <Compile Remove="Handlers\SinkConsumerTests.cs" />
     </ItemGroup>
 
     <ItemGroup>

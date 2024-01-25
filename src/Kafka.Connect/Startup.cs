@@ -64,7 +64,7 @@ using Serilog.Formatting.Json;
                  // time this
                  configuration.LoadPlugins();
                  
-                 AppDomain.CurrentDomain.ProcessExit += (_, _) => { _cts.Cancel(); };
+                 AppDomain.CurrentDomain.ProcessExit += (_, _) => { _cts?.Cancel(); };
 
                  Log.ForContext<Worker>().Verbose("{@Log}", new {Message = "Initializing the web host."});
 
