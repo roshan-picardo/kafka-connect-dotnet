@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using Kafka.Connect.Plugin;
 using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Logging;
@@ -35,18 +34,5 @@ public class PostgresSinkHandler : SinkHandler<string>
                 }
             }
         });
-    }
-
-    protected override async Task Put(string connector, int taskId, BlockingCollection<ConnectRecord<string>> sinkBatch)
-    {
-        foreach (var record in sinkBatch)
-        {
-            foreach (var model in record.Models)
-            {
-                var command = new NpgsqlCommand(model,
-                    _postgresClientProvider.GetPostgresClient(connector, taskId).GetConnection());
-                await command.ExecuteNonQueryAsync();
-            }
-        }
     }
 }
