@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -29,16 +28,6 @@ public class MongoSinkHandler : SinkHandler<WriteModel<BsonDocument>>
     {
         await _mongoWriter.WriteMany(
             models.Where(s => s.Ready)
-                .OrderBy(s => s.Topic)
-                .ThenBy(s => s.Partition)
-                .ThenBy(s => s.Offset).ToList(),
-            connector, taskId); //lets preserve the order
-    }
-
-    protected override async Task Put(string connector, int taskId, BlockingCollection<ConnectRecord<WriteModel<BsonDocument>>> sinkBatch)
-    {
-        await _mongoWriter.WriteMany(
-            sinkBatch.Where(s => s.Ready)
                 .OrderBy(s => s.Topic)
                 .ThenBy(s => s.Partition)
                 .ThenBy(s => s.Offset).ToList(),
