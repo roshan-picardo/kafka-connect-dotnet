@@ -14,4 +14,6 @@ public class SourceRecord : ConnectRecord
         };
         StartTiming();
     }
+    public int Timestamp { get; set; }
+    public object UniqueId { get; set; }
 }

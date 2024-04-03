@@ -19,11 +19,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 using Kafka.Connect.Configurations;
-using Kafka.Connect.Models;
 using Kafka.Connect.Plugin;
 using Kafka.Connect.Plugin.Converters;
 using Kafka.Connect.Plugin.Logging;
-using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Plugin.Providers;
 using Kafka.Connect.Plugin.Strategies;
 using Kafka.Connect.Strategies;
@@ -58,7 +56,6 @@ namespace Kafka.Connect.Utilities
                 .AddScoped<IMessageHandler, MessageHandler>()
                 .AddScoped<ISinkConsumer, SinkConsumer>()
                 .AddScoped<ISourceProducer, SourceProducer>()
-                .AddScoped<ISourceProcessor, SourceProcessor>()
                 .AddScoped<IPartitionHandler, PartitionHandler>()
                 .AddScoped<ISinkExceptionHandler, SinkExceptionHandler>()
 

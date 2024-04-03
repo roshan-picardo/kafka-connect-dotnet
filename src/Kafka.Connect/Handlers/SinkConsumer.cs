@@ -64,7 +64,6 @@ namespace Kafka.Connect.Handlers
             }
         }
 
-
         public async Task<IList<SinkRecord>> Consume(IConsumer<byte[], byte[]> consumer, string connector, int taskId, bool consumeAll = false)
         {
             using (_logger.Track("Consume and batch messages."))
@@ -73,16 +72,14 @@ namespace Kafka.Connect.Handlers
                 if (!batch.Any())
                 {
                     _logger.Debug("There aren't any messages in the batch to process.");
-                    return batch;
                 }
-
                 return batch;
             }
         }
 
-        public void Commit(IConsumer<byte[], byte[]> consumer, CommandContext commandContext)
+        public void Commit(IConsumer<byte[], byte[]> consumer, CommandRecord sourceCommand)
         {
-            consumer.Commit(new[] { new TopicPartitionOffset(commandContext.Topic, commandContext.Partition, commandContext.Offset + 1) });
+            consumer.Commit(new[] { new TopicPartitionOffset(sourceCommand.Topic, sourceCommand.Partition, sourceCommand.Offset + 1) });
         }
 
         private async Task<IList<SinkRecord>> ConsumeInternal(IConsumer<byte[], byte[]> consumer, string connector, int taskId, bool consumeAll)

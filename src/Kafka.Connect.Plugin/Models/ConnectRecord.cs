@@ -5,7 +5,7 @@ using System.Text.Json.Nodes;
 
 namespace Kafka.Connect.Plugin.Models;
 
-public class ConnectRecord
+public class ConnectRecord : IConnectRecord
 {
     private readonly LogTimestamp _logTimestamp;
 
@@ -24,9 +24,18 @@ public class ConnectRecord
         
     public ConnectMessage<IDictionary<string, object>> Flattened { get; set; }
 
-    public string Topic { get; }
-    public int Partition { get; }
-    public long Offset { get; }
+    public string Topic { get; private set; }
+    public int Partition { get; private set; }
+    public long Offset { get; private set; }
+
+    public void Published(string topic, int partition, long offset)
+    {
+        Topic = topic;
+        Partition = partition;
+        Offset = offset;
+        Status = SinkStatus.Published;
+    }
+    
 
     // indicate the record to stop processing
     public bool Skip { get; set; }

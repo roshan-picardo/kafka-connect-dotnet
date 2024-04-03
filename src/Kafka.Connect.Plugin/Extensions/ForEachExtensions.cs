@@ -11,9 +11,9 @@ namespace Kafka.Connect.Plugin.Extensions;
 public static class ParallelEx
 {
     public static async Task ForEachAsync(
-        IList<ConnectRecord> records,
+        this IEnumerable<IConnectRecord> records,
         int degreeOfParallelism,
-        Func<ConnectRecord, Task> body)
+        Func<IConnectRecord, Task> body)
     {
         await Parallel.ForEachAsync(records,
             new ParallelOptions { MaxDegreeOfParallelism = degreeOfParallelism }, async (record, _) =>
@@ -43,7 +43,7 @@ public static class ParallelEx
                 records.Select(r => r.Exception).Where(e => e != null).ToArray());
         }
     }
-
+    
     public static void ForEach(IEnumerable<ConnectRecord> records, Action<ConnectRecord> body)
     {
         foreach (var record in records)

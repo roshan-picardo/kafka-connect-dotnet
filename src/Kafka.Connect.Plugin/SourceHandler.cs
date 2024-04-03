@@ -20,7 +20,7 @@ public class SourceHandler : ISourceHandler
 
             // lets read from database
             
-            return batch;
+            return await Task.FromResult(batch);
         }
     }
 }
