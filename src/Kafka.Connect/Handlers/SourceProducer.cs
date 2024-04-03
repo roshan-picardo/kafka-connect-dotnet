@@ -48,7 +48,7 @@ public class SourceProducer : ISourceProducer
         }
     }
 
-    public async Task Produce(IProducer<byte[], byte[]> producer,  CommandContext context)
+    public async Task Produce(IProducer<byte[], byte[]> producer,  CommandRecord context)
     {
         var message = await _messageHandler.Serialize(context.Connector, context.Topic, new ConnectMessage<JsonNode>
         {

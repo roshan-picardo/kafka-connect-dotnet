@@ -9,5 +9,5 @@ public interface ISourceProducer
 {
     IProducer<byte[], byte[]> GetProducer(string connector, int taskId);
     Task Produce(IProducer<byte[], byte[]> producer, string connector, int taskId, ConnectRecordBatch batch);
-    Task Produce(IProducer<byte[], byte[]> producer, CommandContext commandContext);
+    Task Produce(IProducer<byte[], byte[]> producer, CommandRecord sourceCommand);
 }

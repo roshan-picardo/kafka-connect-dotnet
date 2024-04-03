@@ -29,7 +29,7 @@ public class DeleteStrategy : WriteStrategy<string>
                     config.Filter.Keys?.Select(key => record.Deserialized.Value[key]).ToArray() ?? Array.Empty<object>());
             }
             var deleteQuery = $"DELETE FROM {config.Schema}.{config.Table} WHERE {whereClause};";
-            return await Task.FromResult((SinkStatus.Inserting, new[] { deleteQuery }));
+            return await Task.FromResult((SinkStatus.Deleting, new[] { deleteQuery }));
         }
     }
 }

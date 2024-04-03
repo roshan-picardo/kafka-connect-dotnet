@@ -162,6 +162,7 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
         var connectorConfig = GetConnectorConfig(connector);
         var sourceConfig = connectorConfig.Source ?? new SourceConfig();
         sourceConfig.Plugin = connectorConfig.Plugin;
+        sourceConfig.Topic = connectorConfig.Topic;
         return sourceConfig;
     }
 
