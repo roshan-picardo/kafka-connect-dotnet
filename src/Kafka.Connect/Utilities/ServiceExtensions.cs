@@ -44,13 +44,11 @@ namespace Kafka.Connect.Utilities
                 .AddScoped<IKafkaClientEventHandler, KafkaClientEventHandler>()
                 .AddScoped<IRetriableHandler, RetriableHandler>()
                 
-                .AddScoped<ISourceHandler, SourceHandler>() //TODO: requires a provider
-
                 .AddScoped<IConnectDeadLetter, ConnectDeadLetter>()
                 .AddScoped<ITokenHandler, TokenHandler>()
 
                 .AddScoped<IProcessorServiceProvider, ProcessorServiceProvider>()
-                .AddScoped<ISinkHandlerProvider, SinkHandlerProvider>()
+                .AddScoped<IConnectHandlerProvider, ConnectHandlerProvider>()
 
                 .AddScoped<IGenericRecordHandler, GenericRecordHandler>()
                 .AddScoped<IMessageHandler, MessageHandler>()
@@ -81,9 +79,9 @@ namespace Kafka.Connect.Utilities
                 .AddScoped<IMessageConverter, JsonSchemaConverter>()
                 .AddScoped<IMessageConverter, StringConverter>()
                 
-                .AddScoped<IWriteStrategyProvider, WriteStrategyProvider>()
-                .AddScoped<IWriteStrategySelector, TopicStrategySelector>()
-                .AddScoped<IWriteStrategySelector, ValueStrategySelector>()
+                .AddScoped<IReadWriteStrategyProvider, ReadWriteStrategyProvider>()
+                .AddScoped<IReadWriteStrategySelector, TopicStrategySelector>()
+                //.AddScoped<IWriteStrategySelector, ValueStrategySelector>()
 
                 .Configure<WorkerConfig>(configuration.GetSection("worker"), options => options.BindNonPublicProperties = true)
                 

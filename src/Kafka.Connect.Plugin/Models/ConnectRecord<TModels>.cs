@@ -48,4 +48,6 @@ public class ConnectRecord<TModel> : ConnectRecordModel
         get => ConnectRecord.Status;
     }
     public IEnumerable<TModel> Models { get; set; }
+    
+    public TModel Model { get; set; } // this can be class { Timestamp, Keys.CId, Keys.NBId }?
 }

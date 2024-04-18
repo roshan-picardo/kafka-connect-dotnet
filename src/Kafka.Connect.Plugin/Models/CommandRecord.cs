@@ -1,10 +1,11 @@
 using System;
 using System.Security.Cryptography;
 using System.Text;
-using Kafka.Connect.Configurations;
-using Kafka.Connect.Plugin.Models;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using Kafka.Connect.Plugin.Extensions;
 
-namespace Kafka.Connect.Models;
+namespace Kafka.Connect.Plugin.Models;
 
 public class CommandRecord : IConnectRecord
 {
@@ -27,6 +28,10 @@ public class CommandRecord : IConnectRecord
     public string Topic { get; set; }
     public int Partition { get; set; }
     public long Offset { get; set; }
-    public CommandConfig Command { get; set; }
+    public int BatchSize { get; set; }
+    public JsonNode Command { get; set; }
     public Exception Exception { get; set; }
+
+    public int GetVersion() => Command["Version"]?.GetValue<int>() ?? 0;
+    public T GetCommand<T>() => Command.ToDictionary().ToJson().Deserialize<T>();
 }

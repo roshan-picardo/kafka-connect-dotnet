@@ -1,11 +1,13 @@
 using System;
 using System.Diagnostics;
+using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using Kafka.Connect.Handlers;
 using Kafka.Connect.Models;
 using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Logging;
+using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Providers;
 using Kafka.Connect.Tokens;
 using Serilog.Context;
@@ -60,7 +62,6 @@ public class SourceTask : ISourceTask
                 batchPollContext.Reset(_executionContext.GetNextPollIndex());
                 using (LogContext.PushProperty("Batch", batchPollContext.Iteration))
                 {
-                    _logger.Critical($"Start Iteration: {batchPollContext.Iteration}");
                     await _pollRecordCollection.Consume();
                     
                     if(cts.IsCancellationRequested) break;
@@ -75,7 +76,7 @@ public class SourceTask : ISourceTask
                             {
                                 await _pollRecordCollection.Source(record);
                                 await _pollRecordCollection.Process(record.Id);
-                                //await sourceRecordCollection.Produce();
+                                await _pollRecordCollection.Produce(record.Id);
                                 await _pollRecordCollection.UpdateCommand(record);
                             }
                             catch (Exception ex)
@@ -91,12 +92,10 @@ public class SourceTask : ISourceTask
                     _pollRecordCollection.Commit(configCommands.Commands);
                     _pollRecordCollection.Clear();
 
-                    _logger.Critical($"End Iteration: {batchPollContext.Iteration}");
                     var pendingTime = configCommands.TimeOut - (int)timeOutWatch.ElapsedMilliseconds;
                     timeOutWatch.Stop();
                     if (pendingTime > 0)
                     {
-                        _logger.Critical($"Applying Delay: {batchPollContext.Iteration}");
                         await Task.Delay(pendingTime);
                     }
                 }

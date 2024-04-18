@@ -16,14 +16,14 @@ public class Connector : IConnector
 {
     private readonly ILogger<Connector> _logger;
     private readonly IServiceScopeFactory _serviceScopeFactory;
-    private readonly ISinkHandlerProvider _sinkHandlerProvider;
+    private readonly IConnectHandlerProvider _sinkHandlerProvider;
     private readonly IConfigurationProvider _configurationProvider;
     private readonly IExecutionContext _executionContext;
     private readonly ITokenHandler _tokenHandler;
     private readonly PauseTokenSource _pauseTokenSource;
 
     public Connector(ILogger<Connector> logger, IServiceScopeFactory serviceScopeFactory,
-        ISinkHandlerProvider sinkHandlerProvider,
+        IConnectHandlerProvider sinkHandlerProvider,
         IConfigurationProvider configurationProvider, IExecutionContext executionContext, ITokenHandler tokenHandler)
     {
         _logger = logger;
