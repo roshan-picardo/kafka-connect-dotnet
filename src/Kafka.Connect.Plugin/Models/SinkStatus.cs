@@ -33,6 +33,9 @@ namespace Kafka.Connect.Plugin.Models
         Excluded,
         
         Publishing,
-        Published
+        Published,
+        
+        Selecting,
+        Selected
     }
 }

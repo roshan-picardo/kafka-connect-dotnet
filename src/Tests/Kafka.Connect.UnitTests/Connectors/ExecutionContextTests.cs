@@ -44,7 +44,7 @@ public class ExecutionContextTests
 
         _executionContext =
             new ExecutionContext(_plugins, _processors, _handlers, _messageConverters,
-                Substitute.For<IEnumerable<IWriteStrategySelector>>(), Substitute.For<IEnumerable<IWriteStrategy>>(),
+                Substitute.For<IEnumerable<IReadWriteStrategySelector>>(), Substitute.For<IEnumerable<IWriteStrategy>>(),
                 _configurationProvider);
 
     }

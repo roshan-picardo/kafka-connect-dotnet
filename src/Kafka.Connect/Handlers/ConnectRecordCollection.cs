@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Confluent.Kafka;
+using Kafka.Connect.Configurations;
 using Kafka.Connect.Connectors;
 using Kafka.Connect.Models;
 using Kafka.Connect.Plugin;
@@ -26,7 +27,7 @@ public class ConnectRecordCollection : IConnectRecordCollection
     private readonly ISourceProducer _sourceProducer;
     private readonly IMessageHandler _messageHandler;
     private readonly IConfigurationProvider _configurationProvider;
-    private readonly ISinkHandlerProvider _sinkHandlerProvider;
+    private readonly IConnectHandlerProvider _sinkHandlerProvider;
     private readonly IPartitionHandler _partitionHandler;
     private readonly ISinkExceptionHandler _sinkExceptionHandler;
     private readonly IExecutionContext _executionContext;
@@ -46,7 +47,7 @@ public class ConnectRecordCollection : IConnectRecordCollection
         ISourceProducer sourceProducer,
         IMessageHandler messageHandler,
         IConfigurationProvider configurationProvider,
-        ISinkHandlerProvider sinkHandlerProvider,
+        IConnectHandlerProvider sinkHandlerProvider,
         IPartitionHandler partitionHandler,
         ISinkExceptionHandler sinkExceptionHandler,
         IExecutionContext executionContext,
@@ -130,11 +131,11 @@ public class ConnectRecordCollection : IConnectRecordCollection
         }
     }
 
-    public async Task Produce()
+    public async Task Produce(string batchId = null)
     {
         using (_logger.Track("Publishing the batch."))
         {
-            foreach (var record in _sinkConnectRecords)
+            foreach (var record in GetConnectRecords(batchId))
             {
                 using (LogContext.PushProperty("Topic", record.Topic))
                 {
@@ -164,19 +165,12 @@ public class ConnectRecordCollection : IConnectRecordCollection
         var batch = GetConnectRecords(command.Id);
         if (batch != null && batch.Any())
         {
-            var maxTimestamp = batch.Cast<SourceRecord>()
-                .Where(r => r.Status is SinkStatus.Skipped or SinkStatus.Published)
-                .Select(r => r.Timestamp)
-                .DefaultIfEmpty()
-                .Max();
-            var maxUniqueId = batch.Cast<SourceRecord>()
-                .Where(r => r.Timestamp == maxTimestamp)
-                .Select(r => r.UniqueId)
-                .DefaultIfEmpty()
-                .Max();
-
-            command.Command.Timestamp = maxTimestamp;
-            command.Command.UniqueId = maxUniqueId;
+            var sourceHandler = _sinkHandlerProvider.GetSourceHandler(_connector);
+            if (sourceHandler != null)
+            {
+                command = sourceHandler.GetUpdatedCommand(command,
+                    batch.Select(r => (r.Status, r.GetKey<JsonNode>())).ToList());
+            }
         }
 
         var message = await _messageHandler.Serialize(command.Connector, command.Topic, new ConnectMessage<JsonNode>
@@ -254,40 +248,18 @@ public class ConnectRecordCollection : IConnectRecordCollection
                     "Sink handler is not specified. Check if the handler is configured properly, and restart the connector.");
                 ParallelEx.ForEach(_sinkConnectRecords, record =>
                 {
+                    // TODO: do not do skip, rather error out here!!
                     record.Status = SinkStatus.Skipped;
                     record.Skip = true;
                 });
                 return;
             }
 
-            var sinkBatch = new BlockingCollection<ConnectRecordModel>();
             foreach (var batch in GetByTopicPartition())
             {
-                using (LogContext.Push(new PropertyEnricher("topic", batch.Topic),
-                           new PropertyEnricher("partition", batch.Partition)))
-                {
-                    await batch.Batch.ForEachAsync(_configurationProvider.GetDegreeOfParallelism(_connector), async cr =>
-                    {
-                        if (cr is not ConnectRecord record ||
-                            record.Status is SinkStatus.Updated or SinkStatus.Deleted or SinkStatus.Inserted or SinkStatus.Skipped)
-                            return;
-                        using (LogContext.Push(new PropertyEnricher("offset", record.Offset)))
-                        {
-                            if (!record.Skip)
-                            {
-                                sinkBatch.Add(await sinkHandler.BuildModels(record, _connector));
-                            }
-                            else
-                            {
-                                record.Status = SinkStatus.Skipping;
-                            }
-                        }
-                    });
-                }
+                await sinkHandler.Put(batch.Batch, _connector, _taskId);
+                ParallelEx.ForEach(batch.Batch, record => record.UpdateStatus());
             }
-
-            await sinkHandler.Put(sinkBatch, _connector, _taskId);
-            ParallelEx.ForEach(_sinkConnectRecords, record => record.UpdateStatus());
         }
     }
 
@@ -331,13 +303,14 @@ public class ConnectRecordCollection : IConnectRecordCollection
 
     public Task NotifyEndOfPartition() => _partitionHandler.NotifyEndOfPartition(_consumer, _connector, _taskId,
         _eofPartitions.Select(eof => (eof.Key.Topic, eof.Key.Partition, eof.Value)).ToList(), GetCommitReadyOffsets());
-    
+
     public void Cleanup()
     {
         Clear();
-        if (_consumer == null) return;
-        _consumer.Close();
-        _consumer.Dispose();
+        _sourceConnectRecords.Clear();
+        _consumer?.Close();
+        _consumer?.Dispose();
+        _producer?.Dispose();
     }
 
     public ConnectRecordBatch GetBatch()
@@ -347,68 +320,87 @@ public class ConnectRecordCollection : IConnectRecordCollection
 
     public async Task<(int TimeOut, IList<CommandRecord> Commands)> GetCommands(string connector)
     {
-        using (_logger.Track("Processing the poll commands."))
+        using (_logger.Track("Sourcing the poll commands.."))
         {
-            var config = _configurationProvider.GetSourceConfig(connector);
-            var pollCommands = config.Commands.Select(command => new CommandRecord
+            var sourceHandler = _sinkHandlerProvider.GetSourceHandler(_connector);
+            if (sourceHandler != null)
             {
-                Name = command.Key,
-                Connector = connector,
-                Partition = -1,
-                Command = command.Value,
-                Topic = config.Topic,
-            }).ToList();
-            
-            foreach (var topicBatch in GetByTopicPartition())
-            {
-                using (LogContext.Push(new PropertyEnricher(Constants.Topic, topicBatch.Topic),
-                           new PropertyEnricher(Constants.Partition, topicBatch.Partition)))
+                var config = _configurationProvider.GetSourceConfig(_connector);
+                var commands = sourceHandler.GetCommands(_connector);
+                var pollCommands = commands.Select(command => new CommandRecord
                 {
-                    foreach (var record in topicBatch.Batch.OrderByDescending(r => r.Offset))
+                    Name = command.Key,
+                    Connector = connector,
+                    Partition = -1,
+                    Command = command.Value.ToJson(),
+                    Topic = config.Topic,
+                    BatchSize = config.BatchSize
+                }).ToList();
+                
+                foreach (var topicBatch in GetByTopicPartition())
+                {
+                    using (LogContext.Push(new PropertyEnricher(Constants.Topic, topicBatch.Topic),
+                               new PropertyEnricher(Constants.Partition, topicBatch.Partition)))
                     {
-                        using (LogContext.PushProperty(Constants.Offset, record.Offset))
+                        foreach (var record in topicBatch.Batch.OrderByDescending(r => r.Offset))
                         {
-                            record.Deserialized =
-                                await _messageHandler.Deserialize(connector, record.Topic, record.Serialized);
-                            _logger.Document(record.Deserialized);
-                            var commandRecord = record.GetValue<CommandRecord>();
-                            var pollCommand =
-                                pollCommands.Find(command => command.Id == commandRecord.Id);
-                            if (pollCommand == null) continue;
-                            pollCommand.Partition = record.Partition;
-                            pollCommand.Offset = record.Offset;
-                            pollCommand.Command = commandRecord.Command;
-                            pollCommand.Topic = commandRecord.Topic;
-                            break;
+                            using (LogContext.PushProperty(Constants.Offset, record.Offset))
+                            {
+                                record.Deserialized =
+                                    await _messageHandler.Deserialize(connector, record.Topic, record.Serialized);
+                                _logger.Document(record.Deserialized);
+                                var commandRecord = record.GetValue<CommandRecord>();
+                                var pollCommand =
+                                    pollCommands.Find(command => command.Id == commandRecord.Id);
+                                if (pollCommand == null) continue;
+                                pollCommand.Partition = record.Partition;
+                                pollCommand.Offset = record.Offset;
+                                if (pollCommand.GetVersion() <= commandRecord.GetVersion())
+                                {
+                                    pollCommand.Command = commandRecord.Command;
+                                }
+                                pollCommand.Topic = commandRecord.Topic;
+                                break;
+                            }
                         }
                     }
                 }
-            }
 
-            if (pollCommands.Any(command => command.Partition == -1))
-            {
-                foreach (var (command, index) in pollCommands.OrderByDescending(command => command.Partition)
-                             .Select((command, i) => (command, i)))
+                if (pollCommands.Any(command => command.Partition == -1))
                 {
-                    if (command.Partition == -1)
+                    var partitions = Enumerable.Range(0, pollCommands.Count)
+                        .Except(pollCommands.Select(p => p.Partition)).ToList();
+
+                    foreach (var (command, index) in pollCommands.OrderBy(command => command.Partition)
+                                 .Select((command, i) => (command, i)))
                     {
-                        command.Partition = index;
+                        if (command.Partition == -1)
+                        {
+                            command.Partition = partitions[index];
+                        }
                     }
                 }
+
+                return (config.TimeOutInMs, pollCommands);
             }
 
-            return (config.TimeOutInMs, pollCommands);
+            return (0, null); // TODO: this needs a fix
         }
-    }
-
-    public Task Source(CommandRecord command)
+    } 
+    public async Task Source(CommandRecord command)
     {
         using (_logger.Track("Sourcing the batch."))
         {
             var batch = _sourceConnectRecords.AddOrUpdate(command.Id, new BlockingCollection<ConnectRecord>(),
                 (_, _) => new BlockingCollection<ConnectRecord>());
-            // make sure to set the timestamp and UniqueId column value...
-            return Task.CompletedTask;
+            var sourceHandler = _sinkHandlerProvider.GetSourceHandler(_connector);
+            if (sourceHandler != null)
+            {
+                foreach (var record in await sourceHandler.Get(_connector, _taskId, command))
+                {
+                    batch.Add(new SourceRecord(record.Topic, record.Deserialized.Key ?? new JsonObject(), record.Deserialized.Value));
+                }
+            }
         }
     }
 

@@ -160,9 +160,15 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
     public SourceConfig GetSourceConfig(string connector)
     {
         var connectorConfig = GetConnectorConfig(connector);
-        var sourceConfig = connectorConfig.Source ?? new SourceConfig();
+        var sourceConfig = connectorConfig.Source;
         sourceConfig.Plugin = connectorConfig.Plugin;
         sourceConfig.Topic = connectorConfig.Topic;
+        
+        if (sourceConfig.BatchSize == 0 && connectorConfig.Batches?.Size > 0)
+        {
+            sourceConfig.BatchSize = connectorConfig.Batches.Size;
+        }
+
         return sourceConfig;
     }
 
@@ -194,6 +200,13 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
     {
         var connectors = _configuration.GetSection("worker:connectors").Get<IDictionary<string, ConnectorSinkConfig<T>>>();
         var config = connectors?.SingleOrDefault(c => (c.Value.Name ?? c.Key) == connector && (string.IsNullOrWhiteSpace(plugin) || c.Value.Plugin == plugin)).Value?.Sink;
+        return config != null ? config.Properties : default;
+    }
+
+    public T GetSourceConfigProperties<T>(string connector, string plugin = null)
+    {
+        var connectors = _configuration.GetSection("worker:connectors").Get<IDictionary<string, ConnectorSourceConfig<T>>>();
+        var config = connectors?.SingleOrDefault(c => (c.Value.Name ?? c.Key) == connector && (string.IsNullOrWhiteSpace(plugin) || c.Value.Plugin == plugin)).Value?.Source;
         return config != null ? config.Properties : default;
     }
 

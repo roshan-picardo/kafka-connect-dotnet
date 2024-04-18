@@ -19,7 +19,7 @@ namespace UnitTests.Kafka.Connect.Connectors
     {
         private readonly ILogger<Connector> _logger;
         private readonly IServiceScopeFactory _serviceScopeFactory;
-        private readonly ISinkHandlerProvider _sinkHandlerProvider;
+        private readonly IConnectHandlerProvider _sinkHandlerProvider;
         private readonly IConfigurationProvider _configurationProvider;
         private readonly IExecutionContext _executionContext;
         private readonly ITokenHandler _tokenHandler;
@@ -33,7 +33,7 @@ namespace UnitTests.Kafka.Connect.Connectors
         {
             _logger = Substitute.For<ILogger<Connector>>();
             _serviceScopeFactory = Substitute.For<IServiceScopeFactory>();
-            _sinkHandlerProvider = Substitute.For<ISinkHandlerProvider>();
+            _sinkHandlerProvider = Substitute.For<IConnectHandlerProvider>();
             _configurationProvider = Substitute.For<IConfigurationProvider>();
             _executionContext = Substitute.For<IExecutionContext>();
             _tokenHandler = Substitute.For<ITokenHandler>();

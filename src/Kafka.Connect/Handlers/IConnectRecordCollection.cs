@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Kafka.Connect.Models;
 using Kafka.Connect.Plugin.Models;
@@ -23,7 +24,7 @@ public interface IConnectRecordCollection
     bool TryPublisher();
     Task<(int TimeOut, IList<CommandRecord> Commands)> GetCommands(string connector);
     Task Source(CommandRecord command);
-    Task Produce();
+    Task Produce(string batchId = null);
     Task UpdateCommand(CommandRecord command);
     void Commit(IList<CommandRecord> commands);
 }

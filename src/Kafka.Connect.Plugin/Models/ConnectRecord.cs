@@ -9,15 +9,16 @@ public class ConnectRecord : IConnectRecord
 {
     private readonly LogTimestamp _logTimestamp;
 
-    protected ConnectRecord(string topic, int partition, long offset)
+    public ConnectRecord(string topic, int partition, long offset)
     {
         Topic = topic;
         Partition = partition;
         Offset = offset;
         Status = SinkStatus.Consumed;
         _logTimestamp = new LogTimestamp();
+        StartTiming();
     }
-
+    
     public ConnectMessage<JsonNode> Deserialized { get; set; }
         
     public ConnectMessage<byte[]> Serialized { get; set; }
@@ -27,6 +28,8 @@ public class ConnectRecord : IConnectRecord
     public string Topic { get; private set; }
     public int Partition { get; private set; }
     public long Offset { get; private set; }
+    
+    public int Order { get; set; }
 
     public void Published(string topic, int partition, long offset)
     {

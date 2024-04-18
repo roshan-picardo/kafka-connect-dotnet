@@ -19,7 +19,7 @@ public class ExecutionContext : IExecutionContext
     private readonly IEnumerable<IProcessor> _processors;
     private readonly IEnumerable<ISinkHandler> _handlers;
     private readonly IEnumerable<IMessageConverter> _messageConverters;
-    private readonly IEnumerable<IWriteStrategySelector> _strategySelectors;
+    private readonly IEnumerable<IReadWriteStrategySelector> _strategySelectors;
     private readonly IEnumerable<IWriteStrategy> _writeStrategies;
     private readonly IConfigurationProvider _configurationProvider;
     private readonly WorkerContext _workerContext;
@@ -32,7 +32,7 @@ public class ExecutionContext : IExecutionContext
         IEnumerable<IProcessor> processors,
         IEnumerable<ISinkHandler> handlers, 
         IEnumerable<IMessageConverter> messageConverters, 
-        IEnumerable<IWriteStrategySelector> strategySelectors,
+        IEnumerable<IReadWriteStrategySelector> strategySelectors,
         IEnumerable<IWriteStrategy> writeStrategies,
         IConfigurationProvider configurationProvider)
     {

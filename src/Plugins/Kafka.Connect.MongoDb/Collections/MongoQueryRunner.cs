@@ -1,12 +1,14 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Kafka.Connect.MongoDb.Models;
 using Kafka.Connect.Plugin.Exceptions;
-using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Plugin.Providers;
+using Kafka.Connect.Plugin.Strategies;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using Serilog.Context;
@@ -14,14 +16,14 @@ using Serilog.Core.Enrichers;
 
 namespace Kafka.Connect.MongoDb.Collections
 {
-    public class MongoWriter : IMongoWriter
+    public class MongoQueryRunner : IMongoQueryRunner
     {
         private readonly IMongoClientProvider _mongoClientProvider;
         private readonly IConfigurationProvider _configurationProvider;
-        private readonly ILogger<MongoWriter> _logger;
+        private readonly ILogger<MongoQueryRunner> _logger;
 
-        public MongoWriter(
-            ILogger<MongoWriter> logger,
+        public MongoQueryRunner(
+            ILogger<MongoQueryRunner> logger,
             IMongoClientProvider mongoClientProvider,
             IConfigurationProvider configurationProvider)
         {
@@ -30,18 +32,11 @@ namespace Kafka.Connect.MongoDb.Collections
             _configurationProvider = configurationProvider;
         }
 
-        public async Task WriteMany(IList<ConnectRecord<WriteModel<BsonDocument>>> batch, string connector, int taskId)
+        public async Task WriteMany(IList<WriteModel<BsonDocument>> models, string connector, int taskId)
         {
             using (_logger.Track("Writing models to database"))
             {
-                await Write(batch.Select(s => s.GetRecord()), BuildWriteModels(batch), connector, taskId);
-            }
-        }
-
-        private async Task Write(IEnumerable<ConnectRecord> records, IEnumerable<WriteModel<BsonDocument>> writeModels, string connector, int taskId)
-        {
-            var mongoSinkConfig = _configurationProvider.GetSinkConfigProperties<MongoSinkConfig>(connector);
-            var models = writeModels?.ToList();
+                var mongoSinkConfig = _configurationProvider.GetSinkConfigProperties<MongoSinkConfig>(connector);
             if (models == null || !models.Any())
             {
                 return;
@@ -71,22 +66,40 @@ namespace Kafka.Connect.MongoDb.Collections
                 }
                 catch (MongoBulkWriteException ex)
                 {
-                    throw new ConnectRetriableException(ex.Message, ex).SetLogContext(records);
+                    // TODO: set log context needs to be setup
+                    throw new ConnectRetriableException(ex.Message, ex);
                 }
                 catch (MongoException me)
                 {
-                    throw new ConnectRetriableException(me.Message, me).SetLogContext(records);
+                    throw new ConnectRetriableException(me.Message, me);
                 }
+            }
             }
         }
 
-        private IEnumerable<WriteModel<BsonDocument>> BuildWriteModels(IEnumerable<ConnectRecord<WriteModel<BsonDocument>>> batch)
+        public async Task<IList<BsonDocument>> ReadMany(
+            StrategyModel<FindModel<BsonDocument>> model,
+            string connector,
+            int taskId,
+            string collection)
         {
-            var writeModels = new List<WriteModel<BsonDocument>>();
-            batch.ForEach(record => writeModels.AddRange(record.Models));
+            var mongoSourceConfig = _configurationProvider.GetSourceConfigProperties<MongoSourceConfig>(connector);
+            var dbCollection = _mongoClientProvider.GetMongoClient(connector, taskId)
+                .GetDatabase(mongoSourceConfig.Database)
+                .GetCollection<BsonDocument>(collection);
 
-            _logger.Trace("Preparing to write models to mongodb.", new { Models = writeModels.Count });
-            return writeModels;
+            return await (await dbCollection.FindAsync(model.Model.Filter, model.Model.Options)).ToListAsync();
+        }
+
+        public async Task<IList<JsonNode>> ReadMany(IList<ConnectRecord<(FilterDefinition<BsonDocument>, FindOptions<BsonDocument>)>> batch, string connector, int taskId)
+        {
+            var mongoSourceConfig = _configurationProvider.GetSourceConfigProperties<MongoSourceConfig>(connector);
+            var collection = _mongoClientProvider.GetMongoClient(connector, taskId)
+                .GetDatabase(mongoSourceConfig.Database)
+                .GetCollection<BsonDocument>("mongoSourceConfig.Collection");
+
+            var data = await (await collection.FindAsync(batch[0].Model.Item1, batch[0].Model.Item2)).ToListAsync();
+            return data.Select(d => JsonNode.Parse(d.ToJson())).ToList();
         }
     }
 }

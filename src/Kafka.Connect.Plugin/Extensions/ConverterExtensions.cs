@@ -12,14 +12,14 @@ public static class ConverterExtensions
     private static readonly Regex RegexFieldNameSeparator =
         new(@"('([^']*)')|(?!\.)([^.^\[\]]+)|(?!\[)(\d+)(?=\])", RegexOptions.Compiled);
 
-    public static IDictionary<string, object> ToDictionary(this JsonNode node, string prefix = "")
+    public static IDictionary<string, object> ToDictionary(this JsonNode node, string prefix = "", bool removePrefix = false)
     {
         string GetKey(JsonNode jn)
         {
             var key = jn.GetPath().TrimStart('$', '.').Replace("['", "").Replace("']", "");
             if (!string.IsNullOrEmpty(prefix))
             {
-                key = $"{prefix}.{key}";
+                key = removePrefix ? key.Replace($"{prefix}.", "") : $"{prefix}.{key}";
             }
 
             return key;
@@ -181,7 +181,7 @@ public static class ConverterExtensions
     public static IDictionary<string, object> ToNestedDictionary(this JsonNode jn) =>
         ToNestedDictionary(jn.ToDictionary());
 
-    public static T ToObject<T>(this IDictionary<string, object> flattened) => flattened.ToJson().Deserialize<T>();
+    public static T ToObject<T>(this IDictionary<string, object> flattened) => JsonSerializer.Deserialize<T>(flattened.ToJson().ToJsonString());
 
     public static IDictionary<string, object> FromObject<T>(this T data) =>
         JsonSerializer.SerializeToNode(data).ToDictionary();
@@ -195,27 +195,32 @@ public static class ConverterExtensions
             case JsonArray:
                 return Array.Empty<object>();
             case JsonValue:
-                var je = jn.Deserialize<JsonElement>(); 
-                switch (je.ValueKind)
-                {
-                    case JsonValueKind.String:
-                        return je.GetString();
-                    case JsonValueKind.Number when je.TryGetInt32(out var intValue):
-                        return intValue;
-                    case JsonValueKind.Number when je.TryGetInt64(out var longValue):
-                        return longValue;
-                    case JsonValueKind.Number when je.TryGetSingle(out var singleValue):
-                        return singleValue;
-                    case JsonValueKind.Number when je.TryGetDouble(out var doubleValue):
-                        return doubleValue;
-                    case JsonValueKind.Number:
-                        return 0;
-                    case JsonValueKind.True or JsonValueKind.False:
-                        return je.GetBoolean();
-                    case JsonValueKind.Undefined or JsonValueKind.Null:
-                        return null;
-                }
-                break;
+                return jn.Deserialize<JsonElement>().GetValue(); 
+        }
+
+        return null;
+    }
+
+    public static object GetValue(this JsonElement je)
+    {
+        switch (je.ValueKind)
+        {
+            case JsonValueKind.String:
+                return je.GetString();
+            case JsonValueKind.Number when je.TryGetInt32(out var intValue):
+                return intValue;
+            case JsonValueKind.Number when je.TryGetInt64(out var longValue):
+                return longValue;
+            case JsonValueKind.Number when je.TryGetSingle(out var singleValue):
+                return singleValue;
+            case JsonValueKind.Number when je.TryGetDouble(out var doubleValue):
+                return doubleValue;
+            case JsonValueKind.Number:
+                return 0;
+            case JsonValueKind.True or JsonValueKind.False:
+                return je.GetBoolean();
+            case JsonValueKind.Undefined or JsonValueKind.Null:
+                return null;
         }
 
         return null;
