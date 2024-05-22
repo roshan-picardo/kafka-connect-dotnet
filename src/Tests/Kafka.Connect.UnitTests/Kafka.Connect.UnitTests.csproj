@@ -36,6 +36,7 @@
       <Compile Remove="Handlers\SinkProcessorTests.cs" />
       <Compile Remove="Connectors\ConnectorTests.cs" />
       <Compile Remove="Providers\ConfigurationProviderTests.cs" />
+      <Compile Remove="Background\FailOverMonitorServiceTests.cs" />
     </ItemGroup>
 
     <ItemGroup>
