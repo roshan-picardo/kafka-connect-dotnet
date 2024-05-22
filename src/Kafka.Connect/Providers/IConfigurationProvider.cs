@@ -6,13 +6,15 @@ namespace Kafka.Connect.Providers;
 
 public interface IConfigurationProvider
 {
+    LeaderConfig GetLeaderConfig(bool reload = false);
+    void ReloadLeaderConfig();
     FailOverConfig GetFailOverConfig();
     HealthCheckConfig GetHealthCheckConfig();
     ConsumerConfig GetConsumerConfig(string connector = null);
     ProducerConfig GetProducerConfig(string connector = null);
     ConnectorConfig GetConnectorConfig(string connector);
     IList<ConnectorConfig> GetAllConnectorConfigs(bool includeDisabled = false);
-    string GetWorkerName();
+    string GetNodeName();
     RestartsConfig GetRestartsConfig();
     ErrorsConfig GetErrorsConfig(string connector);
     RetryConfig GetRetriesConfig(string connector);
@@ -30,4 +32,7 @@ public interface IConfigurationProvider
     string GetGroupId(string connector);
     string GetLogEnhancer(string connector);
     void Validate();
+    bool IsLeader { get; }
+    bool IsWorker { get; }
+    InitializerConfig GetPlugin(string connector);
 }

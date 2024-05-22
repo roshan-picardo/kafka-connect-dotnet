@@ -1,0 +1,104 @@
+{
+  "leader": {
+    "connectors": {
+      "loc-entitlements-consent-sink-connector-pg3": {
+        "batches": "",
+        "groupId": "loc-entitlements-consent-sink-connector-pg-attempt#25",
+        "log": {
+          "attributes": [
+            "consentId",
+            "consentType"
+          ],
+          "provider": ""
+        },
+        "maxTasks": "3",
+        "name": "loc-entitlements-consent-sink-connector-pg2",
+        "paused": "False",
+        "plugin": "default-postgres",
+        "processors": {
+          "cif-locate": {
+            "name": "Entitlements.Consent.Sink.Connector.Processors.CustomerIdLocator",
+            "order": "6",
+            "settings": {
+              "number": "1",
+              "text": "hi-hello"
+            }
+          },
+          "datetime-field": {
+            "name": "Kafka.Connect.Processors.DateTimeTypeOverrider",
+            "order": "2",
+            "settings": {
+              "modifiedDate": ""
+            }
+          },
+          "json-field": {
+            "name": "Kafka.Connect.Processors.JsonTypeOverrider",
+            "order": "1",
+            "settings": [
+              "consentRequest.relatedOperation.data"
+            ]
+          },
+          "rename": {
+            "name": "Kafka.Connect.Processors.FieldRenamer",
+            "order": "5",
+            "settings": {
+              "consentLifeTimeExpiryDate": "expiryDate"
+            }
+          },
+          "whitelist": {
+            "name": "Kafka.Connect.Processors.WhitelistFieldProjector",
+            "order": "4",
+            "settings": [
+              "consentId",
+              "consentType",
+              "status",
+              "consentLifeTimeExpiryDate",
+              "actionType",
+              "customerId"
+            ]
+          }
+        },
+        "retries": "",
+        "sink": {
+          "handler": "Kafka.Connect.Postgres.PostgresSinkHandler",
+          "properties": {
+            "database": "entitlements",
+            "filter": {
+              "condition": "\u0022consentType\u0022=\u0027{consentType}\u0027",
+              "delete": {
+                "allOf": {
+                  "key": [
+                    "value1",
+                    "value2"
+                  ]
+                },
+                "anyOf": "key/values"
+              },
+              "deleteIf": "",
+              "keys": [
+                "consentType"
+              ],
+              "skipIf": "",
+              "upsert": {
+                "if": "\u0022consentType\u0022=\u0027{0}\u0027",
+                "keys": [
+                  "consentType"
+                ]
+              }
+            },
+            "host": "localhost",
+            "password": "postgres",
+            "table": "consent",
+            "userId": "postgres"
+          },
+          "strategy": {
+            "name": "Kafka.Connect.Postgres.Strategies.UpsertStrategy"
+          }
+        },
+        "topics": [
+          "test-events-testing"
+        ]
+      }
+    }
+  }
+}

@@ -93,6 +93,8 @@ namespace Kafka.Connect.Configurations
 
     public enum ConnectorType
     {
+        Leader,
+        Worker,
         Sink,
         Source
     }

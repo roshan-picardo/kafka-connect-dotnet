@@ -5,6 +5,7 @@ using Kafka.Connect;
 using Kafka.Connect.Background;
 using Kafka.Connect.Connectors;
 using Kafka.Connect.Plugin.Logging;
+using Kafka.Connect.Providers;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Xunit;
@@ -24,7 +25,7 @@ namespace UnitTests.Kafka.Connect.Background
             _worker = Substitute.For<IWorker>();
             _executionContext = Substitute.For<IExecutionContext>();
 
-            _workerService = new WorkerService(_logger, _worker, _executionContext);
+            _workerService = new WorkerService(_logger, _worker, _executionContext, Substitute.For<IConfigurationProvider>());
         }
 
         [Fact]

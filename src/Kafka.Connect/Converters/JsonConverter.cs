@@ -37,13 +37,6 @@ public class JsonConverter : IMessageConverter
             try
             {
                 var array = data.ToArray();
-
-                if (array.Length < 5)
-                {
-                    throw new InvalidDataException(
-                        $"Expecting data framing of length 5 bytes or more but total data size is {array.Length} bytes");
-                }
-
                 await using var stream = new MemoryStream(array, 0, array.Length);
                 using var sr = new StreamReader(stream, Encoding.UTF8);
                 token = JsonNode.Parse(await sr.ReadToEndAsync());

@@ -19,7 +19,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 using Kafka.Connect.Configurations;
-using Kafka.Connect.Plugin;
 using Kafka.Connect.Plugin.Converters;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Providers;
@@ -40,12 +39,14 @@ namespace Kafka.Connect.Utilities
                 .AddScoped<IConnectRecordCollection, ConnectRecordCollection>()
                 .AddScoped<ISinkTask, SinkTask>()
                 .AddScoped<ISourceTask, SourceTask>()
+                .AddScoped<ILeaderTask, LeaderTask>()
                 .AddScoped<IKafkaClientBuilder, KafkaClientBuilder>()
                 .AddScoped<IKafkaClientEventHandler, KafkaClientEventHandler>()
                 .AddScoped<IRetriableHandler, RetriableHandler>()
                 
                 .AddScoped<IConnectDeadLetter, ConnectDeadLetter>()
                 .AddScoped<ITokenHandler, TokenHandler>()
+                .AddScoped<IConfigurationChangeHandler, ConfigurationChangeHandler>()
 
                 .AddScoped<IProcessorServiceProvider, ProcessorServiceProvider>()
                 .AddScoped<IConnectHandlerProvider, ConnectHandlerProvider>()
@@ -84,11 +85,13 @@ namespace Kafka.Connect.Utilities
                 //.AddScoped<IWriteStrategySelector, ValueStrategySelector>()
 
                 .Configure<WorkerConfig>(configuration.GetSection("worker"), options => options.BindNonPublicProperties = true)
+                .Configure<LeaderConfig>(configuration.GetSection("leader"), options => options.BindNonPublicProperties = true)
                 
                 .AddSingleton<Providers.IConfigurationProvider, Providers.ConfigurationProvider>()
                 .AddSingleton<Plugin.Providers.IConfigurationProvider, Providers.ConfigurationProvider>()
                 .AddSingleton<IExecutionContext, ExecutionContext>()
                 .AddSingleton<IWorker, Worker>()
+                .AddSingleton<ILeader, Leader>()
                 .AddControllers();
 
             AddPluginServices?.Invoke(services);
@@ -114,8 +117,8 @@ namespace Kafka.Connect.Utilities
                     {"Application", Environment.GetEnvironmentVariable("APPLICATION_VERSION") ?? "0.0.0.0"}
                 })
                 .Enrich.WithProperty("Environment", Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"))
-                .Enrich.WithProperty("Worker",
-                    Environment.GetEnvironmentVariable("WORKER_HOST") ?? Environment.MachineName);
+                .Enrich.WithProperty("Node",
+                    Environment.GetEnvironmentVariable("NODE_NAME") ?? Environment.MachineName);
         }
     }
 }

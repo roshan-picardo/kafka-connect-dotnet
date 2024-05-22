@@ -1,9 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using Microsoft.Extensions.Configuration;
 
 namespace Kafka.Connect.Plugin.Extensions;
 
@@ -14,6 +17,9 @@ public static class ConverterExtensions
 
     public static IDictionary<string, object> ToDictionary(this JsonNode node, string prefix = "", bool removePrefix = false)
     {
+        var all = Parse(node);
+        return all?.ToDictionary(GetKey, GetValue);
+
         string GetKey(JsonNode jn)
         {
             var key = jn.GetPath().TrimStart('$', '.').Replace("['", "").Replace("']", "");
@@ -29,13 +35,13 @@ public static class ConverterExtensions
         {
             return jn switch
             {
-                JsonValue jv => new List<JsonNode> { jv },
+                JsonValue jv => [jv],
                 JsonObject jo => ParseObject(jo),
                 JsonArray ja => ParseArray(ja),
                 _ => null
             };
         }
-        
+
         List<JsonNode> ParseObject(JsonObject jo)
         {
             var nodes = new List<JsonNode>();
@@ -56,7 +62,7 @@ public static class ConverterExtensions
 
             return nodes;
         }
-        
+
         List<JsonNode> ParseArray(JsonArray ja)
         {
             var nodes = new List<JsonNode>();
@@ -74,9 +80,6 @@ public static class ConverterExtensions
 
             return nodes;
         }
-
-        var all = Parse(node);
-        return all?.ToDictionary(GetKey, GetValue);
     }
     
     public static JsonNode ToJson(this IDictionary<string, object> flattened)
@@ -87,6 +90,29 @@ public static class ConverterExtensions
             WriteIndented = true
         });
         return JsonNode.Parse(jsonString);
+    }
+    
+    public static JsonNode ToJson(this IConfiguration configuration)
+    {
+        var flattened = new Dictionary<string, object>();
+        Flatten(configuration.GetChildren());
+        return flattened.ToJson();
+
+        void Flatten(IEnumerable<IConfigurationSection> sections, string parentPath = "")
+        {
+            foreach (var section in sections)
+            {
+                var path = string.IsNullOrEmpty(parentPath) ? section.Key : $"{parentPath}:{section.Key}";
+                if (section.GetChildren().Any())
+                {
+                    Flatten(section.GetChildren(), path);
+                }
+                else
+                {
+                    flattened[path.Replace(":", ".")] = section.Value;
+                }
+            }
+        }
     }
 
     private static IDictionary<string, object> ToNestedDictionary(IDictionary<string, object> flattened)
@@ -148,7 +174,7 @@ public static class ConverterExtensions
                     {
                         if (previousIndex == -1)
                         {
-                            loop = loop[previousKey] as Dictionary<string, object>;
+                            loop = loop?[previousKey] as Dictionary<string, object>;
                         }
 
                         previousKey = key;
@@ -186,20 +212,14 @@ public static class ConverterExtensions
     public static IDictionary<string, object> FromObject<T>(this T data) =>
         JsonSerializer.SerializeToNode(data).ToDictionary();
 
-    public static object GetValue(this JsonNode jn)
-    {
-        switch (jn)
+    public static object GetValue(this JsonNode jn) =>
+        jn switch
         {
-            case JsonObject:
-                return new object();
-            case JsonArray:
-                return Array.Empty<object>();
-            case JsonValue:
-                return jn.Deserialize<JsonElement>().GetValue(); 
-        }
-
-        return null;
-    }
+            JsonObject => new object(),
+            JsonArray => Array.Empty<object>(),
+            JsonValue => jn.Deserialize<JsonElement>().GetValue(),
+            _ => null
+        };
 
     public static object GetValue(this JsonElement je)
     {
@@ -225,4 +245,6 @@ public static class ConverterExtensions
 
         return null;
     }
+
+    public static Guid ToGuid(this string s) => new(MD5.HashData(Encoding.UTF8.GetBytes(s)));
 }

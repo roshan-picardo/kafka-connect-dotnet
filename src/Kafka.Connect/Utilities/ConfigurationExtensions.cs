@@ -61,11 +61,14 @@ namespace Kafka.Connect.Utilities
                  if (type != null && Activator.CreateInstance(type) is IPluginInitializer instance)
                  {
                      var connectors = configuration.GetSection("worker:connectors")
-                         .Get<IDictionary<string, ConnectorConfig>>()
+                         .Get<IDictionary<string, ConnectorConfig>>()?
                          .Where(c => c.Value.Plugin == name).Select(c => (c.Value.Name ?? c.Key, c.Value.MaxTasks));
-                     ServiceExtensions.AddPluginServices +=
-                         collection =>
-                             instance.AddServices(collection, configuration, (name, connectors));
+                     if (connectors != null)
+                     {
+                         ServiceExtensions.AddPluginServices +=
+                             collection =>
+                                 instance.AddServices(collection, configuration, (name, connectors));
+                     }
                  }
                  else
                  {
@@ -74,6 +77,20 @@ namespace Kafka.Connect.Utilities
                  }
                  Log.ForContext<Worker>().Debug("{@Log}", new {Message = $"Plugin Initialized: {name}."});
              }
+        }
+
+        public static IConfiguration ReloadConfigs(this IConfiguration configuration, string folder = null)
+        {
+            var builder = new ConfigurationBuilder()
+                .AddConfiguration(configuration);
+
+            foreach (var file in Directory.EnumerateFiles(folder ?? Directory.GetCurrentDirectory(), "*.json"))
+            {
+                builder.AddJsonFile(file, true, true);
+            }    
+            var configurationRoot = builder.Build();
+            configurationRoot.Reload();
+            return configurationRoot;
         }
     }
 }

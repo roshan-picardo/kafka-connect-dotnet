@@ -1,6 +1,4 @@
 using System;
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Kafka.Connect.Plugin.Extensions;
@@ -16,8 +14,7 @@ public class CommandRecord : IConnectRecord
         {
             if (_id == Guid.Empty)
             {
-                using var md5 = MD5.Create();
-                _id = new Guid(md5.ComputeHash(Encoding.UTF8.GetBytes($"{Connector}-{Name}")));
+                _id = $"{Connector}-{Name}".ToGuid();
             }
             return _id.ToString();
         }
@@ -32,6 +29,15 @@ public class CommandRecord : IConnectRecord
     public JsonNode Command { get; set; }
     public Exception Exception { get; set; }
 
-    public int GetVersion() => Command["Version"]?.GetValue<int>() ?? 0;
+    public int GetVersion()
+    {
+        var hash = Command["Version"]?.GetValue<int>() ?? 0;
+        if (hash == 0)
+        {
+            hash = Command.ToJsonString().ToGuid().GetHashCode();
+            Command["Version"] = hash;
+        }
+        return hash;
+    }
     public T GetCommand<T>() => Command.ToDictionary().ToJson().Deserialize<T>();
 }

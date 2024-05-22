@@ -17,5 +17,6 @@ public class WorkerContext
     public IList<ConnectorContext> Connectors { get; } = new List<ConnectorContext>();
     public bool IsStopped => Worker == null || (Worker.IsStopped && (Connectors?.All(c => c.IsStopped) ?? true));
     public IWorker Worker { get; internal set; }
+    public ILeader Leader { get; internal set; }
     public RestartContext RestartContext { get; internal set; }
 }
