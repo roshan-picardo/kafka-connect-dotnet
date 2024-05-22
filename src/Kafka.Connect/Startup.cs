@@ -29,9 +29,10 @@ using Serilog.Formatting.Json;
                  .ConfigureServices(collection =>
                  {
                      collection
+                         .AddHostedService<LeaderService>()
                          .AddHostedService<WorkerService>()
-                         .AddHostedService<HealthCheckService>()
-                         .AddHostedService<FailOverMonitorService>();
+                         .AddHostedService<HealthCheckService>();
+                         //.AddHostedService<FailOverMonitorService>();
                  });
 
 

@@ -1,7 +1,7 @@
-﻿{
+{
   "iisSettings": {
-    "windowsAuthentication": false, 
-    "anonymousAuthentication": true, 
+    "windowsAuthentication": false,
+    "anonymousAuthentication": true,
     "iisExpress": {
       "applicationUrl": "http://localhost:49071",
       "sslPort": 44387
@@ -17,7 +17,6 @@
     },
     "Kafka.Connect": {
       "commandName": "Project",
-      "launchBrowser": false,
       "applicationUrl": "http://localhost:4002",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "local",

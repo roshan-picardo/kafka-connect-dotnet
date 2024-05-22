@@ -66,7 +66,7 @@ namespace UnitTests.Kafka.Connect.Providers
                 Environment.SetEnvironmentVariable("WORKER_HOST", configValue);
             }
 
-            var actual = GetProvider(workerConfig).GetWorkerName();
+            var actual = GetProvider(workerConfig).GetNodeName();
 
             Assert.Equal(expected, actual);
         }
@@ -459,7 +459,7 @@ namespace UnitTests.Kafka.Connect.Providers
         {
             var options = Substitute.For<IOptions<WorkerConfig>>();
             options.Value.Returns(config);
-            return new ConfigurationProvider(options, Substitute.For<IConfiguration>());
+            return new ConfigurationProvider(Substitute.For<IConfiguration>());
         }
         
         private static ConfigurationProvider GetProvider(IDictionary<string, string> settings)
@@ -471,7 +471,7 @@ namespace UnitTests.Kafka.Connect.Providers
             var options = Substitute.For<IOptions<WorkerConfig>>();
             options.Value.Returns(new WorkerConfig());
             
-            return new ConfigurationProvider(options, configuration);
+            return new ConfigurationProvider(configuration);
         }
 
         public static IEnumerable<object[]> FailOverConfigTests

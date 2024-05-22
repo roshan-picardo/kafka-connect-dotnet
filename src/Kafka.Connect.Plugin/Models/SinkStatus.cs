@@ -36,6 +36,8 @@ namespace Kafka.Connect.Plugin.Models
         Published,
         
         Selecting,
-        Selected
+        Selected,
+        
+        Reviewed
     }
 }

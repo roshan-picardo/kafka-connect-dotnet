@@ -1,16 +1,16 @@
 using System;
 using System.Collections.Generic;
-using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using Kafka.Connect.Models;
+using Kafka.Connect.Configurations;
 using Kafka.Connect.Plugin.Models;
 
 namespace Kafka.Connect.Handlers;
 
 public interface IConnectRecordCollection
 {
-    void Setup(string connector, int taskId);
+    void Setup(ConnectorType connectorType, string connector, int taskId);
     void Clear(string batchId = null);
+    void ClearAll();
     bool TrySubscribe();
     Task Consume();
     Task Process(string batchId = null);
@@ -27,5 +27,7 @@ public interface IConnectRecordCollection
     Task Produce(string batchId = null);
     Task UpdateCommand(CommandRecord command);
     void Commit(IList<CommandRecord> commands);
+    Task Configure(string batchId, bool refresh);
+    void UpdateTo(SinkStatus status, string batchId = null);
 }
 
