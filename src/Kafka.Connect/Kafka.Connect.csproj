@@ -23,14 +23,6 @@
       <PackageReference Include="Serilog.Sinks.Console" Version="4.0.1" />
     </ItemGroup>
     
-    <ItemGroup>
-      <Content Update="appsettings-local.json">
-        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
-        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-      </Content>
-    </ItemGroup>
-    
     <Choose>
         <When Condition="'$(Configuration)'=='Debug'">
             <ItemGroup>

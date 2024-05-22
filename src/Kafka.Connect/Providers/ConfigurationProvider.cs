@@ -4,43 +4,85 @@ using System.Linq;
 using Confluent.Kafka;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Plugin;
+using Kafka.Connect.Plugin.Extensions;
+using Kafka.Connect.Utilities;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Options;
 
 namespace Kafka.Connect.Providers;
 
 public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugin.Providers.IConfigurationProvider
 {
-    private readonly IConfiguration _configuration;
     private readonly WorkerConfig _workerConfig;
-    public ConfigurationProvider(IOptions<WorkerConfig> options, IConfiguration configuration)
+    private LeaderConfig _leaderConfig;
+    private readonly IConfiguration _configuration;
+
+    public ConfigurationProvider(IConfiguration configuration)
     {
         _configuration = configuration;
-        _workerConfig = options?.Value ?? throw new ArgumentNullException(nameof(options));
+        _workerConfig = configuration.GetSection("worker").Get<WorkerConfig>();
+        SetLeaderConfig(configuration);
+    }
+
+
+    public bool IsLeader => _leaderConfig != null;
+    public bool IsWorker => _workerConfig != null;
+
+    public LeaderConfig GetLeaderConfig(bool reload = false)
+    {
+        if (reload)
+        {
+            SetLeaderConfig(_configuration.ReloadConfigs(_leaderConfig.Settings));
+        }
+
+        return _leaderConfig;
+    } 
+
+    public void ReloadLeaderConfig() => SetLeaderConfig(_configuration.ReloadConfigs(_leaderConfig.Settings));
+    
+    private void SetLeaderConfig(IConfiguration config)
+    {
+        _leaderConfig = config.GetSection("leader").Get<LeaderConfig>();
+        if (IsLeader)
+        {
+            _leaderConfig.Connectors.Clear();
+            foreach (var section in config.GetSection("leader:connectors").GetChildren())
+            {
+                _leaderConfig.Connectors.Add(section.Key, section.ToJson());
+            }
+        }
     }
 
     public FailOverConfig GetFailOverConfig()
     {
-        return _workerConfig.FailOver ?? new FailOverConfig();
+        NodeConfig config = IsLeader ? _leaderConfig : _workerConfig;
+        return config.FailOver ?? new FailOverConfig();
     }
         
     public HealthCheckConfig GetHealthCheckConfig()
     {
-        return _workerConfig.HealthCheck ?? new HealthCheckConfig();
+        NodeConfig config = IsLeader ? _leaderConfig : _workerConfig;
+        return config?.HealthCheck ??  new HealthCheckConfig();
     }
         
     public ConnectorConfig GetConnectorConfig(string connector)
     {
+        if(IsLeader)
+        {
+            return _leaderConfig.Connector;
+        }
         return _workerConfig.Connectors?.Values.SingleOrDefault(c => c.Name == connector) ??
                throw new ArgumentException($"{connector} isn't configured.");
     }
 
     public ConsumerConfig GetConsumerConfig(string connector = null)
     {
-        if (connector == null)
+        if (IsLeader)
         {
-            return _workerConfig;
+            _leaderConfig.GroupId = _leaderConfig.Connector.GroupId;
+            _leaderConfig.ClientId = _leaderConfig.Connector.GroupId;
+            return _leaderConfig;
         }
+
         var config = GetConnectorConfig(connector);
         _workerConfig.GroupId = config.GroupId;
         _workerConfig.ClientId = config.ClientId;
@@ -59,23 +101,23 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
                throw new ArgumentException("Connectors aren't configured.");
     }
 
-    public string GetWorkerName()
+    public string GetNodeName()
     {
-        return _workerConfig.Name;
+        return _workerConfig?.Name ?? _leaderConfig.Name;
     }
 
     public RestartsConfig GetRestartsConfig()
     {
-        return _workerConfig.Restarts ?? new RestartsConfig();
+        return _workerConfig?.Restarts ?? _leaderConfig?.Restarts ?? new RestartsConfig();
     }
 
     public ErrorsConfig GetErrorsConfig(string connector)
     {
-        return GetConnectorConfig(connector).Retries?.Errors 
-               ?? _workerConfig.Retries?.Errors 
-               ?? new ErrorsConfig {Tolerance = ErrorTolerance.All};
+        return GetConnectorConfig(connector).Retries?.Errors
+               ?? (IsLeader ? _leaderConfig.Retries?.Errors : _workerConfig.Retries?.Errors)
+               ?? new ErrorsConfig { Tolerance = ErrorTolerance.All };
     }
-        
+
     public RetryConfig GetRetriesConfig(string connector)
     {
         return GetConnectorConfig(connector)?.Retries 
@@ -92,13 +134,14 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
 
     public BatchConfig GetBatchConfig(string connector)
     {
-        if (!(_workerConfig.EnablePartitionEof ?? false))
+        NodeConfig nodeConfig = IsLeader ? _leaderConfig : _workerConfig;
+        if (!(nodeConfig?.EnablePartitionEof ?? false))
         {
-            return new BatchConfig {Size = 1, Parallelism = 1};
+            return new BatchConfig { Size = 1, Parallelism = 1 };
         }
 
         return GetConnectorConfig(connector)?.Batches
-               ?? _workerConfig.Batches
+               ?? nodeConfig.Batches
                ?? new BatchConfig();
     }
 
@@ -114,9 +157,9 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
 
     public ConverterConfig GetMessageConverters(string connector, string topic)
     {
-        var shared = _workerConfig.Batches?.Converters;
-        var deserializers = GetConnectorConfig(connector).Batches?.Converters;
-        return FindConverterConfig(deserializers?.Overrides?.SingleOrDefault(t => t.Topic == topic), deserializers,
+        var shared = IsLeader ? _leaderConfig.Batches?.Converters : _workerConfig.Batches?.Converters;
+        var converters = GetConnectorConfig(connector).Batches?.Converters;
+        return FindConverterConfig(converters?.Overrides?.SingleOrDefault(t => t.Topic == topic), converters,
             shared?.Overrides?.SingleOrDefault(t => t.Topic == topic), shared, Constants.DefaultDeserializer);
     }
 
@@ -141,7 +184,7 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
 
     public IList<string> GetTopics(string connector)
     {
-        return GetConnectorConfig(connector).Topics;
+        return IsLeader ? new List<string> { _leaderConfig.Topics.Config } : GetConnectorConfig(connector).Topics;
     }
 
     public IList<ProcessorConfig> GetMessageProcessors(string connector, string topic)
@@ -185,7 +228,8 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
 
     public (bool EnableAutoCommit, bool EnableAutoOffsetStore) GetAutoCommitConfig()
     {
-        return (_workerConfig.EnableAutoCommit ?? false, _workerConfig.EnableAutoOffsetStore ?? false);
+        NodeConfig nodeConfig = IsLeader ? _leaderConfig : _workerConfig;
+        return (nodeConfig.EnableAutoCommit ?? false, nodeConfig.EnableAutoOffsetStore ?? false);
     }
 
     public T GetProcessorSettings<T>(string connector, string processor)
@@ -221,7 +265,14 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
     {
         return GetConnectorConfig(connector)?.Plugin;
     }
-    
+
+    public InitializerConfig GetPlugin(string connector)
+    {
+        return
+            _workerConfig.Plugins.Initializers.SingleOrDefault(p => p.Key == GetConnectorConfig(connector).Plugin)
+                .Value;
+    }
+
     public int GetDegreeOfParallelism(string connector) => GetBatchConfig(connector).Parallelism;
 
     public void Validate()  

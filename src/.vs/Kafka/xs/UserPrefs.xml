@@ -1,0 +1,62 @@
+﻿<Properties StartupConfiguration="{2BC20CF1-E2B1-4517-8FD6-0DBF4E8CFE80}|Default">
+  <MonoDevelop.Ide.ItemProperties.Kafka.Connect PreferredExecutionTarget="/Applications/Google Chrome.app" />
+  <MonoDevelop.Ide.DebuggingService.Breakpoints>
+    <BreakpointStore>
+      <Breakpoint file="/Users/picardro/Github/external/roshan-picardo/kafka-connect-dotnet/src/Kafka.Connect/Connectors/SinkTask.cs" relfile="Kafka.Connect/Connectors/SinkTask.cs" line="50" column="1" />
+      <Breakpoint file="/Users/picardro/Github/external/roshan-picardo/kafka-connect-dotnet/src/Kafka.Connect/Connectors/SourceTask.cs" relfile="Kafka.Connect/Connectors/SourceTask.cs" line="65" column="1" />
+      <Breakpoint file="/Users/picardro/Github/external/roshan-picardo/kafka-connect-dotnet/src/Kafka.Connect/Handlers/ConnectRecordCollection.cs" relfile="Kafka.Connect/Handlers/ConnectRecordCollection.cs" line="325" column="1" />
+    </BreakpointStore>
+  </MonoDevelop.Ide.DebuggingService.Breakpoints>
+  <MonoDevelop.Ide.Workbench ActiveDocument="Plugins/Kafka.Connect.MongoDb/Strategies/ReadStrategy.cs">
+    <Files>
+      <File FileName="Kafka.Connect/appsettings.json" Line="249" Column="24" />
+      <File FileName="Kafka.Connect/Connectors/Connector.cs" Line="53" Column="13" />
+      <File FileName="Kafka.Connect/Connectors/SourceTask.cs" Line="93" Column="46" />
+      <File FileName="Kafka.Connect/Handlers/IConnectRecordCollection.cs" Line="29" Column="13" />
+      <File FileName="Kafka.Connect/Handlers/ConnectRecordCollection.cs" Line="172" Column="83" />
+      <File FileName="Kafka.Connect.Plugin/Extensions/ForEachExtensions.cs" Line="45" Column="1" />
+      <File FileName="Kafka.Connect/Handlers/SinkConsumer.cs" Line="88" Column="1" />
+      <File FileName="Kafka.Connect/Connectors/SinkTask.cs" Line="43" Column="39" />
+      <File FileName="Kafka.Connect.Plugin/Models/CommandRecord.cs" Line="31" Column="39" />
+      <File FileName="Kafka.Connect/Connectors/ExecutionContext.cs" Line="262" Column="6" />
+      <File FileName="Kafka.Connect/Connectors/IExecutionContext.cs" Line="31" Column="19" />
+      <File FileName="Kafka.Connect/Tokens/PauseToken.cs" Line="17" Column="17" />
+      <File FileName="Kafka.Connect/Tokens/PauseTokenSource.cs" Line="16" Column="36" />
+      <File FileName="Kafka.Connect/draft.appsettings.json" Line="1" Column="1" />
+      <File FileName="Kafka.Connect/Providers/ReadWriteStrategyProvider.cs" Line="17" Column="68" />
+      <File FileName="Plugins/Kafka.Connect.MongoDb/Strategies/ReadStrategy.cs" Line="79" Column="91" />
+    </Files>
+    <Pads>
+      <Pad Id="ProjectPad">
+        <State name="__root__">
+          <Node name="Kafka">
+            <Node name="Plugins">
+              <Node name="Kafka.Connect.MongoDb">
+                <Node name="Strategies">
+                  <Node name="ReadStrategy.cs" selected="True" />
+                </Node>
+              </Node>
+            </Node>
+            <Node name="Kafka.Connect">
+              <Node name="Connectors" expanded="True" />
+              <Node name="Providers" expanded="True" />
+              <Node name="Tokens" expanded="True" />
+            </Node>
+            <Node name="Kafka.Connect.Plugin">
+              <Node name="Extensions" expanded="True" />
+            </Node>
+          </Node>
+        </State>
+      </Pad>
+      <Pad Id="MonoDevelop.Debugger.WatchPad">
+        <State>
+          <Value>_executionContext</Value>
+          <Value>_execution</Value>
+        </State>
+      </Pad>
+    </Pads>
+  </MonoDevelop.Ide.Workbench>
+  <MultiItemStartupConfigurations />
+  <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug" />
+  <MonoDevelop.Ide.DebuggingService.PinnedWatches />
+</Properties>

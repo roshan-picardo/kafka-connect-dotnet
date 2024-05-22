@@ -10,10 +10,10 @@ public interface ITask
     bool IsStopped { get; }
 }
 
-public interface ISinkTask : ITask
-{
-}
+public interface ISinkTask : ITask;
 
-public interface ISourceTask : ITask
-{
-}
+public interface ISourceTask : ITask;
+
+public interface ILeaderTask : ITask;
+
+public interface IWorkerTask : ITask;

@@ -13,48 +13,34 @@ using Kafka.Connect.Providers;
 
 namespace Kafka.Connect.Connectors;
 
-public class ExecutionContext : IExecutionContext
+public class ExecutionContext(
+    IEnumerable<IPluginInitializer> plugins,
+    IEnumerable<IProcessor> processors,
+    IEnumerable<ISinkHandler> handlers,
+    IEnumerable<IMessageConverter> messageConverters,
+    IEnumerable<IReadWriteStrategySelector> strategySelectors,
+    IEnumerable<IWriteStrategy> writeStrategies,
+    IConfigurationProvider configurationProvider)
+    : IExecutionContext
 {
-    private readonly IEnumerable<IPluginInitializer> _plugins;
-    private readonly IEnumerable<IProcessor> _processors;
-    private readonly IEnumerable<ISinkHandler> _handlers;
-    private readonly IEnumerable<IMessageConverter> _messageConverters;
-    private readonly IEnumerable<IReadWriteStrategySelector> _strategySelectors;
-    private readonly IEnumerable<IWriteStrategy> _writeStrategies;
-    private readonly IConfigurationProvider _configurationProvider;
-    private readonly WorkerContext _workerContext;
+    private readonly WorkerContext _workerContext = new();
     private int _topicPollIndex;
     private int _recordsCount;
-    private readonly CancellationTokenSource _cancellationToken;
-
-    public ExecutionContext(
-        IEnumerable<IPluginInitializer> plugins, 
-        IEnumerable<IProcessor> processors,
-        IEnumerable<ISinkHandler> handlers, 
-        IEnumerable<IMessageConverter> messageConverters, 
-        IEnumerable<IReadWriteStrategySelector> strategySelectors,
-        IEnumerable<IWriteStrategy> writeStrategies,
-        IConfigurationProvider configurationProvider)
-    {
-        _plugins = plugins;
-        _processors = processors;
-        _handlers = handlers;
-        _messageConverters = messageConverters;
-        _strategySelectors = strategySelectors;
-        _writeStrategies = writeStrategies;
-        _configurationProvider = configurationProvider;
-        _workerContext = new WorkerContext();
-        _topicPollIndex = 0;
-        _recordsCount = 0;
-        _cancellationToken = new CancellationTokenSource();
-    }
+    private readonly CancellationTokenSource _cancellationToken = new();
 
     public void Initialize(string name, IWorker worker)
     {
         _workerContext.Name = name;
         _workerContext.Worker = worker;
         _workerContext.RestartContext =
-            new RestartContext(_configurationProvider.GetRestartsConfig(), RestartsLevel.Worker);
+            new RestartContext(configurationProvider.GetRestartsConfig(), RestartsLevel.Worker);
+        _workerContext.Connectors.Clear();
+    }
+    
+    public void Initialize(string name, ILeader leader)
+    {
+        _workerContext.Name = name;
+        _workerContext.Leader = leader;
         _workerContext.Connectors.Clear();
     }
 
@@ -69,7 +55,7 @@ public class ExecutionContext : IExecutionContext
         }
         context.Connector = connector;
         context.RestartContext =
-            new RestartContext(_configurationProvider.GetRestartsConfig(), RestartsLevel.Connector);
+            new RestartContext(configurationProvider.GetRestartsConfig(), RestartsLevel.Connector);
         context.Tasks.Clear();
     }
 
@@ -86,7 +72,7 @@ public class ExecutionContext : IExecutionContext
         }
         taskContext.Task = task;
         taskContext.RestartContext =
-            new RestartContext(_configurationProvider.GetRestartsConfig(), RestartsLevel.Task);
+            new RestartContext(configurationProvider.GetRestartsConfig(), RestartsLevel.Task);
         taskContext.Assignments.Clear();
     }
 
@@ -132,15 +118,15 @@ public class ExecutionContext : IExecutionContext
         return new
         {
             Worker = GetWorkerStatus(),
-            Plugins = _plugins?.Select(p => p?.GetType().Assembly.GetName().Name),
-            Initializers = _plugins?.Select(p => p?.GetType().FullName),
-            Processors = _processors?.Select(p => p?.GetType().FullName),
-            Deserializers = _messageConverters?.Select(d => d?.GetType().FullName),
-            Handlers = _handlers?.Select(h => h?.GetType().FullName),
+            Plugins = plugins?.Select(p => p?.GetType().Assembly.GetName().Name),
+            Initializers = plugins?.Select(p => p?.GetType().FullName),
+            Processors = processors?.Select(p => p?.GetType().FullName),
+            Deserializers = messageConverters?.Select(d => d?.GetType().FullName),
+            Handlers = handlers?.Select(h => h?.GetType().FullName),
             Writers = new
             {
-                Selectors = _strategySelectors?.Select(s => s?.GetType().FullName),
-                Strategies = _writeStrategies?.Select(s => s?.GetType().FullName)
+                Selectors = strategySelectors?.Select(s => s?.GetType().FullName),
+                Strategies = writeStrategies?.Select(s => s?.GetType().FullName)
             }
         };
     }
@@ -173,7 +159,7 @@ public class ExecutionContext : IExecutionContext
 
     public void Shutdown()
     {
-        if (_cancellationToken is {IsCancellationRequested: false})
+        if (_cancellationToken is { IsCancellationRequested: false })
         {
             _cancellationToken.Cancel();
         }

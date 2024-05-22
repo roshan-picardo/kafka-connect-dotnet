@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -22,8 +21,6 @@ public class ConnectRecord : IConnectRecord
     public ConnectMessage<JsonNode> Deserialized { get; set; }
         
     public ConnectMessage<byte[]> Serialized { get; set; }
-        
-    public ConnectMessage<IDictionary<string, object>> Flattened { get; set; }
 
     public string Topic { get; private set; }
     public int Partition { get; private set; }
@@ -51,6 +48,7 @@ public class ConnectRecord : IConnectRecord
         SinkStatus.Skipped => true,
         SinkStatus.Excluded => true,
         SinkStatus.Published => true,
+        SinkStatus.Reviewed => true,
         SinkStatus.Failed => tolerated,
         _ => false
     };

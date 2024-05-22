@@ -19,6 +19,7 @@ public interface IExecutionContext
     bool IsStopped { get; }
     BatchPollContext GetOrSetBatchContext(string connector, int taskId, CancellationToken token = default);
     void Initialize(string name, IWorker worker);
+    void Initialize(string name, ILeader leader);
     void Initialize(string name, IConnector connector);
     void Initialize(string connector, int taskId, ITask task);
     void Pause(string connector = null, int task = 0);
