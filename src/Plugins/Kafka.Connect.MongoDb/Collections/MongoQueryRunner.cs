@@ -41,8 +41,7 @@ namespace Kafka.Connect.MongoDb.Collections
             {
                 return;
             }
-            using (LogContext.Push(new PropertyEnricher("database", mongoSinkConfig.Database),
-                new PropertyEnricher("collection", mongoSinkConfig.Collection)))
+            using (ConnectLog.Mongo(mongoSinkConfig.Database, mongoSinkConfig.Collection))
             {
                 try
                 {

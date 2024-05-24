@@ -8,21 +8,14 @@ using Kafka.Connect.Postgres.Models;
 
 namespace Kafka.Connect.Postgres.Strategies;
 
-public class UpsertStrategy : WriteStrategy<string>
+public class UpsertStrategy(ILogger<UpsertStrategy> logger, IConfigurationProvider configurationProvider)
+    : QueryStrategy<string>
 {
-    private readonly ILogger<UpsertStrategy> _logger;
-    private readonly IConfigurationProvider _configurationProvider;
-
-    public UpsertStrategy(ILogger<UpsertStrategy> logger, IConfigurationProvider configurationProvider)
+    protected override Task<StrategyModel<string>> BuildSinkModels(string connector, ConnectRecord record)
     {
-        _logger = logger;
-        _configurationProvider = configurationProvider;
-    }
-    protected override async Task<(SinkStatus Status, IList<string> Models)> BuildModels(string connector, ConnectRecord record)
-    {
-        using (_logger.Track("Building upsert statements"))
+        using (logger.Track("Building upsert statements"))
         {
-            var config = _configurationProvider.GetSinkConfigProperties<PostgresSinkConfig>(connector);
+            var config = configurationProvider.GetSinkConfigProperties<PostgresSinkConfig>(connector);
             var whereClause = "";
             if (config.Filter != null)
             {
@@ -53,7 +46,16 @@ public class UpsertStrategy : WriteStrategy<string>
             finalQuery.Append(insertQuery);
             finalQuery.Append(" END IF; END $do$");
             
-            return await Task.FromResult((SinkStatus.Updating, new[] { finalQuery.ToString() }));
+            return Task.FromResult(new StrategyModel<string>
+            {
+                Status = SinkStatus.Updating,
+                Model = finalQuery.ToString()
+            });
         }
+    }
+
+    protected override Task<StrategyModel<string>> BuildSourceModels(string connector, CommandRecord record)
+    {
+        throw new NotImplementedException();
     }
 }

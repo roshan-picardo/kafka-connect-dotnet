@@ -6,30 +6,33 @@ using Kafka.Connect.Postgres.Models;
 
 namespace Kafka.Connect.Postgres.Strategies;
 
-public class DeleteStrategy : WriteStrategy<string>
+public class DeleteStrategy(ILogger<DeleteStrategy> logger, IConfigurationProvider configurationProvider)
+    : QueryStrategy<string>
 {
-    private readonly ILogger<DeleteStrategy> _logger;
-    private readonly IConfigurationProvider _configurationProvider;
-
-    public DeleteStrategy(ILogger<DeleteStrategy> logger, IConfigurationProvider configurationProvider)
+    protected override Task<StrategyModel<string>> BuildSinkModels(string connector, ConnectRecord record)
     {
-        _logger = logger;
-        _configurationProvider = configurationProvider;
-    }
-
-    protected override async Task<(SinkStatus Status, IList<string> Models)> BuildModels(string connector, ConnectRecord record)
-    {
-        using (_logger.Track("Building delete statement"))
+        using (logger.Track("Building delete statement"))
         {
-            var config = _configurationProvider.GetSinkConfigProperties<PostgresSinkConfig>(connector);
+            var config = configurationProvider.GetSinkConfigProperties<PostgresSinkConfig>(connector);
             var whereClause = "";
             if (config.Filter != null)
             {
                 whereClause = string.Format(config.Filter.Condition,
-                    config.Filter.Keys?.Select(key => record.Deserialized.Value[key]).ToArray() ?? Array.Empty<object>());
+                    config.Filter.Keys?.Select(key => record.Deserialized.Value[key]).ToArray() ??
+                    Array.Empty<object>());
             }
+
             var deleteQuery = $"DELETE FROM {config.Schema}.{config.Table} WHERE {whereClause};";
-            return await Task.FromResult((SinkStatus.Deleting, new[] { deleteQuery }));
+            return Task.FromResult(new StrategyModel<string>
+            {
+                Status = SinkStatus.Deleting,
+                Model = deleteQuery
+            });
         }
+    }
+
+    protected override Task<StrategyModel<string>> BuildSourceModels(string connector, CommandRecord record)
+    {
+        throw new NotImplementedException();
     }
 }

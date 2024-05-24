@@ -81,7 +81,7 @@ namespace Kafka.Connect.Utilities
                 .AddScoped<IMessageConverter, StringConverter>()
                 
                 .AddScoped<IReadWriteStrategyProvider, ReadWriteStrategyProvider>()
-                .AddScoped<IReadWriteStrategySelector, TopicStrategySelector>()
+                .AddScoped<IStrategySelector, TopicStrategySelector>()
                 //.AddScoped<IWriteStrategySelector, ValueStrategySelector>()
 
                 .Configure<WorkerConfig>(configuration.GetSection("worker"), options => options.BindNonPublicProperties = true)
@@ -117,8 +117,8 @@ namespace Kafka.Connect.Utilities
                     {"Application", Environment.GetEnvironmentVariable("APPLICATION_VERSION") ?? "0.0.0.0"}
                 })
                 .Enrich.WithProperty("Environment", Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"))
-                .Enrich.WithProperty("Node",
-                    Environment.GetEnvironmentVariable("NODE_NAME") ?? Environment.MachineName);
+                .Enrich.WithProperty("Host",
+                    Environment.GetEnvironmentVariable("HOST_NAME") ?? Environment.MachineName);
         }
     }
 }

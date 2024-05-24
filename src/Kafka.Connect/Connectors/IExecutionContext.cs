@@ -10,14 +10,13 @@ public interface IExecutionContext
 {
     void AssignPartitions(string connector, int task, IEnumerable<TopicPartition> partitions);
     void RevokePartitions(string connector, int task, IEnumerable<TopicPartition> partitions);
+    IDictionary<string, List<int>> GetAssignedPartitions(string connector, int task);
     dynamic GetStatus(string connector = null, int task = 0);
-    int GetNextPollIndex();
     void AddToCount(int records);
     dynamic GetFullDetails();
     void Shutdown();
     CancellationTokenSource GetToken();
     bool IsStopped { get; }
-    BatchPollContext GetOrSetBatchContext(string connector, int taskId, CancellationToken token = default);
     void Initialize(string name, IWorker worker);
     void Initialize(string name, ILeader leader);
     void Initialize(string name, IConnector connector);

@@ -5,7 +5,7 @@ using Kafka.Connect.Plugin.Models;
 
 namespace Kafka.Connect.Plugin.Strategies;
 
-public interface IReadWriteStrategy
+public interface IQueryStrategy
 {
     Task<StrategyModel<T>> Build<T>(string connector, IConnectRecord record);
 }

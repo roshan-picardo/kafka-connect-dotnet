@@ -76,16 +76,17 @@ public class Worker(
 
     private void AddConnectorTask(string name, CancellationToken token)
     {
-        using var scope = serviceScopeFactory.CreateScope();
-        using (LogContext.PushProperty("Connector", name))
+        using (ConnectLog.Connector(name))
         {
+            using var scope = serviceScopeFactory.CreateScope();
             var connector = scope.ServiceProvider.GetService<IConnector>();
             if (connector == null)
             {
                 logger.Warning("Unable to load and terminating the connector.");
                 return;
             }
-            logger.Trace("Connector Starting.");
+
+            logger.Error("Connector Starting.");
             var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(token);
             _pauseTokenSource.AddLinkedTokenSource(linkedTokenSource);
             var connectorTask = connector.Execute(name, linkedTokenSource).ContinueWith(

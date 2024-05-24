@@ -10,7 +10,7 @@ using MongoDB.Driver;
 
 namespace Kafka.Connect.MongoDb.Strategies;
 
-public class DeleteStrategy : ReadWriteStrategy<DeleteOneModel<BsonDocument>>
+public class DeleteStrategy : QueryStrategy<DeleteOneModel<BsonDocument>>
 {
     private readonly ILogger<DeleteStrategy> _logger;
     private readonly IConfigurationProvider _configurationProvider;

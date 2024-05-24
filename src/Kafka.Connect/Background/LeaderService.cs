@@ -17,25 +17,28 @@ public class LeaderService(
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         if (configurationProvider.IsWorker) return;
-        var cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
-        try
+        using (ConnectLog.Leader(configurationProvider.GetNodeName()))
         {
-            logger.Debug("Starting background leader process...");
-
-            await leader.Execute(cts);
-        }
-        catch (Exception ex)
-        {
-            logger.Error("Leader service failed to start.", ex);
-            if (!cts.IsCancellationRequested)
+            var cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+            try
             {
-                await cts.CancelAsync();
+                logger.Debug("Starting background leader process...");
+
+                await leader.Execute(cts);
             }
-        }
-        finally
-        {
-            logger.Debug("Stopping background leader process...");
-            executionContext.Shutdown();
+            catch (Exception ex)
+            {
+                logger.Error("Leader service failed to start.", ex);
+                if (!cts.IsCancellationRequested)
+                {
+                    await cts.CancelAsync();
+                }
+            }
+            finally
+            {
+                logger.Debug("Stopping background leader process...");
+                executionContext.Shutdown();
+            }
         }
     }
 }

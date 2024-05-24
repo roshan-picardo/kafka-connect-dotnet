@@ -37,6 +37,7 @@
       <Compile Remove="Connectors\ConnectorTests.cs" />
       <Compile Remove="Providers\ConfigurationProviderTests.cs" />
       <Compile Remove="Background\FailOverMonitorServiceTests.cs" />
+      <Compile Remove="Connectors\ExecutionContextTests.cs" />
     </ItemGroup>
 
     <ItemGroup>

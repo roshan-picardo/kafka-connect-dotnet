@@ -27,7 +27,7 @@ public class WorkerTask(
             workerRecordCollection.Setup(ConnectorType.Worker, connector, taskId);
             if (workerRecordCollection.TrySubscribe())
             {
-                await workerRecordCollection.Consume();
+                await workerRecordCollection.Consume(cts.Token);
                 
             }
             // create consumer

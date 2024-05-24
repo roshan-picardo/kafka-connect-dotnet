@@ -18,13 +18,12 @@ public class ExecutionContext(
     IEnumerable<IProcessor> processors,
     IEnumerable<ISinkHandler> handlers,
     IEnumerable<IMessageConverter> messageConverters,
-    IEnumerable<IReadWriteStrategySelector> strategySelectors,
-    IEnumerable<IWriteStrategy> writeStrategies,
+    IEnumerable<IStrategySelector> strategySelectors,
+    IEnumerable<IQueryStrategy> queryStrategies,
     IConfigurationProvider configurationProvider)
     : IExecutionContext
 {
     private readonly WorkerContext _workerContext = new();
-    private int _topicPollIndex;
     private int _recordsCount;
     private readonly CancellationTokenSource _cancellationToken = new();
 
@@ -105,6 +104,15 @@ public class ExecutionContext(
         }
     }
 
+    public IDictionary<string, List<int>> GetAssignedPartitions(string connector, int task)
+    {
+        var taskContext = _workerContext.Connectors.SingleOrDefault(c => c.Name == connector)?.Tasks
+            .SingleOrDefault(t => t.Id == task);
+        if (taskContext == null) return new Dictionary<string, List<int>>();
+        return taskContext.Assignments.GroupBy(a => a.Topic)
+            .ToDictionary(g => g.Key, g => g.Select(a => a.Partition).ToList());
+    }
+
     public dynamic GetStatus(string connector = null, int task = 0)
     {
         var connectorContext = _workerContext.Connectors.SingleOrDefault(c => c.Name == connector);
@@ -121,31 +129,17 @@ public class ExecutionContext(
             Plugins = plugins?.Select(p => p?.GetType().Assembly.GetName().Name),
             Initializers = plugins?.Select(p => p?.GetType().FullName),
             Processors = processors?.Select(p => p?.GetType().FullName),
-            Deserializers = messageConverters?.Select(d => d?.GetType().FullName),
+            Converters = messageConverters?.Select(d => d?.GetType().FullName),
             Handlers = handlers?.Select(h => h?.GetType().FullName),
-            Writers = new
+            Strategies = new
             {
                 Selectors = strategySelectors?.Select(s => s?.GetType().FullName),
-                Strategies = writeStrategies?.Select(s => s?.GetType().FullName)
+                Builders = queryStrategies?.Select(s => s?.GetType().FullName)
             }
         };
     }
 
     public bool IsStopped => _workerContext.IsStopped;
-
-    public BatchPollContext GetOrSetBatchContext(string connector, int taskId, CancellationToken token = default)
-    {
-        var taskContext = _workerContext.Connectors.SingleOrDefault(c => c.Name == connector)?.Tasks
-            .SingleOrDefault(t => t.Id == taskId);
-        if (taskContext == null) return new BatchPollContext {Token = token};
-        taskContext.BatchContext ??= new BatchPollContext {Token = token};
-        return taskContext.BatchContext;
-    }
-
-    public int GetNextPollIndex()
-    {
-        return Interlocked.Increment(ref _topicPollIndex);
-    }
 
     public void AddToCount(int records)
     {
@@ -288,7 +282,6 @@ public class ExecutionContext(
                 Running = _workerContext.Connectors.Count(c => !c.Connector.IsPaused && !c.IsStopped),
                 Paused = _workerContext.Connectors.Count(c => c.Connector.IsPaused),
                 Stopped = _workerContext.Connectors.Count(c => !c.Connector.IsPaused && c.IsStopped),
-                Poll = _topicPollIndex,
                 Records = _recordsCount
             },
             Connectors = _workerContext.Connectors.Select(c => GetConnectorStatus(c))

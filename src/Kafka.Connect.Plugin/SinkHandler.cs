@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Kafka.Connect.Plugin.Extensions;
@@ -10,29 +8,22 @@ using Kafka.Connect.Plugin.Strategies;
 
 namespace Kafka.Connect.Plugin;
 
-public abstract class SinkHandler : ISinkHandler
+public abstract class SinkHandler(
+    ILogger<SinkHandler> logger,
+    IReadWriteStrategyProvider readWriteStrategyProvider,
+    IConfigurationProvider configurationProvider)
+    : ISinkHandler
 {
-    private readonly ILogger<SinkHandler> _logger;
-    private readonly IReadWriteStrategyProvider _readWriteStrategyProvider;
-    private readonly IConfigurationProvider _configurationProvider;
+    private readonly ILogger<SinkHandler> _logger = logger;
 
-    protected SinkHandler(ILogger<SinkHandler> logger, 
-        IReadWriteStrategyProvider readWriteStrategyProvider,
-        IConfigurationProvider configurationProvider)
-    {
-        _logger = logger;
-        _readWriteStrategyProvider = readWriteStrategyProvider;
-        _configurationProvider = configurationProvider;
-    }
-    
     public Task Startup(string connector) => Task.CompletedTask;
 
     public Task Cleanup(string connector) => Task.CompletedTask;
 
-    public bool Is(string connector, string plugin, string handler) => plugin == _configurationProvider.GetPluginName(connector) && this.Is(handler);
+    public bool Is(string connector, string plugin, string handler) => plugin == configurationProvider.GetPluginName(connector) && this.Is(handler);
 
     public abstract Task Put(IEnumerable<ConnectRecord> models, string connector, int taskId);
 
-    protected IReadWriteStrategy GetReadWriteStrategy(string connector, IConnectRecord record) =>
-        _readWriteStrategyProvider.GetSinkReadWriteStrategy(connector, record);
+    protected IQueryStrategy GetReadWriteStrategy(string connector, IConnectRecord record) =>
+        readWriteStrategyProvider.GetSinkReadWriteStrategy(connector, record);
 }

@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Handlers;
+using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Tokens;
 using Serilog.Context;
@@ -26,67 +27,62 @@ public class LeaderTask(
     public async Task Execute(string connector, int taskId, CancellationTokenSource cts)
     {
         executionContext.Initialize(connector, taskId, this);
-        using (LogContext.PushProperty("GroupId", configurationProvider.GetGroupId(connector)))
+        leaderRecordCollection.Setup(ConnectorType.Leader, connector, taskId);
+        if (!(leaderRecordCollection.TrySubscribe() && leaderRecordCollection.TryPublisher()))
         {
-            var batchPollContext = executionContext.GetOrSetBatchContext(connector, taskId, cts.Token);
-            leaderRecordCollection.Setup(ConnectorType.Leader, connector, taskId);
-            if (!(leaderRecordCollection.TrySubscribe() && leaderRecordCollection.TryPublisher()))
-            {
-                IsStopped = true;
-                return;
-            }
-            
-            Trigger();
+            IsStopped = true;
+            return;
+        }
 
-            while (!cts.IsCancellationRequested)
-            {
-                leaderRecordCollection.ClearAll();
-                await _pauseTokenSource.Token.WaitWhilePausedAsync(cts.Token);
-                if (cts.IsCancellationRequested) break;
+        Trigger();
 
-                batchPollContext.Reset(executionContext.GetNextPollIndex());
-                leaderRecordCollection.Clear();
-                using (LogContext.PushProperty("Batch", batchPollContext.Iteration))
+        while (!cts.IsCancellationRequested)
+        {
+            leaderRecordCollection.ClearAll();
+            await _pauseTokenSource.Token.WaitWhilePausedAsync(cts.Token);
+            if (cts.IsCancellationRequested) break;
+
+            leaderRecordCollection.Clear();
+            using (ConnectLog.Batch())
+            {
+                try
                 {
-                    try
-                    {
-                        _timer.Interval = configurationProvider.GetLeaderConfig().MaxPollIntervalMs.GetValueOrDefault() - 100;
+                    _timer.Interval = configurationProvider.GetLeaderConfig().MaxPollIntervalMs.GetValueOrDefault() - 100;
 
-                        await leaderRecordCollection.Consume();
-                        await leaderRecordCollection.Process();
-                        
-                        await leaderRecordCollection.Configure(connector, _fileSystemWatcher.EnableRaisingEvents);
-                        
-                        await leaderRecordCollection.Process(connector);
-                        await leaderRecordCollection.Produce(connector);
-                        leaderRecordCollection.UpdateTo(SinkStatus.Reviewed, connector);
-                        
-                        leaderRecordCollection.Commit();
-                        _pauseTokenSource.Pause();
-                        if (!_fileSystemWatcher.EnableRaisingEvents)
-                        {
-                            _fileSystemWatcher.EnableRaisingEvents = true;
-                        }
+                    await leaderRecordCollection.Consume(cts.Token);
+                    await leaderRecordCollection.Process();
 
-                        if (!_timer.Enabled)
-                        {
-                            _timer.Enabled = true;
-                        }
-                    }
-                    catch (Exception ex)
+                    await leaderRecordCollection.Configure(connector, _fileSystemWatcher.EnableRaisingEvents);
+
+                    await leaderRecordCollection.Process(connector);
+                    await leaderRecordCollection.Produce(connector);
+                    leaderRecordCollection.UpdateTo(SinkStatus.Reviewed, connector);
+
+                    leaderRecordCollection.Commit();
+                    _pauseTokenSource.Pause();
+                    if (!_fileSystemWatcher.EnableRaisingEvents)
                     {
-                        sinkExceptionHandler.Handle(ex, () => _pauseTokenSource.Pause());
+                        _fileSystemWatcher.EnableRaisingEvents = true;
                     }
-                    finally
-                    {   
-                        leaderRecordCollection.Record();
-                        leaderRecordCollection.Record(connector);
+
+                    if (!_timer.Enabled)
+                    {
+                        _timer.Enabled = true;
                     }
                 }
+                catch (Exception ex)
+                {
+                    sinkExceptionHandler.Handle(ex, () => _pauseTokenSource.Pause());
+                }
+                finally
+                {
+                    leaderRecordCollection.Record();
+                    leaderRecordCollection.Record(connector);
+                }
             }
-
-            leaderRecordCollection.Cleanup();
         }
+
+        leaderRecordCollection.Cleanup();
 
         IsStopped = true;
     }

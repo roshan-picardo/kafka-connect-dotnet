@@ -8,21 +8,14 @@ using Kafka.Connect.Postgres.Models;
 
 namespace Kafka.Connect.Postgres.Strategies;
 
-public class UpdateStrategy : WriteStrategy<string>
+public class UpdateStrategy(ILogger<UpdateStrategy> logger, IConfigurationProvider configurationProvider)
+    : QueryStrategy<string>
 {
-    private readonly ILogger<UpdateStrategy> _logger;
-    private readonly IConfigurationProvider _configurationProvider;
-
-    public UpdateStrategy(ILogger<UpdateStrategy> logger, IConfigurationProvider configurationProvider)
+    protected override Task<StrategyModel<string>> BuildSinkModels(string connector, ConnectRecord record)
     {
-        _logger = logger;
-        _configurationProvider = configurationProvider;
-    }
-    protected override async Task<(SinkStatus Status, IList<string> Models)> BuildModels(string connector, ConnectRecord record)
-    {
-        using (_logger.Track("Building update statement"))
+        using (logger.Track("Building update statement"))
         {
-            var config = _configurationProvider.GetSinkConfigProperties<PostgresSinkConfig>(connector);
+            var config = configurationProvider.GetSinkConfigProperties<PostgresSinkConfig>(connector);
             var whereClause = "";
             if (config.Filter != null)
             {
@@ -39,7 +32,16 @@ public class UpdateStrategy : WriteStrategy<string>
                 $"(SELECT {fields} FROM json_populate_record(null::{config.Schema}.{config.Table}, '{record.Deserialized.Value}')) ");
             updateQuery.Append($"WHERE {whereClause};");
             
-            return await Task.FromResult((SinkStatus.Updating, new[] { updateQuery.ToString() }));
+            return Task.FromResult(new StrategyModel<string>
+            {
+                Status = SinkStatus.Updating,
+                Model = updateQuery.ToString()
+            });
         }
+    }
+
+    protected override Task<StrategyModel<string>> BuildSourceModels(string connector, CommandRecord record)
+    {
+        throw new NotImplementedException();
     }
 }

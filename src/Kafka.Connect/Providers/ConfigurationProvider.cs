@@ -23,7 +23,6 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
         SetLeaderConfig(configuration);
     }
 
-
     public bool IsLeader => _leaderConfig != null;
     public bool IsWorker => _workerConfig != null;
 

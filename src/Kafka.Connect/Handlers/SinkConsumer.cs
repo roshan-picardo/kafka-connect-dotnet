@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Nodes;
+using System.Threading;
 using System.Threading.Tasks;
 using Confluent.Kafka;
 using Kafka.Connect.Builders;
@@ -66,11 +67,11 @@ namespace Kafka.Connect.Handlers
             }
         }
 
-        public async Task<IList<SinkRecord>> Consume(IConsumer<byte[], byte[]> consumer, string connector, int taskId, bool consumeAll = false)
+        public async Task<IList<SinkRecord>> Consume(IConsumer<byte[], byte[]> consumer, CancellationToken token, string connector, int taskId, bool consumeAll = false)
         {
             using (_logger.Track("Consume and batch messages."))
             {
-                var batch =  await ConsumeInternal(consumer, connector, taskId, consumeAll);
+                var batch =  await ConsumeInternal(consumer, token, connector, taskId, consumeAll);
                 if (!batch.Any())
                 {
                     _logger.Debug("There aren't any messages in the batch to process.");
@@ -84,18 +85,15 @@ namespace Kafka.Connect.Handlers
             consumer.Commit(new[] { new TopicPartitionOffset(sourceCommand.Topic, sourceCommand.Partition, sourceCommand.Offset + 1) });
         }
 
-        private async Task<IList<SinkRecord>> ConsumeInternal(IConsumer<byte[], byte[]> consumer, string connector, int taskId, bool consumeAll)
+        private async Task<IList<SinkRecord>> ConsumeInternal(IConsumer<byte[], byte[]> consumer, CancellationToken token, string connector, int taskId, bool consumeAll)
         {
             var batch = new List<SinkRecord>();
-            var batchPollContext = _executionContext.GetOrSetBatchContext(connector, taskId);
             try
             {
                 var maxBatchSize = _configurationProvider.GetBatchConfig(connector).Size;
-                _logger.Trace("Polling for messages.", new { batchPollContext.Iteration });
                 do
                 {
-                    var consumed =  await Task.Run(() => consumer.Consume(batchPollContext.Token));
-                    batchPollContext.StartTiming();
+                    var consumed =  await Task.Run(() => consumer.Consume(token), token);
                     if (consumed == null)
                     {
                         //unlikely that we reach here when we using Consume(cts.Token).

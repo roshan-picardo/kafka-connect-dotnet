@@ -32,8 +32,7 @@ public class PostgresSinkHandler : SinkHandler
             var models = new List<StrategyModel<string>>();
             await records.ForEachAsync(10, async cr =>
             {
-                using (LogContext.Push(new PropertyEnricher("topic", cr.Topic),
-                           new PropertyEnricher("partition", cr.Partition), new PropertyEnricher("offset", cr.Offset)))
+                using (ConnectLog.TopicPartitionOffset(cr.Topic, cr.Partition, cr.Offset))
                 {
                     if (cr is not ConnectRecord record ||
                         record.Status is SinkStatus.Updated or SinkStatus.Deleted or SinkStatus.Inserted

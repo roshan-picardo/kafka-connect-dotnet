@@ -9,11 +9,11 @@ namespace Kafka.Connect.Plugin.Logging;
 public class Logger<T> : ILogger<T> where T : class
 {
     private readonly Microsoft.Extensions.Logging.ILogger<T> _logger;
-    private readonly Microsoft.Extensions.Logging.ILogger<SinkLog> _sinkLogger;
+    private readonly Microsoft.Extensions.Logging.ILogger<ConnectLog> _sinkLogger;
 
     public Logger(
         Microsoft.Extensions.Logging.ILogger<T> logger,
-        Microsoft.Extensions.Logging.ILogger<SinkLog> sinkLogger)
+        Microsoft.Extensions.Logging.ILogger<ConnectLog> sinkLogger)
     {
         _logger = logger;
         _sinkLogger = sinkLogger;
@@ -83,5 +83,5 @@ public class Logger<T> : ILogger<T> where T : class
 
     public void Health(object health) => _sinkLogger.Log(LogLevel.Information, "{@Health}", health);
 
-    public SinkLog Track(string message) => new(_logger, message);
+    public ConnectLog Track(string message) => new(_logger, message);
 }

@@ -32,9 +32,7 @@ namespace Kafka.Connect.Connectors
                 {
                     foreach (var record in sinkRecords)
                     {
-                        using (LogContext.Push(new PropertyEnricher("Topic", record.Topic),
-                                   new PropertyEnricher("Partition", record.Partition),
-                                   new PropertyEnricher("Offset", record.Offset)))
+                        using (ConnectLog.TopicPartitionOffset(record.Topic, record.Partition, record.Offset))
                         {
                             var delivered = await producer.ProduceAsync(topic, record.GetDeadLetterMessage(exception));
                             _logger.Info("Error message delivered.", new
