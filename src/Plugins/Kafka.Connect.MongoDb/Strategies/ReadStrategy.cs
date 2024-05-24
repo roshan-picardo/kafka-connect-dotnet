@@ -13,7 +13,7 @@ using MongoDB.Driver;
 
 namespace Kafka.Connect.MongoDb.Strategies;
 
-public class ReadStrategy(ILogger<ReadStrategy> logger) : ReadWriteStrategy<FindModel<BsonDocument>>
+public class ReadStrategy(ILogger<ReadStrategy> logger) : QueryStrategy<FindModel<BsonDocument>>
 {
     protected override Task<StrategyModel<FindModel<BsonDocument>>> BuildSinkModels(string connector, ConnectRecord record)
     {

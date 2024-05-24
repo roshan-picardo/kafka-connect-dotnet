@@ -8,7 +8,7 @@ namespace Kafka.Connect.Plugin.Models;
 public class CommandRecord : IConnectRecord
 {
     private Guid _id;
-    public string Id
+    public Guid Id
     {
         get
         {
@@ -16,7 +16,7 @@ public class CommandRecord : IConnectRecord
             {
                 _id = $"{Connector}-{Name}".ToGuid();
             }
-            return _id.ToString();
+            return _id;
         }
     }
 
@@ -34,7 +34,7 @@ public class CommandRecord : IConnectRecord
         var hash = Command["Version"]?.GetValue<int>() ?? 0;
         if (hash == 0)
         {
-            hash = Command.ToJsonString().ToGuid().GetHashCode();
+            hash = Command.ToJsonString().ToGuid().GetHashCode() & 0x7FFFFFFF;
             Command["Version"] = hash;
         }
         return hash;

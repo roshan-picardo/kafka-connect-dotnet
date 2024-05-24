@@ -7,7 +7,7 @@ using Kafka.Connect.Plugin.Models;
 
 namespace Kafka.Connect.Plugin.Strategies;
 
-public abstract class ReadWriteStrategy<T> : IReadWriteStrategy
+public abstract class QueryStrategy<T> : IQueryStrategy
 {
     public async Task<StrategyModel<TType>> Build<TType>(string connector, IConnectRecord record)
     {

@@ -40,6 +40,7 @@ public class Leader(
         while (!cts.IsCancellationRequested)
         {
             var leaderConfig = configurationProvider.GetLeaderConfig();
+            await CreateInternalTopics(leaderConfig.Topics);
             
              try
             {
@@ -51,7 +52,7 @@ public class Leader(
                     select new {Connector = connector, job.Name};
                 await Task.WhenAll(connectors.Select(connector =>
                     {
-                        using (LogContext.PushProperty("Connector", connector.Name))
+                        using (ConnectLog.Connector(connector.Name))
                         {
                             if (connector.Connector == null)
                             {
@@ -76,7 +77,7 @@ public class Leader(
                     }))
                     .ContinueWith(t =>
                     {
-                        if (t.IsFaulted && !t.IsCanceled)
+                        if (t is { IsFaulted: true, IsCanceled: false })
                         {
                             logger.Error( "Leader is faulted, and is terminated.", t.Exception?.InnerException);
                         }
@@ -87,7 +88,6 @@ public class Leader(
             {
                 logger.Error("Leader is faulted, and is terminated.", ex);
             }
-            await CreateInternalTopics(leaderConfig.Topics);
         }
     }
 

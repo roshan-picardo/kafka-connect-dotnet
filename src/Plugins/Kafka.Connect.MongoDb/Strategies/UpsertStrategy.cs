@@ -9,7 +9,7 @@ using MongoDB.Driver;
 
 namespace Kafka.Connect.MongoDb.Strategies;
 
-public class UpsertStrategy : ReadWriteStrategy<UpdateOneModel<BsonDocument>>
+public class UpsertStrategy : QueryStrategy<UpdateOneModel<BsonDocument>>
 {
     private readonly ILogger<UpsertStrategy> _logger;
     private readonly IConfigurationProvider _configurationProvider;

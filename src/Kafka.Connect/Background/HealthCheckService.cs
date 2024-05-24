@@ -29,7 +29,7 @@ namespace Kafka.Connect.Background
         {
             var config = _configurationProvider.GetHealthCheckConfig();
             await Task.Delay(config.InitialDelayMs, stoppingToken);
-            _logger.Health(_executionContext.GetFullDetails() as object);
+            // _logger.Health(_executionContext.GetFullDetails() as object);
             try
             {
                 if (!config.Disabled)

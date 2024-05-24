@@ -6,25 +6,26 @@ using Kafka.Connect.Postgres.Models;
 
 namespace Kafka.Connect.Postgres.Strategies;
 
-public class InsertStrategy : WriteStrategy<string>
+public class InsertStrategy(ILogger<InsertStrategy> logger, IConfigurationProvider configurationProvider)
+    : QueryStrategy<string>
 {
-    private readonly ILogger<InsertStrategy> _logger;
-    private readonly IConfigurationProvider _configurationProvider;
-
-    public InsertStrategy(ILogger<InsertStrategy> logger, IConfigurationProvider configurationProvider)
+    protected override Task<StrategyModel<string>> BuildSinkModels(string connector, ConnectRecord record)
     {
-        _logger = logger;
-        _configurationProvider = configurationProvider;
-    }
-
-    protected override async Task<(SinkStatus Status, IList<string> Models)> BuildModels(string connector, ConnectRecord record)
-    {
-        using (_logger.Track("Building insert statement"))
+        using (logger.Track("Building insert statement"))
         {
-            var config = _configurationProvider.GetSinkConfigProperties<PostgresSinkConfig>(connector);
+            var config = configurationProvider.GetSinkConfigProperties<PostgresSinkConfig>(connector);
             var insertQuery =
                 $"INSERT INTO {config.Schema}.{config.Table} SELECT * FROM json_populate_record(null::{config.Schema}.{config.Table}, '{record.Deserialized.Value}');";
-            return await Task.FromResult((SinkStatus.Inserting, new[] { insertQuery }));
+            return Task.FromResult(new StrategyModel<string>
+            {
+                Status = SinkStatus.Inserting,
+                Model = insertQuery
+            });
         }
+    }
+
+    protected override Task<StrategyModel<string>> BuildSourceModels(string connector, CommandRecord record)
+    {
+        throw new NotImplementedException();
     }
 }

@@ -30,62 +30,61 @@ public class SourceTask(
     {
         executionContext.Initialize(connector, taskId, this);
 
-        using (LogContext.Push(new PropertyEnricher("GroupId", configurationProvider.GetGroupId(connector))))
+        pollRecordCollection.Setup(ConnectorType.Source, connector, taskId);
+        if (!(pollRecordCollection.TrySubscribe() && pollRecordCollection.TryPublisher()))
         {
-            var batchPollContext = executionContext.GetOrSetBatchContext(connector, taskId, cts.Token);
-            pollRecordCollection.Setup(ConnectorType.Source, connector, taskId);
-            if (!(pollRecordCollection.TrySubscribe() && pollRecordCollection.TryPublisher()))
-            {
-                IsStopped = true;
-                return;
-            }
+            IsStopped = true;
+            return;
+        }
 
-            while (!cts.IsCancellationRequested)
+        while (!cts.IsCancellationRequested)
+        {
+            await _pauseTokenSource.Token.WaitWhilePausedAsync(cts.Token);
+
+            if (cts.IsCancellationRequested) break;
+
+            using (ConnectLog.Batch())
             {
-                await _pauseTokenSource.Token.WaitWhilePausedAsync(cts.Token);
-                
+                await pollRecordCollection.Consume(cts.Token);
+
                 if (cts.IsCancellationRequested) break;
 
-                batchPollContext.Reset(executionContext.GetNextPollIndex());
-                using (LogContext.PushProperty("Batch", batchPollContext.Iteration))
+                var (timeOut, commands) = await pollRecordCollection.GetCommands();
+
+                var timeOutWatch = Stopwatch.StartNew();
+                await commands.ForEachAsync(configurationProvider.GetDegreeOfParallelism(connector), async cr =>
                 {
-                    await pollRecordCollection.Consume();
-                    
-                    if(cts.IsCancellationRequested) break;
-
-                    var (timeOut, commands) = await pollRecordCollection.GetCommands(connector);
-
-                    var timeOutWatch = Stopwatch.StartNew();
-                    await commands.ForEachAsync(configurationProvider.GetDegreeOfParallelism(connector), async cr =>
-                        {
-                            if (cr is not CommandRecord record) return;
-                            try
-                            {
-                                await pollRecordCollection.Source(record);
-                                await pollRecordCollection.Process(record.Id);
-                                await pollRecordCollection.Produce(record.Id);
-                                await pollRecordCollection.UpdateCommand(record);
-                            }
-                            catch (Exception ex)
-                            {
-                                logger.Critical("FAILED", ex);
-                            }
-                            finally
-                            {
-                                pollRecordCollection.Record();
-                                pollRecordCollection.Record(record.Id);
-                            }
-                            pollRecordCollection.Clear(record.Id);
-                        });
-                    pollRecordCollection.Commit(commands);
-                    pollRecordCollection.Clear();
-
-                    var pendingTime = timeOut - (int)timeOutWatch.ElapsedMilliseconds;
-                    timeOutWatch.Stop();
-                    if (pendingTime > 0)
+                    if (cr is not CommandRecord record) return;
+                    using (ConnectLog.Command(record.Name))
                     {
-                        await Task.Delay(pendingTime);
+                        try
+                        {
+                            await pollRecordCollection.Source(record);
+                            await pollRecordCollection.Process(record.Id.ToString());
+                            await pollRecordCollection.Produce(record.Id.ToString());
+                            await pollRecordCollection.UpdateCommand(record);
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.Critical("FAILED", ex);
+                        }
+                        finally
+                        {
+                            pollRecordCollection.Record();
+                            pollRecordCollection.Record(record.Id.ToString());
+                        }
+
+                        pollRecordCollection.Clear(record.Id.ToString());
                     }
+                });
+                pollRecordCollection.Commit(commands);
+                pollRecordCollection.Clear();
+
+                var pendingTime = timeOut - (int)timeOutWatch.ElapsedMilliseconds;
+                timeOutWatch.Stop();
+                if (pendingTime > 0)
+                {
+                    await Task.Delay(pendingTime);
                 }
             }
         }

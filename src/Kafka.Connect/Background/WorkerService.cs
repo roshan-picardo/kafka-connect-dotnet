@@ -18,25 +18,28 @@ namespace Kafka.Connect.Background
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             if(configurationProvider.IsLeader) return;
-            var cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
-            try
+            using (ConnectLog.Worker(configurationProvider.GetNodeName()))
             {
-                logger.Debug("Starting background worker process...");
-
-                await worker.Execute(cts);
-            }
-            catch (Exception ex)
-            {
-                logger.Error("Worker service failed to start.", ex);
-                if (!cts.IsCancellationRequested)
+                var cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+                try
                 {
-                    await cts.CancelAsync();
+                    logger.Debug("Starting background worker process...");
+
+                    await worker.Execute(cts);
                 }
-            }
-            finally
-            {
-                logger.Debug("Stopping background worker process...");
-                executionContext.Shutdown();
+                catch (Exception ex)
+                {
+                    logger.Error("Worker service failed to start.", ex);
+                    if (!cts.IsCancellationRequested)
+                    {
+                        await cts.CancelAsync();
+                    }
+                }
+                finally
+                {
+                    logger.Debug("Stopping background worker process...");
+                    executionContext.Shutdown();
+                }
             }
         }
     }

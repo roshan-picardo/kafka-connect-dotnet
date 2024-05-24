@@ -18,10 +18,11 @@ public abstract class PluginInitializer : IPluginInitializer
         collection
             .AddScoped<ISinkHandler, PostgresSinkHandler>()
             .AddScoped<IPluginInitializer, DefaultPluginInitializer>()
-            .AddScoped<IWriteStrategy, InsertStrategy>()
-            .AddScoped<IWriteStrategy, UpdateStrategy>()
-            .AddScoped<IWriteStrategy, UpsertStrategy>()
-            .AddScoped<IWriteStrategy, DeleteStrategy>()
+            .AddScoped<IQueryStrategy, InsertStrategy>()
+            .AddScoped<IQueryStrategy, UpdateStrategy>()
+            .AddScoped<IQueryStrategy, UpsertStrategy>()
+            .AddScoped<IQueryStrategy, DeleteStrategy>()
+            .AddScoped<IQueryStrategy, ReadStrategy>()
             .AddScoped<IPostgresClientProvider, PostgresClientProvider>();
         AddPostgresClients(collection, pluginConfig.Plugin, pluginConfig.Connectors);
         AddAdditionalServices(collection, configuration);

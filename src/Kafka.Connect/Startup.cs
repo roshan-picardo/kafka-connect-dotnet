@@ -58,7 +58,7 @@ using Serilog.Formatting.Json;
                      .WriteTo.Console(new JsonFormatter())
                      .CreateLogger();
 
-                 Log.ForContext<SinkLog>().Information("{@Log}", new {Message = "Kafka Connect starting..."});
+                 Log.ForContext<ConnectLog>().Information("{@Log}", new {Message = "Kafka Connect starting..."});
 
                  // time this
                  var configuration = LoadConfiguration(Arguments.Parse(args));
@@ -72,7 +72,7 @@ using Serilog.Formatting.Json;
                  var host = ConfigureHostBuilder(args, configuration).Build();
                  var executionContext = host.Services.GetService<IExecutionContext>();
                  _cts = executionContext?.GetToken() ?? new CancellationTokenSource();
-                 _cts.Token.Register(() => Log.ForContext<SinkLog>().Information("{@Log}",new {Message = "Shutting down Kafka Connect."}));
+                 _cts.Token.Register(() => Log.ForContext<ConnectLog>().Information("{@Log}",new {Message = "Shutting down Kafka Connect."}));
                  
                  Console.CancelKeyPress += (_, eventArgs) =>
                  {
@@ -121,7 +121,7 @@ using Serilog.Formatting.Json;
              }
              finally
              {
-                 Log.ForContext<SinkLog>().Information("{@Log}", new {Message = "Kafka Connect shutdown successfully..."});
+                 Log.ForContext<ConnectLog>().Information("{@Log}", new {Message = "Kafka Connect shutdown successfully..."});
              }
          }
      }

@@ -16,5 +16,5 @@ public interface ILogger<T> where T : class
     void Record(object data, Exception exception);
     void Health(dynamic health);
     void Document(ConnectMessage<JsonNode> document);
-    SinkLog Track(string message);
+    ConnectLog Track(string message);
 }

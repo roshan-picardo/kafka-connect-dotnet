@@ -5,6 +5,6 @@ namespace Kafka.Connect.Plugin.Providers;
 
 public interface IReadWriteStrategyProvider
 {
-    IReadWriteStrategy GetSinkReadWriteStrategy(string connector, IConnectRecord record);
-    IReadWriteStrategy GetSourceReadWriteStrategy(string connector, IConnectRecord record);
+    IQueryStrategy GetSinkReadWriteStrategy(string connector, IConnectRecord record);
+    IQueryStrategy GetSourceReadWriteStrategy(string connector, IConnectRecord record);
 }

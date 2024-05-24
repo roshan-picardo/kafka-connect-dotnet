@@ -53,14 +53,14 @@ public class FailOverMonitorService : BackgroundService
                     await Task.Delay(failOverConfig.PeriodicDelayMs, stoppingToken);
                     foreach (var connector in connectorConfigs)
                     {
-                        using (LogContext.PushProperty("Connector", connector.Name))
+                        using (ConnectLog.Connector(connector.Name))
                         {
                             var topics = connector.Topics ?? new List<string>();
                             try
                             {
                                 var metadata = topics.Select(topic =>
                                 {
-                                    using (LogContext.PushProperty("Topic", topic))
+                                    using (ConnectLog.TopicPartitionOffset(topic))
                                     {
                                         // TODO: how to time this?
                                         return adminClient.GetMetadata(topic, TimeSpan.FromSeconds(2));
@@ -115,7 +115,7 @@ public class FailOverMonitorService : BackgroundService
                                          .Select(t => new {Name = t.Key, Connector = _executionContext.GetConnector(t.Key)})
                                          .Where(c => c.Connector != null))
                             {
-                                using (LogContext.PushProperty("Connector", connector.Name))
+                                using (ConnectLog.Connector(connector.Name))
                                 {
                                     await _executionContext.Restart(failOverConfig.RestartDelayMs, connector.Name);
                                 }

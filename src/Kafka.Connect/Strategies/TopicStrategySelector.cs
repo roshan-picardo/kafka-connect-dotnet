@@ -4,16 +4,16 @@ using Kafka.Connect.Plugin.Strategies;
 
 namespace Kafka.Connect.Strategies;
 
-public class TopicStrategySelector : IReadWriteStrategySelector
+public class TopicStrategySelector : IStrategySelector
 {
-    private readonly IEnumerable<IReadWriteStrategy> _readWriteStrategies;
+    private readonly IEnumerable<IQueryStrategy> _readWriteStrategies;
 
-    public TopicStrategySelector(IEnumerable<IReadWriteStrategy> readWriteStrategies)
+    public TopicStrategySelector(IEnumerable<IQueryStrategy> readWriteStrategies)
     {
         _readWriteStrategies = readWriteStrategies;
     }
 
-    public IReadWriteStrategy GetReadWriteStrategy(Plugin.Models.IConnectRecord record, IDictionary<string, string> overrides)
+    public IQueryStrategy GetQueryStrategy(Plugin.Models.IConnectRecord record, IDictionary<string, string> overrides)
     {
         if (overrides?.All(o => o.Key != record.Topic) ?? true)
         {

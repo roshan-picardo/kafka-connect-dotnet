@@ -12,12 +12,12 @@ namespace Kafka.Connect.Providers;
 
 public class ReadWriteStrategyProvider : IReadWriteStrategyProvider
 {
-    private readonly IEnumerable<IReadWriteStrategySelector> _writeStrategySelectors;
-    private readonly IEnumerable<IReadWriteStrategy> _readWriteStrategies;
+    private readonly IEnumerable<IStrategySelector> _writeStrategySelectors;
+    private readonly IEnumerable<IQueryStrategy> _readWriteStrategies;
     private readonly IConfigurationProvider _configurationProvider;
 
-    public ReadWriteStrategyProvider(IEnumerable<IReadWriteStrategySelector> writeStrategySelectors, 
-        IEnumerable<IReadWriteStrategy> readWriteStrategies,
+    public ReadWriteStrategyProvider(IEnumerable<IStrategySelector> writeStrategySelectors, 
+        IEnumerable<IQueryStrategy> readWriteStrategies,
         IConfigurationProvider configurationProvider)
     {
         _writeStrategySelectors = writeStrategySelectors;
@@ -25,16 +25,16 @@ public class ReadWriteStrategyProvider : IReadWriteStrategyProvider
         _configurationProvider = configurationProvider;
     }
 
-    public IReadWriteStrategy GetSinkReadWriteStrategy(string connector, IConnectRecord record) =>
+    public IQueryStrategy GetSinkReadWriteStrategy(string connector, IConnectRecord record) =>
         GetReadWriteStrategy(_configurationProvider.GetSinkConfig(connector).Strategy, record);
 
 
-    public IReadWriteStrategy GetSourceReadWriteStrategy(string connector, IConnectRecord record) =>
+    public IQueryStrategy GetSourceReadWriteStrategy(string connector, IConnectRecord record) =>
         GetReadWriteStrategy(_configurationProvider.GetSourceConfig(connector).Strategy, record);
     
-    private IReadWriteStrategy GetReadWriteStrategy(StrategyConfig strategyConfig, IConnectRecord record)
+    private IQueryStrategy GetReadWriteStrategy(StrategyConfig strategyConfig, IConnectRecord record)
     {
-        IReadWriteStrategy strategy = null;
+        IQueryStrategy strategy = null;
 
         if (strategyConfig?.Name != null)
         {
@@ -46,7 +46,7 @@ public class ReadWriteStrategyProvider : IReadWriteStrategyProvider
         {
             var selector =
                 _writeStrategySelectors.SingleOrDefault(s => s.GetType().FullName == strategyConfig.Selector.Name);
-            strategy = selector?.GetReadWriteStrategy(record, strategyConfig.Selector.Overrides) ??
+            strategy = selector?.GetQueryStrategy(record, strategyConfig.Selector.Overrides) ??
                        strategy;
         }
         return strategy ?? throw new ConnectDataException("Strategy not defined.", new ArgumentException("Strategy not defined."));

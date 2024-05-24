@@ -10,7 +10,7 @@ using MongoDB.Driver;
 
 namespace Kafka.Connect.MongoDb.Strategies;
 
-public class InsertStrategy : ReadWriteStrategy<InsertOneModel<BsonDocument>>
+public class InsertStrategy : QueryStrategy<InsertOneModel<BsonDocument>>
 {
     private readonly ILogger<InsertStrategy> _logger;
 

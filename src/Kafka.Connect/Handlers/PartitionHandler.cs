@@ -112,8 +112,7 @@ namespace Kafka.Connect.Handlers
                             o.Partition == commitReadyOffset.Partition.Value &&
                             o.Offset == commitReadyOffset.Offset.Value);
                         if (eofPartition == default) continue;
-                        using (LogContext.Push(new PropertyEnricher("Topic", eofPartition.Topic),
-                                   new PropertyEnricher("Partition", eofPartition.Partition)))
+                        using (ConnectLog.TopicPartitionOffset(eofPartition.Topic, eofPartition.Partition, eofPartition.Offset))
                         {
                             using var producer = _kafkaClientBuilder.GetProducer(connector);
                             {
@@ -180,8 +179,7 @@ namespace Kafka.Connect.Handlers
                             o.Partition == commitReadyOffset.Partition.Value &&
                             o.Offset == commitReadyOffset.Offset.Value);
                         if(eofPartition == default) continue;
-                        using (LogContext.Push(new PropertyEnricher("Topic", eofPartition.Topic),
-                                   new PropertyEnricher("Partition", eofPartition.Partition)))
+                        using (ConnectLog.TopicPartitionOffset(eofPartition.Topic, eofPartition.Partition))
                         {
                             using var producer = _kafkaClientBuilder.GetProducer(connector);
                             {

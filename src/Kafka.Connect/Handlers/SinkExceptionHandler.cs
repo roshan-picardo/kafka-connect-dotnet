@@ -40,9 +40,7 @@ namespace Kafka.Connect.Handlers
                     case ConnectToleranceExceededException tee:
                         foreach (var ce in tee.GetConnectExceptions())
                         {
-                            using (LogContext.Push(new PropertyEnricher("Topic", ce.Topic),
-                                       new PropertyEnricher("Partition", ce.Partition),
-                                       new PropertyEnricher("Offset", ce.Offset)))
+                            using (ConnectLog.TopicPartitionOffset(ce.Topic, ce.Partition, ce.Offset))
                             {
                                 _logger.Error(logToleranceExceeded, new { Status = SinkStatus.Failed },
                                     ce.InnerException);
@@ -59,9 +57,7 @@ namespace Kafka.Connect.Handlers
                     case ConnectAggregateException cae:
                         foreach (var ce in cae.GetConnectExceptions())
                         {
-                            using (LogContext.Push(new PropertyEnricher("Topic", ce.Topic),
-                                       new PropertyEnricher("Partition", ce.Partition),
-                                       new PropertyEnricher("Offset", ce.Offset)))
+                            using (ConnectLog.TopicPartitionOffset(ce.Topic, ce.Partition, ce.Offset))
                             {
                                 _logger.Error(logToleranceExceeded, new { Status = SinkStatus.Failed },
                                     ce.InnerException);
@@ -136,8 +132,7 @@ namespace Kafka.Connect.Handlers
                 case ConnectAggregateException cae:
                     foreach (var ce in cae.GetConnectExceptions())
                     {
-                        using (LogContext.Push(new PropertyEnricher("Topic", ce.Topic),
-                            new PropertyEnricher("Partition", ce.Partition), new PropertyEnricher("Offset", ce.Offset)))
+                        using (ConnectLog.TopicPartitionOffset(ce.Topic, ce.Partition, ce.Offset))
                         {
                             _logger.Error(message, new { Status = SinkStatus.Failed }, ce);
                         }
@@ -150,9 +145,7 @@ namespace Kafka.Connect.Handlers
 
                     break;
                 default:
-                    using (LogContext.Push(new PropertyEnricher("Topic", connectException.Topic),
-                        new PropertyEnricher("Partition", connectException.Partition),
-                        new PropertyEnricher("Offset", connectException.Offset)))
+                    using (ConnectLog.TopicPartitionOffset(connectException.Topic, connectException.Partition, connectException.Offset))
                     {
                         _logger.Error(message, new { Status = SinkStatus.Failed }, connectException);
                     }

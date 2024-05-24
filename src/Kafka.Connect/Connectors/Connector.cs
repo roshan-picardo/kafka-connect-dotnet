@@ -64,7 +64,7 @@ public class Connector(
             await Task.WhenAll(tasks.Select(task =>
             {
                 taskId++;
-                using (LogContext.PushProperty("Task", taskId)) 
+                using (ConnectLog.Task(taskId)) 
                 {
                     if (task?.Task == null)
                     {
