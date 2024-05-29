@@ -1,24 +1,20 @@
-using System.Collections.Generic;
-using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Threading.Tasks;
-using Kafka.Connect.MongoDb.Collections;
-using Kafka.Connect.MongoDb.Models;
 using Kafka.Connect.Plugin;
 using Kafka.Connect.Plugin.Extensions;
+using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Plugin.Providers;
-using Kafka.Connect.Plugin.Logging;
-using MongoDB.Bson;
+using Kafka.Connect.Postgres.Models;
+using Npgsql;
 
-namespace Kafka.Connect.MongoDb;
+namespace Kafka.Connect.Postgres;
 
-public class MongoSourceHandler(
+public class PostgresSourceHandler(
     IConfigurationProvider configurationProvider,
     IReadWriteStrategyProvider readWriteStrategyProvider,
-    IMongoQueryRunner mongoQueryRunner,
-    ILogger<MongoSourceHandler> logger)
+    IPostgresClientProvider postgresClientProvider,
+    ILogger<PostgresSourceHandler> logger)
     : SourceHandler(configurationProvider, readWriteStrategyProvider)
 {
     private readonly IConfigurationProvider _configurationProvider = configurationProvider;
@@ -27,13 +23,26 @@ public class MongoSourceHandler(
     {
         using (logger.Track("Getting batch of records"))
         {
-            var model = await GetReadWriteStrategy(connector, command).Build<FindModel<BsonDocument>>(connector, command);
+            var model = await GetReadWriteStrategy(connector, command).Build<string>(connector, command);
             var commandConfig = command.GetCommand<CommandConfig>();
 
-            var records = await mongoQueryRunner.ReadMany(model, connector, taskId, commandConfig.Collection);
-            
-            return records.Select(doc => new ConnectRecord(commandConfig.Topic, -1, -1)
-                { Deserialized = GetConnectMessage(doc, commandConfig) }).ToList();
+            var reader = await new NpgsqlCommand(model.Model, postgresClientProvider.GetPostgresClient(connector, taskId).GetConnection())
+                .ExecuteReaderAsync();
+            var records = new List<ConnectRecord>();
+
+            while (reader.Read())
+            {
+                var record = new Dictionary<string, object>();
+                for (var i = 0; i < reader.FieldCount; i++)
+                {
+                    record.Add(reader.GetName(i), reader.GetValue(i));
+                }
+
+                records.Add(new ConnectRecord(commandConfig.Topic, -1, -1)
+                    { Deserialized = GetConnectMessage(record, commandConfig) });
+            }
+
+            return records;
         }
     }
 
@@ -69,15 +78,13 @@ public class MongoSourceHandler(
         return command;
     }
     
-    private static ConnectMessage<JsonNode> GetConnectMessage(BsonValue bson, CommandConfig command)
+    private static ConnectMessage<JsonNode> GetConnectMessage(IDictionary<string, object> record, CommandConfig command)
     {
-        var record = JsonNode.Parse(JsonSerializer.Serialize(BsonTypeMapper.MapToDotNetValue(bson)));
-        var flattened = record.ToDictionary();
         var commandKey = new
         {
-            Timestamp = flattened[command.TimestampColumn],
-            Keys = flattened.Where(r => command.KeyColumns?.Contains(r.Key) ?? false).ToDictionary(k => k.Key, v => v.Value)
+            Timestamp = record[command.TimestampColumn],
+            Keys = record.Where(r => command.KeyColumns?.Contains(r.Key) ?? false).ToDictionary(k => k.Key, v => v.Value)
         };
-        return new ConnectMessage<JsonNode> { Key = JsonNode.Parse(JsonSerializer.Serialize(commandKey)), Value = record };
+        return new ConnectMessage<JsonNode> { Key = JsonNode.Parse(JsonSerializer.Serialize(commandKey)), Value = record.ToJson() };
     }
 }

@@ -1,10 +1,12 @@
+using System.Collections.Generic;
+
 namespace Kafka.Connect.Plugin.Providers;
 
 public interface IConfigurationProvider
 {
     T GetProcessorSettings<T>(string connector, string processor);
-    T GetSinkConfigProperties<T>(string connector, string plugin = null);
-    T GetSourceConfigProperties<T>(string connector, string plugin = null);
     T GetLogAttributes<T>(string connector);
     string GetPluginName(string connector);
+    T GetPluginConfig<T>(string connector);
+    IList<(string Name, int Tasks)> GetConnectorsByPlugin(string plugin);
 }

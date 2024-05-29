@@ -7,14 +7,8 @@ using Kafka.Connect.Postgres.Models;
 
 namespace Kafka.Connect.Postgres.Strategies;
 
-public class ReadStrategy : QueryStrategy<string>
+public class ReadStrategy(ILogger<ReadStrategy> logger) : QueryStrategy<string>
 {
-    private readonly ILogger<ReadStrategy> _logger;
-
-    public ReadStrategy(ILogger<ReadStrategy> logger)
-    {
-        _logger = logger;
-    }
     protected override Task<StrategyModel<string>> BuildSinkModels(string connector, ConnectRecord record)
     {
         throw new NotImplementedException();
@@ -22,7 +16,7 @@ public class ReadStrategy : QueryStrategy<string>
 
     protected override Task<StrategyModel<string>> BuildSourceModels(string connector, CommandRecord record)
     {
-        using (_logger.Track("Creating source models"))
+        using (logger.Track("Creating source models"))
         {
             var command = record.GetCommand<CommandConfig>();
             var orderBy = $"ORDER BY {command.TimestampColumn} ASC";

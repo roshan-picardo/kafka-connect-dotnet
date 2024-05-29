@@ -86,7 +86,6 @@ public class Worker(
                 return;
             }
 
-            logger.Error("Connector Starting.");
             var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(token);
             _pauseTokenSource.AddLinkedTokenSource(linkedTokenSource);
             var connectorTask = connector.Execute(name, linkedTokenSource).ContinueWith(

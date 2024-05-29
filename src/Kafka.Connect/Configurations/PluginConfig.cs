@@ -1,10 +1,18 @@
-using System.Collections.Generic;
+namespace Kafka.Connect.Configurations;
 
-namespace Kafka.Connect.Configurations
+public class PluginConfig
 {
-    public class PluginConfig
-    {
-        public string Location { get; set; }
-        public IDictionary<string, InitializerConfig> Initializers { get; init; }
-    }
+    public string Name { get; set; }
+    public string Handler { get; set; }
+    public StrategyConfig Strategy { get; set; }
+}
+
+public class PluginConfig<T> : PluginConfig
+{
+    public T Properties { get; set; }
+}
+
+public class ConnectorPluginConfig<T> : ConnectorConfig
+{
+    public new PluginConfig<T> Plugin { get; set; }
 }

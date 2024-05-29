@@ -12,3 +12,13 @@ public class LogConfig
         set => _provider = value;
     }
 }
+
+public class LogConfig<T> : LogConfig
+{
+    public T Attributes { get; set; }
+}
+
+public class ConnectorLogConfig<T> : ConnectorConfig
+{
+    public new LogConfig<T> Log { get; set; }
+}

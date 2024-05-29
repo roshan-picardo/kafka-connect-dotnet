@@ -10,17 +10,11 @@ using MongoDB.Driver;
 
 namespace Kafka.Connect.MongoDb.Strategies;
 
-public class InsertStrategy : QueryStrategy<InsertOneModel<BsonDocument>>
+public class InsertStrategy(ILogger<InsertStrategy> logger) : QueryStrategy<InsertOneModel<BsonDocument>>
 {
-    private readonly ILogger<InsertStrategy> _logger;
-
-    public InsertStrategy(ILogger<InsertStrategy> logger)
-    {
-        _logger = logger;
-    }
     protected override Task<StrategyModel<InsertOneModel<BsonDocument>>> BuildSinkModels(string connector, ConnectRecord record)
     {
-        using (_logger.Track("Creating insert write models"))
+        using (logger.Track("Creating insert write models"))
         {
             return Task.FromResult(new StrategyModel<InsertOneModel<BsonDocument>>()
             {

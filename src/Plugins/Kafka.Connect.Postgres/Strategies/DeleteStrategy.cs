@@ -13,7 +13,7 @@ public class DeleteStrategy(ILogger<DeleteStrategy> logger, IConfigurationProvid
     {
         using (logger.Track("Building delete statement"))
         {
-            var config = configurationProvider.GetSinkConfigProperties<PostgresSinkConfig>(connector);
+            var config = configurationProvider.GetPluginConfig<SinkConfig>(connector);
             var whereClause = "";
             if (config.Filter != null)
             {

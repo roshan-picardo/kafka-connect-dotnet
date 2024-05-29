@@ -26,11 +26,11 @@ public class ReadWriteStrategyProvider : IReadWriteStrategyProvider
     }
 
     public IQueryStrategy GetSinkReadWriteStrategy(string connector, IConnectRecord record) =>
-        GetReadWriteStrategy(_configurationProvider.GetSinkConfig(connector).Strategy, record);
+        GetReadWriteStrategy(_configurationProvider.GetPluginConfig(connector).Strategy, record);
 
 
     public IQueryStrategy GetSourceReadWriteStrategy(string connector, IConnectRecord record) =>
-        GetReadWriteStrategy(_configurationProvider.GetSourceConfig(connector).Strategy, record);
+        GetReadWriteStrategy(_configurationProvider.GetPluginConfig(connector).Strategy, record);
     
     private IQueryStrategy GetReadWriteStrategy(StrategyConfig strategyConfig, IConnectRecord record)
     {

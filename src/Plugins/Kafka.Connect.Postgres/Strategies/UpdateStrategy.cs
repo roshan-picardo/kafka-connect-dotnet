@@ -15,7 +15,7 @@ public class UpdateStrategy(ILogger<UpdateStrategy> logger, IConfigurationProvid
     {
         using (logger.Track("Building update statement"))
         {
-            var config = configurationProvider.GetSinkConfigProperties<PostgresSinkConfig>(connector);
+            var config = configurationProvider.GetPluginConfig<SinkConfig>(connector);
             var whereClause = "";
             if (config.Filter != null)
             {

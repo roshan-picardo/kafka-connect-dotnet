@@ -13,7 +13,7 @@ public class InsertStrategy(ILogger<InsertStrategy> logger, IConfigurationProvid
     {
         using (logger.Track("Building insert statement"))
         {
-            var config = configurationProvider.GetSinkConfigProperties<PostgresSinkConfig>(connector);
+            var config = configurationProvider.GetPluginConfig<SinkConfig>(connector);
             var insertQuery =
                 $"INSERT INTO {config.Schema}.{config.Table} SELECT * FROM json_populate_record(null::{config.Schema}.{config.Table}, '{record.Deserialized.Value}');";
             return Task.FromResult(new StrategyModel<string>

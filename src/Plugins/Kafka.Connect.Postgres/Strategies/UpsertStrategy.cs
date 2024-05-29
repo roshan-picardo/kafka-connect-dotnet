@@ -15,7 +15,7 @@ public class UpsertStrategy(ILogger<UpsertStrategy> logger, IConfigurationProvid
     {
         using (logger.Track("Building upsert statements"))
         {
-            var config = configurationProvider.GetSinkConfigProperties<PostgresSinkConfig>(connector);
+            var config = configurationProvider.GetPluginConfig<SinkConfig>(connector);
             var whereClause = "";
             if (config.Filter != null)
             {
