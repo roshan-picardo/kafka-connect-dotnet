@@ -36,7 +36,7 @@ public class MessageHandler(
             var skip = false;
             var flattened = deserialized.Convert();
 
-            foreach (var config in configs.OrderBy(p => p.Order))
+            foreach (var config in configs)
             {
                 var processor = processors.SingleOrDefault(p => p.Is(config.Name));
                 if (processor == null)

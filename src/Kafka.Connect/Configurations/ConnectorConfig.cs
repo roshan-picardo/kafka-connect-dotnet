@@ -10,7 +10,6 @@ namespace Kafka.Connect.Configurations
         private readonly string _groupId;
         private readonly string _clientId;
         private string _topic;
-        private readonly IDictionary<string, ProcessorConfig> _processors;
         private readonly LogConfig _log;
 
         public string Name { get; set; }
@@ -62,24 +61,9 @@ namespace Kafka.Connect.Configurations
 
         public RetryConfig Retries { get; init; }
         public BatchConfig Batches { get; init; }
-        public IDictionary<string, ProcessorConfig> Processors {
-            get
-            {
-                if (_processors == null || !_processors.Any())
-                {
-                    return _processors;
-                }
-                foreach (var (name, processor) in _processors)
-                {
-                    if (processor != null && string.IsNullOrEmpty(processor.Name))
-                    {
-                        processor.Name = name;
-                    }
-                }
-                return _processors;
-            }
-            init => _processors = value;
-        }
+        public ConverterConfig Converters { get; init; }
+        
+        public IDictionary<int, ProcessorConfig> Processors { get; init; }
 
         public string ClientId
         {

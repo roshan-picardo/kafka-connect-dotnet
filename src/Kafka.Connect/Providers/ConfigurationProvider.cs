@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Confluent.Kafka;
 using Kafka.Connect.Configurations;
-using Kafka.Connect.Plugin;
 using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Utilities;
 using Microsoft.Extensions.Configuration;
@@ -15,6 +14,7 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
     private readonly WorkerConfig _workerConfig;
     private LeaderConfig _leaderConfig;
     private readonly IConfiguration _configuration;
+    private const string DefaultConverter = "Kafka.Connect.Serializers.AvroDeserializer";
 
     public ConfigurationProvider(IConfiguration configuration)
     {
@@ -158,10 +158,10 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
 
     public ConverterConfig GetMessageConverters(string connector, string topic)
     {
-        var shared = IsLeader ? _leaderConfig.Batches?.Converters : _workerConfig.Batches?.Converters;
-        var converters = GetConnectorConfig(connector).Batches?.Converters;
+        var shared = IsLeader ? _leaderConfig.Converters : _workerConfig.Converters;
+        var converters = GetConnectorConfig(connector).Converters;
         return FindConverterConfig(converters?.Overrides?.SingleOrDefault(t => t.Topic == topic), converters,
-            shared?.Overrides?.SingleOrDefault(t => t.Topic == topic), shared, Constants.DefaultDeserializer);
+            shared?.Overrides?.SingleOrDefault(t => t.Topic == topic), shared, DefaultConverter);
     }
 
     private static ConverterConfig FindConverterConfig(
