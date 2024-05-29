@@ -28,7 +28,7 @@ namespace UnitTests.Kafka.Connect.Providers
         [InlineData(false)]
         public void GetSinkHandler_Tests(bool exists)
         {
-            _configurationProvider.GetSinkConfig(Arg.Any<string>()).Returns(new SinkConfig() {Plugin = "plugin"});
+            _configurationProvider.GetPluginConfig(Arg.Any<string>()).Returns(new PluginConfig() {Name = "plugin"});
 
             _sinkHandlers = new[] {Substitute.For<ISinkHandler>()};
 

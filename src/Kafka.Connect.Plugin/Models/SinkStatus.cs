@@ -38,6 +38,9 @@ namespace Kafka.Connect.Plugin.Models
         Selecting,
         Selected,
         
-        Reviewed
+        Reviewed,
+        
+        Sourcing,
+        Sourced
     }
 }

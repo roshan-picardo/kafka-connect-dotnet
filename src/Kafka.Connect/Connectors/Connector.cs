@@ -72,7 +72,7 @@ public class Connector(
                         return Task.CompletedTask;
                     }
 
-                    logger.Debug("Starting task.", new { Id = $"#{taskId:00}" });
+                    logger.Debug("Starting task.");
                     var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cts.Token);
                     _pauseTokenSource.AddLinkedTokenSource(linkedTokenSource);
                     var sinkTask = task.Task.Execute(connector, taskId, linkedTokenSource);

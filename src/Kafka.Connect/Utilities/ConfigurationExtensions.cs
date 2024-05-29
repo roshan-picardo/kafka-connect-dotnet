@@ -14,7 +14,7 @@ namespace Kafka.Connect.Utilities
     {
         public static void LoadPlugins(this IConfiguration configuration)
         {
-            var plugins = configuration.GetSection("worker:plugins").Get<PluginConfig>();
+            var plugins = configuration.GetSection("worker:plugins").Get<PluginAssemblyConfig>();
              if (plugins == null)
              {
                  Log.ForContext<Worker>().Debug("{@Log}", new {Message = "No plugins registered. Please verify the configuration."});
@@ -56,18 +56,16 @@ namespace Kafka.Connect.Utilities
                  var assembly = loadContext.LoadFromAssemblyName(AssemblyName.GetAssemblyName(pluginLocation));
 
                  var type = assembly.GetType(initializer.Class);
-                 
 
                  if (type != null && Activator.CreateInstance(type) is IPluginInitializer instance)
                  {
                      var connectors = configuration.GetSection("worker:connectors")
                          .Get<IDictionary<string, ConnectorConfig>>()?
-                         .Where(c => c.Value.Plugin == name).Select(c => (c.Value.Name ?? c.Key, c.Value.MaxTasks));
+                         .Where(c => c.Value.Plugin.Name == name).Select(c => (c.Value.Name ?? c.Key, c.Value.MaxTasks));
                      if (connectors != null)
                      {
                          ServiceExtensions.AddPluginServices +=
-                             collection =>
-                                 instance.AddServices(collection, configuration, (name, connectors));
+                             collection => instance.AddServices(collection, configuration, connectors.ToArray());
                      }
                  }
                  else

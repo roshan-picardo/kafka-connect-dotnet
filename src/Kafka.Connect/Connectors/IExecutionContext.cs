@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Confluent.Kafka;
 using Kafka.Connect.Models;
+using Kafka.Connect.Plugin.Models;
 
 namespace Kafka.Connect.Connectors;
 
@@ -29,4 +30,5 @@ public interface IExecutionContext
     Task<bool> Retry(string connector = null, int task = 0);
     void SetPartitionEof(string connector, int task, string topic, int partition, bool eof);
     bool AllPartitionEof(string connector, int task);
+    void UpdateCommands(string connector, int task, IEnumerable<CommandRecord> tasks);
 }

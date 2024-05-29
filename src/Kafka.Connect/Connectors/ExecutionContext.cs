@@ -7,6 +7,7 @@ using Kafka.Connect.Configurations;
 using Kafka.Connect.Models;
 using Kafka.Connect.Plugin;
 using Kafka.Connect.Plugin.Converters;
+using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Plugin.Processors;
 using Kafka.Connect.Plugin.Strategies;
 using Kafka.Connect.Providers;
@@ -241,16 +242,39 @@ public class ExecutionContext(
         return taskContext?.Assignments?.All(a => a.IsEof) ?? true;
     }
 
-    private static dynamic GetTaskStatus(TaskContext taskContext)
+    public void UpdateCommands(string connector, int task, IEnumerable<CommandRecord> tasks)
     {
-        return new
+        var taskContext = _workerContext.Connectors.SingleOrDefault(c => c.Name == connector)?.Tasks
+            .SingleOrDefault(t => t.Id == task);
+        if(taskContext == null) return;
+        taskContext.Assignments.Clear();
+        foreach (var command in tasks)
         {
-            Id = taskContext.Id.ToString("00"),
-            taskContext.Status,
-            Uptime = taskContext.Uptime.ToString(@"dd\.hh\:mm\:ss"),
-            Assignments = taskContext.Assignments.Select(a => new { a.Topic, a.Partition })
-        };
+            var assignment = taskContext.Assignments.SingleOrDefault(a => a.Name == command.Name);
+            if (assignment == null)
+            {
+                assignment = new AssignmentContext { Name = command.Name, Partition = command.Partition, Topic = command.Topic};
+                taskContext.Assignments.Add(assignment);
+            }
+
+            assignment.Partition = command.Partition;
+            assignment.Topic = command.Topic;
+        }
     }
+
+    private static dynamic GetTaskStatus(TaskContext taskContext) => new
+    {
+        Id = taskContext.Id.ToString("00"),
+        taskContext.Status,
+        Uptime = taskContext.Uptime.ToString(@"dd\.hh\:mm\:ss"),
+        Assignments = taskContext.Task switch
+        {
+            ISinkTask => taskContext.Assignments.Select(a => new { a.Topic, a.Partition }) as dynamic,
+            ISourceTask => taskContext.Assignments.Select(a => new { a.Name, a.Topic, a.Partition }),
+            _ => null
+        }
+    };
+    
     private static dynamic GetConnectorStatus(ConnectorContext connectorContext)
     {
         return new

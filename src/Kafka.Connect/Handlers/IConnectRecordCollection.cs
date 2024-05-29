@@ -30,6 +30,7 @@ public interface IConnectRecordCollection
     void Commit(IList<CommandRecord> commands);
     Task Configure(string batchId, bool refresh);
     void UpdateTo(SinkStatus status, string batchId = null);
+    void UpdateTo(SinkStatus status, string topic, int partition, long offset);
     void StartTiming();
     void EndTiming();
 }

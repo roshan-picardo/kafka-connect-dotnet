@@ -24,7 +24,7 @@ using IConfigurationProvider = Kafka.Connect.Providers.IConfigurationProvider;
 namespace Kafka.Connect.Handlers;
 
 public class ConnectRecordCollection(
-    Plugin.Logging.ILogger<ConnectRecordCollection> logger,
+    ILogger<ConnectRecordCollection> logger,
     ISinkConsumer sinkConsumer,
     ISourceProducer sourceProducer,
     IMessageHandler messageHandler,
@@ -159,12 +159,13 @@ public class ConnectRecordCollection(
 
         var message = await messageHandler.Serialize(command.Connector, command.Topic, new ConnectMessage<JsonNode>
         {
-            Key = null,
+            Key = command.Id.ToString(),
             Value = System.Text.Json.JsonSerializer.SerializeToNode(command)
         });
 
         await _producer.ProduceAsync(new TopicPartition(command.Topic, command.Partition),
             new Message<byte[], byte[]> { Key = message.Key, Value = message.Value });
+        
     }
 
     public void Commit(IList<CommandRecord> commands)
@@ -174,7 +175,7 @@ public class ConnectRecordCollection(
             executionContext.SetPartitionEof(_connector, _taskId, command.Topic, command.Partition, false);
         }
 
-        var offsets = _eofPartitions.Where(eof => eof.Value > 0)
+        var offsets = _eofPartitions.Where(eof => commands.Any(c => c.Partition == eof.Key.Partition) && eof.Value > 0)
             .Select(eof => (eof.Key.Topic, eof.Key.Partition, eof.Value - 1));
         partitionHandler.Commit(_consumer, offsets.ToList());
     }
@@ -191,6 +192,20 @@ public class ConnectRecordCollection(
         var latestRecords = GetConnectRecords(null).GroupBy(r => r.GetKey<string>())
             .Select(g => g.Aggregate((max, cur) => (max == null || cur.Offset > max.Offset) ? cur : max)).ToList();
         foreach (var record in latestRecords.Where(record => sourceRecords.Exists(s => s.GetKey<string>() == record.GetKey<string>())))
+        {
+            record.Status = status;
+        }
+    }
+
+    public void UpdateTo(SinkStatus status, string topic, int partition, long offset)
+    {
+        var record =
+            _sinkConnectRecords.SingleOrDefault(r =>
+                r.Topic == topic && r.Partition == partition && r.Offset == offset) ?? _sourceConnectRecords
+                .SelectMany(s => s.Value)
+                .SingleOrDefault(r => r.Topic == topic && r.Partition == partition && r.Offset == offset);
+
+        if (record != null)
         {
             record.Status = status;
         }
@@ -321,21 +336,22 @@ public class ConnectRecordCollection(
             // build poll commands with a Map for all commands and assign partitions
         using (logger.Track("Sourcing the poll commands.."))
         {
-            var config = configurationProvider.GetSourceConfig(_connector);
+            var batch = configurationProvider.GetBatchConfig(_connector);
+            var commandTopic = configurationProvider.GetTopics().Command;
             var sourceHandler = sinkHandlerProvider.GetSourceHandler(_connector);
             if (sourceHandler != null)
             {
                 var commands = sourceHandler.GetCommands(_connector);
                 var partitions = executionContext.GetAssignedPartitions(_connector, _taskId)
-                    .SingleOrDefault(p => p.Key == config.Topic).Value;
+                    .SingleOrDefault(p => p.Key == commandTopic).Value;
                 var pollCommands = commands.Select(command => new CommandRecord
                 {
                     Name = command.Key,
                     Connector = _connector,
-                    Partition = -1,
                     Command = command.Value.ToJson(),
-                    Topic = config.Topic,
-                    BatchSize = config.BatchSize, 
+                    Topic = commandTopic,
+                    Partition = -1,
+                    BatchSize = batch.Size, 
                 }).Where(command => partitions.Contains(GetCommandPartition(command))).ToList();
 
                 foreach (var topicBatch in GetByTopicPartition())
@@ -369,10 +385,10 @@ public class ConnectRecordCollection(
                     command.Partition = GetCommandPartition(command);
                 }
 
-                return (config.TimeOutInMs, pollCommands);
+                return (batch.TimeoutInMs, pollCommands);
             }
 
-            return (config.TimeOutInMs, new List<CommandRecord>());
+            return (batch.TimeoutInMs, new List<CommandRecord>());
         }
     } 
     

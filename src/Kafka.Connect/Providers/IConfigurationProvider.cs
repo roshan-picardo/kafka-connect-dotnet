@@ -22,10 +22,10 @@ public interface IConfigurationProvider
     BatchConfig GetBatchConfig(string connector);
     int GetDegreeOfParallelism(string connector);
     IList<string> GetTopics(string connector);
+    InternalTopicConfig GetTopics();
     ConverterConfig GetMessageConverters(string connector, string topic);
     IList<ProcessorConfig> GetMessageProcessors(string connector, string topic);
-    SinkConfig GetSinkConfig(string connector);
-    SourceConfig GetSourceConfig(string connector);
+    PluginConfig GetPluginConfig(string connector);
     bool IsErrorTolerated(string connector);
     bool IsDeadLetterEnabled(string connector);
     (bool EnableAutoCommit, bool EnableAutoOffsetStore) GetAutoCommitConfig();

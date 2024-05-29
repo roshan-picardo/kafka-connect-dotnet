@@ -73,6 +73,8 @@ public class ConnectRecord : IConnectRecord
             SinkStatus.Enriching => failed ? SinkStatus.Failed : SinkStatus.Enriched,
             SinkStatus.Publishing => failed ? SinkStatus.Failed : SinkStatus.Published,
             SinkStatus.Excluding => failed ? SinkStatus.Failed : SinkStatus.Excluded,
+            SinkStatus.Sourcing => failed ? SinkStatus.Failed : SinkStatus.Sourced,
+            SinkStatus.Selecting => failed ? SinkStatus.Failed : SinkStatus.Selected,
             _ => Status
         };
     }

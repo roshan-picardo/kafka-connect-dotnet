@@ -14,7 +14,7 @@ namespace Kafka.Connect.Configurations
         }
         
         public InternalTopicConfig Topics { get; set; }
-        public PluginConfig Plugins { get; init; }
+        public PluginAssemblyConfig Plugins { get; init; }
         public HealthCheckConfig HealthCheck { get; init; }
         public FailOverConfig FailOver { get; init; }
         public RestartsConfig Restarts { get; init; }

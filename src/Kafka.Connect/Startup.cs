@@ -79,11 +79,12 @@ using Serilog.Formatting.Json;
                      _cts.Cancel();
                      eventArgs.Cancel = true;
                  };
-
+                 
                  await host.RunAsync(_cts.Token).ContinueWith(t =>
                  {
                      if (!t.IsFaulted)
                      {
+                         var attempts = 10;
                          while (!(executionContext?.IsStopped ?? true))
                          {
                              Log.ForContext<Worker>().Information("{@Log}",
@@ -92,6 +93,7 @@ using Serilog.Formatting.Json;
                                      Message = "Shutting down Kafka Connect."
                                  });
                              Thread.Sleep(5000);
+                             if(--attempts <= 0) break;
                          }
 
                          return;

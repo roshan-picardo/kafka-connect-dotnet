@@ -26,17 +26,17 @@ namespace Kafka.Connect.Providers
 
         public ISinkHandler GetSinkHandler(string connector)
         {
-            var config = _configurationProvider.GetSinkConfig(connector);
-            var sinkHandler = _sinkHandlers.SingleOrDefault(s => s.Is(connector, config.Plugin, config.Handler));
-            _logger.Trace("Selected sink handler.", new { config.Plugin, Handler = sinkHandler?.GetType().FullName });
+            var config = _configurationProvider.GetPluginConfig(connector);
+            var sinkHandler = _sinkHandlers.SingleOrDefault(s => s.Is(connector, config.Name, config.Handler));
+            _logger.Trace("Selected sink handler.", new { config.Name, Handler = sinkHandler?.GetType().FullName });
             return sinkHandler;
         }
 
         public ISourceHandler GetSourceHandler(string connector)
         {
-            var config = _configurationProvider.GetSourceConfig(connector);
-            var sourceHandler = _sourceHandlers.SingleOrDefault(s => s.Is(connector, config.Plugin, config.Handler));
-            _logger.Trace("Selected source handler.", new { config.Plugin, Handler = sourceHandler?.GetType().FullName });
+            var config = _configurationProvider.GetPluginConfig(connector);
+            var sourceHandler = _sourceHandlers.SingleOrDefault(s => s.Is(connector, config.Name, config.Handler));
+            _logger.Trace("Selected source handler.", new { config.Name, Handler = sourceHandler?.GetType().FullName });
             return sourceHandler;
         }
     }

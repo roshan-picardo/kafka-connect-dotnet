@@ -52,10 +52,7 @@ namespace Kafka.Connect.Configurations
         }
         public int MaxTasks { get; init; }
         public bool Paused { get; init; }
-        public string Plugin { get; init; }
-        public SinkConfig Sink { get; init; }
-        
-        public SourceConfig Source { get; set; }
+        public PluginConfig Plugin { get; set; }
 
         public LogConfig Log
         {

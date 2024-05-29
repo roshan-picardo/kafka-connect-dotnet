@@ -50,6 +50,7 @@ public class SourceTask(
                 if (cts.IsCancellationRequested) break;
 
                 var (timeOut, commands) = await pollRecordCollection.GetCommands();
+                executionContext.UpdateCommands(connector, taskId, commands);
 
                 var timeOutWatch = Stopwatch.StartNew();
                 await commands.ForEachAsync(configurationProvider.GetDegreeOfParallelism(connector), async cr =>
@@ -59,10 +60,12 @@ public class SourceTask(
                     {
                         try
                         {
+                            pollRecordCollection.UpdateTo(SinkStatus.Sourcing, record.Topic, record.Partition, record.Offset);
                             await pollRecordCollection.Source(record);
                             await pollRecordCollection.Process(record.Id.ToString());
                             await pollRecordCollection.Produce(record.Id.ToString());
                             await pollRecordCollection.UpdateCommand(record);
+                            pollRecordCollection.UpdateTo(SinkStatus.Sourced, record.Topic, record.Partition, record.Offset);
                         }
                         catch (Exception ex)
                         {
@@ -70,13 +73,13 @@ public class SourceTask(
                         }
                         finally
                         {
-                            pollRecordCollection.Record();
                             pollRecordCollection.Record(record.Id.ToString());
                         }
 
                         pollRecordCollection.Clear(record.Id.ToString());
                     }
                 });
+                pollRecordCollection.Record();
                 pollRecordCollection.Commit(commands);
                 pollRecordCollection.Clear();
 

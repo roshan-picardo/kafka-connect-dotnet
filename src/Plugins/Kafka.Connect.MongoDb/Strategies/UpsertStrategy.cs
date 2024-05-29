@@ -9,22 +9,14 @@ using MongoDB.Driver;
 
 namespace Kafka.Connect.MongoDb.Strategies;
 
-public class UpsertStrategy : QueryStrategy<UpdateOneModel<BsonDocument>>
+public class UpsertStrategy(ILogger<UpsertStrategy> logger, IConfigurationProvider configurationProvider)
+    : QueryStrategy<UpdateOneModel<BsonDocument>>
 {
-    private readonly ILogger<UpsertStrategy> _logger;
-    private readonly IConfigurationProvider _configurationProvider;
-
-    public UpsertStrategy(ILogger<UpsertStrategy> logger, IConfigurationProvider configurationProvider)
-    {
-        _logger = logger;
-        _configurationProvider = configurationProvider;
-    }
-    
     protected override Task<StrategyModel<UpdateOneModel<BsonDocument>>> BuildSinkModels(string connector, ConnectRecord record)
     {
-        using (_logger.Track("Creating upsert models"))
+        using (logger.Track("Creating upsert models"))
         {
-            var condition = _configurationProvider.GetSinkConfigProperties<MongoSinkConfig>(connector).Condition;
+            var condition = configurationProvider.GetPluginConfig<SinkConfig>(connector).Condition;
             
             return Task.FromResult(new StrategyModel<UpdateOneModel<BsonDocument>>()
             {

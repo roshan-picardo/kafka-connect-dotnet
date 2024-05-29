@@ -154,6 +154,8 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
         return GetConnectorConfig(connector).Log?.Provider;
     }
 
+    public InternalTopicConfig GetTopics() => IsLeader ? _leaderConfig.Topics : _workerConfig.Topics;
+
     public ConverterConfig GetMessageConverters(string connector, string topic)
     {
         var shared = IsLeader ? _leaderConfig.Batches?.Converters : _workerConfig.Batches?.Converters;
@@ -191,28 +193,7 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
         return GetConnectorConfig(connector).Processors?.Values.Where(p=> p.Topics == null || p.Topics.Contains(topic)).ToList() ?? new List<ProcessorConfig>();
     }
 
-    public SinkConfig GetSinkConfig(string connector)
-    {
-        var connectorConfig = GetConnectorConfig(connector);
-        var sinkConfig = connectorConfig.Sink ?? new SinkConfig();
-        sinkConfig.Plugin ??= connectorConfig.Plugin;
-        return sinkConfig;
-    }
-
-    public SourceConfig GetSourceConfig(string connector)
-    {
-        var connectorConfig = GetConnectorConfig(connector);
-        var sourceConfig = connectorConfig.Source;
-        sourceConfig.Plugin = connectorConfig.Plugin;
-        sourceConfig.Topic = connectorConfig.Topic;
-        
-        if (sourceConfig.BatchSize == 0 && connectorConfig.Batches?.Size > 0)
-        {
-            sourceConfig.BatchSize = connectorConfig.Batches.Size;
-        }
-
-        return sourceConfig;
-    }
+    public PluginConfig GetPluginConfig(string connector) => GetConnectorConfig(connector).Plugin ?? new PluginConfig();
 
     public bool IsErrorTolerated(string connector)
     {
@@ -239,17 +220,16 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
         return config != null ? config.Settings : default;
     }
 
-    public T GetSinkConfigProperties<T>(string connector, string plugin = null)
+    public IList<(string Name, int Tasks)> GetConnectorsByPlugin(string plugin)
     {
-        var connectors = _configuration.GetSection("worker:connectors").Get<IDictionary<string, ConnectorSinkConfig<T>>>();
-        var config = connectors?.SingleOrDefault(c => (c.Value.Name ?? c.Key) == connector && (string.IsNullOrWhiteSpace(plugin) || c.Value.Plugin == plugin)).Value?.Sink;
-        return config != null ? config.Properties : default;
+        var connectors = _configuration.GetSection("worker:connectors").Get<IDictionary<string, ConnectorConfig>>();
+        return connectors?.Where(c => c.Value.Plugin.Name == plugin).Select(c => (c.Key, c.Value.MaxTasks)).ToList() ?? [];
     }
 
-    public T GetSourceConfigProperties<T>(string connector, string plugin = null)
+    public T GetPluginConfig<T>(string connector)
     {
-        var connectors = _configuration.GetSection("worker:connectors").Get<IDictionary<string, ConnectorSourceConfig<T>>>();
-        var config = connectors?.SingleOrDefault(c => (c.Value.Name ?? c.Key) == connector && (string.IsNullOrWhiteSpace(plugin) || c.Value.Plugin == plugin)).Value?.Source;
+        var connectors = _configuration.GetSection("worker:connectors").Get<IDictionary<string, ConnectorPluginConfig<T>>>();
+        var config =  connectors?.SingleOrDefault(c => c.Key == connector).Value.Plugin;
         return config != null ? config.Properties : default;
     }
 
@@ -262,13 +242,13 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
 
     public string GetPluginName(string connector)
     {
-        return GetConnectorConfig(connector)?.Plugin;
+        return GetConnectorConfig(connector)?.Plugin.Name;
     }
 
     public InitializerConfig GetPlugin(string connector)
     {
         return
-            _workerConfig.Plugins.Initializers.SingleOrDefault(p => p.Key == GetConnectorConfig(connector).Plugin)
+            _workerConfig.Plugins.Initializers.SingleOrDefault(p => p.Key == GetConnectorConfig(connector).Plugin.Name)
                 .Value;
     }
 
@@ -305,7 +285,7 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
 
         foreach (var connector in _workerConfig.Connectors?.Values ?? new List<ConnectorConfig>())
         {
-            if (!_workerConfig.Plugins.Initializers.Select(p => p.Key).Contains(connector.Plugin))
+            if (!_workerConfig.Plugins.Initializers.Select(p => p.Key).Contains(connector.Plugin.Name))
             {
                 throw new ArgumentException(
                     $"Connector: {connector.Name} is not associated to any of the available Plugins: [ {string.Join(", ", _workerConfig.Plugins.Initializers.Select(p => p.Key))} ].");
