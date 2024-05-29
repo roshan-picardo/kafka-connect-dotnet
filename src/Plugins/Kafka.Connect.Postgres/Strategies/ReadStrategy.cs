@@ -19,11 +19,11 @@ public class ReadStrategy(ILogger<ReadStrategy> logger) : QueryStrategy<string>
         using (logger.Track("Creating source models"))
         {
             var command = record.GetCommand<CommandConfig>();
-            var orderBy = $"ORDER BY {command.TimestampColumn} ASC";
+            var orderBy = $"{command.TimestampColumn} ASC";
             var filters = new List<List<string>>
             {
                 new() { $"{command.TimestampColumn} > {command.Timestamp}" },
-                new() { $"{command.TimestampColumn} = {command.Timestamp}" },
+                new() { $"{command.TimestampColumn} = {command.Timestamp}" }
             };
             if (command.KeyColumns != null)
             {

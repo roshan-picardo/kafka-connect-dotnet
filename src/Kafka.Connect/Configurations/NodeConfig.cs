@@ -20,5 +20,6 @@ namespace Kafka.Connect.Configurations
         public RestartsConfig Restarts { get; init; }
         public RetryConfig Retries { get; init; }
         public BatchConfig Batches { get; set; }
+        public ConverterConfig Converters { get; set; }
     }
 }

@@ -26,23 +26,26 @@ public class PostgresSourceHandler(
             var model = await GetReadWriteStrategy(connector, command).Build<string>(connector, command);
             var commandConfig = command.GetCommand<CommandConfig>();
 
-            var reader = await new NpgsqlCommand(model.Model, postgresClientProvider.GetPostgresClient(connector, taskId).GetConnection())
-                .ExecuteReaderAsync();
-            var records = new List<ConnectRecord>();
-
-            while (reader.Read())
+            await using (var reader = await new NpgsqlCommand(model.Model,
+                                 postgresClientProvider.GetPostgresClient(connector, taskId).GetConnection())
+                             .ExecuteReaderAsync())
             {
-                var record = new Dictionary<string, object>();
-                for (var i = 0; i < reader.FieldCount; i++)
+                var records = new List<ConnectRecord>();
+                while (await reader.ReadAsync())
                 {
-                    record.Add(reader.GetName(i), reader.GetValue(i));
+                    var record = new Dictionary<string, object>();
+                    for (var i = 0; i < reader.FieldCount; i++)
+                    {
+                        record.Add(reader.GetName(i), reader.GetValue(i));
+                    }
+
+                    records.Add(new ConnectRecord(commandConfig.Topic, -1, -1)
+                        { Deserialized = GetConnectMessage(record, commandConfig) });
                 }
 
-                records.Add(new ConnectRecord(commandConfig.Topic, -1, -1)
-                    { Deserialized = GetConnectMessage(record, commandConfig) });
+                await reader.CloseAsync();
+                return records;
             }
-
-            return records;
         }
     }
 
