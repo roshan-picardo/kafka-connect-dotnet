@@ -23,7 +23,7 @@ public interface IConnectRecordCollection
     void Cleanup();
     ConnectRecordBatch GetBatch();
     bool TryPublisher();
-    Task<(int TimeOut, IList<CommandRecord> Commands)> GetCommands();
+    Task<IList<CommandRecord>> GetCommands();
     Task Source(CommandRecord command);
     Task Produce(string batchId = null);
     Task UpdateCommand(CommandRecord command);

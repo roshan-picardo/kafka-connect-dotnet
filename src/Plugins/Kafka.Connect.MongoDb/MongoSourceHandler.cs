@@ -43,41 +43,30 @@ public class MongoSourceHandler(
         return config.Commands.ToDictionary(k=> k.Key, v => v.Value as Command);
     }
 
-    public override CommandRecord GetUpdatedCommand(CommandRecord command, IList<(SinkStatus Status, JsonNode Key)> records)
+    public override CommandRecord GetUpdatedCommand(CommandRecord command, IList<ConnectMessage<JsonNode>> records)
     {
         var commandConfig = command.GetCommand<CommandConfig>();
-        var jsonKeys = records.Where(r => r.Status is SinkStatus.Published or SinkStatus.Skipped or SinkStatus.Processed).Select(r=> r.Key).ToList();
-
-        if (jsonKeys.Count > 0)
+        if (records.Any())
         {
-            var maxTimestamp = jsonKeys.Select(k => k["Timestamp"]?.GetValue<long>() ?? 0).Max();
-            
-            var keys = jsonKeys.Where(k => k["Timestamp"]?.GetValue<long>() == maxTimestamp)
-                .Select(k => k["Keys"]?.ToDictionary("Keys", true)).ToList();
-            var sortedKeys = keys.OrderBy(_ => 1);
-            foreach (var keyColumn in commandConfig.KeyColumns)
-            {
-                sortedKeys = sortedKeys.ThenBy(d => d[keyColumn]);
-            }
-
+            var maxTimestamp = records.Max(m => m.Timestamp);
+            var keys = records.Where(m => m.Timestamp == maxTimestamp).Select(m => m.Key.ToDictionary())
+                .OrderBy(_ => 1);
+            keys = commandConfig.KeyColumns.Aggregate(keys, (current, keyColumn) => current.ThenBy(d => d[keyColumn]));
             commandConfig.Timestamp = maxTimestamp;
-            commandConfig.Keys = sortedKeys.LastOrDefault();
+            commandConfig.Keys = keys.LastOrDefault();
         }
-
         command.Command = commandConfig.ToJson();
-
         return command;
     }
-    
     private static ConnectMessage<JsonNode> GetConnectMessage(BsonValue bson, CommandConfig command)
     {
         var record = JsonNode.Parse(JsonSerializer.Serialize(BsonTypeMapper.MapToDotNetValue(bson)));
         var flattened = record.ToDictionary();
-        var commandKey = new
+        return new ConnectMessage<JsonNode>
         {
-            Timestamp = flattened[command.TimestampColumn],
-            Keys = flattened.Where(r => command.KeyColumns?.Contains(r.Key) ?? false).ToDictionary(k => k.Key, v => v.Value)
+            Timestamp = (long)flattened[command.TimestampColumn], 
+            Key = JsonNode.Parse(JsonSerializer.Serialize(flattened.Where(r => command.KeyColumns?.Contains(r.Key) ?? false).ToDictionary(k => k.Key, v => v.Value))),
+            Value = record
         };
-        return new ConnectMessage<JsonNode> { Key = JsonNode.Parse(JsonSerializer.Serialize(commandKey)), Value = record };
     }
 }

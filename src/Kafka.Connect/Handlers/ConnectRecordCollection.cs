@@ -10,15 +10,12 @@ using Confluent.Kafka;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Connectors;
 using Kafka.Connect.Models;
-using Kafka.Connect.Plugin;
 using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Plugin.Providers;
 using Kafka.Connect.Providers;
 using Kafka.Connect.Utilities;
-using Serilog.Context;
-using Serilog.Core.Enrichers;
 using IConfigurationProvider = Kafka.Connect.Providers.IConfigurationProvider;
 
 namespace Kafka.Connect.Handlers;
@@ -147,13 +144,14 @@ public class ConnectRecordCollection(
     public async Task UpdateCommand(CommandRecord command)
     {
         var batch = GetConnectRecords(command.Id.ToString());
-        if (batch != null && batch.Any())
+        if (batch is { Count: > 0 })
         {
             var sourceHandler = sinkHandlerProvider.GetSourceHandler(_connector);
             if (sourceHandler != null)
             {
                 command = sourceHandler.GetUpdatedCommand(command,
-                    batch.Select(r => (r.Status, r.GetKey<JsonNode>())).ToList());
+                    batch.Where(r => r.Status is SinkStatus.Published or SinkStatus.Skipped)
+                        .Select(r => r.Deserialized).ToList());
             }
         }
 
@@ -165,7 +163,6 @@ public class ConnectRecordCollection(
 
         await _producer.ProduceAsync(new TopicPartition(command.Topic, command.Partition),
             new Message<byte[], byte[]> { Key = message.Key, Value = message.Value });
-        
     }
 
     public void Commit(IList<CommandRecord> commands)
@@ -330,10 +327,8 @@ public class ConnectRecordCollection(
         return new ConnectRecordBatch("internal");
     }
 
-    public async Task<(int TimeOut, IList<CommandRecord> Commands)> GetCommands()
+    public async Task<IList<CommandRecord>> GetCommands()
     {
-        //1. No messages available
-            // build poll commands with a Map for all commands and assign partitions
         using (logger.Track("Sourcing the poll commands.."))
         {
             var batch = configurationProvider.GetBatchConfig(_connector);
@@ -384,11 +379,9 @@ public class ConnectRecordCollection(
                 {
                     command.Partition = GetCommandPartition(command);
                 }
-
-                return (batch.TimeoutInMs, pollCommands);
+                return pollCommands;
             }
-
-            return (batch.TimeoutInMs, new List<CommandRecord>());
+            return Array.Empty<CommandRecord>();
         }
     } 
     
@@ -403,7 +396,7 @@ public class ConnectRecordCollection(
             {
                 foreach (var record in await sourceHandler.Get(_connector, _taskId, command))
                 {
-                    batch.Add(new SourceRecord(record.Topic, record.Deserialized.Key ?? new JsonObject(), record.Deserialized.Value));
+                    batch.Add(new SourceRecord(record.Topic, record.Deserialized.Key ?? new JsonObject(), record.Deserialized.Value, record.Deserialized.Timestamp));
                 }
             }
         }
@@ -412,7 +405,7 @@ public class ConnectRecordCollection(
     public void StartTiming() => _stopWatch.Restart();
     public void EndTiming() => _stopWatch.Stop();
 
-    private IList<(string Topic, int Partition, IEnumerable<ConnectRecord> Batch)> GetByTopicPartition(string batchId = null)
+    private List<(string Topic, int Partition, IEnumerable<ConnectRecord> Batch)> GetByTopicPartition(string batchId = null)
     {
         return (from record in GetConnectRecords(batchId)
             group record by new { record.Topic, record.Partition }
@@ -430,7 +423,7 @@ public class ConnectRecordCollection(
         }
     }
     
-    private IList<(string Topic, int Partition, long Offset)> GetCommitReadyOffsets()
+    private List<(string Topic, int Partition, long Offset)> GetCommitReadyOffsets()
     {
         var isTolerated = configurationProvider.IsErrorTolerated(_connector);
         return (from record in _sinkConnectRecords
@@ -442,5 +435,5 @@ public class ConnectRecordCollection(
         ? _sinkConnectRecords
         : _sourceConnectRecords.GetOrAdd(batchId, new BlockingCollection<ConnectRecord>());
 
-    private int GetCommandPartition(CommandRecord command) => (command.Id.GetHashCode() & 0x7FFFFFFF) % 50;
+    private static int GetCommandPartition(CommandRecord command) => (command.Id.GetHashCode() & 0x7FFFFFFF) % 50;
 }

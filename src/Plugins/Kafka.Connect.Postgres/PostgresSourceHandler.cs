@@ -55,39 +55,47 @@ public class PostgresSourceHandler(
         return config.Commands.ToDictionary(k=> k.Key, v => v.Value as Command);
     }
 
-    public override CommandRecord GetUpdatedCommand(CommandRecord command, IList<(SinkStatus Status, JsonNode Key)> records)
+    public override CommandRecord GetUpdatedCommand(CommandRecord command, IList<ConnectMessage<JsonNode>> records)
     {
         var commandConfig = command.GetCommand<CommandConfig>();
-        var jsonKeys = records.Where(r => r.Status is SinkStatus.Published or SinkStatus.Skipped or SinkStatus.Processed).Select(r=> r.Key).ToList();
-
-        if (jsonKeys.Count > 0)
+        if (records.Any())
         {
-            var maxTimestamp = jsonKeys.Select(k => k["Timestamp"]?.GetValue<long>() ?? 0).Max();
-            
-            var keys = jsonKeys.Where(k => k["Timestamp"]?.GetValue<long>() == maxTimestamp)
-                .Select(k => k["Keys"]?.ToDictionary("Keys", true)).ToList();
-            var sortedKeys = keys.OrderBy(_ => 1);
+            var maxTimestamp = records.Max(m => m.Timestamp);
+
+            var keys = records.Where(m => m.Timestamp == maxTimestamp)
+                .Select(m => m.Key.ToDictionary()).OrderBy(_ => 1);
             foreach (var keyColumn in commandConfig.KeyColumns)
             {
-                sortedKeys = sortedKeys.ThenBy(d => d[keyColumn]);
+                keys = keys.ThenBy(d => d[keyColumn]);
             }
-
             commandConfig.Timestamp = maxTimestamp;
-            commandConfig.Keys = sortedKeys.LastOrDefault();
+            commandConfig.Keys = keys.LastOrDefault();
         }
-
         command.Command = commandConfig.ToJson();
-
         return command;
     }
-    
+
     private static ConnectMessage<JsonNode> GetConnectMessage(IDictionary<string, object> record, CommandConfig command)
     {
-        var commandKey = new
+        long timestamp;
+        if(record.TryGetValue("_timestamp", out var value))
         {
-            Timestamp = record[command.TimestampColumn],
-            Keys = record.Where(r => command.KeyColumns?.Contains(r.Key) ?? false).ToDictionary(k => k.Key, v => v.Value)
+            timestamp = Convert.ToInt64(value);
+            record.Remove("_timestamp");
+        }
+        else
+        {
+            timestamp = record[command.TimestampColumn] is DateTime dateTime
+                ? dateTime.Ticks
+                : (long)record[command.TimestampColumn];
+        }
+        
+        return new ConnectMessage<JsonNode>
+        {
+            Timestamp = timestamp,
+            Key = JsonNode.Parse(JsonSerializer.Serialize(record
+                .Where(r => command.KeyColumns?.Contains(r.Key) ?? false).ToDictionary(k => k.Key, v => v.Value))),
+            Value = record.ToJson()
         };
-        return new ConnectMessage<JsonNode> { Key = JsonNode.Parse(JsonSerializer.Serialize(commandKey)), Value = record.ToJson() };
     }
 }

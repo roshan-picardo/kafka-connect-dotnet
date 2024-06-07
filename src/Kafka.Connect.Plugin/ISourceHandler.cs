@@ -9,7 +9,6 @@ public interface ISourceHandler
 {
     Task<IList<ConnectRecord>> Get(string connector, int taskId, CommandRecord command);
     bool Is(string connector, string plugin, string handler);
-
     IDictionary<string, Command> GetCommands(string connector);
-    CommandRecord GetUpdatedCommand(CommandRecord command, IList<(SinkStatus Status, JsonNode Key)> records);
+    CommandRecord GetUpdatedCommand(CommandRecord command, IList<ConnectMessage<JsonNode>> records);
 }
