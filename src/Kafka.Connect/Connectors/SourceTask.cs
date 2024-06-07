@@ -9,8 +9,6 @@ using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Providers;
 using Kafka.Connect.Tokens;
-using Serilog.Context;
-using Serilog.Core.Enrichers;
 
 namespace Kafka.Connect.Connectors;
 
@@ -49,7 +47,7 @@ public class SourceTask(
 
                 if (cts.IsCancellationRequested) break;
 
-                var (timeOut, commands) = await pollRecordCollection.GetCommands();
+                var commands = await pollRecordCollection.GetCommands();
                 executionContext.UpdateCommands(connector, taskId, commands);
 
                 var timeOutWatch = Stopwatch.StartNew();
@@ -83,7 +81,7 @@ public class SourceTask(
                 pollRecordCollection.Commit(commands);
                 pollRecordCollection.Clear();
 
-                var pendingTime = timeOut - (int)timeOutWatch.ElapsedMilliseconds;
+                var pendingTime = configurationProvider.GetBatchConfig(connector).TimeoutInMs - (int)timeOutWatch.ElapsedMilliseconds;
                 timeOutWatch.Stop();
                 if (pendingTime > 0)
                 {

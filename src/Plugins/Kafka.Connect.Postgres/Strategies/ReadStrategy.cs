@@ -20,11 +20,12 @@ public class ReadStrategy(ILogger<ReadStrategy> logger) : QueryStrategy<string>
         {
             var command = record.GetCommand<CommandConfig>();
             var orderBy = $"{command.TimestampColumn} ASC";
-            var filters = new List<List<string>>
-            {
-                new() { $"{command.TimestampColumn} > {command.Timestamp}" },
-                new() { $"{command.TimestampColumn} = {command.Timestamp}" }
-            };
+            List<List<string>> filters =
+            [
+                [$"EXTRACT(EPOCH FROM {command.TimestampColumn}) * 1000000 > {command.Timestamp}"],
+                [$"EXTRACT(EPOCH FROM {command.TimestampColumn}) * 1000000 = {command.Timestamp}"]
+            ];
+
             if (command.KeyColumns != null)
             {
                 const int index = 1;
@@ -52,13 +53,13 @@ public class ReadStrategy(ILogger<ReadStrategy> logger) : QueryStrategy<string>
             filters.RemoveAt(filters.Count - 1);
 
             var filterBy =
-                $"{string.Join(" OR ", filters.Select(f => string.Join(" AND ", f.Select(s => s))))}";
+                $"( {string.Join(" ) OR ( ", filters.Select(f => string.Join(" AND ", f.Select(s => s))))} )";
 
             return Task.FromResult(new StrategyModel<string>
             {
                 Status = SinkStatus.Selecting,
                 Model =
-                    $"SELECT * FROM {command.Schema}.{command.Table} WHERE {filterBy} ORDER BY {orderBy} LIMIT {record.BatchSize}"
+                    $"SELECT *, EXTRACT(EPOCH FROM {command.TimestampColumn}) * 1000000 _timestamp FROM {command.Schema}.{command.Table} WHERE {filterBy} ORDER BY {orderBy} LIMIT {record.BatchSize}"
             });
         }
     }

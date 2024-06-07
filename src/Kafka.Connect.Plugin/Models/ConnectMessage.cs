@@ -9,6 +9,7 @@ public class ConnectMessage<T>
 {
     public T Key { get; set; }
     public T Value { get; set; }
+    public long Timestamp { get; set; }
     public IDictionary<string, T> Headers { get; set; }
 }
 

@@ -4,7 +4,7 @@ namespace Kafka.Connect.Configurations
     {
         private readonly int _size = 100;
         private readonly int _parallelism = 10;
-        private readonly int _timeout = 300000;
+        private readonly int _timeout = 60000;
 
         public int Size
         {

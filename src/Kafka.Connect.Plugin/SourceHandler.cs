@@ -19,9 +19,7 @@ public abstract class SourceHandler(
 
     public abstract IDictionary<string, Command> GetCommands(string connector);
 
-    public abstract CommandRecord GetUpdatedCommand(
-        CommandRecord command,
-        IList<(SinkStatus Status, JsonNode Key)> records);
+    public abstract CommandRecord GetUpdatedCommand(CommandRecord command, IList<ConnectMessage<JsonNode>> records);
 
     protected IQueryStrategy GetReadWriteStrategy(string connector, IConnectRecord record) =>
         readWriteStrategyProvider.GetSourceReadWriteStrategy(connector, record);

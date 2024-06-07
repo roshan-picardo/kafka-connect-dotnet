@@ -12,17 +12,17 @@ public class SourceRecord : ConnectRecord
     public SourceRecord(
         string topic,
         JsonNode key,
-        JsonNode value) : base(topic, -1, -1)
+        JsonNode value,
+        long timestamp = 0) : base(topic, -1, -1)
     {
         Deserialized = new ConnectMessage<JsonNode>
         {
             Key = key,
             Value = value,
+            Timestamp = timestamp
         };
         StartTiming();
     }
-    
-    public long Timestamp => Deserialized.Key[nameof(Timestamp)]?.GetValue<long>() ?? 0;
 
     public IDictionary<string, object> Keys =>
         Deserialized.Key[nameof(Keys)]?.ToDictionary(nameof(Keys), true)  ?? new Dictionary<string, object>();
