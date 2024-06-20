@@ -24,7 +24,7 @@ public class ReadStrategy(ILogger<ReadStrategy> logger) : QueryStrategy<FindMode
     {
         using (logger.Track("Creating read models"))
         {
-            var command = record.GetCommand<CommandConfig>();
+            var command = record.Get<CommandConfig>();
             var buildOrder = Builders<BsonDocument>.Sort;
             var sort = buildOrder.Ascending(command.TimestampColumn);
             var filters = new List<List<FilterDefinition<BsonDocument>>>

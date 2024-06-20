@@ -28,7 +28,7 @@ public class MongoSourceHandler(
         using (logger.Track("Getting batch of records"))
         {
             var model = await GetReadWriteStrategy(connector, command).Build<FindModel<BsonDocument>>(connector, command);
-            var commandConfig = command.GetCommand<CommandConfig>();
+            var commandConfig = command.Get<CommandConfig>();
 
             var records = await mongoQueryRunner.ReadMany(model, connector, taskId, commandConfig.Collection);
             
@@ -45,7 +45,7 @@ public class MongoSourceHandler(
 
     public override CommandRecord GetUpdatedCommand(CommandRecord command, IList<ConnectMessage<JsonNode>> records)
     {
-        var commandConfig = command.GetCommand<CommandConfig>();
+        var commandConfig = command.Get<CommandConfig>();
         if (records.Any())
         {
             var maxTimestamp = records.Max(m => m.Timestamp);

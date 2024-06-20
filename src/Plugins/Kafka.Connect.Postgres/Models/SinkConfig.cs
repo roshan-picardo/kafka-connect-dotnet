@@ -11,4 +11,6 @@ public class FilterConfig
 {
     public string Condition { get; set; } 
     public string[] Keys { get; set; }
+    public Dictionary<string, object> Values { get; set; }
+
 }

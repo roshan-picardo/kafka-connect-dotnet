@@ -13,14 +13,14 @@ public class SourceRecord : ConnectRecord
         string topic,
         JsonNode key,
         JsonNode value,
-        long timestamp = 0) : base(topic, -1, -1)
+        bool skip = false) : base(topic, -1, -1)
     {
         Deserialized = new ConnectMessage<JsonNode>
         {
             Key = key,
-            Value = value,
-            Timestamp = timestamp
+            Value = value
         };
+        Skip = skip;
         StartTiming();
     }
 

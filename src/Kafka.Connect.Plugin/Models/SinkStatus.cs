@@ -1,46 +1,45 @@
-namespace Kafka.Connect.Plugin.Models
+namespace Kafka.Connect.Plugin.Models;
+
+public enum SinkStatus
 {
-    public enum SinkStatus
-    {
-        Empty,
+    Empty,
         
-        Polling,
-        Consumed,
+    Polling,
+    Consumed,
         
-        Processing,
-        Processed,
+    Processing,
+    Processed,
         
-        Updating,
-        Updated,
+    Updating,
+    Updated,
         
-        Inserting,
-        Inserted,
+    Inserting,
+    Inserted,
         
-        Deleting,
-        Deleted,
+    Deleting,
+    Deleted,
         
-        Skipping,
-        Skipped,
+    Skipping,
+    Skipped,
         
-        Failed,
+    Failed,
         
-        Document,
+    Document,
         
-        Enriching,
-        Enriched,
+    Enriching,
+    Enriched,
         
-        Excluding,
-        Excluded,
+    Excluding,
+    Excluded,
         
-        Publishing,
-        Published,
+    Publishing,
+    Published,
         
-        Selecting,
-        Selected,
+    Selecting,
+    Selected,
         
-        Reviewed,
-        
-        Sourcing,
-        Sourced
-    }
+    Reviewed,
+
+    Sourcing,
+    Sourced
 }
