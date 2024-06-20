@@ -84,7 +84,7 @@ public static class ConverterExtensions
     
     public static JsonNode ToJson(this IDictionary<string, object> flattened)
     {
-        var result = ToNestedDictionary(flattened);
+        var result = flattened.ToNested();
         var jsonString = JsonSerializer.Serialize(result, new JsonSerializerOptions
         {
             WriteIndented = true
@@ -115,7 +115,7 @@ public static class ConverterExtensions
         }
     }
 
-    private static IDictionary<string, object> ToNestedDictionary(IDictionary<string, object> flattened)
+    public static IDictionary<string, object> ToNested(this IDictionary<string, object> flattened)
     {
         var result = new Dictionary<string, object>();
         string previousKey = null;
@@ -205,7 +205,7 @@ public static class ConverterExtensions
     }
 
     public static IDictionary<string, object> ToNestedDictionary(this JsonNode jn) =>
-        ToNestedDictionary(jn.ToDictionary());
+        jn.ToDictionary().ToNested();
 
     public static T ToObject<T>(this IDictionary<string, object> flattened) => JsonSerializer.Deserialize<T>(flattened.ToJson().ToJsonString());
 

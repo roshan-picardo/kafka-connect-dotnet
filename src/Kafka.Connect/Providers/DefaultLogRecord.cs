@@ -1,22 +1,18 @@
+using System.Collections.Generic;
 using System.Linq;
 using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Plugin.Providers;
 
-namespace Kafka.Connect.Providers
-{
-    public class DefaultLogRecord : ILogRecord
-    {
-        private readonly Kafka.Connect.Plugin.Providers.IConfigurationProvider _configurationProvider;
+namespace Kafka.Connect.Providers;
 
-        public DefaultLogRecord(Kafka.Connect.Plugin.Providers.IConfigurationProvider configurationProvider)
-        {
-            _configurationProvider = configurationProvider;
-        }
-        public object Enrich(ConnectRecord record, string connector)
-        {
-            var attributes = _configurationProvider.GetLogAttributes<string[]>(connector);
-            return record.Deserialized?.Value == null ? null : attributes?.ToDictionary(a => a, a => record.Deserialized.Value?[a]?.GetValue());
-        }
+public class DefaultLogRecord(Kafka.Connect.Plugin.Providers.IConfigurationProvider configurationProvider)
+    : ILogRecord
+{
+    public object Enrich(ConnectRecord record, string connector)
+    {
+        var attributes = configurationProvider.GetLogAttributes<string[]>(connector);
+        var value = record.Deserialized.Value?.ToDictionary() ?? new Dictionary<string, object>();
+        return value.Where(v => attributes.Contains(v.Key) && v.Value != null).ToDictionary().ToNested();
     }
 }

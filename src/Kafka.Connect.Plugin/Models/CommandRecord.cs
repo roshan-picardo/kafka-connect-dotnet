@@ -26,6 +26,7 @@ public class CommandRecord : IConnectRecord
     public int Partition { get; set; }
     public long Offset { get; set; }
     public int BatchSize { get; set; }
+    public JsonNode Changelog { get; set; }
     public JsonNode Command { get; set; }
     public Exception Exception { get; set; }
 
@@ -39,5 +40,7 @@ public class CommandRecord : IConnectRecord
         }
         return hash;
     }
-    public T GetCommand<T>() => Command.ToDictionary().ToJson().Deserialize<T>();
+    public T Get<T>() => Command.ToDictionary().ToJson().Deserialize<T>();
+    
+    public bool IsChangeLog() => Changelog != null;
 }

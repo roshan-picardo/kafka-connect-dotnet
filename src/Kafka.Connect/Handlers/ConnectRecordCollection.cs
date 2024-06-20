@@ -217,7 +217,7 @@ public class ConnectRecordCollection(
             {
                 await topicBatch.Batch.ForEachAsync(configurationProvider.GetDegreeOfParallelism(_connector), async cr =>
                     {
-                        if (cr is not ConnectRecord record || record.Status == SinkStatus.Processed) return;
+                        if (cr is not ConnectRecord record || record.Skip || record.Status == SinkStatus.Processed) return;
                         record.Status = SinkStatus.Processing;
 
                         switch (record)
@@ -394,9 +394,14 @@ public class ConnectRecordCollection(
             var sourceHandler = sinkHandlerProvider.GetSourceHandler(_connector);
             if (sourceHandler != null)
             {
-                foreach (var record in await sourceHandler.Get(_connector, _taskId, command))
+                var records = await sourceHandler.Get(_connector, _taskId, command);
+                if (records != null)
                 {
-                    batch.Add(new SourceRecord(record.Topic, record.Deserialized.Key ?? new JsonObject(), record.Deserialized.Value, record.Deserialized.Timestamp));
+                    foreach (var record in records)
+                    {
+                        batch.Add(new SourceRecord(record.Topic, record.Deserialized.Key ?? new JsonObject(),
+                            record.Deserialized.Value, record.Skip));
+                    }
                 }
             }
         }

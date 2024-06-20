@@ -31,6 +31,19 @@ public static class ConnectMessageExtensions
         };
     }
     
+    public static T GetValue<T>(this ConnectMessage<JsonNode> message, params string[] keys)
+    {
+        var dictionary = message.Value.ToDictionary();
+        foreach (var key in keys)
+        {
+            if (dictionary.TryGetValue(key, out var value))
+                return (T)value;
+        }
+
+        return default;
+    }
+    
+    
     public static ConnectMessage<TKey, TValue> Convert<TKey, TValue>(this ConnectMessage<JsonNode> message)
     {
         return new ConnectMessage<TKey, TValue>
