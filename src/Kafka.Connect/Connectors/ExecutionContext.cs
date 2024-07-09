@@ -20,7 +20,7 @@ public class ExecutionContext(
     IEnumerable<ISinkHandler> handlers,
     IEnumerable<IMessageConverter> messageConverters,
     IEnumerable<IStrategySelector> strategySelectors,
-    IEnumerable<IQueryStrategy> queryStrategies,
+    IEnumerable<IStrategy> queryStrategies,
     IConfigurationProvider configurationProvider)
     : IExecutionContext
 {

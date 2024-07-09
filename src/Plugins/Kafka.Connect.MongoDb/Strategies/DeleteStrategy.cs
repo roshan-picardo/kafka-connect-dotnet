@@ -11,7 +11,7 @@ using MongoDB.Driver;
 namespace Kafka.Connect.MongoDb.Strategies;
 
 public class DeleteStrategy(ILogger<DeleteStrategy> logger, IConfigurationProvider configurationProvider)
-    : QueryStrategy<DeleteOneModel<BsonDocument>>
+    : Strategy<DeleteOneModel<BsonDocument>>
 {
     protected override Task<StrategyModel<DeleteOneModel<BsonDocument>>> BuildSinkModels(string connector, ConnectRecord record)
     {

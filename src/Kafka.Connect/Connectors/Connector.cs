@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Kafka.Connect.Configurations;
+using Kafka.Connect.Plugin;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Tokens;
 using Kafka.Connect.Tokens;

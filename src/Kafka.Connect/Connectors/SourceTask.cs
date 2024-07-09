@@ -28,7 +28,7 @@ public class SourceTask(
     {
         executionContext.Initialize(connector, taskId, this);
 
-        pollRecordCollection.Setup(ConnectorType.Source, connector, taskId);
+        await pollRecordCollection.Setup(ConnectorType.Source, connector, taskId);
         if (!(pollRecordCollection.TrySubscribe() && pollRecordCollection.TryPublisher()))
         {
             IsStopped = true;
@@ -89,7 +89,6 @@ public class SourceTask(
                 }
             }
         }
-
         IsStopped = true;
     }
 }

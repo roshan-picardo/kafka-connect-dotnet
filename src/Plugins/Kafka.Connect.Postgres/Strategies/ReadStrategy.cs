@@ -5,7 +5,7 @@ using Kafka.Connect.Postgres.Models;
 
 namespace Kafka.Connect.Postgres.Strategies;
 
-public class ReadStrategy(ILogger<ReadStrategy> logger) : QueryStrategy<string>
+public class ReadStrategy(ILogger<ReadStrategy> logger) : Strategy<string>
 {
     protected override Task<StrategyModel<string>> BuildSinkModels(string connector, ConnectRecord record)
     {
@@ -71,10 +71,20 @@ public class ReadStrategy(ILogger<ReadStrategy> logger) : QueryStrategy<string>
             {
                 var changelog = record.Get<Changelog>();
                 model.Model = $"""
-                               SELECT id, operation, old_value, new_value, EXTRACT(EPOCH FROM updated) * 1000000 timestamp  
+                               SELECT 
+                                   log_id AS id, 
+                                   log_operation AS operation, 
+                                   log_before AS before, 
+                                   log_after AS after, 
+                                   EXTRACT(EPOCH FROM log_timestamp) * 1000000 As timestamp  
                                FROM {changelog.Schema}.{changelog.Table} 
-                               WHERE schema_name='{command.Schema}' AND table_name='{command.Table}' AND (EXTRACT(EPOCH FROM updated) * 1000000) >= {command.Snapshot.Timestamp} AND id > {command.Snapshot.Id}
-                               ORDER BY updated ASC LIMIT {record.BatchSize}
+                               WHERE 
+                                   log_schema='{command.Schema}' AND 
+                                   log_table='{command.Table}' AND 
+                                   (EXTRACT(EPOCH FROM log_timestamp) * 1000000) >= {command.Snapshot.Timestamp} AND 
+                                   log_id > {command.Snapshot.Id}
+                               ORDER BY log_timestamp ASC 
+                               LIMIT {record.BatchSize}
                                """;
             }
 

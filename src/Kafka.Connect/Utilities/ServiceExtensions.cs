@@ -48,8 +48,7 @@ namespace Kafka.Connect.Utilities
                 .AddScoped<ITokenHandler, TokenHandler>()
                 .AddScoped<IConfigurationChangeHandler, ConfigurationChangeHandler>()
 
-                .AddScoped<IProcessorServiceProvider, ProcessorServiceProvider>()
-                .AddScoped<IConnectHandlerProvider, ConnectHandlerProvider>()
+                .AddScoped<IConnectPluginFactory, ConnectPluginFactory>()
 
                 .AddScoped<IGenericRecordHandler, GenericRecordHandler>()
                 .AddScoped<IMessageHandler, MessageHandler>()
@@ -80,7 +79,6 @@ namespace Kafka.Connect.Utilities
                 .AddScoped<IMessageConverter, JsonSchemaConverter>()
                 .AddScoped<IMessageConverter, StringConverter>()
                 
-                .AddScoped<IReadWriteStrategyProvider, ReadWriteStrategyProvider>()
                 .AddScoped<IStrategySelector, TopicStrategySelector>()
                 //.AddScoped<IWriteStrategySelector, ValueStrategySelector>()
 

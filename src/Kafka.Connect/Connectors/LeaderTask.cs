@@ -7,7 +7,6 @@ using Kafka.Connect.Handlers;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Tokens;
-using Serilog.Context;
 using IConfigurationProvider = Kafka.Connect.Providers.IConfigurationProvider;
 using Timer = System.Timers.Timer;
 
