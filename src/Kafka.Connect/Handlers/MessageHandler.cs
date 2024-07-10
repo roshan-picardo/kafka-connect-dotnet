@@ -4,16 +4,16 @@ using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Confluent.Kafka;
 using Confluent.SchemaRegistry;
-using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
-using Kafka.Connect.Providers;
+using Kafka.Connect.Plugin.Providers;
+using IConfigurationProvider = Kafka.Connect.Providers.IConfigurationProvider;
 
 namespace Kafka.Connect.Handlers;
 
 public class MessageHandler(
     ILogger<MessageHandler> logger,
-    IProcessorServiceProvider processorServiceProvider,
+    IConnectPluginFactory connectPluginFactory,
     IConfigurationProvider configurationProvider)
     : IMessageHandler
 {
@@ -27,18 +27,12 @@ public class MessageHandler(
                 return (false, deserialized);
             }
 
-            var processors = processorServiceProvider.GetProcessors()?.ToList();
-            if (!(processors?.Any() ?? false))
-            {
-                return(false, deserialized);
-            }
-
             var skip = false;
             var flattened = deserialized.Convert();
 
             foreach (var config in configs)
             {
-                var processor = processors.SingleOrDefault(p => p.Is(config.Name));
+                var processor = connectPluginFactory.GetProcessor(config.Name);
                 if (processor == null)
                 {
                     logger.Trace("Processor is not registered.", new { Processor = config.Name });
@@ -67,9 +61,9 @@ public class MessageHandler(
 
             return new ConnectMessage<byte[]>
             {
-                Key = await processorServiceProvider.GetMessageConverter(converterConfig.Key)
+                Key = await connectPluginFactory.GetMessageConverter(converterConfig.Key)
                     .Serialize(topic, message.Key, keySchemaSubject),
-                Value = await processorServiceProvider.GetMessageConverter(converterConfig.Value)
+                Value = await connectPluginFactory.GetMessageConverter(converterConfig.Value)
                     .Serialize(topic, message.Value, valueSchemaSubject)
             };
         }
@@ -83,9 +77,9 @@ public class MessageHandler(
 
             return new ConnectMessage<JsonNode>
             {
-                Key = await processorServiceProvider.GetMessageConverter(converterConfig.Key)
+                Key = await connectPluginFactory.GetMessageConverter(converterConfig.Key)
                     .Deserialize(topic, message.Key, message.Headers, false) ?? JsonNode.Parse("{}"),
-                Value = await processorServiceProvider.GetMessageConverter(converterConfig.Value)
+                Value = await connectPluginFactory.GetMessageConverter(converterConfig.Value)
                     .Deserialize(topic, message.Value, message.Headers) ?? JsonNode.Parse("{}")
             };
         }

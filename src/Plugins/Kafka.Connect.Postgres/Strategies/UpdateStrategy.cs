@@ -9,7 +9,7 @@ using Kafka.Connect.Postgres.Models;
 namespace Kafka.Connect.Postgres.Strategies;
 
 public class UpdateStrategy(ILogger<UpdateStrategy> logger, IConfigurationProvider configurationProvider)
-    : QueryStrategy<string>
+    : Strategy<string>
 {
     protected override Task<StrategyModel<string>> BuildSinkModels(string connector, ConnectRecord record)
     {

@@ -26,7 +26,7 @@ public class SinkTask(
     {
         executionContext.Initialize(connector, taskId, this);
 
-        sinkRecordCollection.Setup(ConnectorType.Sink, connector, taskId);
+        await sinkRecordCollection.Setup(ConnectorType.Sink, connector, taskId);
         if (!sinkRecordCollection.TrySubscribe())
         {
             IsStopped = true;

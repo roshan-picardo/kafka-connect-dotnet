@@ -13,15 +13,15 @@ public class DefaultPluginInitializer : PluginInitializer
     public override void AddServices(IServiceCollection collection, IConfiguration configuration, params (string Name, int Tasks)[] connectors)
     {
         collection
-            .AddScoped<ISinkHandler, PostgresSinkHandler>()
-            .AddScoped<ISourceHandler, PostgresSourceHandler>()
+            .AddScoped<IPluginHandler, PostgresPluginHandler>()
             .AddScoped<IPluginInitializer, DefaultPluginInitializer>()
-            .AddScoped<IQueryStrategy, InsertStrategy>()
-            .AddScoped<IQueryStrategy, UpdateStrategy>()
-            .AddScoped<IQueryStrategy, UpsertStrategy>()
-            .AddScoped<IQueryStrategy, DeleteStrategy>()
-            .AddScoped<IQueryStrategy, ReadStrategy>()
-            .AddScoped<IPostgresClientProvider, PostgresClientProvider>();
+            .AddScoped<IStrategy, InsertStrategy>()
+            .AddScoped<IStrategy, UpdateStrategy>()
+            .AddScoped<IStrategy, UpsertStrategy>()
+            .AddScoped<IStrategy, DeleteStrategy>()
+            .AddScoped<IStrategy, ReadStrategy>()
+            .AddScoped<IPostgresClientProvider, PostgresClientProvider>()
+            .AddScoped<IPostgresCommandHandler, PostgresCommandHandler>();
         AddPostgresClients(collection, connectors);
     }
     
@@ -36,7 +36,7 @@ public class DefaultPluginInitializer : PluginInitializer
                 {
                     var configurationProvider = provider.GetService<Plugin.Providers.IConfigurationProvider>() ??
                                                 throw new InvalidOperationException(
-                                                    $@"Unable to resolve service for type 'IConfigurationProvider' for {connector.Name}.");
+                                                    $"Unable to resolve service for type 'IConfigurationProvider' for {connector.Name}.");
                     var postgresSinkConfig = configurationProvider.GetPluginConfig<PluginConfig>(connector.Name);
                     if (postgresSinkConfig == null)
                         throw new InvalidOperationException(

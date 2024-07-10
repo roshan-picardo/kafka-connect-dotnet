@@ -11,7 +11,7 @@ using MongoDB.Driver;
 namespace Kafka.Connect.MongoDb.Strategies;
 
 public class UpdateStrategy(ILogger<UpdateStrategy> logger, IConfigurationProvider configurationProvider)
-    : QueryStrategy<UpdateOneModel<BsonDocument>>
+    : Strategy<UpdateOneModel<BsonDocument>>
 {
     protected override Task<StrategyModel<UpdateOneModel<BsonDocument>>> BuildSinkModels(string connector, ConnectRecord record)
     {

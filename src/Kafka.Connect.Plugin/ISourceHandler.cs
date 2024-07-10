@@ -11,4 +11,5 @@ public interface ISourceHandler
     bool Is(string connector, string plugin, string handler);
     IDictionary<string, Command> GetCommands(string connector);
     CommandRecord GetUpdatedCommand(CommandRecord command, IList<ConnectMessage<JsonNode>> records);
+    Task Bootstrap(string connector);
 }

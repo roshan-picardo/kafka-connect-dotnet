@@ -24,7 +24,7 @@ public class WorkerTask(
             (await adminClient.DescribeConsumerGroupsAsync(new[] { groupId })).ConsumerGroupDescriptions.FirstOrDefault();
         if (!(groups?.Members == null || groups.Members.Count == 0))
         {
-            workerRecordCollection.Setup(ConnectorType.Worker, connector, taskId);
+            await workerRecordCollection.Setup(ConnectorType.Worker, connector, taskId);
             if (workerRecordCollection.TrySubscribe())
             {
                 await workerRecordCollection.Consume(cts.Token);

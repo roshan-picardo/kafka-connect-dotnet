@@ -14,12 +14,12 @@ namespace UnitTests.Kafka.Connect.Providers
         private IEnumerable<ISinkHandler> _sinkHandlers;
         private IEnumerable<ISourceHandler> _sourceHandlers;
         private readonly IConfigurationProvider _configurationProvider;
-        private readonly ILogger<ConnectHandlerProvider> _logger;
-        private IConnectHandlerProvider _sinkHandlerProvider;
+        private readonly ILogger<ConnectPluginFactory> _logger;
+        private IConnectPluginFactory _sinkHandlerProvider;
 
         public SinkHandlerProviderTests()
         {
-            _logger = Substitute.For<ILogger<ConnectHandlerProvider>>();
+            _logger = Substitute.For<ILogger<ConnectPluginFactory>>();
             _configurationProvider = Substitute.For<IConfigurationProvider>();
         }
 
@@ -34,7 +34,7 @@ namespace UnitTests.Kafka.Connect.Providers
 
             _sinkHandlers.First().Is(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>()).Returns(exists);
 
-            _sinkHandlerProvider = new ConnectHandlerProvider(_logger, _sinkHandlers, _sourceHandlers, _configurationProvider);
+            _sinkHandlerProvider = new ConnectPluginFactory(_logger, _sinkHandlers, _sourceHandlers, _configurationProvider);
 
             var expected = _sinkHandlerProvider.GetSinkHandler("connector");
 

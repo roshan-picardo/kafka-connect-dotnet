@@ -12,19 +12,22 @@ namespace Kafka.Connect.MongoDb;
 
 public class DefaultPluginInitializer : PluginInitializer
 {
-    public override void AddServices(IServiceCollection collection, IConfiguration configuration, params (string Name, int Tasks)[] connectors)
+    public override void AddServices(
+        IServiceCollection collection,
+        IConfiguration configuration,
+        params (string Name, int Tasks)[] connectors)
     {
         collection
-            .AddScoped<ISinkHandler, MongoSinkHandler>()
+            .AddScoped<IMongoCommandHandler, MongoCommandHandler>()
+            .AddScoped<IPluginHandler, MongoPluginHandler>()
             .AddScoped<IPluginInitializer, DefaultPluginInitializer>()
             .AddScoped<IMongoClientProvider, MongoClientProvider>()
-            .AddScoped<IQueryStrategy, ReadStrategy>()
-            .AddScoped<IQueryStrategy, DeleteStrategy>()
-            .AddScoped<IQueryStrategy, InsertStrategy>()
-            .AddScoped<IQueryStrategy, UpdateStrategy>()
-            .AddScoped<IQueryStrategy, UpsertStrategy>()
-            .AddScoped<IMongoQueryRunner, MongoQueryRunner>()
-            .AddScoped<ISourceHandler, MongoSourceHandler>();
+            .AddScoped<IStrategy, ReadStrategy>()
+            .AddScoped<IStrategy, DeleteStrategy>()
+            .AddScoped<IStrategy, InsertStrategy>()
+            .AddScoped<IStrategy, UpdateStrategy>()
+            .AddScoped<IStrategy, UpsertStrategy>()
+            .AddScoped<IMongoQueryRunner, MongoQueryRunner>();
         AddMongoClients(collection, connectors);
     }
 

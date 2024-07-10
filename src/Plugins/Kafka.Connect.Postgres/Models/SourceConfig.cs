@@ -12,6 +12,7 @@ public class SourceConfig : PluginConfig
 
 public class CommandConfig : Command
 {
+    public bool Bootstrap { get; set; }
     public string Table { get; set; }
     public string Schema { get; set; } = "public";
     public string[] Keys { get; set; }
@@ -26,8 +27,10 @@ public class CommandConfig : Command
 
 public class Changelog
 {
+    public bool Enabled { get; set; }
     public string Schema { get; set; } = "public";
     public string Table { get; set; }
+    public int RetentionInDays { get; set; } = 7;
 }
 
 public class SnapshotConfig

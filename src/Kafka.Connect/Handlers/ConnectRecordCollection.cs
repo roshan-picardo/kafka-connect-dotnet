@@ -10,11 +10,11 @@ using Confluent.Kafka;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Connectors;
 using Kafka.Connect.Models;
+using Kafka.Connect.Plugin;
 using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Plugin.Providers;
-using Kafka.Connect.Providers;
 using Kafka.Connect.Utilities;
 using IConfigurationProvider = Kafka.Connect.Providers.IConfigurationProvider;
 
@@ -26,7 +26,7 @@ public class ConnectRecordCollection(
     ISourceProducer sourceProducer,
     IMessageHandler messageHandler,
     IConfigurationProvider configurationProvider,
-    IConnectHandlerProvider sinkHandlerProvider,
+    IEnumerable<IPluginHandler> pluginHandlers,
     IPartitionHandler partitionHandler,
     ISinkExceptionHandler sinkExceptionHandler,
     IExecutionContext executionContext,
@@ -43,10 +43,14 @@ public class ConnectRecordCollection(
     private readonly ConcurrentDictionary<string, BlockingCollection<ConnectRecord>> _sourceConnectRecords = new();
     private readonly Stopwatch _stopWatch = new();
 
-    public void Setup(ConnectorType connectorType, string connector, int taskId)
+    public async Task Setup(ConnectorType connectorType, string connector, int taskId)
     {
         _connector = connector;
         _taskId = taskId;
+        if (connectorType is ConnectorType.Sink or ConnectorType.Source)
+        {
+            await GetPluginHandler(connector).Startup(connector);
+        }
     }
 
     public void Clear(string batchId = null)
@@ -146,12 +150,10 @@ public class ConnectRecordCollection(
         var batch = GetConnectRecords(command.Id.ToString());
         if (batch is { Count: > 0 })
         {
-            var sourceHandler = sinkHandlerProvider.GetSourceHandler(_connector);
-            if (sourceHandler != null)
+            var pluginHandler = GetPluginHandler(_connector);
+            if (pluginHandler != null)
             {
-                command = sourceHandler.GetUpdatedCommand(command,
-                    batch.Where(r => r.Status is SinkStatus.Published or SinkStatus.Skipped)
-                        .Select(r => r.Deserialized).ToList());
+                command.Command = pluginHandler.NextCommand(command, batch.ToList());
             }
         }
 
@@ -252,8 +254,8 @@ public class ConnectRecordCollection(
         if (_sinkConnectRecords.Count <= 0) return;
         using (logger.Track("Sinking the batch."))
         {
-            var sinkHandler = sinkHandlerProvider.GetSinkHandler(_connector);
-            if (sinkHandler == null)
+            var pluginHandler = GetPluginHandler(_connector);
+            if (pluginHandler == null)
             {
                 logger.Warning(
                     "Sink handler is not specified. Check if the handler is configured properly, and restart the connector.");
@@ -268,7 +270,7 @@ public class ConnectRecordCollection(
 
             foreach (var batch in GetByTopicPartition())
             {
-                await sinkHandler.Put(batch.Batch, _connector, _taskId);
+                await pluginHandler.Put(batch.Batch, _connector, _taskId);
                 ParallelEx.ForEach(batch.Batch, record => record.UpdateStatus());
             }
         }
@@ -333,10 +335,10 @@ public class ConnectRecordCollection(
         {
             var batch = configurationProvider.GetBatchConfig(_connector);
             var commandTopic = configurationProvider.GetTopics().Command;
-            var sourceHandler = sinkHandlerProvider.GetSourceHandler(_connector);
-            if (sourceHandler != null)
+            var pluginHandler = GetPluginHandler(_connector);
+            if (pluginHandler != null)
             {
-                var commands = sourceHandler.GetCommands(_connector);
+                var commands = pluginHandler.Commands(_connector);
                 var partitions = executionContext.GetAssignedPartitions(_connector, _taskId)
                     .SingleOrDefault(p => p.Key == commandTopic).Value;
                 var pollCommands = commands.Select(command => new CommandRecord
@@ -391,10 +393,10 @@ public class ConnectRecordCollection(
         {
             var batch = _sourceConnectRecords.AddOrUpdate(command.Id.ToString(), new BlockingCollection<ConnectRecord>(),
                 (_, _) => new BlockingCollection<ConnectRecord>());
-            var sourceHandler = sinkHandlerProvider.GetSourceHandler(_connector);
-            if (sourceHandler != null)
+            var pluginHandler = GetPluginHandler(_connector);
+            if (pluginHandler != null)
             {
-                var records = await sourceHandler.Get(_connector, _taskId, command);
+                var records = await pluginHandler.Get(_connector, _taskId, command);
                 if (records != null)
                 {
                     foreach (var record in records)
@@ -441,4 +443,12 @@ public class ConnectRecordCollection(
         : _sourceConnectRecords.GetOrAdd(batchId, new BlockingCollection<ConnectRecord>());
 
     private static int GetCommandPartition(CommandRecord command) => (command.Id.GetHashCode() & 0x7FFFFFFF) % 50;
+    
+    private IPluginHandler GetPluginHandler(string connector)
+    {
+        var config = configurationProvider.GetPluginConfig(connector);
+        var pluginHandler = pluginHandlers.SingleOrDefault(s => s.Is(connector, config.Name, config.Handler));
+        logger.Trace("Selected plugin handler.", new { config.Name, Handler = pluginHandler?.GetType().FullName });
+        return pluginHandler;
+    }
 }

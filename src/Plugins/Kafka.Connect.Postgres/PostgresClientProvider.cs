@@ -2,20 +2,15 @@ namespace Kafka.Connect.Postgres;
 
 public interface IPostgresClientProvider
 {
-    IPostgresClient GetPostgresClient(string connector, int taskId);
+    IPostgresClient GetPostgresClient(string connector, int taskId = -1);
 }
 
-public class PostgresClientProvider : IPostgresClientProvider
+public class PostgresClientProvider(IEnumerable<IPostgresClient> postgresClients) : IPostgresClientProvider
 {
-    private readonly IEnumerable<IPostgresClient> _postgresClients;
-
-    public PostgresClientProvider(IEnumerable<IPostgresClient> postgresClients)
+    public IPostgresClient GetPostgresClient(string connector, int taskId = -1)
     {
-        _postgresClients = postgresClients;
-    }
-    
-    public IPostgresClient GetPostgresClient(string connector, int taskId)
-    {
-        return _postgresClients.SingleOrDefault(p => p.ApplicationName == $"{connector}-{taskId:00}");
+        return taskId == -1
+            ? postgresClients.FirstOrDefault(p => p.ApplicationName.StartsWith(connector))
+            : postgresClients.SingleOrDefault(p => p.ApplicationName == $"{connector}-{taskId:00}");
     }
 }

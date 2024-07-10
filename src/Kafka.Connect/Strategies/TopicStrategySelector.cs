@@ -4,22 +4,15 @@ using Kafka.Connect.Plugin.Strategies;
 
 namespace Kafka.Connect.Strategies;
 
-public class TopicStrategySelector : IStrategySelector
+public class TopicStrategySelector(IEnumerable<IStrategy> strategies) : IStrategySelector
 {
-    private readonly IEnumerable<IQueryStrategy> _readWriteStrategies;
-
-    public TopicStrategySelector(IEnumerable<IQueryStrategy> readWriteStrategies)
-    {
-        _readWriteStrategies = readWriteStrategies;
-    }
-
-    public IQueryStrategy GetQueryStrategy(Plugin.Models.IConnectRecord record, IDictionary<string, string> overrides)
+    public IStrategy GetQueryStrategy(Plugin.Models.IConnectRecord record, IDictionary<string, string> overrides)
     {
         if (overrides?.All(o => o.Key != record.Topic) ?? true)
         {
             return null;
         }
 
-        return _readWriteStrategies.SingleOrDefault(s => s.GetType().FullName == overrides[record.Topic]);
+        return strategies.SingleOrDefault(s => s.GetType().FullName == overrides[record.Topic]);
     }
 }
