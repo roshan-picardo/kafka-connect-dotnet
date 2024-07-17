@@ -4,13 +4,11 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Kafka.Connect.Configurations;
-using Kafka.Connect.Plugin;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Tokens;
+using Kafka.Connect.Providers;
 using Kafka.Connect.Tokens;
 using Microsoft.Extensions.DependencyInjection;
-using Serilog.Context;
-using IConfigurationProvider = Kafka.Connect.Providers.IConfigurationProvider;
 
 namespace Kafka.Connect.Connectors;
 
@@ -40,7 +38,7 @@ public class Connector(
         while (!cts.IsCancellationRequested) 
         {
             tokenHandler.DoNothing();
-            await _pauseTokenSource.Token.WaitWhilePausedAsync(cts.Token);
+            await _pauseTokenSource.WaitWhilePaused(cts.Token);
 
             if (cts.IsCancellationRequested)
             {
@@ -114,5 +112,4 @@ public class Connector(
     {
         _pauseTokenSource.Resume();
     }
-
 }

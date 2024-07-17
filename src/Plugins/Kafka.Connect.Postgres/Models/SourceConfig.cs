@@ -27,7 +27,7 @@ public class CommandConfig : Command
 
 public class Changelog
 {
-    public bool Enabled { get; set; }
+    public bool Enabled => string.IsNullOrWhiteSpace(Table);
     public string Schema { get; set; } = "public";
     public string Table { get; set; }
     public int RetentionInDays { get; set; } = 7;

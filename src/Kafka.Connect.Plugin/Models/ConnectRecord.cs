@@ -101,4 +101,7 @@ public class ConnectRecord : IConnectRecord
     }
 
     public Exception Exception { get; set; }
+
+    public bool IsOf(string topic, int partition, long offset) =>
+        topic == Topic && partition == Partition && offset == Offset;
 }

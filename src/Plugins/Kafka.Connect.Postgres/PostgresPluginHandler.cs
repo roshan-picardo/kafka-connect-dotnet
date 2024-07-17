@@ -43,7 +43,7 @@ public class PostgresPluginHandler(
                     record.Add(reader.GetName(i), reader.GetValue(i));
                 }
 
-                records.Add(postgresCommandHandler.GetConnectRecord(record, command));
+                records.Add(GetConnectRecord(record, command));
             }
 
             await reader.CloseAsync();
@@ -97,4 +97,38 @@ public class PostgresPluginHandler(
     public override JsonNode NextCommand(CommandRecord command, List<ConnectRecord> records) =>
         postgresCommandHandler.Next(command, records.Where(r => r.Status is SinkStatus.Published or SinkStatus.Skipped)
             .Select(r => r.Deserialized).ToList());
+    
+    
+    private static ConnectRecord GetConnectRecord(Dictionary<string, object> message, CommandRecord command)
+    {
+        var config = command.GetCommand<CommandConfig>();
+        var skipIfInitial = command.IsChangeLog() && config.IsSnapshot() && config.IsInitial();
+        var value = message.ToJson();
+        if (!skipIfInitial)
+        {
+            if (value["before"] != null)
+            {
+                value["before"] = JsonNode.Parse(value["before"].ToString());
+            }
+
+            if (value["after"] != null)
+            {
+                value["after"] = JsonNode.Parse(value["after"].ToString());
+            }
+        }
+        return new ConnectRecord(config.Topic, -1, -1)
+        {
+            Skip = skipIfInitial,
+            Deserialized = new ConnectMessage<JsonNode>
+            {
+                Key = skipIfInitial
+                    ? null
+                    : (value["after"]?.ToDictionary("after", true) ?? value["before"]?.ToDictionary("before", true))?
+                    .Where(r => config.Keys.Contains(r.Key))
+                    .ToDictionary(k => k.Key, v => v.Value)
+                    .ToJson(),
+                Value = value
+            }
+        };
+    }
 }

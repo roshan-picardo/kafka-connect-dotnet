@@ -27,7 +27,7 @@ public class MongoCommandHandler(IConfigurationProvider configurationProvider, I
 
     public JsonNode Next(CommandRecord command, IList<ConnectMessage<JsonNode>> records)
     {
-        var config = command.Get<CommandConfig>();
+        var config = command.GetCommand<CommandConfig>();
         if (records.Any())
         {
             var maxTimestamp = records.Max(m => m.Timestamp);
@@ -40,5 +40,4 @@ public class MongoCommandHandler(IConfigurationProvider configurationProvider, I
 
         return config.ToJson();
     }
-
 }

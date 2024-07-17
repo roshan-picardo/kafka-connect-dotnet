@@ -6,7 +6,6 @@ using Kafka.Connect.Handlers;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Providers;
 using Kafka.Connect.Tokens;
-using Serilog.Context;
 
 namespace Kafka.Connect.Connectors;
 
@@ -35,7 +34,7 @@ public class SinkTask(
 
         while (!cts.IsCancellationRequested)
         {
-            await _pauseTokenSource.Token.WaitWhilePausedAsync(cts.Token);
+            await _pauseTokenSource.WaitWhilePaused(cts.Token);
             //TODO: lets approach this solution differently - need an Admin node to issue pause / resume over all workers.
             if (cts.IsCancellationRequested) break;
 

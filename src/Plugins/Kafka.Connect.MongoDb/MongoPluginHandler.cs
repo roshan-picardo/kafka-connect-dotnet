@@ -32,7 +32,7 @@ public class MongoPluginHandler(
         {
             var model = await connectPluginFactory.GetStrategy(connector, command)
                 .Build<FindModel<BsonDocument>>(connector, command);
-            var commandConfig = command.Get<CommandConfig>();
+            var commandConfig = command.GetCommand<CommandConfig>();
 
             var records = await mongoQueryRunner.ReadMany(model, connector, taskId, commandConfig.Collection);
 

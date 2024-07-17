@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using Kafka.Connect.Configurations;
@@ -17,8 +18,9 @@ public interface IConnectRecordCollection
     Task Process(string batchId = null);
     Task Sink();
     void Commit();
-    Task DeadLetter(Exception ex);
+    Task DeadLetter(Exception ex, string batchId = null);
     void Record(string batchId = null);
+    void Record(CommandRecord command);
     Task NotifyEndOfPartition();
     void Cleanup();
     ConnectRecordBatch GetBatch();
@@ -26,12 +28,12 @@ public interface IConnectRecordCollection
     Task<IList<CommandRecord>> GetCommands();
     Task Source(CommandRecord command);
     Task Produce(string batchId = null);
-    Task UpdateCommand(CommandRecord command);
+    Task<JsonNode> UpdateCommand(CommandRecord command);
     void Commit(IList<CommandRecord> commands);
     Task Configure(string batchId, bool refresh);
     void UpdateTo(SinkStatus status, string batchId = null);
-    void UpdateTo(SinkStatus status, string topic, int partition, long offset);
+    void UpdateTo(SinkStatus status, string topic, int partition, long offset, Exception ex = null);
+    int Count(string batchId = null);
     void StartTiming();
     void EndTiming();
 }
-

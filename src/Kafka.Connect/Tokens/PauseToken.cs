@@ -14,13 +14,13 @@ public readonly struct PauseToken
 
     private bool IsPaused => _pts is {IsPaused: true};
 
-    public Task WaitWhilePausedAsync(CancellationToken token)
+    internal Task WaitWhilePaused(CancellationToken token)
     {
         var pts = _pts;
         token.Register(() =>
         {
             pts.Resume();
         });
-        return IsPaused ?  _pts.WaitWhilePausedAsync() :  _pts.CompletedTask;
+        return IsPaused ?  _pts.WaitWhilePausedInternal() :  _pts.CompletedTask;
     }
 }
