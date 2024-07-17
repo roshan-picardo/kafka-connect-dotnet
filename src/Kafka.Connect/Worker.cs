@@ -5,10 +5,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using Kafka.Connect.Connectors;
 using Kafka.Connect.Plugin.Logging;
+using Kafka.Connect.Providers;
 using Kafka.Connect.Tokens;
 using Microsoft.Extensions.DependencyInjection;
-using Serilog.Context;
-using IConfigurationProvider = Kafka.Connect.Providers.IConfigurationProvider;
 
 namespace Kafka.Connect;
 
@@ -35,7 +34,7 @@ public class Worker(
         _pauseTokenSource = PauseTokenSource.New();
         while (!cts.IsCancellationRequested)
         {
-            await _pauseTokenSource.Token.WaitWhilePausedAsync(cts.Token);
+            await _pauseTokenSource.WaitWhilePaused(cts.Token);
             if (cts.IsCancellationRequested)
             {
                 break;

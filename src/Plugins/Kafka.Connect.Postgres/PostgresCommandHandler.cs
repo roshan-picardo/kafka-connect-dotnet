@@ -8,13 +8,11 @@ using Npgsql;
 
 namespace Kafka.Connect.Postgres;
 
-
 public interface IPostgresCommandHandler
 {
     Task Initialize(string connector);
     IDictionary<string, Command> Get(string connector);
     JsonNode Next(CommandRecord command, IList<ConnectMessage<JsonNode>> records);
-    ConnectRecord GetConnectRecord(Dictionary<string, object> message, CommandRecord command);
 }
 
 public class PostgresCommandHandler(
@@ -130,12 +128,12 @@ public class PostgresCommandHandler(
 
     public JsonNode Next(CommandRecord command, IList<ConnectMessage<JsonNode>> records)
     {
-        var config = command.Get<CommandConfig>();
+        var config = command.GetCommand<CommandConfig>();
         if (!command.IsChangeLog())
         {
             if (records.Count > 0)
             {
-                var sorted = records.Select(r => r.Value["new"].ToDictionary("new", true)).OrderBy(_ => 1);
+                var sorted = records.Select(r => r.Value["after"].ToDictionary("after", true)).OrderBy(_ => 1);
                 foreach (var key in config.Filters.Keys)
                 {
                     sorted = sorted.ThenBy(d => d[key]);
@@ -164,7 +162,7 @@ public class PostgresCommandHandler(
             {
                 if (records.Count > 0)
                 {
-                    config.Snapshot.Id = records.Max(m => m.Value["_row"]!.GetValue<long>());
+                    config.Snapshot.Id = records.Max(m => m.Value["id"]!.GetValue<long>());
                 }
 
                 if (config.Snapshot.Total >= config.Snapshot.Id)
@@ -179,70 +177,11 @@ public class PostgresCommandHandler(
         {
             if (records.Count > 0)
             {
-                config.Snapshot.Timestamp = records.Max(m => m.Value["timestamp"]!.GetValue<long>());
+                config.Snapshot.Timestamp = (long)records.Max(m => m.Value["timestamp"]!.GetValue<double>());
                 config.Snapshot.Id = records.Max(m => m.Value["id"]!.GetValue<long>());
             }
         }
 
         return config.ToJson();
-    }
-
-    public ConnectRecord GetConnectRecord(Dictionary<string, object> message, CommandRecord command)
-    {
-        var config = command.Get<CommandConfig>();
-        JsonNode value;
-
-        if (!command.IsChangeLog())
-        {
-            value = new JsonObject
-            {
-                { "operation", "CHANGE" },
-                { "timestamp", DateTime.UtcNow.ToUnixMicroseconds() },
-                { "before", null },
-                { "after", message.ToJson() }
-            };
-        }
-        else if (config.IsSnapshot())
-        {
-            if (config.IsInitial())
-            {
-                return new ConnectRecord(config.Topic, -1, -1)
-                {
-                    Skip = true,
-                    Deserialized = new ConnectMessage<JsonNode>
-                    {
-                        Value = message.ToJson()
-                    }
-                };
-            }
-
-            message.Remove("_row", out var row);
-
-            value = new JsonObject
-            {
-                { "operation", "IMPORT" },
-                { "timestamp", DateTime.UtcNow.ToUnixMicroseconds() },
-                { "id", Convert.ToInt64(row) },
-                { "before", null },
-                { "after", message.ToJson() }
-            };
-        }
-        else
-        {
-            value = message.ToJson();
-        }
-
-        var key = (value["after"]?.ToDictionary("after", true) ?? value["before"]?.ToDictionary("before", true))?
-            .Where(r => config.Keys.Contains(r.Key))
-            .ToDictionary(k => k.Key, v => v.Value).ToJson();
-
-        return new ConnectRecord(config.Topic, -1, -1)
-        {
-            Deserialized = new ConnectMessage<JsonNode>
-            {
-                Key = key,
-                Value = value
-            }
-        };
     }
 }

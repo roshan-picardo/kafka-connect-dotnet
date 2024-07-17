@@ -16,7 +16,7 @@ public class ReadStrategy(ILogger<ReadStrategy> logger) : Strategy<string>
     {
         using (logger.Track("Creating source models"))
         {
-            var command = record.Get<CommandConfig>();
+            var command = record.GetCommand<CommandConfig>();
             var model = new StrategyModel<string>(){ Status = SinkStatus.Selecting};
             if (!record.IsChangeLog())
             {
@@ -33,7 +33,12 @@ public class ReadStrategy(ILogger<ReadStrategy> logger) : Strategy<string>
                 var orderBy = string.Join(",", command.Keys);
                 
                 model.Model = $"""
-                               SELECT *
+                               SELECT 
+                                   ROW_NUMBER() OVER() AS id,
+                                   'CHANGE' AS operation,
+                                   (EXTRACT(EPOCH FROM current_timestamp) * 1000000)::bigint AS timestamp,
+                                   NULL AS before,
+                                   ROW_TO_JSON({command.Table}) AS after
                                FROM {command.Schema}.{command.Table} 
                                {where}
                                ORDER BY {orderBy} 
@@ -46,7 +51,9 @@ public class ReadStrategy(ILogger<ReadStrategy> logger) : Strategy<string>
                 if (command.IsInitial())
                 {
                     model.Model = $"""
-                                   SELECT COUNT(*) AS _total, EXTRACT(EPOCH FROM current_timestamp) * 1000000 AS _timestamp 
+                                   SELECT 
+                                       COUNT(*) AS _total, 
+                                       EXTRACT(EPOCH FROM current_timestamp) * 1000000::bigint AS _timestamp 
                                    FROM {command.Schema}.{command.Table};
                                    """;
                 }
@@ -54,29 +61,42 @@ public class ReadStrategy(ILogger<ReadStrategy> logger) : Strategy<string>
                 {
                     model.Model = string.IsNullOrWhiteSpace(command.Snapshot.Key)
                         ? $"""
-                           SELECT * 
+                           SELECT 
+                               id, 
+                               'IMPORT' AS operation,
+                               EXTRACT(EPOCH FROM current_timestamp) * 1000000::bigint AS timestamp,
+                               NULL as before,
+                               after
                            FROM (
-                              SELECT  ROW_NUMBER() OVER() AS _row, * 
+                              SELECT  
+                                  ROW_NUMBER() OVER() AS id, 
+                                  ROW_TO_JSON({command.Table}) as after
                               FROM {command.Schema}.{command.Table} 
-                           ) AS batch WHERE _row BETWEEN {command.Snapshot.Id + 1} AND {command.Snapshot.Id + record.BatchSize};
+                           ) AS batch 
+                           WHERE id BETWEEN {command.Snapshot.Id + 1} AND {command.Snapshot.Id + record.BatchSize};
                            """
                         : $"""
-                           SELECT {command.Snapshot.Key} AS _row, * 
+                           SELECT 
+                               {command.Snapshot.Key} AS id, 
+                               'IMPORT' AS operation,
+                               (EXTRACT(EPOCH FROM current_timestamp) * 1000000)::bigint AS timestamp,
+                               NULL AS before,
+                               ROW_TO_JSON({command.Table})::json AS after
                            FROM {command.Schema}.{command.Table} 
-                           WHERE _row BETWEEN {command.Snapshot.Id + 1} AND {command.Snapshot.Id + record.BatchSize};
+                           WHERE id BETWEEN {command.Snapshot.Id + 1} AND {command.Snapshot.Id + record.BatchSize};
                            """;
                 }
             }
             else
             {
-                var changelog = record.Get<Changelog>();
+                var changelog = record.GetChangelog<Changelog>();
                 model.Model = $"""
                                SELECT 
                                    log_id AS id, 
-                                   log_operation AS operation, 
+                                   log_operation AS operation,
+                                   EXTRACT(EPOCH FROM log_timestamp) * 1000000::bigint As timestamp,
                                    log_before AS before, 
-                                   log_after AS after, 
-                                   EXTRACT(EPOCH FROM log_timestamp) * 1000000 As timestamp  
+                                   log_after AS after
                                FROM {changelog.Schema}.{changelog.Table} 
                                WHERE 
                                    log_schema='{command.Schema}' AND 

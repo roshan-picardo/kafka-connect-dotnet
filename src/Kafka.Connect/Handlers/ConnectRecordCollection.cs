@@ -95,7 +95,7 @@ public class ConnectRecordCollection(
 
     public async Task Consume(CancellationToken token)
     {
-        var batch = await sinkConsumer.Consume(_consumer, token, _connector, _taskId);
+        var batch = await sinkConsumer.Consume(_consumer, _connector, _taskId, token);
         foreach (var record in batch)
         {
             if (record.IsPartitionEof)
@@ -120,32 +120,36 @@ public class ConnectRecordCollection(
     {
         using (logger.Track("Publishing the batch."))
         {
-            foreach (var record in GetConnectRecords(batchId))
-            {
-                using (ConnectLog.TopicPartitionOffset(record.Topic))
+            await GetConnectRecords(batchId).ForEachAsync(configurationProvider.GetDegreeOfParallelism(_connector),
+                async cr =>
                 {
-                    if (record.Skip)
+                    if (cr is SourceRecord record)
                     {
-                        record.Status = SinkStatus.Skipped;
-                        continue;
-                    }
-
-                    record.Status = SinkStatus.Publishing;
-
-                    var delivered = await _producer.ProduceAsync(record.Topic,
-                        new Message<byte[], byte[]>
+                        using (ConnectLog.TopicPartitionOffset(record.Topic))
                         {
-                            Key = record.Serialized.Key,
-                            Value = record.Serialized.Value,
-                            Headers = record.Serialized.Headers?.ToMessageHeaders()
-                        });
-                    record.Published(delivered.Topic, delivered.Partition, delivered.Offset);
-                }
-            }
+                            if (record.Skip)
+                            {
+                                record.Status = SinkStatus.Skipped;
+                            }
+                            else
+                            {
+                                record.Status = SinkStatus.Publishing;
+                                var delivered = await _producer.ProduceAsync(record.Topic,
+                                    new Message<byte[], byte[]>
+                                    {
+                                        Key = record.Serialized.Key,
+                                        Value = record.Serialized.Value,
+                                        Headers = record.Serialized.Headers?.ToMessageHeaders()
+                                    });
+                                record.Published(delivered.Topic, delivered.Partition, delivered.Offset);
+                            }
+                        }
+                    }
+                });
         }
     }
 
-    public async Task UpdateCommand(CommandRecord command)
+    public async Task<JsonNode> UpdateCommand(CommandRecord command)
     {
         var batch = GetConnectRecords(command.Id.ToString());
         if (batch is { Count: > 0 })
@@ -165,6 +169,7 @@ public class ConnectRecordCollection(
 
         await _producer.ProduceAsync(new TopicPartition(command.Topic, command.Partition),
             new Message<byte[], byte[]> { Key = message.Key, Value = message.Value });
+        return command.Command;
     }
 
     public void Commit(IList<CommandRecord> commands)
@@ -196,7 +201,7 @@ public class ConnectRecordCollection(
         }
     }
 
-    public void UpdateTo(SinkStatus status, string topic, int partition, long offset)
+    public void UpdateTo(SinkStatus status, string topic, int partition, long offset, Exception ex = null)
     {
         var record =
             _sinkConnectRecords.SingleOrDefault(r =>
@@ -207,8 +212,14 @@ public class ConnectRecordCollection(
         if (record != null)
         {
             record.Status = status;
+            if (ex != null)
+            {
+                record.Exception = ex;
+            }
         }
     }
+
+    public int Count(string batchId = null) => GetConnectRecords(batchId).Count;
 
     public async Task Process(string batchId = null)
     {
@@ -278,16 +289,31 @@ public class ConnectRecordCollection(
 
     public void Commit() => partitionHandler.Commit(_consumer, GetCommitReadyOffsets());
 
-    public Task DeadLetter(Exception ex) =>
-        sinkExceptionHandler.HandleDeadLetter(_sinkConnectRecords.Select(r => r as SinkRecord).ToList(), ex, _connector);
+    public Task DeadLetter(Exception ex, string batchId = null) =>
+        sinkExceptionHandler.HandleDeadLetter(GetConnectRecords(batchId).Select(r => r as SinkRecord).ToList(), ex, _connector);
 
-    public void Record(string batchId = null)
+    public void Record(string batchId = null) =>
+        Record(GetConnectRecords(batchId).ToList(), GetConnectRecords(batchId).Count);
+
+    public void Record(CommandRecord command)
     {
-        if (GetConnectRecords(batchId).Count <= 0) return;
+        var records = GetConnectRecords(command.Id.ToString()).Select(r => r).ToList();
+        var record = _sinkConnectRecords.FirstOrDefault(r => r.IsOf(command.Topic, command.Partition, command.Offset));
+        if (record != null)
+        {
+            records.Add(record);
+        }
+
+        Record(records, GetConnectRecords(command.Id.ToString()).Count);
+    }
+
+    private void Record(List<ConnectRecord> records, int count)
+    {
+        if (records.Count <= 0) return;
         var provider = configurationProvider.GetLogEnhancer(_connector);
         var endTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var logRecord = logRecords?.SingleOrDefault(l => l.GetType().FullName == provider);
-        ParallelEx.ForEach(GetConnectRecords(batchId), record =>
+        ParallelEx.ForEach(records, record =>
         {
             using (ConnectLog.TopicPartitionOffset(record.Topic, record.Partition, record.Offset))
             {
@@ -305,7 +331,7 @@ public class ConnectRecordCollection(
                 logger.Record(new
                 {
                     record.Status,
-                    Timers = record.EndTiming(GetConnectRecords(batchId).Count, endTime),
+                    Timers = record.EndTiming(count == 0 ? 1 : count, endTime),
                     Attributes = attributes
                 }, record.Exception);
             }

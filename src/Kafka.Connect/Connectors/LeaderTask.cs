@@ -6,8 +6,8 @@ using Kafka.Connect.Configurations;
 using Kafka.Connect.Handlers;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
+using Kafka.Connect.Providers;
 using Kafka.Connect.Tokens;
-using IConfigurationProvider = Kafka.Connect.Providers.IConfigurationProvider;
 using Timer = System.Timers.Timer;
 
 namespace Kafka.Connect.Connectors;
@@ -26,7 +26,7 @@ public class LeaderTask(
     public async Task Execute(string connector, int taskId, CancellationTokenSource cts)
     {
         executionContext.Initialize(connector, taskId, this);
-        leaderRecordCollection.Setup(ConnectorType.Leader, connector, taskId);
+        await leaderRecordCollection.Setup(ConnectorType.Leader, connector, taskId);
         if (!(leaderRecordCollection.TrySubscribe() && leaderRecordCollection.TryPublisher()))
         {
             IsStopped = true;
@@ -38,7 +38,7 @@ public class LeaderTask(
         while (!cts.IsCancellationRequested)
         {
             leaderRecordCollection.ClearAll();
-            await _pauseTokenSource.Token.WaitWhilePausedAsync(cts.Token);
+            await _pauseTokenSource.WaitWhilePaused(cts.Token);
             if (cts.IsCancellationRequested) break;
 
             leaderRecordCollection.Clear();

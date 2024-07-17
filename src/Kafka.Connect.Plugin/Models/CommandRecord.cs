@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Kafka.Connect.Plugin.Extensions;
@@ -41,7 +40,10 @@ public class CommandRecord : IConnectRecord
         }
         return hash;
     }
-    public T Get<T>() => Command.ToDictionary().ToJson().Deserialize<T>();
+    public T GetCommand<T>() => Get<T>(Command);
+    public T GetChangelog<T>() => Get<T>(Changelog);
     
     public bool IsChangeLog() => Changelog != null;
+
+    private static T Get<T>(JsonNode node) => node.ToDictionary().ToJson().Deserialize<T>();
 }

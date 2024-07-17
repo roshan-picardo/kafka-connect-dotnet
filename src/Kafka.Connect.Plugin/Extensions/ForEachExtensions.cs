@@ -15,7 +15,8 @@ public static class ParallelEx
         int degreeOfParallelism,
         Func<IConnectRecord, Task> body)
     {
-        await Parallel.ForEachAsync(records,
+        var connectRecords = records as IConnectRecord[] ?? records.ToArray();
+        await Parallel.ForEachAsync(connectRecords,
             new ParallelOptions { MaxDegreeOfParallelism = degreeOfParallelism }, async (record, _) =>
             {
                 try
@@ -37,10 +38,10 @@ public static class ParallelEx
                 }
             });
 
-        if (records.Any(r => r.Exception != null))
+        if (connectRecords.Any(r => r.Exception != null))
         {
             throw new ConnectAggregateException("Local_Application", false,
-                records.Select(r => r.Exception).Where(e => e != null).ToArray());
+                connectRecords.Select(r => r.Exception).Where(e => e != null).ToArray());
         }
     }
     
