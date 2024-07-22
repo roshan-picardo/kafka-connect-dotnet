@@ -9,6 +9,7 @@ namespace Kafka.Connect.Plugin.Strategies;
 
 public abstract class Strategy<T> : IStrategy
 {
+    private Regex _regex = new("{(.*?)}", RegexOptions.Compiled);
     public async Task<StrategyModel<TType>> Build<TType>(string connector, IConnectRecord record)
     {
         StrategyModel<TType> Convert(StrategyModel<T> response)
@@ -27,12 +28,12 @@ public abstract class Strategy<T> : IStrategy
         {
             case ConnectRecord connectRecord:
             {
-                var response = await BuildSinkModels(connector, connectRecord);
+                var response = await BuildModels(connector, connectRecord);
                 return Convert(response);
             }
             case CommandRecord commandRecord:
             {
-                var response = await BuildSourceModels(connector, commandRecord);
+                var response = await BuildModels(connector, commandRecord);
                 return Convert(response);
             }
             default:
@@ -46,9 +47,12 @@ public abstract class Strategy<T> : IStrategy
         }
     }
 
+    protected string BuildCondition(string condition, IDictionary<string, object> flattened) =>
+        _regex.Replace(condition, match => (string)flattened[match.Groups[1].Value]);
+    
     protected string BuildCondition(string condition, JsonNode message)
     {
-        var regex = new Regex(@"(?<={)\\b(\\w+)\\b(?=})", RegexOptions.Compiled);
+        var regex = new Regex("{(.*?)}", RegexOptions.Compiled);
         var keys = new List<string>();
         foreach (Match match in regex.Matches(condition))
         {
@@ -69,6 +73,6 @@ public abstract class Strategy<T> : IStrategy
         return string.Format(condition, parameters.ToArray());
     }
 
-    protected abstract Task<StrategyModel<T>> BuildSinkModels(string connector, ConnectRecord record);
-    protected abstract Task<StrategyModel<T>> BuildSourceModels(string connector, CommandRecord record);
+    protected abstract Task<StrategyModel<T>> BuildModels(string connector, ConnectRecord record);
+    protected abstract Task<StrategyModel<T>> BuildModels(string connector, CommandRecord record);
 }

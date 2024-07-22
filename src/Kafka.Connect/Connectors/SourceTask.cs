@@ -39,7 +39,7 @@ public class SourceTask(
 
         while (!cts.IsCancellationRequested)
         {
-            await _pauseTokenSource.WaitUntilTimeout(timeoutInMs, cts.Token);
+            await _pauseTokenSource.WaitUntilTimeout(Interlocked.Exchange(ref timeoutInMs, configurationProvider.GetBatchConfig(connector).TimeoutInMs), cts.Token);
 
             if (cts.IsCancellationRequested) break;
 
@@ -82,11 +82,11 @@ public class SourceTask(
                             pollRecordCollection.Record(record);
                             await pollRecordCollection.UpdateCommand(record);
 
-                            timeoutInMs = pollRecordCollection.Count(record.Id.ToString()) >= record.BatchSize
-                                ? 0
-                                : configurationProvider.GetBatchConfig(connector).TimeoutInMs;
+                            if (pollRecordCollection.Count(record.Id.ToString()) >= record.BatchSize)
+                            {
+                                Interlocked.Exchange(ref timeoutInMs, 0);
+                            }
                         }
-
                         pollRecordCollection.Clear(record.Id.ToString());
                     }
                 });

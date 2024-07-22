@@ -3,7 +3,6 @@ using System.Linq;
 using System.Text.Json.Nodes;
 using Kafka.Connect.MongoDb.Models;
 using Kafka.Connect.Plugin.Extensions;
-using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Plugin.Providers;
 
@@ -15,13 +14,13 @@ public interface IMongoCommandHandler
     JsonNode Next(CommandRecord command, IList<ConnectMessage<JsonNode>> records);
 }
 
-public class MongoCommandHandler(IConfigurationProvider configurationProvider, ILogger<MongoCommandHandler> logger)
+public class MongoCommandHandler(IConfigurationProvider configurationProvider)
     : IMongoCommandHandler
 {
 
     public IDictionary<string, Command> Get(string connector)
     {
-        var config = configurationProvider.GetPluginConfig<SourceConfig>(connector);
+        var config = configurationProvider.GetPluginConfig<PluginConfig>(connector);
         return config.Commands.ToDictionary(k => k.Key, v => v.Value as Command);
     }
 

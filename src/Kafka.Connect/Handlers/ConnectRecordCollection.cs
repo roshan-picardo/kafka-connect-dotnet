@@ -15,28 +15,23 @@ using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Plugin.Providers;
-using Kafka.Connect.Utilities;
 using IConfigurationProvider = Kafka.Connect.Providers.IConfigurationProvider;
 
 namespace Kafka.Connect.Handlers;
 
 public class ConnectRecordCollection(
     ILogger<ConnectRecordCollection> logger,
-    ISinkConsumer sinkConsumer,
-    ISourceProducer sourceProducer,
     IMessageHandler messageHandler,
     IConfigurationProvider configurationProvider,
     IEnumerable<IPluginHandler> pluginHandlers,
-    IPartitionHandler partitionHandler,
     ISinkExceptionHandler sinkExceptionHandler,
     IExecutionContext executionContext,
     IConfigurationChangeHandler configurationChangeHandler,
+    IConnectorClient connectClient,
     IEnumerable<ILogRecord> logRecords)
     : IConnectRecordCollection
 {
     private readonly IDictionary<(string Topic, int Partition), long> _eofPartitions = new Dictionary<(string Topic, int Partition), long>();
-    private IConsumer<byte[], byte[]> _consumer;
-    private IProducer<byte[], byte[]> _producer;
     private string _connector;
     private int _taskId;
     private readonly BlockingCollection<ConnectRecord> _sinkConnectRecords = new();
@@ -71,31 +66,14 @@ public class ConnectRecordCollection(
         _sourceConnectRecords.Clear();
     }
 
-    public bool TrySubscribe()
-    {
-        _consumer = sinkConsumer.Subscribe(_connector, _taskId);
-        if (_consumer != null)
-        {
-            return true;
-        }
-        logger.Warning("Failed to create the consumer, exiting from the sink task.");
-        return false;
-    }
-    
-    public bool TryPublisher()
-    {
-        _producer = sourceProducer.GetProducer(_connector, _taskId);
-        if (_producer != null)
-        {
-            return true;
-        }
-        logger.Warning("Failed to create the publisher, exiting from the source task.");
-        return false;
-    }
+    public bool TrySubscribe() => connectClient.TryBuildSubscriber(_connector, _taskId);
+
+
+    public bool TryPublisher() => connectClient.TryBuildPublisher(_connector);
 
     public async Task Consume(CancellationToken token)
     {
-        var batch = await sinkConsumer.Consume(_consumer, _connector, _taskId, token);
+        var batch = await connectClient.Consume(_connector, _taskId, token);
         foreach (var record in batch)
         {
             if (record.IsPartitionEof)
@@ -116,38 +94,7 @@ public class ConnectRecordCollection(
         }
     }
 
-    public async Task Produce(string batchId = null)
-    {
-        using (logger.Track("Publishing the batch."))
-        {
-            await GetConnectRecords(batchId).ForEachAsync(configurationProvider.GetDegreeOfParallelism(_connector),
-                async cr =>
-                {
-                    if (cr is SourceRecord record)
-                    {
-                        using (ConnectLog.TopicPartitionOffset(record.Topic))
-                        {
-                            if (record.Skip)
-                            {
-                                record.Status = SinkStatus.Skipped;
-                            }
-                            else
-                            {
-                                record.Status = SinkStatus.Publishing;
-                                var delivered = await _producer.ProduceAsync(record.Topic,
-                                    new Message<byte[], byte[]>
-                                    {
-                                        Key = record.Serialized.Key,
-                                        Value = record.Serialized.Value,
-                                        Headers = record.Serialized.Headers?.ToMessageHeaders()
-                                    });
-                                record.Published(delivered.Topic, delivered.Partition, delivered.Offset);
-                            }
-                        }
-                    }
-                });
-        }
-    }
+    public Task Produce(string batchId = null) => connectClient.Produce(_connector, GetConnectRecords(batchId).Select(t => t as IConnectRecord).ToList());
 
     public async Task<JsonNode> UpdateCommand(CommandRecord command)
     {
@@ -167,7 +114,7 @@ public class ConnectRecordCollection(
             Value = System.Text.Json.JsonSerializer.SerializeToNode(command)
         });
 
-        await _producer.ProduceAsync(new TopicPartition(command.Topic, command.Partition),
+        await connectClient.Produce(new TopicPartition(command.Topic, command.Partition),
             new Message<byte[], byte[]> { Key = message.Key, Value = message.Value });
         return command.Command;
     }
@@ -181,7 +128,7 @@ public class ConnectRecordCollection(
 
         var offsets = _eofPartitions.Where(eof => commands.Any(c => c.Partition == eof.Key.Partition) && eof.Value > 0)
             .Select(eof => (eof.Key.Topic, eof.Key.Partition, eof.Value - 1));
-        partitionHandler.Commit(_consumer, offsets.ToList());
+        connectClient.Commit(offsets.ToList());
     }
 
     public async Task Configure(string batchId, bool refresh)
@@ -287,7 +234,7 @@ public class ConnectRecordCollection(
         }
     }
 
-    public void Commit() => partitionHandler.Commit(_consumer, GetCommitReadyOffsets());
+    public void Commit() => connectClient.Commit(GetCommitReadyOffsets());
 
     public Task DeadLetter(Exception ex, string batchId = null) =>
         sinkExceptionHandler.HandleDeadLetter(GetConnectRecords(batchId).Select(r => r as SinkRecord).ToList(), ex, _connector);
@@ -331,23 +278,21 @@ public class ConnectRecordCollection(
                 logger.Record(new
                 {
                     record.Status,
-                    Timers = record.EndTiming(count == 0 ? 1 : count, endTime),
+                    Timers = record.EndTiming(count, endTime),
                     Attributes = attributes
                 }, record.Exception);
             }
         });
     }
 
-    public Task NotifyEndOfPartition() => partitionHandler.NotifyEndOfPartition(_consumer, _connector, _taskId,
+    public Task NotifyEndOfPartition() => connectClient.NotifyEndOfPartition(_connector, _taskId,
         _eofPartitions.Select(eof => (eof.Key.Topic, eof.Key.Partition, eof.Value)).ToList(), GetCommitReadyOffsets());
 
     public void Cleanup()
     {
         Clear();
         _sourceConnectRecords.Clear();
-        _consumer?.Close();
-        _consumer?.Dispose();
-        _producer?.Dispose();
+        connectClient.Close();
     }
 
     public ConnectRecordBatch GetBatch()

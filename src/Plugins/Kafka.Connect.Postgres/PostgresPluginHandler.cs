@@ -27,7 +27,7 @@ public class PostgresPluginHandler(
     {
         using (logger.Track("Getting batch of records"))
         {
-            var changeLog = _configurationProvider.GetPluginConfig<SourceConfig>(connector).Changelog;
+            var changeLog = _configurationProvider.GetPluginConfig<PluginConfig>(connector).Changelog;
             command.Changelog = JsonSerializer.SerializeToNode(changeLog);
             var model = await connectPluginFactory.GetStrategy(connector, command).Build<string>(connector, command);
 

@@ -52,69 +52,6 @@ public static class ParallelEx
             body(record);
         }
     }
-        
-    public static async Task ForEach(IList<ConnectRecord> records, Func<ConnectRecord, Task> body)
-    {
-        foreach (var record in records)
-        {
-            try
-            {
-                record.Exception = null;
-                await body(record);
-            }
-            catch (Exception ex)
-            {
-                var handleEx = ex.InnerException ?? ex;
-                if (handleEx is ConnectException ce)
-                {
-                    record.Exception = ce;
-                }
-                else
-                {
-                    record.Exception = new ConnectDataException("Local_Fatal", handleEx);
-                }
-                break;
-            }
-        }
-
-        if (records.Any(r => r.Exception != null))
-        {
-            throw new ConnectAggregateException("Local_Application", false,
-                records.Select(r => r.Exception).Where(e => e != null).ToArray());
-        }
-    }
-        
-    public static async Task ForEach<T>(IList<ConnectRecord<T>> records, Func<ConnectRecord<T>, Task> body)
-    {
-        foreach (var record in records)
-        {
-            var connectRecord = record.GetRecord();
-            try
-            {
-                connectRecord.Exception = null;
-                await body(record);
-            }
-            catch (Exception ex)
-            {
-                var handleEx = ex.InnerException ?? ex;
-                if (handleEx is ConnectException ce)
-                {
-                    connectRecord.Exception = ce;
-                }
-                else
-                {
-                    connectRecord.Exception = new ConnectDataException("Local_Fatal", handleEx);
-                }
-                break;
-            }
-        }
-
-        if (records.Any(r => r.GetRecord().Exception != null))
-        {
-            throw new ConnectAggregateException("Local_Application", false,
-                records.Select(r => r.GetRecord().Exception).Where(e => e != null).ToArray());
-        }
-    }
 
     public static async Task ForEachAsync<T>(
         this IEnumerable<T> source, Func<T, Task> body, Func<T, ConnectException, Exception> setLogContext = null,

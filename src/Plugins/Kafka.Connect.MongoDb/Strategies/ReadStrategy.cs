@@ -15,12 +15,12 @@ namespace Kafka.Connect.MongoDb.Strategies;
 
 public class ReadStrategy(ILogger<ReadStrategy> logger) : Strategy<FindModel<BsonDocument>>
 {
-    protected override Task<StrategyModel<FindModel<BsonDocument>>> BuildSinkModels(string connector, ConnectRecord record)
+    protected override Task<StrategyModel<FindModel<BsonDocument>>> BuildModels(string connector, ConnectRecord record)
     {
         throw new NotImplementedException();
     }
 
-    protected override Task<StrategyModel<FindModel<BsonDocument>>> BuildSourceModels(string connector, CommandRecord record)
+    protected override Task<StrategyModel<FindModel<BsonDocument>>> BuildModels(string connector, CommandRecord record)
     {
         using (logger.Track("Creating read models"))
         {

@@ -90,7 +90,7 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
 
     public ProducerConfig GetProducerConfig(string connector = null)
     {
-        var consumerConfig = GetConsumerConfig(connector);
+        var consumerConfig = GetConsumerConfig(connector) as NodeConfig;
         return new ProducerConfig(consumerConfig);
     }
 
