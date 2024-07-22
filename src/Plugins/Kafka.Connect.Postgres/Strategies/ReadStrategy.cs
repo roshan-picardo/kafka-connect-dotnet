@@ -7,21 +7,19 @@ namespace Kafka.Connect.Postgres.Strategies;
 
 public class ReadStrategy(ILogger<ReadStrategy> logger) : Strategy<string>
 {
-    protected override Task<StrategyModel<string>> BuildSinkModels(string connector, ConnectRecord record)
-    {
-        throw new NotImplementedException();
-    }
+    protected override Task<StrategyModel<string>> BuildModels(string connector, ConnectRecord record)
+        => throw new NotImplementedException();
 
-    protected override Task<StrategyModel<string>> BuildSourceModels(string connector, CommandRecord record)
+    protected override Task<StrategyModel<string>> BuildModels(string connector, CommandRecord record)
     {
         using (logger.Track("Creating source models"))
         {
             var command = record.GetCommand<CommandConfig>();
-            var model = new StrategyModel<string>(){ Status = SinkStatus.Selecting};
+            var model = new StrategyModel<string> { Status = SinkStatus.Selecting};
             if (!record.IsChangeLog())
             {
                 List<string> filters = [];
-                var lookup = command.Lookup?.Where(l => l.Value != null).ToList() ?? [];
+                var lookup = command.Filters?.Where(l => l.Value != null).ToList() ?? [];
                 for (var i = 0; i < lookup.Count; i++)
                 {
                     var rules = lookup.Take(i).Select(f => $"{f.Key} = '{f.Value}'").ToList();
@@ -29,8 +27,8 @@ public class ReadStrategy(ILogger<ReadStrategy> logger) : Strategy<string>
                     filters.Add(string.Join(" AND ", rules));
                 }
 
-                var where = filters.Count != 0 ? $"WHERE (  {string.Join(" ) OR ( ", filters)} )" : "";
-                var orderBy = string.Join(",", command.Keys);
+                var where = filters.Count != 0 ? $" WHERE (  {string.Join(" ) OR ( ", filters)} )" : "";
+                var orderBy = command.Filters == null ? "" : $" ORDER BY {string.Join(",", command.Filters.Keys)}";
                 
                 model.Model = $"""
                                SELECT 
@@ -41,7 +39,7 @@ public class ReadStrategy(ILogger<ReadStrategy> logger) : Strategy<string>
                                    ROW_TO_JSON({command.Table}) AS after
                                FROM {command.Schema}.{command.Table} 
                                {where}
-                               ORDER BY {orderBy} 
+                               {orderBy} 
                                LIMIT {record.BatchSize}
                                """;
 
@@ -53,7 +51,7 @@ public class ReadStrategy(ILogger<ReadStrategy> logger) : Strategy<string>
                     model.Model = $"""
                                    SELECT 
                                        COUNT(*) AS _total, 
-                                       EXTRACT(EPOCH FROM current_timestamp) * 1000000::bigint AS _timestamp 
+                                       (EXTRACT(EPOCH FROM current_timestamp) * 1000000)::bigint AS _timestamp 
                                    FROM {command.Schema}.{command.Table};
                                    """;
                 }
@@ -64,7 +62,7 @@ public class ReadStrategy(ILogger<ReadStrategy> logger) : Strategy<string>
                            SELECT 
                                id, 
                                'IMPORT' AS operation,
-                               EXTRACT(EPOCH FROM current_timestamp) * 1000000::bigint AS timestamp,
+                               (EXTRACT(EPOCH FROM current_timestamp) * 1000000)::bigint AS timestamp,
                                NULL as before,
                                after
                            FROM (
@@ -89,12 +87,12 @@ public class ReadStrategy(ILogger<ReadStrategy> logger) : Strategy<string>
             }
             else
             {
-                var changelog = record.GetChangelog<Changelog>();
+                var changelog = record.GetChangelog<ChangelogConfig>();
                 model.Model = $"""
                                SELECT 
                                    log_id AS id, 
                                    log_operation AS operation,
-                                   EXTRACT(EPOCH FROM log_timestamp) * 1000000::bigint As timestamp,
+                                   (EXTRACT(EPOCH FROM log_timestamp) * 1000000)::bigint As timestamp,
                                    log_before AS before, 
                                    log_after AS after
                                FROM {changelog.Schema}.{changelog.Table} 

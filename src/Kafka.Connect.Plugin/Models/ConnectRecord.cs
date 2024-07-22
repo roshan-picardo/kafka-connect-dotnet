@@ -19,7 +19,7 @@ public class ConnectRecord : IConnectRecord
     }
     
     public ConnectMessage<JsonNode> Deserialized { get; set; }
-        
+    
     public ConnectMessage<byte[]> Serialized { get; set; }
 
     public string Topic { get; private set; }
@@ -35,7 +35,6 @@ public class ConnectRecord : IConnectRecord
         Offset = offset;
         Status = SinkStatus.Published;
     }
-    
 
     // indicate the record to stop processing
     public bool Skip { get; set; }

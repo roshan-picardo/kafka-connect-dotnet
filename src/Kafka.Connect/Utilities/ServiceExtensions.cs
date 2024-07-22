@@ -52,8 +52,7 @@ namespace Kafka.Connect.Utilities
 
                 .AddScoped<IGenericRecordHandler, GenericRecordHandler>()
                 .AddScoped<IMessageHandler, MessageHandler>()
-                .AddScoped<ISinkConsumer, SinkConsumer>()
-                .AddScoped<ISourceProducer, SourceProducer>()
+                .AddScoped<IConnectorClient, ConnectorClient>()
                 .AddScoped<IPartitionHandler, PartitionHandler>()
                 .AddScoped<ISinkExceptionHandler, SinkExceptionHandler>()
 

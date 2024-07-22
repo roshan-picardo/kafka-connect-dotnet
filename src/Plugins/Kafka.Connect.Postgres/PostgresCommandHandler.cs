@@ -22,7 +22,7 @@ public class PostgresCommandHandler(
 {
     public async Task Initialize(string connector)
     {
-        var config = configurationProvider.GetPluginConfig<SourceConfig>(connector);
+        var config = configurationProvider.GetPluginConfig<PluginConfig>(connector);
         if (config.Changelog != null)
         {
             try
@@ -122,7 +122,7 @@ public class PostgresCommandHandler(
 
     public IDictionary<string, Command> Get(string connector)
     {
-        var config = configurationProvider.GetPluginConfig<SourceConfig>(connector);
+        var config = configurationProvider.GetPluginConfig<PluginConfig>(connector);
         return config.Commands.ToDictionary(k => k.Key, v => v.Value as Command);
     }
 
@@ -139,7 +139,7 @@ public class PostgresCommandHandler(
                     sorted = sorted.ThenBy(d => d[key]);
                 }
 
-                config.Filters.Values = sorted.LastOrDefault()?.Where(x => config.Filters.Keys.Contains(x.Key))
+                config.Filters = sorted.LastOrDefault()?.Where(x => config.Filters.Keys.Contains(x.Key))
                     .ToDictionary();
             }
         }

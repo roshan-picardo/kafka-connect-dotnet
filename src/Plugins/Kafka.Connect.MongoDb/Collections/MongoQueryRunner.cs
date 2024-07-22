@@ -26,7 +26,7 @@ namespace Kafka.Connect.MongoDb.Collections
         {
             using (logger.Track("Writing models to database"))
             {
-                var sinkConfig = configurationProvider.GetPluginConfig<SinkConfig>(connector);
+                var sinkConfig = configurationProvider.GetPluginConfig<PluginConfig>(connector);
                 if (models == null || !models.Any())
                 {
                     return;
@@ -73,7 +73,7 @@ namespace Kafka.Connect.MongoDb.Collections
             int taskId,
             string collection)
         {
-            var sourceConfig = configurationProvider.GetPluginConfig<SourceConfig>(connector);
+            var sourceConfig = configurationProvider.GetPluginConfig<PluginConfig>(connector);
             var dbCollection = mongoClientProvider.GetMongoClient(connector, taskId)
                 .GetDatabase(sourceConfig.Database)
                 .GetCollection<BsonDocument>(collection);
@@ -83,7 +83,7 @@ namespace Kafka.Connect.MongoDb.Collections
 
         public async Task<IList<JsonNode>> ReadMany(IList<ConnectRecord<(FilterDefinition<BsonDocument>, FindOptions<BsonDocument>)>> batch, string connector, int taskId)
         {
-            var sourceConfig = configurationProvider.GetPluginConfig<SourceConfig>(connector);
+            var sourceConfig = configurationProvider.GetPluginConfig<PluginConfig>(connector);
             var collection = mongoClientProvider.GetMongoClient(connector, taskId)
                 .GetDatabase(sourceConfig.Database)
                 .GetCollection<BsonDocument>("mongoSourceConfig.Collection");

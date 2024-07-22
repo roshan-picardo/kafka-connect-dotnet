@@ -11,18 +11,17 @@ using Kafka.Connect.Plugin.Logging;
 
 namespace Kafka.Connect.Handlers;
 
-public class GenericRecordHandler : IGenericRecordHandler
+public interface IGenericRecordHandler
 {
-    private readonly ILogger<GenericRecordHandler> _logger;
+    GenericRecord Build(Schema schema, JsonNode data);
+    JsonNode Parse(GenericRecord genericRecord);
+}
 
-    public GenericRecordHandler(ILogger<GenericRecordHandler> logger)
-    {
-        _logger = logger;
-    }
-    
+public class GenericRecordHandler(ILogger<GenericRecordHandler> logger) : IGenericRecordHandler
+{
     public GenericRecord Build(Schema schema, JsonNode data)
     {
-        using (_logger.Track("Building generic record."))
+        using (logger.Track("Building generic record."))
         {
             if (schema is RecordSchema recordSchema)
             {
@@ -36,7 +35,7 @@ public class GenericRecordHandler : IGenericRecordHandler
 
     public JsonNode Parse(GenericRecord genericRecord)
     {
-        using (_logger.Track("Parsing generic record."))
+        using (logger.Track("Parsing generic record."))
         {
             return ParseRecord(genericRecord);
         }

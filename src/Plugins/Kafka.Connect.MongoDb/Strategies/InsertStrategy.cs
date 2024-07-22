@@ -12,7 +12,7 @@ namespace Kafka.Connect.MongoDb.Strategies;
 
 public class InsertStrategy(ILogger<InsertStrategy> logger) : Strategy<InsertOneModel<BsonDocument>>
 {
-    protected override Task<StrategyModel<InsertOneModel<BsonDocument>>> BuildSinkModels(string connector, ConnectRecord record)
+    protected override Task<StrategyModel<InsertOneModel<BsonDocument>>> BuildModels(string connector, ConnectRecord record)
     {
         using (logger.Track("Creating insert write models"))
         {
@@ -24,7 +24,7 @@ public class InsertStrategy(ILogger<InsertStrategy> logger) : Strategy<InsertOne
         }
     }
 
-    protected override Task<StrategyModel<InsertOneModel<BsonDocument>>> BuildSourceModels(string connector, CommandRecord record)
+    protected override Task<StrategyModel<InsertOneModel<BsonDocument>>> BuildModels(string connector, CommandRecord record)
     {
         throw new NotImplementedException();
     }
