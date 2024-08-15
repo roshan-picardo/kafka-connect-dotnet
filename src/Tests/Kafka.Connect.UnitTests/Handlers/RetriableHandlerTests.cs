@@ -31,7 +31,7 @@ namespace UnitTests.Kafka.Connect.Handlers
         [Fact]
         public async Task Retry_ConsumeReturnsSinkRecordBatch()
         {
-            _configurationProvider.GetRetriesConfig(Arg.Any<string>()).Returns(new RetryConfig {Attempts = 3, DelayTimeoutMs = 1});
+            _configurationProvider.GetRetriesConfig(Arg.Any<string>()).Returns(new RetryConfig {Attempts = 3, TimeoutInMs = 1});
             var sinkRecordBatch = new ConnectRecordBatch("");
             Task<ConnectRecordBatch> Consume() => Task.FromResult(sinkRecordBatch);
 
@@ -44,7 +44,7 @@ namespace UnitTests.Kafka.Connect.Handlers
         [Fact]
         public async Task Retry_ThrowsSingleConnectAggregateException()
         {
-            _configurationProvider.GetRetriesConfig(Arg.Any<string>()).Returns(new RetryConfig {Attempts = 3, DelayTimeoutMs = 1});
+            _configurationProvider.GetRetriesConfig(Arg.Any<string>()).Returns(new RetryConfig {Attempts = 3, TimeoutInMs = 1});
             Task<ConnectRecordBatch> Process() => throw new ConnectAggregateException(ErrorCode.Unknown.GetReason(), new Exception());
 
             await Assert.ThrowsAsync<ConnectToleranceExceededException>(() =>
@@ -54,7 +54,7 @@ namespace UnitTests.Kafka.Connect.Handlers
         [Fact]
         public async Task Retry_ThrowsSingleConnectDataException()
         {
-            _configurationProvider.GetRetriesConfig(Arg.Any<string>()).Returns(new RetryConfig {Attempts = 3, DelayTimeoutMs = 1});
+            _configurationProvider.GetRetriesConfig(Arg.Any<string>()).Returns(new RetryConfig {Attempts = 3, TimeoutInMs = 1});
             Task<ConnectRecordBatch> Process() => throw new ConnectDataException(ErrorCode.Unknown.GetReason(), new Exception());
             
             await Assert.ThrowsAsync<ConnectToleranceExceededException>(() =>
@@ -64,7 +64,7 @@ namespace UnitTests.Kafka.Connect.Handlers
         [Fact]
         public async Task Retry_ThrowsSingleGenericException()
         {
-            _configurationProvider.GetRetriesConfig(Arg.Any<string>()).Returns(new RetryConfig {Attempts = 3, DelayTimeoutMs = 1});
+            _configurationProvider.GetRetriesConfig(Arg.Any<string>()).Returns(new RetryConfig {Attempts = 3, TimeoutInMs = 1});
             Task<ConnectRecordBatch> Process() => throw new Exception();
             
             await Assert.ThrowsAsync<ConnectToleranceExceededException>(() =>
@@ -74,7 +74,7 @@ namespace UnitTests.Kafka.Connect.Handlers
         [Fact]
         public async Task Retry_ThrowsSingleRetriableException()
         {
-            _configurationProvider.GetRetriesConfig(Arg.Any<string>()).Returns(new RetryConfig {Attempts = 3, DelayTimeoutMs = 1});
+            _configurationProvider.GetRetriesConfig(Arg.Any<string>()).Returns(new RetryConfig {Attempts = 3, TimeoutInMs = 1});
             Task<ConnectRecordBatch> Process() => throw new ConnectRetriableException(ErrorCode.Unknown.GetReason(), new Exception());
             
             await Assert.ThrowsAsync<ConnectToleranceExceededException>(() =>
@@ -130,7 +130,7 @@ namespace UnitTests.Kafka.Connect.Handlers
                 return Task.FromResult(batch);
             }
             
-            _configurationProvider.GetRetriesConfig(Arg.Any<string>()).Returns(new RetryConfig {Attempts = 3, DelayTimeoutMs = 1});
+            _configurationProvider.GetRetriesConfig(Arg.Any<string>()).Returns(new RetryConfig {Attempts = 3, TimeoutInMs = 1});
             
             await Assert.ThrowsAsync<ConnectToleranceExceededException>(() =>
                 _retriableHandler.Retry(Process, sinkRecordBatch, "connector"));
@@ -151,7 +151,7 @@ namespace UnitTests.Kafka.Connect.Handlers
                 return Task.FromResult(batch);
             }
             
-            _configurationProvider.GetRetriesConfig(Arg.Any<string>()).Returns(new RetryConfig {Attempts = 3, DelayTimeoutMs = 1});
+            _configurationProvider.GetRetriesConfig(Arg.Any<string>()).Returns(new RetryConfig {Attempts = 3, TimeoutInMs = 1});
             
             var actual = await _retriableHandler.Retry(Process, sinkRecordBatch, "connector");
             
@@ -195,7 +195,7 @@ namespace UnitTests.Kafka.Connect.Handlers
             }
 
             _configurationProvider.GetRetriesConfig(Arg.Any<string>())
-                .Returns(new RetryConfig {Attempts = 3, DelayTimeoutMs = 1});
+                .Returns(new RetryConfig {Attempts = 3, TimeoutInMs = 1});
 
 
             var actual = await _retriableHandler.Retry(Process, sinkRecordBatch, "connector");

@@ -4,8 +4,10 @@ using System.Linq;
 using Confluent.Kafka;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Plugin.Extensions;
+using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Utilities;
 using Microsoft.Extensions.Configuration;
+using ConnectorConfig = Kafka.Connect.Configurations.ConnectorConfig;
 
 namespace Kafka.Connect.Providers;
 
@@ -110,26 +112,17 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
         return _workerConfig?.Restarts ?? _leaderConfig?.Restarts ?? new RestartsConfig();
     }
 
-    public ErrorsConfig GetErrorsConfig(string connector)
-    {
-        return GetConnectorConfig(connector).Retries?.Errors
-               ?? (IsLeader ? _leaderConfig.Retries?.Errors : _workerConfig.Retries?.Errors)
-               ?? new ErrorsConfig { Tolerance = ErrorTolerance.All };
-    }
+    public ErrorsConfig GetErrorsConfig(string connector) 
+        => GetBatchConfig(connector).Retries?.Errors ?? new ErrorsConfig { Tolerance = ErrorTolerance.All };
 
     public RetryConfig GetRetriesConfig(string connector)
-    {
-        return GetConnectorConfig(connector)?.Retries 
-               ?? _workerConfig.Retries 
-               ?? new RetryConfig();
-    }
+        => GetBatchConfig(connector).Retries ?? new RetryConfig();
 
     public EofConfig GetEofSignalConfig(string connector)
-    {
-        return GetConnectorConfig(connector)?.Batches?.EofSignal
-               ?? _workerConfig.Batches?.EofSignal
-               ?? new EofConfig();
-    }
+        => GetConnectorConfig(connector)?.Batches?.EofSignal
+           ?? _workerConfig.Batches?.EofSignal
+           ?? new EofConfig();
+    
 
     public BatchConfig GetBatchConfig(string connector)
     {
@@ -220,17 +213,14 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
         return config != null ? config.Settings : default;
     }
 
-    public IList<(string Name, int Tasks)> GetConnectorsByPlugin(string plugin)
-    {
-        var connectors = _configuration.GetSection("worker:connectors").Get<IDictionary<string, ConnectorConfig>>();
-        return connectors?.Where(c => c.Value.Plugin.Name == plugin).Select(c => (c.Key, c.Value.MaxTasks)).ToList() ?? [];
-    }
-
     public T GetPluginConfig<T>(string connector)
     {
         var connectors = _configuration.GetSection("worker:connectors").Get<IDictionary<string, ConnectorPluginConfig<T>>>();
-        var config =  connectors?.SingleOrDefault(c => c.Key == connector).Value.Plugin;
-        return config != null ? config.Properties : default;
+        if (connectors.TryGetValue(connector, out var config) && config?.Plugin != null)
+        {
+            return config.Plugin.Properties;
+        }
+        return default;
     }
 
     public  T GetLogAttributes<T>(string connector)
@@ -253,6 +243,19 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
     }
 
     public int GetDegreeOfParallelism(string connector) => GetBatchConfig(connector).Parallelism;
+
+    public ParallelRetryOptions GetParallelRetryOptions(string connector)
+    {
+        var batch = GetBatchConfig(connector);
+        var retries = GetRetriesConfig(connector);
+        return new ParallelRetryOptions
+        {
+            DegreeOfParallelism = batch.Parallelism,
+            Attempts = retries.Attempts,
+            TimeoutMs = retries.TimeoutInMs,
+            ErrorTolerated = IsErrorTolerated(connector)
+        };
+    }
 
     public void Validate()  
     {

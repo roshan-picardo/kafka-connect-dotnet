@@ -18,7 +18,8 @@ public class InsertStrategy(ILogger<InsertStrategy> logger) : Strategy<InsertOne
         {
             return Task.FromResult(new StrategyModel<InsertOneModel<BsonDocument>>()
             {
-                Status = SinkStatus.Inserting,
+                Key = record.Key,
+                Status = Status.Inserting,
                 Model = new InsertOneModel<BsonDocument>(BsonDocument.Parse(record.Deserialized.Value.ToJsonString()))
             });
         }

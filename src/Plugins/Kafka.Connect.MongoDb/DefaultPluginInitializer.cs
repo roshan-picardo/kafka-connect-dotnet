@@ -10,9 +10,9 @@ using Microsoft.Extensions.Configuration;
 
 namespace Kafka.Connect.MongoDb;
 
-public class DefaultPluginInitializer : PluginInitializer
+public class DefaultPluginInitializer : IPluginInitializer
 {
-    public override void AddServices(
+    public void AddServices(
         IServiceCollection collection,
         IConfiguration configuration,
         params (string Name, int Tasks)[] connectors)

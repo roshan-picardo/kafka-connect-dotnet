@@ -16,7 +16,7 @@ public class InsertStrategy(ILogger<InsertStrategy> logger, IConfigurationProvid
             var config = configurationProvider.GetPluginConfig<PluginConfig>(connector);
             return Task.FromResult(new StrategyModel<string>
             {
-                Status = SinkStatus.Inserting,
+                Status = Status.Inserting,
                 Model = $"""
                          INSERT INTO {config.Schema}.{config.Table} 
                          SELECT * 

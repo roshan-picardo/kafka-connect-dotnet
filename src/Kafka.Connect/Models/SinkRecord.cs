@@ -23,6 +23,7 @@ public class SinkRecord : ConnectRecord
             };
         }
         IsPartitionEof = consumed.IsPartitionEOF;
+        Status = Status.Consumed;
     }
     
     public bool IsPartitionEof { get; set; }

@@ -1,20 +1,31 @@
 using System;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
 namespace Kafka.Connect.Plugin.Models;
 
+public interface IConnectRecord
+{
+    Exception Exception { get; set; }
+    string Topic { get;  }
+    int Partition { get;  }
+    long Offset { get;  }
+    Guid Key { get; }
+    Status Status { get; set; }
+}
+
 public class ConnectRecord : IConnectRecord
 {
-    private readonly LogTimestamp _logTimestamp;
+    public LogTimestamp LogTimestamp { get; init; }
+    protected ConnectRecord(){ }
 
     public ConnectRecord(string topic, int partition, long offset)
     {
         Topic = topic;
         Partition = partition;
         Offset = offset;
-        Status = SinkStatus.Consumed;
-        _logTimestamp = new LogTimestamp();
+        LogTimestamp = new LogTimestamp();
         StartTiming();
     }
     
@@ -22,10 +33,11 @@ public class ConnectRecord : IConnectRecord
     
     public ConnectMessage<byte[]> Serialized { get; set; }
 
-    public string Topic { get; private set; }
-    public int Partition { get; private set; }
-    public long Offset { get; private set; }
-    
+    public string Topic { get; protected set; }
+    public int Partition { get; protected set; }
+    public long Offset { get; protected set; }
+
+    public Guid Key => new(MD5.HashData(Serialized.Key));
     public int Order { get; set; }
 
     public void Published(string topic, int partition, long offset)
@@ -33,28 +45,23 @@ public class ConnectRecord : IConnectRecord
         Topic = topic;
         Partition = partition;
         Offset = offset;
-        Status = SinkStatus.Published;
+        UpdateStatus();
     }
-
-    // indicate the record to stop processing
-    public bool Skip { get; set; }
 
     public bool IsCommitReady(bool tolerated) => Status switch
     {
-        SinkStatus.Inserted => true,
-        SinkStatus.Deleted => true,
-        SinkStatus.Updated => true,
-        SinkStatus.Skipped => true,
-        SinkStatus.Excluded => true,
-        SinkStatus.Published => true,
-        SinkStatus.Reviewed => true,
-        SinkStatus.Failed => tolerated,
+        Status.Inserted => true,
+        Status.Deleted => true,
+        Status.Updated => true,
+        Status.Skipped => true,
+        Status.Excluded => true,
+        Status.Published => true,
+        Status.Reviewed => true,
+        Status.Failed => tolerated,
         _ => false
     };
 
-    public bool CanCommitOffset { get; set; }
-
-    public SinkStatus Status { get; set; }
+    public Status Status { get; set; }
 
     public T GetKey<T>() => Deserialized.Key.Deserialize<T>();
 
@@ -64,38 +71,36 @@ public class ConnectRecord : IConnectRecord
     {
         Status = Status switch
         {
-            SinkStatus.Processing => failed ? SinkStatus.Failed : SinkStatus.Processed,
-            SinkStatus.Updating => failed ? SinkStatus.Failed : SinkStatus.Updated,
-            SinkStatus.Skipping => failed ? SinkStatus.Failed : SinkStatus.Skipped,
-            SinkStatus.Inserting => failed ? SinkStatus.Failed : SinkStatus.Inserted,
-            SinkStatus.Deleting => failed ? SinkStatus.Failed : SinkStatus.Deleted,
-            SinkStatus.Enriching => failed ? SinkStatus.Failed : SinkStatus.Enriched,
-            SinkStatus.Publishing => failed ? SinkStatus.Failed : SinkStatus.Published,
-            SinkStatus.Excluding => failed ? SinkStatus.Failed : SinkStatus.Excluded,
-            SinkStatus.Sourcing => failed ? SinkStatus.Failed : SinkStatus.Sourced,
-            SinkStatus.Selecting => failed ? SinkStatus.Failed : SinkStatus.Selected,
+            Status.Processing => failed ? Status.Failed : Status.Processed,
+            Status.Updating => failed ? Status.Failed : Status.Updated,
+            Status.Skipping => failed ? Status.Failed : Status.Skipped,
+            Status.Inserting => failed ? Status.Failed : Status.Inserted,
+            Status.Deleting => failed ? Status.Failed : Status.Deleted,
+            Status.Enriching => failed ? Status.Failed : Status.Enriched,
+            Status.Publishing => failed ? Status.Failed : Status.Published,
+            Status.Excluding => failed ? Status.Failed : Status.Excluded,
+            Status.Sourcing => failed ? Status.Failed : Status.Sourced,
+            Status.Selecting => failed ? Status.Failed : Status.Selected,
             _ => Status
         };
     }
 
-    public bool IsOperationCompleted { get; set; }
-
     protected void StartTiming(long? millis = null)
     {
-        _logTimestamp.Created = millis ?? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        _logTimestamp.Consumed = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        LogTimestamp.Created = millis ?? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        LogTimestamp.Consumed = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
     }
 
     public dynamic EndTiming(int batchSize, long? millis = null)
     {
-        _logTimestamp.Committed = millis ?? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        _logTimestamp.BatchSize = batchSize;
+        LogTimestamp.Committed = millis ?? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        LogTimestamp.BatchSize = batchSize;
         return new
         {
-            Lag = _logTimestamp.Lag.ToString(@"dd\.hh\:mm\:ss\.fff"),
-            Total = _logTimestamp.Total.ToString(@"dd\.hh\:mm\:ss\.fff"),
-            _logTimestamp.Duration,
-            Batch = new { Size = batchSize, Total = _logTimestamp.Batch }
+            Lag = LogTimestamp.Lag.ToString(@"dd\.hh\:mm\:ss\.fff"),
+            Total = LogTimestamp.Total.ToString(@"dd\.hh\:mm\:ss\.fff"),
+            LogTimestamp.Duration,
+            Batch = new { Size = batchSize, Total = LogTimestamp.Batch }
         };
     }
 
@@ -103,4 +108,10 @@ public class ConnectRecord : IConnectRecord
 
     public bool IsOf(string topic, int partition, long offset) =>
         topic == Topic && partition == Partition && offset == Offset;
+    
+    public bool Processing => Status is Status.Retrying or Status.Consumed or Status.Selected;
+    public bool Sinking => Status is Status.Retrying or Status.Processed;
+    public bool Publishing => Status is Status.Retrying or Status.Processed;
+    public T Clone<T>() where T : ConnectRecord, new() => new T().Clone<T>(this);
+    protected virtual T Clone<T>(ConnectRecord record) where T: ConnectRecord  => record as T;
 }

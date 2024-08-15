@@ -217,7 +217,7 @@ namespace UnitTests.Kafka.Connect.Handlers
                 batch.Add(new global::Kafka.Connect.Models.SinkRecord(new ConsumeResult<byte[], byte[]>
                     {Topic = "topic", Message = new Message<byte[], byte[]>() {Headers = new Headers()}})
                 {
-                    Status = failed-- > 0 ? SinkStatus.Failed : SinkStatus.Updated
+                    Status = failed-- > 0 ? Status.Failed : Status.Updated
                 });
             }
 

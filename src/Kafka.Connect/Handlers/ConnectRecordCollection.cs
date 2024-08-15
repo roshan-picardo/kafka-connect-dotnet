@@ -11,6 +11,7 @@ using Kafka.Connect.Configurations;
 using Kafka.Connect.Connectors;
 using Kafka.Connect.Models;
 using Kafka.Connect.Plugin;
+using Kafka.Connect.Plugin.Exceptions;
 using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
@@ -137,7 +138,7 @@ public class ConnectRecordCollection(
         _sourceConnectRecords.AddOrUpdate(batchId, batch, (_, _) => batch);
     }
 
-    public void UpdateTo(SinkStatus status, string batchId = null)
+    public void UpdateTo(Status status, string batchId = null)
     {
         var sourceRecords = GetConnectRecords(batchId).ToList();
         var latestRecords = GetConnectRecords(null).GroupBy(r => r.GetKey<string>())
@@ -148,7 +149,7 @@ public class ConnectRecordCollection(
         }
     }
 
-    public void UpdateTo(SinkStatus status, string topic, int partition, long offset, Exception ex = null)
+    public void UpdateTo(Status status, string topic, int partition, long offset, Exception ex = null)
     {
         var record =
             _sinkConnectRecords.SingleOrDefault(r =>
@@ -173,37 +174,34 @@ public class ConnectRecordCollection(
         if (GetConnectRecords(batchId).Count <= 0) return;
         using (logger.Track("Processing the batch."))
         {
-            foreach (var topicBatch in GetByTopicPartition(batchId))
-            {
-                await topicBatch.Batch.ForEachAsync(configurationProvider.GetDegreeOfParallelism(_connector), async cr =>
+            await GetConnectRecords(batchId).ForEachAsync(configurationProvider.GetParallelRetryOptions(_connector),
+                async icr =>
+                {
+                    if (icr is not ConnectRecord { Processing: true } record) return;
+                    record.Status = Status.Processing;
+                    (bool Skip, ConnectMessage<JsonNode> Message) processed = new (false, new ConnectMessage<JsonNode>());   
+                    switch (record)
                     {
-                        if (cr is not ConnectRecord record || record.Skip || record.Status == SinkStatus.Processed) return;
-                        record.Status = SinkStatus.Processing;
+                        case SinkRecord:
+                            using (ConnectLog.TopicPartitionOffset(record.Topic, record.Partition, record.Offset))
+                            {
+                                var deserialized =
+                                    await messageHandler.Deserialize(_connector, record.Topic, record.Serialized);
+                                logger.Document(deserialized);
+                                processed = await messageHandler.Process(_connector, record.Topic, deserialized);
+                            }
 
-                        switch (record)
-                        {
-                            case SinkRecord:
-                                using (ConnectLog.TopicPartitionOffset(record.Topic, record.Partition, record.Offset))
-                                {
-                                    var deserialized =
-                                        await messageHandler.Deserialize(_connector, record.Topic, record.Serialized);
-                                    logger.Document(deserialized);
-                                    (record.Skip, record.Deserialized) =
-                                        await messageHandler.Process(_connector, record.Topic, deserialized);
-                                }
-                                break;
-                            case SourceRecord or ConfigRecord:
-                                logger.Document(record.Deserialized);
-                                (record.Skip, record.Deserialized) =
-                                    await messageHandler.Process(_connector, record.Topic, record.Deserialized);
-                                record.Serialized =
-                                    await messageHandler.Serialize(_connector, record.Topic, record.Deserialized);
-                                break;
-                        }
+                            break;
+                        case SourceRecord or ConfigRecord:
+                            logger.Document(record.Deserialized);
+                            processed = await messageHandler.Process(_connector, record.Topic, record.Deserialized);
+                            record.Serialized = await messageHandler.Serialize(_connector, record.Topic, processed.Message);
+                            break;
+                    }
 
-                        record.Status = SinkStatus.Processed;
-                    });
-            }
+                    record.Status = processed.Skip ? Status.Skipped : Status.Processed;
+                    record.Deserialized = processed.Message;
+                });
         }
     }
 
@@ -215,22 +213,19 @@ public class ConnectRecordCollection(
             var pluginHandler = GetPluginHandler(_connector);
             if (pluginHandler == null)
             {
-                logger.Warning(
-                    "Sink handler is not specified. Check if the handler is configured properly, and restart the connector.");
-                ParallelEx.ForEach(_sinkConnectRecords, record =>
-                {
-                    // TODO: do not do skip, rather error out here!!
-                    record.Status = SinkStatus.Skipped;
-                    record.Skip = true;
-                });
-                return;
+                throw new ConnectDataException(
+                    "Sink handler is not specified. Check if the handler is configured properly, and restart the connector.",
+                    new ArgumentException(nameof(pluginHandler)));
             }
 
+            await pluginHandler.Put(_sinkConnectRecords, _connector, _taskId);
+            
+            /*
             foreach (var batch in GetByTopicPartition())
             {
                 await pluginHandler.Put(batch.Batch, _connector, _taskId);
-                ParallelEx.ForEach(batch.Batch, record => record.UpdateStatus());
-            }
+                batch.Batch.ForEach(record => record.UpdateStatus());
+            }*/
         }
     }
 
@@ -260,7 +255,7 @@ public class ConnectRecordCollection(
         var provider = configurationProvider.GetLogEnhancer(_connector);
         var endTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var logRecord = logRecords?.SingleOrDefault(l => l.GetType().FullName == provider);
-        ParallelEx.ForEach(records, record =>
+        records.ForEach(record =>
         {
             using (ConnectLog.TopicPartitionOffset(record.Topic, record.Partition, record.Offset))
             {
@@ -293,11 +288,6 @@ public class ConnectRecordCollection(
         Clear();
         _sourceConnectRecords.Clear();
         connectClient.Close();
-    }
-
-    public ConnectRecordBatch GetBatch()
-    {
-        return new ConnectRecordBatch("internal");
     }
 
     public async Task<IList<CommandRecord>> GetCommands()
@@ -351,6 +341,7 @@ public class ConnectRecordCollection(
                 foreach (var command in pollCommands.Where(command => command.Partition == -1))
                 {
                     command.Partition = GetCommandPartition(command);
+                    command.Status = Status.Consumed;
                 }
                 return pollCommands;
             }
@@ -372,8 +363,7 @@ public class ConnectRecordCollection(
                 {
                     foreach (var record in records)
                     {
-                        batch.Add(new SourceRecord(record.Topic, record.Deserialized.Key ?? new JsonObject(),
-                            record.Deserialized.Value, record.Skip));
+                        batch.Add(record.Clone<SourceRecord>());
                     }
                 }
             }
@@ -395,7 +385,7 @@ public class ConnectRecordCollection(
             var isErrorTolerated = configurationProvider.IsErrorTolerated(_connector);
             foreach (var record in records)
             {
-                if (!isErrorTolerated && record.Status == SinkStatus.Failed) break;
+                if (!isErrorTolerated && record.Status == Status.Failed) break;
                 yield return record;
             }
         }

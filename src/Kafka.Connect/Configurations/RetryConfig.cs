@@ -3,7 +3,7 @@ namespace Kafka.Connect.Configurations
     public class RetryConfig
     {
         private readonly int _attempts = 3;
-        private readonly int _delayTimeoutMs = 1000;
+        private readonly int _timeoutInMs = 1000;
 
         public int Attempts
         {
@@ -11,10 +11,10 @@ namespace Kafka.Connect.Configurations
             init => _attempts = value;
         }
 
-        public int DelayTimeoutMs
+        public int TimeoutInMs
         {
-            get => _delayTimeoutMs <= 0 ? 1000 : _delayTimeoutMs;
-            init => _delayTimeoutMs = value;
+            get => _timeoutInMs <= 0 ? 1000 : _timeoutInMs;
+            init => _timeoutInMs = value;
         }
         public ErrorsConfig Errors { get; init; }
     }

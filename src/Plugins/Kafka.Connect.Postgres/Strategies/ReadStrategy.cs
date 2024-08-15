@@ -12,10 +12,10 @@ public class ReadStrategy(ILogger<ReadStrategy> logger) : Strategy<string>
 
     protected override Task<StrategyModel<string>> BuildModels(string connector, CommandRecord record)
     {
-        using (logger.Track("Creating source models"))
+        using (logger.Track("Creating source models")) 
         {
             var command = record.GetCommand<CommandConfig>();
-            var model = new StrategyModel<string> { Status = SinkStatus.Selecting};
+            var model = new StrategyModel<string> { Status = Status.Selecting};
             if (!record.IsChangeLog())
             {
                 List<string> filters = [];

@@ -22,7 +22,7 @@ public class DeleteStrategy(ILogger<DeleteStrategy> logger, IConfigurationProvid
             var filter = BsonDocument.Parse(BuildCondition(config.Filter.ToString(), record.Deserialized.Value.ToDictionary()));
             return Task.FromResult(new StrategyModel<DeleteOneModel<BsonDocument>>()
             {
-                Status = SinkStatus.Deleting,
+                Status = Status.Deleting,
                 Model = new DeleteOneModel<BsonDocument>(
                     new BsonDocumentFilterDefinition<BsonDocument>(filter))
             });

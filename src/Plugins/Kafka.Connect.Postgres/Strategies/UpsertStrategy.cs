@@ -1,4 +1,3 @@
-using System.Text.Json.Nodes;
 using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
@@ -41,7 +40,7 @@ public class UpsertStrategy(ILogger<UpsertStrategy> logger, IConfigurationProvid
             
             return Task.FromResult(new StrategyModel<string>
             {
-                Status = SinkStatus.Updating,
+                Status = Status.Updating,
                 Model = upsertQuery
             });
         }

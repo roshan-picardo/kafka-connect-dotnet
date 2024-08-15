@@ -100,30 +100,24 @@ public class ConnectorClient(
     {
         using (logger.Track("Publishing the batch."))
         {
-            await records.ForEachAsync(configurationProvider.GetDegreeOfParallelism(connector),
+            var parallelOptions = configurationProvider.GetParallelRetryOptions(connector);
+            await records.ForEachAsync(parallelOptions,
                 async cr =>
                 {
-                    if (cr is SourceRecord record)
+                    if (cr is SourceRecord { Publishing: true } record)
                     {
                         using (ConnectLog.TopicPartitionOffset(record.Topic))
                         {
-                            if (record.Status == SinkStatus.Published) return;
-                            if (record.Skip)
-                            {
-                                record.Status = SinkStatus.Skipped;
-                            }
-                            else
-                            {
-                                record.Status = SinkStatus.Publishing;
-                                var delivered = await _producer.ProduceAsync(record.Topic,
-                                    new Message<byte[], byte[]>
-                                    {
-                                        Key = record.Serialized.Key,
-                                        Value = record.Serialized.Value,
-                                        Headers = record.Serialized.Headers?.ToMessageHeaders()
-                                    });
-                                record.Published(delivered.Topic, delivered.Partition, delivered.Offset);
-                            }
+                            record.Status = Status.Publishing; 
+                            //TODO: handle record.skip a bit differently
+                            var delivered = await _producer.ProduceAsync(record.Topic,
+                                new Message<byte[], byte[]>
+                                {
+                                    Key = record.Serialized.Key,
+                                    Value = record.Serialized.Value,
+                                    Headers = record.Serialized.Headers?.ToMessageHeaders()
+                                });
+                            record.Published(delivered.Topic, delivered.Partition, delivered.Offset);
                         }
                     }
                 });

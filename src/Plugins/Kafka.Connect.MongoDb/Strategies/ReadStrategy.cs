@@ -52,7 +52,7 @@ public class ReadStrategy(ILogger<ReadStrategy> logger) : Strategy<FindModel<Bso
 
             return Task.FromResult(new StrategyModel<FindModel<BsonDocument>>
             {
-                Status = SinkStatus.Selecting,
+                Status = Status.Selecting,
                 Model = new FindModel<BsonDocument>
                 {
                     Filter =
