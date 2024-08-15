@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using Confluent.Kafka;
 using Kafka.Connect.Configurations;
+using Kafka.Connect.Plugin.Models;
+using ConnectorConfig = Kafka.Connect.Configurations.ConnectorConfig;
 
 namespace Kafka.Connect.Providers;
 
@@ -21,6 +23,7 @@ public interface IConfigurationProvider
     EofConfig GetEofSignalConfig(string connector);
     BatchConfig GetBatchConfig(string connector);
     int GetDegreeOfParallelism(string connector);
+    ParallelRetryOptions GetParallelRetryOptions(string connector);
     IList<string> GetTopics(string connector);
     InternalTopicConfig GetTopics();
     ConverterConfig GetMessageConverters(string connector, string topic);

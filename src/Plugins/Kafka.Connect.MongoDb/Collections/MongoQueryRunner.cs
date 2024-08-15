@@ -1,7 +1,5 @@
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.Json;
-using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Kafka.Connect.MongoDb.Models;
 using Kafka.Connect.Plugin.Exceptions;
@@ -11,8 +9,6 @@ using Kafka.Connect.Plugin.Providers;
 using Kafka.Connect.Plugin.Strategies;
 using MongoDB.Bson;
 using MongoDB.Driver;
-using Serilog.Context;
-using Serilog.Core.Enrichers;
 
 namespace Kafka.Connect.MongoDb.Collections
 {
@@ -79,17 +75,6 @@ namespace Kafka.Connect.MongoDb.Collections
                 .GetCollection<BsonDocument>(collection);
 
             return await (await dbCollection.FindAsync(model.Model.Filter, model.Model.Options)).ToListAsync();
-        }
-
-        public async Task<IList<JsonNode>> ReadMany(IList<ConnectRecord<(FilterDefinition<BsonDocument>, FindOptions<BsonDocument>)>> batch, string connector, int taskId)
-        {
-            var sourceConfig = configurationProvider.GetPluginConfig<PluginConfig>(connector);
-            var collection = mongoClientProvider.GetMongoClient(connector, taskId)
-                .GetDatabase(sourceConfig.Database)
-                .GetCollection<BsonDocument>("mongoSourceConfig.Collection");
-
-            var data = await (await collection.FindAsync(batch[0].Model.Item1, batch[0].Model.Item2)).ToListAsync();
-            return data.Select(d => JsonNode.Parse(d.ToJson())).ToList();
         }
     }
 }

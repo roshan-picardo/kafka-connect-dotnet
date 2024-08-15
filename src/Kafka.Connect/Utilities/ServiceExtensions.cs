@@ -42,7 +42,6 @@ namespace Kafka.Connect.Utilities
                 .AddScoped<ILeaderTask, LeaderTask>()
                 .AddScoped<IKafkaClientBuilder, KafkaClientBuilder>()
                 .AddScoped<IKafkaClientEventHandler, KafkaClientEventHandler>()
-                .AddScoped<IRetriableHandler, RetriableHandler>()
                 
                 .AddScoped<IConnectDeadLetter, ConnectDeadLetter>()
                 .AddScoped<ITokenHandler, TokenHandler>()
@@ -53,7 +52,6 @@ namespace Kafka.Connect.Utilities
                 .AddScoped<IGenericRecordHandler, GenericRecordHandler>()
                 .AddScoped<IMessageHandler, MessageHandler>()
                 .AddScoped<IConnectorClient, ConnectorClient>()
-                .AddScoped<IPartitionHandler, PartitionHandler>()
                 .AddScoped<ISinkExceptionHandler, SinkExceptionHandler>()
 
                 .AddScoped<IProcessor, JsonTypeOverrider>()

@@ -1,5 +1,3 @@
-using System.Text;
-using System.Text.Json;
 using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
@@ -22,7 +20,7 @@ public class UpdateStrategy(ILogger<UpdateStrategy> logger, IConfigurationProvid
             
             return Task.FromResult(new StrategyModel<string>
             {
-                Status = SinkStatus.Updating,
+                Status = Status.Updating,
                 Model = $"""
                          UPDATE {config.Schema}.{config.Table}
                          SET ({fields}) = 

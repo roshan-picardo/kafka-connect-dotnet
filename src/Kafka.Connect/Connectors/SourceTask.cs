@@ -36,6 +36,7 @@ public class SourceTask(
         }
 
         var timeoutInMs = configurationProvider.GetBatchConfig(connector).TimeoutInMs;
+        var parallelOptions = configurationProvider.GetParallelRetryOptions(connector);
 
         while (!cts.IsCancellationRequested)
         {
@@ -52,22 +53,22 @@ public class SourceTask(
                 var commands = await pollRecordCollection.GetCommands();
                 executionContext.UpdateCommands(connector, taskId, commands);
 
-                await commands.ForEachAsync(configurationProvider.GetDegreeOfParallelism(connector), async cr =>
+                await commands.ForEachAsync(parallelOptions, async cr =>
                 {
                     if (cr is not CommandRecord record) return;
                     using (ConnectLog.Command(record.Name))
                     {
                         try
                         {
-                            pollRecordCollection.UpdateTo(SinkStatus.Sourcing, record.Topic, record.Partition, record.Offset);
+                            pollRecordCollection.UpdateTo(Status.Sourcing, record.Topic, record.Partition, record.Offset);
                             await pollRecordCollection.Source(record);
                             await pollRecordCollection.Process(record.Id.ToString());
                             await pollRecordCollection.Produce(record.Id.ToString());
-                            pollRecordCollection.UpdateTo(SinkStatus.Sourced, record.Topic, record.Partition, record.Offset);
+                            pollRecordCollection.UpdateTo(Status.Sourced, record.Topic, record.Partition, record.Offset);
                         }
                         catch (Exception ex)
                         {
-                            pollRecordCollection.UpdateTo(SinkStatus.Failed, record.Topic, record.Partition, record.Offset, 
+                            pollRecordCollection.UpdateTo(Status.Failed, record.Topic, record.Partition, record.Offset, 
                                 ex is not ConnectAggregateException ? ex : null);
 
                             if (configurationProvider.IsErrorTolerated(connector))

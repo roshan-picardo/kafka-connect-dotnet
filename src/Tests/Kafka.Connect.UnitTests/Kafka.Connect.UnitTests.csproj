@@ -40,6 +40,9 @@
       <Compile Remove="Connectors\ExecutionContextTests.cs" />
       <Compile Remove="Providers\DefaultLogRecordTests.cs" />
       <Compile Remove="Providers\SinkHandlerProviderTests.cs" />
+      <Compile Remove="Handlers\PartitionHandlerTests.cs" />
+      <Compile Remove="Handlers\RetriableHandlerTests.cs" />
+      <Compile Remove="Handlers\SinkExceptionHandlerTests.cs" />
     </ItemGroup>
 
     <ItemGroup>
@@ -51,6 +54,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <Folder Include="Handlers\" />
       <Folder Include="Providers\" />
     </ItemGroup>
 

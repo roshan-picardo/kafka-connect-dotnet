@@ -23,7 +23,6 @@ public interface IConnectRecordCollection
     void Record(CommandRecord command);
     Task NotifyEndOfPartition();
     void Cleanup();
-    ConnectRecordBatch GetBatch();
     bool TryPublisher();
     Task<IList<CommandRecord>> GetCommands();
     Task Source(CommandRecord command);
@@ -31,8 +30,8 @@ public interface IConnectRecordCollection
     Task<JsonNode> UpdateCommand(CommandRecord command);
     void Commit(IList<CommandRecord> commands);
     Task Configure(string batchId, bool refresh);
-    void UpdateTo(SinkStatus status, string batchId = null);
-    void UpdateTo(SinkStatus status, string topic, int partition, long offset, Exception ex = null);
+    void UpdateTo(Status status, string batchId = null);
+    void UpdateTo(Status status, string topic, int partition, long offset, Exception ex = null);
     int Count(string batchId = null);
     void StartTiming();
     void EndTiming();

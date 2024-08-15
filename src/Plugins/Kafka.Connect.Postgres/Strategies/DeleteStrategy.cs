@@ -19,7 +19,7 @@ public class DeleteStrategy(ILogger<DeleteStrategy> logger, IConfigurationProvid
 
             return Task.FromResult(new StrategyModel<string>
             {
-                Status = SinkStatus.Deleting,
+                Status = Status.Deleting,
                 Model = $"""
                          DELETE FROM {config.Schema}.{config.Table} 
                          WHERE {BuildCondition(config.Filter, deserialized)};

@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+using Kafka.Connect.Plugin.Models;
 
 namespace Kafka.Connect.Plugin.Providers;
 
@@ -8,5 +8,5 @@ public interface IConfigurationProvider
     T GetLogAttributes<T>(string connector);
     string GetPluginName(string connector);
     T GetPluginConfig<T>(string connector);
-    IList<(string Name, int Tasks)> GetConnectorsByPlugin(string plugin);
+    ParallelRetryOptions GetParallelRetryOptions(string connector);
 }

@@ -55,7 +55,7 @@ public class LeaderTask(
 
                     await leaderRecordCollection.Process(connector);
                     await leaderRecordCollection.Produce(connector);
-                    leaderRecordCollection.UpdateTo(SinkStatus.Reviewed, connector);
+                    leaderRecordCollection.UpdateTo(Status.Reviewed, connector);
 
                     leaderRecordCollection.Commit();
                     _pauseTokenSource.Pause();
@@ -86,7 +86,7 @@ public class LeaderTask(
         IsStopped = true;
     }
 
-    public bool IsPaused { get; set; }
+    public bool IsPaused => false;
     public bool IsStopped { get; private set; }
 
     private void Trigger()

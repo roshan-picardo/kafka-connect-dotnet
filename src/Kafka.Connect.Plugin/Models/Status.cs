@@ -1,6 +1,6 @@
 namespace Kafka.Connect.Plugin.Models;
 
-public enum SinkStatus
+public enum Status
 {
     Empty,
         
@@ -41,5 +41,10 @@ public enum SinkStatus
     Reviewed,
 
     Sourcing,
-    Sourced
+    Sourced,
+    
+    Retrying,
+    Deferred,
+    
+    Triggered
 }

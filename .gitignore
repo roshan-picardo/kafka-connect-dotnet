@@ -15,3 +15,4 @@ src/Tests/Kafka.Connect.Data.Generator/*
 src/Tests/Kafka.Connect.Mongodb.FunctionalTests/*
 plugins/*
 /app/bin/*
+/src/.vs/*

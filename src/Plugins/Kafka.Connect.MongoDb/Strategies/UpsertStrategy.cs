@@ -21,7 +21,7 @@ public class UpsertStrategy(ILogger<UpsertStrategy> logger, IConfigurationProvid
             
             return Task.FromResult(new StrategyModel<UpdateOneModel<BsonDocument>>()
             {
-                Status = SinkStatus.Updating,
+                Status = Status.Updating,
                 Model = new UpdateOneModel<BsonDocument>(
                     new BsonDocumentFilterDefinition<BsonDocument>(
                         BsonDocument.Parse(BuildCondition(condition.ToJsonString(), record.Deserialized.Value.ToDictionary()))),

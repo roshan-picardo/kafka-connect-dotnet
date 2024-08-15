@@ -8,16 +8,16 @@ namespace Kafka.Connect.Strategies;
 
 public class SkipWriteStrategy : IStrategy
 {
-    public Task<(SinkStatus Status, IList<T> Models)> BuildModels<T>(string connector, IConnectRecord record)
+    public Task<(Status Status, IList<T> Models)> BuildModels<T>(string connector, IConnectRecord record)
     {
-        return Task.FromResult<(SinkStatus, IList<T>)>((SinkStatus.Skipping, Array.Empty<T>()));
+        return Task.FromResult<(Status, IList<T>)>((Status.Skipping, Array.Empty<T>()));
     }
 
     public Task<StrategyModel<T>> Build<T>(string connector, IConnectRecord record)
     {
         return Task.FromResult(new StrategyModel<T>
         {
-            Status = SinkStatus.Skipping,
+            Status = Status.Skipping,
             Topic = record.Topic, 
             Partition = record.Partition, 
             Offset = record.Offset,

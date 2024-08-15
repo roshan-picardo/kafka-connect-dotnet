@@ -5,7 +5,6 @@ using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Plugin.Providers;
-using Kafka.Connect.Plugin.Strategies;
 using Kafka.Connect.Postgres.Models;
 using Npgsql;
 
@@ -56,25 +55,18 @@ public class PostgresPluginHandler(
     {
         using (logger.Track("Putting batch of records"))
         {
+            var parallelRetryOptions = _configurationProvider.GetParallelRetryOptions(connector);
             var models = new List<StrategyModel<string>>();
-            await records.ForEachAsync(10, async cr =>
+            await records.ForEachAsync(parallelRetryOptions, async cr =>
             {
                 using (ConnectLog.TopicPartitionOffset(cr.Topic, cr.Partition, cr.Offset))
                 {
-                    if (cr is not ConnectRecord record ||
-                        record.Status is SinkStatus.Updated or SinkStatus.Deleted or SinkStatus.Inserted
-                            or SinkStatus.Skipped)
-                        return;
-                    if (!record.Skip)
+                    if (cr is ConnectRecord { Sinking: true } record)
                     {
                         var model = await connectPluginFactory.GetStrategy(connector, record)
                             .Build<string>(connector, record);
                         models.Add(model);
                         record.Status = model.Status;
-                    }
-                    else
-                    {
-                        record.Status = SinkStatus.Skipping;
                     }
                 }
             });
@@ -95,7 +87,7 @@ public class PostgresPluginHandler(
     public override IDictionary<string, Command> Commands(string connector) => postgresCommandHandler.Get(connector);
 
     public override JsonNode NextCommand(CommandRecord command, List<ConnectRecord> records) =>
-        postgresCommandHandler.Next(command, records.Where(r => r.Status is SinkStatus.Published or SinkStatus.Skipped)
+        postgresCommandHandler.Next(command, records.Where(r => r.Status is Status.Published or Status.Skipped or Status.Triggered)
             .Select(r => r.Deserialized).ToList());
     
     
@@ -118,7 +110,7 @@ public class PostgresPluginHandler(
         }
         return new ConnectRecord(config.Topic, -1, -1)
         {
-            Skip = skipIfInitial,
+            Status = skipIfInitial ? Status.Triggered : Status.Selected,
             Deserialized = new ConnectMessage<JsonNode>
             {
                 Key = skipIfInitial

@@ -8,9 +8,9 @@ using Microsoft.Extensions.Configuration;
 
 namespace Kafka.Connect.Postgres;
 
-public class DefaultPluginInitializer : PluginInitializer
+public class DefaultPluginInitializer : IPluginInitializer
 {
-    public override void AddServices(IServiceCollection collection, IConfiguration configuration, params (string Name, int Tasks)[] connectors)
+    public void AddServices(IServiceCollection collection, IConfiguration configuration, params (string Name, int Tasks)[] connectors)
     {
         collection
             .AddScoped<IPluginHandler, PostgresPluginHandler>()

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -12,19 +13,18 @@ namespace Kafka.Connect.Handlers;
 
 public interface IConfigurationChangeHandler
 {
-    Task<ConnectRecordBatch> Refresh(IEnumerable<ConnectRecord> records, bool refresh);
+    Task<BlockingCollection<ConnectRecord>> Refresh(IEnumerable<ConnectRecord> records, bool refresh);
 }
 
 public class ConfigurationChangeHandler(IConfigurationProvider configurationProvider) : IConfigurationChangeHandler
 {
-    public async Task<ConnectRecordBatch> Refresh(IEnumerable<ConnectRecord> records, bool refresh)
+    public async Task<BlockingCollection<ConnectRecord>> Refresh(IEnumerable<ConnectRecord> records, bool refresh)
     {
-        var sourceRecords = new ConnectRecordBatch("");
+        var sourceRecords = new BlockingCollection<ConnectRecord>();
         var leaderConfig = configurationProvider.GetLeaderConfig(true);
         
         var latestRecords = records.GroupBy(r => r.GetKey<string>())
             .Select(g => g.Aggregate((max, cur) => (max == null || cur.Offset > max.Offset) ? cur : max)).ToList();
-
        
             if (!refresh)
             {

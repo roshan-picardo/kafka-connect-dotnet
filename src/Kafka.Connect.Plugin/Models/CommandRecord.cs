@@ -20,12 +20,15 @@ public class CommandRecord : IConnectRecord
         }
     }
 
-    public string Name { get; set; }
-    public string Connector { get; set; }
+    public string Name { get; init; }
+    public string Connector { get; init; }
     public string Topic { get; set; }
     public int Partition { get; set; }
     public long Offset { get; set; }
-    public int BatchSize { get; set; }
+    public Guid Key => Id;
+    public Status Status { get; set; }
+
+    public int BatchSize { get; init; }
     public JsonNode Changelog { get; set; }
     public JsonNode Command { get; set; }
     public Exception Exception { get; set; }
@@ -33,11 +36,9 @@ public class CommandRecord : IConnectRecord
     public int GetVersion()
     {
         var hash = Command["Version"]?.GetValue<int>() ?? 0;
-        if (hash == 0)
-        {
-            hash = Command.ToJsonString().ToGuid().GetHashCode() & 0x7FFFFFFF;
-            Command["Version"] = hash;
-        }
+        if (hash != 0) return hash;
+        hash = Command.ToJsonString().ToGuid().GetHashCode() & 0x7FFFFFFF;
+        Command["Version"] = hash;
         return hash;
     }
     public T GetCommand<T>() => Get<T>(Command);
