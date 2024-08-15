@@ -16,3 +16,5 @@ src/Tests/Kafka.Connect.Mongodb.FunctionalTests/*
 plugins/*
 /app/bin/*
 /src/.vs/*
+/tests/*/bin/*
+/tests/*/obj/*
