@@ -23,7 +23,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\Kafka.Connect\Kafka.Connect.csproj" />
+      <ProjectReference Include="..\..\src\Kafka.Connect\Kafka.Connect.csproj" />
     </ItemGroup>
 
     <ItemGroup>

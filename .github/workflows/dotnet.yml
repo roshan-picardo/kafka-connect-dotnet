@@ -22,7 +22,7 @@ jobs:
     - name: Build
       run: dotnet build src --no-restore 
     - name: Test
-      run: dotnet test src/Tests/Kafka.Connect.UnitTests/Kafka.Connect.UnitTests.csproj --no-build --logger "trx;LogFileName=test-results.trx" --collect:"XPlat Code Coverage" --results-directory ./coverage  || true 
+      run: dotnet test tests/Kafka.Connect.UnitTests/Kafka.Connect.UnitTests.csproj --no-build --logger "trx;LogFileName=test-results.trx" --collect:"XPlat Code Coverage" --results-directory ./coverage  || true 
     - name: Test Report
       uses: dorny/test-reporter@v1
       if: always()
