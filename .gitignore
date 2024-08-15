@@ -9,10 +9,8 @@ src/Kafka.Connect/obj/*
 src/Kafka.sln.DotSettings.user
 src/Plugins/*/bin/*
 src/Plugins/*/obj/*
-src/Tests/*/bin/*
-src/Tests/*/obj/*
-src/Tests/Kafka.Connect.Data.Generator/*
-src/Tests/Kafka.Connect.Mongodb.FunctionalTests/*
+tests/*/bin/*
+tests/*/obj/*
 plugins/*
 /app/bin/*
 /src/.vs/*

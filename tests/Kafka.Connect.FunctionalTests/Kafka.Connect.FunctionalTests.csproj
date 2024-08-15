@@ -39,7 +39,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\Kafka.Connect\Kafka.Connect.csproj" />
+      <ProjectReference Include="..\..\src\Kafka.Connect\Kafka.Connect.csproj" />
     </ItemGroup>
 
     <ItemGroup>
@@ -47,10 +47,6 @@
       <None Update="appsettings.json">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </None>
-    </ItemGroup>
-
-    <ItemGroup>
-      <Folder Include="Records" />
     </ItemGroup>
 
     <ItemGroup>
