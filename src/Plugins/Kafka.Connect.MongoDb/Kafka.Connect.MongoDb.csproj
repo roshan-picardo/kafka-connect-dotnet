@@ -2,9 +2,12 @@
     <PropertyGroup>
         <TargetFramework>net8.0</TargetFramework>
         <LangVersion>12</LangVersion>
+        <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     </PropertyGroup>
     <ItemGroup>
         <PackageReference Include="MongoDB.Driver" />
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" ExcludeAssets="runtime" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" ExcludeAssets="runtime" />
     </ItemGroup>
     <Choose>
         <When Condition="'$(Configuration)'=='Debug'">

@@ -60,14 +60,14 @@ namespace Kafka.Connect.Utilities
                 .AddScoped<IProcessor, WhitelistFieldProjector>()
                 .AddScoped<IProcessor, FieldRenamer>()
                 .AddScoped<ILogRecord, DefaultLogRecord>()
-                
-                .AddScoped<IAsyncDeserializer<GenericRecord>, AvroDeserializer<GenericRecord>>()
-                .AddScoped<IAsyncDeserializer<JsonNode>, AvroDeserializer<JsonNode>>()
+
                 .AddScoped<ISchemaRegistryClient>(_ =>
                 {
                     var config = configuration.GetSection("worker:schemaRegistry").Get<SchemaRegistryConfig>();
                     return string.IsNullOrEmpty(config?.Url) ? null : new CachedSchemaRegistryClient(config);
                 })
+                .AddScoped<IAsyncDeserializer<GenericRecord>>(provider => new AvroDeserializer<GenericRecord>(provider.GetService<ISchemaRegistryClient>()))
+                .AddScoped<IAsyncDeserializer<JsonNode>>(provider => new AvroDeserializer<JsonNode>(provider.GetService<ISchemaRegistryClient>()))
                 .AddScoped<IAsyncSerializer<GenericRecord>>(provider => new AvroSerializer<GenericRecord>(provider.GetService<ISchemaRegistryClient>()))
                 .AddScoped<IAsyncSerializer<JsonNode>>(provider => new JsonSerializer<JsonNode>(provider.GetService<ISchemaRegistryClient>()))
                 .AddScoped<IMessageConverter, AvroConverter>()
