@@ -84,13 +84,6 @@ public class Fixture : IDisposable
                         new Message<Null, GenericRecord> {Key = null, Value = genericRecord}))
                     .TopicPartitionOffset;
             }
-            else if (schema.Key is string)
-            {
-                delivered = (await _keyStringProducer.ProduceAsync(topic,
-                        new Message<string, GenericRecord>
-                            {Key = message.Key.ToString(), Value = genericRecord}))
-                    .TopicPartitionOffset;
-            }
             else
             {
                 var schemaKey = (RecordSchema) Avro.Schema.Parse(schema.Key?.ToString());
@@ -100,6 +93,7 @@ public class Fixture : IDisposable
                             {Key = keyRecord, Value = genericRecord}))
                     .TopicPartitionOffset;
             }
+
             Console.WriteLine($"{DateTime.Now} : {delivered.Topic} : {delivered.Partition.Value:00} - {delivered.Offset.Value:0000}");
         }
     }

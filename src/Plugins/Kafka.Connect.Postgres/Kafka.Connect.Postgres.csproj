@@ -6,7 +6,9 @@
         <LangVersion>12</LangVersion>
     </PropertyGroup>
     <ItemGroup>
-      <PackageReference Include="Npgsql" />
+        <PackageReference Include="Npgsql" />
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" ExcludeAssets="runtime" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" ExcludeAssets="runtime" />
     </ItemGroup>
     <Choose>
         <When Condition="'$(Configuration)'=='Debug'">
