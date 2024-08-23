@@ -14,8 +14,8 @@ public static class ParallelExtensions
         ParallelRetryOptions parallelRetryOptions,
         Func<IConnectRecord, Task> body)
     {
-        var connectRecords = records as IConnectRecord[] ?? records.ToArray();
-        var attempts =  parallelRetryOptions.Attempts;
+        var connectRecords = records.TakeWhile(record => record.Status != Status.Aborted).ToArray();
+        var attempts = parallelRetryOptions.Attempts;
         do
         {
             attempts--;
@@ -34,22 +34,32 @@ public static class ParallelExtensions
                         record.Exception = handleEx is ConnectException
                             ? handleEx
                             : new ConnectDataException(handleEx.Message, handleEx);
-                        record.Status = handleEx is ConnectRetriableException && attempts > 0
-                            ? Status.Retrying
-                            : Status.Failed;
+                        record.Status = handleEx is ConnectRetriableException ? Status.Retrying : Status.Failed;
                     }
                 });
-        } while (connectRecords.Any(r => r.Status == Status.Retrying));
+        } while (connectRecords.Any(r => r.Status == Status.Retrying) && attempts > 0);
 
-        if (!parallelRetryOptions.ErrorTolerated && connectRecords.Any(r => r.Status == Status.Failed))
+        if (parallelRetryOptions.ErrorTolerance.None)
         {
-            var deferred = false;
-            connectRecords.ForEach(record =>
-            {
-                record.Status = deferred ? Status.Deferred : record.Status;
-                deferred = deferred || record.Status == Status.Failed;
-            });
+            connectRecords = connectRecords.TakeUntil(record => record.Status is Status.Retrying or Status.Failed).ToArray();
         }
+        else if (parallelRetryOptions.ErrorTolerance.Data)
+        {
+            connectRecords = connectRecords.TakeUntil(record => record.Status is Status.Retrying).ToArray();
+        }
+
+        connectRecords.ForEach(record =>
+        {
+            if ((parallelRetryOptions.ErrorTolerance.None && record.Status is Status.Retrying or Status.Failed) ||
+                parallelRetryOptions.ErrorTolerance.Data && record.Status == Status.Retrying)
+            {
+                record.Status = Status.Aborted;
+            }
+            else if (record.Status == Status.Retrying)
+            {
+                record.Status = Status.Failed;
+            }
+        });
     }
 
     public static void ForEach<T>(this IEnumerable<T> source, Action<T> body)
@@ -57,6 +67,19 @@ public static class ParallelExtensions
         foreach (var item in source)
         {
             body(item);
+        }
+    }
+
+    private static IEnumerable<T> TakeUntil<T>(this IEnumerable<T> source, Func<T, bool> predicate )
+    {
+        foreach ( var item in source )
+        {
+            yield return item;
+
+            if (predicate(item))
+            {
+                yield break;
+            }
         }
     }
 }

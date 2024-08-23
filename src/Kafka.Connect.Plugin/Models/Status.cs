@@ -46,5 +46,7 @@ public enum Status
     Retrying,
     Deferred,
     
-    Triggered
+    Triggered,
+    
+    Aborted
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using Confluent.Kafka;
@@ -24,6 +25,7 @@ public interface IConnectorClient
     Task Produce(string connector, List<IConnectRecord> records);
     Task Produce(TopicPartition topicPartition, Message<byte[], byte[]> message);
     void Commit(IList<(string Topic, int Partition, long Offset)> offsets);
+    Task SendToDeadLetter(IEnumerable<ConnectRecord> records, string connector);
 
     Task NotifyEndOfPartition(
         string connector,
@@ -109,7 +111,6 @@ public class ConnectorClient(
                         using (ConnectLog.TopicPartitionOffset(record.Topic))
                         {
                             record.Status = Status.Publishing; 
-                            //TODO: handle record.skip a bit differently
                             var delivered = await _producer.ProduceAsync(record.Topic,
                                 new Message<byte[], byte[]>
                                 {
@@ -198,6 +199,27 @@ public class ConnectorClient(
                             Offset = delivered.Offset.Value
                         });
                     }
+                }
+            }
+        }
+    }
+    
+    public async Task SendToDeadLetter(IEnumerable<ConnectRecord> records, string connector)
+    {
+        using (logger.Track("Sending message to dead letter queue."))
+        {
+            var topic = configurationProvider.GetErrorsConfig(connector).Topic;
+            foreach (var record in records.Where(record => record.Status == Status.Failed))
+            {
+                using (ConnectLog.TopicPartitionOffset(record.Topic, record.Partition, record.Offset))
+                {
+                    var delivered = await _producer.ProduceAsync(topic, GetDeadLetterMessage(record));
+                    logger.Info("Error message delivered.", new
+                    {
+                        delivered.Topic,
+                        Partition = delivered.Partition.Value,
+                        Offset = delivered.Offset.Value
+                    });
                 }
             }
         }
@@ -298,5 +320,27 @@ public class ConnectorClient(
         {
             yield return commitOffset;
         }
+    }
+
+    private static Message<byte[], byte[]> GetDeadLetterMessage(ConnectRecord record)
+    {
+        var deadMessage = new Message<byte[], byte[]> { Headers = [] };
+        if (record.Serialized != null)
+        {
+            deadMessage.Key = record.Serialized.Key;
+            deadMessage.Value = record.Serialized.Value;
+            deadMessage.Headers = record.Serialized.Headers?.ToMessageHeaders() ?? [];
+        }
+        else if (record.Deserialized != null)
+        {
+            deadMessage.Key = ByteConvert.Serialize(record.Deserialized.Key ?? JsonNode.Parse("{}"));
+            deadMessage.Value = ByteConvert.Serialize(record.Deserialized.Value ?? JsonNode.Parse("{}"));
+            deadMessage.Headers =
+                record.Deserialized.Headers?.ToDictionary(k => k.Key,
+                    v => ByteConvert.Serialize(v.Value ?? JsonNode.Parse("{}"))).ToMessageHeaders() ?? [];
+        }
+        
+        deadMessage.Headers.Add("__errorContext", ByteConvert.Serialize(new DeadLetterErrorContext(record)));
+        return deadMessage;
     }
 }

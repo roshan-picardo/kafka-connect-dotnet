@@ -37,7 +37,7 @@ namespace UnitTests.Kafka.Connect.Background
                 new HealthCheckService(_logger, _configurationProvider, _executionContext, _tokenHandler);
 
             _healthCheckService.StartAsync(GetCancellationToken(1));
-            while (!_healthCheckService.ExecuteTask.IsCompletedSuccessfully)
+            while (_healthCheckService.ExecuteTask is { IsCompletedSuccessfully: false })
             {
                 // wait for the task to complete
             }
@@ -103,7 +103,7 @@ namespace UnitTests.Kafka.Connect.Background
         {
             var cts = new CancellationTokenSource();
 
-            _tokenHandler.When(k => k.DoNothing()).Do(_ =>
+            _tokenHandler.When(k => k.NoOp()).Do(_ =>
             {
                 if (--loop == 0) cts.Cancel();
             });

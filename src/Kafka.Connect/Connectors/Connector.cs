@@ -37,7 +37,7 @@ public class Connector(
 
         while (!cts.IsCancellationRequested) 
         {
-            tokenHandler.DoNothing();
+            tokenHandler.NoOp();
             await _pauseTokenSource.WaitWhilePaused(cts.Token);
 
             if (cts.IsCancellationRequested)

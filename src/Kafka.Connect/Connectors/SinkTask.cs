@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Handlers;
 using Kafka.Connect.Plugin.Logging;
+using Kafka.Connect.Plugin.Tokens;
 using Kafka.Connect.Providers;
 using Kafka.Connect.Tokens;
 
@@ -13,7 +14,8 @@ public class SinkTask(
     ISinkExceptionHandler sinkExceptionHandler,
     IConfigurationProvider configurationProvider,
     IExecutionContext executionContext,
-    IConnectRecordCollection sinkRecordCollection)
+    IConnectRecordCollection sinkRecordCollection, 
+    ITokenHandler tokenHandler)
     : ISinkTask
 {
     private readonly PauseTokenSource _pauseTokenSource = PauseTokenSource.New();
@@ -34,8 +36,8 @@ public class SinkTask(
 
         while (!cts.IsCancellationRequested)
         {
+            tokenHandler.NoOp();
             await _pauseTokenSource.WaitWhilePaused(cts.Token);
-            //TODO: lets approach this solution differently - need an Admin node to issue pause / resume over all workers.
             if (cts.IsCancellationRequested) break;
 
             sinkRecordCollection.Clear();
@@ -52,7 +54,7 @@ public class SinkTask(
                 {
                     if (configurationProvider.IsErrorTolerated(connector))
                     {
-                        await sinkRecordCollection.DeadLetter(ex);
+                        await sinkRecordCollection.DeadLetter();
                         sinkRecordCollection.Commit();
                     }
 

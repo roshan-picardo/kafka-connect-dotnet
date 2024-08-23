@@ -2,19 +2,15 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Kafka.Connect.Connectors;
 using Kafka.Connect.Models;
 using Kafka.Connect.Plugin.Exceptions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
-using Kafka.Connect.Providers;
 
 namespace Kafka.Connect.Handlers;
 
 public class SinkExceptionHandler(
-    ILogger<SinkExceptionHandler> logger,
-    IConnectDeadLetter connectDeadLetter,
-    IConfigurationProvider configurationProvider)
+    ILogger<SinkExceptionHandler> logger)
     : ISinkExceptionHandler
 {
     public void Handle(Exception exception, Action cancel)
@@ -109,18 +105,6 @@ public class SinkExceptionHandler(
                 default:
                     cancel();
                     break;
-            }
-        }
-    }
-
-    public async Task HandleDeadLetter(IList<SinkRecord> batch, Exception exception, string connector)
-    {
-        using (logger.Track("Handle dead-letter."))
-        {
-            if (configurationProvider.IsDeadLetterEnabled(connector))
-            {
-                await connectDeadLetter.Send(batch.Where(r => r.Status == Status.Failed), exception,
-                    connector);
             }
         }
     }

@@ -1,22 +1,15 @@
 using System;
-using Confluent.Kafka;
+using Kafka.Connect.Plugin.Models;
 
 namespace Kafka.Connect.Models
 {
     [Serializable]
-    public class DeadLetterErrorContext
+    public class DeadLetterErrorContext(ConnectRecord record)
     {
-        public string Topic { get; }
-        public int Partition { get; }
-        public long Offset { get; }
-        public Exception Exception { get; }
-
-        public DeadLetterErrorContext(string topic, int partition, long offset, Exception exception)
-        {
-            Topic = topic;
-            Partition = partition;
-            Offset = offset;
-            Exception = exception;
-        }
+        public string Topic { get; } = record.Topic;
+        public int Partition { get; } = record.Partition;
+        public long Offset { get; } = record.Offset;
+        public Exception Exception { get; } = record.Exception;
+        public long Timestamp { get; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
     }
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using Kafka.Connect.Plugin.Extensions;
 
 namespace Kafka.Connect.Plugin.Models;
@@ -31,8 +32,9 @@ public class CommandRecord : IConnectRecord
     public int BatchSize { get; init; }
     public JsonNode Changelog { get; set; }
     public JsonNode Command { get; set; }
+    [JsonIgnore]
     public Exception Exception { get; set; }
-
+    
     public int GetVersion()
     {
         var hash = Command["Version"]?.GetValue<int>() ?? 0;

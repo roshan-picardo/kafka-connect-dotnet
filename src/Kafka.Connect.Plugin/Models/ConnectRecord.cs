@@ -1,7 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
+using Kafka.Connect.Plugin.Extensions;
 
 namespace Kafka.Connect.Plugin.Models;
 
@@ -104,10 +107,29 @@ public class ConnectRecord : IConnectRecord
         };
     }
 
+    [JsonIgnore]
     public Exception Exception { get; set; }
 
     public bool IsOf(string topic, int partition, long offset) =>
         topic == Topic && partition == Partition && offset == Offset;
+    
+    public ConnectMessage<byte[]> GetDeadLetterMessage()
+    {
+        var deadMessage = new ConnectMessage<byte[]>();
+        if (Serialized != null)
+        {
+            deadMessage.Key = Serialized.Key;
+            deadMessage.Value = Serialized.Value;
+            deadMessage.Headers = Serialized.Headers ?? new Dictionary<string, byte[]>();
+        }
+        else if(Deserialized != null)
+        {
+            // do something?
+        }
+        
+        deadMessage.Headers.Add("__errorContext", ByteConvert.Serialize(this));
+        return deadMessage;
+    }
     
     public bool Processing => Status is Status.Retrying or Status.Consumed or Status.Selected;
     public bool Sinking => Status is Status.Retrying or Status.Processed;

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Kafka.Connect.Plugin;
+using Kafka.Connect.Plugin.Exceptions;
 using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
@@ -34,19 +35,31 @@ public class PostgresPluginHandler(
                     postgresClientProvider.GetPostgresClient(connector, taskId).GetConnection())
                 .ExecuteReaderAsync();
             var records = new List<ConnectRecord>();
-            while (await reader.ReadAsync())
+            try
             {
-                var record = new Dictionary<string, object>();
-                for (var i = 0; i < reader.FieldCount; i++)
+                while (await reader.ReadAsync())
                 {
-                    record.Add(reader.GetName(i), reader.GetValue(i));
+                    var record = new Dictionary<string, object>();
+                    for (var i = 0; i < reader.FieldCount; i++)
+                    {
+                        record.Add(reader.GetName(i), reader.GetValue(i));
+                    }
+
+                    records.Add(GetConnectRecord(record, command));
                 }
-
-                records.Add(GetConnectRecord(record, command));
             }
-
-            await reader.CloseAsync();
-
+            catch (Exception ex)
+            {
+                command.Exception = ex;
+                if (records.Count == 0)
+                {
+                    throw new ConnectDataException(ex.Message, ex);
+                }
+            }
+            finally
+            {
+                await reader.CloseAsync();
+            }
             return records;
         }
     }

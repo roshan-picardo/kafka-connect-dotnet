@@ -7,6 +7,7 @@ using Kafka.Connect.Plugin.Exceptions;
 using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
+using Kafka.Connect.Plugin.Tokens;
 using Kafka.Connect.Providers;
 using Kafka.Connect.Tokens;
 
@@ -15,8 +16,8 @@ namespace Kafka.Connect.Connectors;
 public class SourceTask(
     IExecutionContext executionContext,
     IConfigurationProvider configurationProvider,
-    IConnectRecordCollection pollRecordCollection,
-    ISinkExceptionHandler sinkExceptionHandler)
+    IConnectRecordCollection pollRecordCollection, 
+    ITokenHandler tokenHandler)
     : ISourceTask
 {
     private readonly PauseTokenSource _pauseTokenSource = new();
@@ -40,6 +41,7 @@ public class SourceTask(
 
         while (!cts.IsCancellationRequested)
         {
+            tokenHandler.NoOp();
             await _pauseTokenSource.WaitUntilTimeout(Interlocked.Exchange(ref timeoutInMs, configurationProvider.GetBatchConfig(connector).TimeoutInMs), cts.Token);
 
             if (cts.IsCancellationRequested) break;
@@ -70,16 +72,13 @@ public class SourceTask(
                         {
                             pollRecordCollection.UpdateTo(Status.Failed, record.Topic, record.Partition, record.Offset, 
                                 ex is not ConnectAggregateException ? ex : null);
-
-                            if (configurationProvider.IsErrorTolerated(connector))
-                            {
-                                await pollRecordCollection.DeadLetter(ex, record.Id.ToString());
-                            }
-
-                            sinkExceptionHandler.Handle(ex, Cancel);
                         }
                         finally
                         {
+                            if (configurationProvider.IsErrorTolerated(connector))
+                            {
+                                await pollRecordCollection.DeadLetter(record.Id.ToString());
+                            }
                             pollRecordCollection.Record(record);
                             await pollRecordCollection.UpdateCommand(record);
 
@@ -100,14 +99,5 @@ public class SourceTask(
             }
         }
         IsStopped = true;
-        return;
-
-        void Cancel()
-        {
-            if (!configurationProvider.IsErrorTolerated(connector))
-            {
-                cts.Cancel();
-            }
-        }
     }
 }

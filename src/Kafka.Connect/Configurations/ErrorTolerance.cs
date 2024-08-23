@@ -2,7 +2,8 @@ namespace Kafka.Connect.Configurations
 {
     public enum ErrorTolerance
     {
-        None,
-        All
+        None, // No errors are tolerated
+        Data, // only data errors are tolerated 
+        All // all errors are tolerated
     }
 }

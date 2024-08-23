@@ -9,6 +9,7 @@
     
     <ItemGroup>
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.0.0" />
+        <PackageReference Include="Moq" Version="4.20.70" />
         <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
         <PackageReference Include="NSubstitute" Version="4.3.0" />
         <PackageReference Include="xunit" Version="2.4.2" />
@@ -31,7 +32,6 @@
       <Compile Remove="Handlers\MessageHandlerTests.cs" />
       <Compile Remove="Providers\ProcessorServiceProviderTests.cs" />
       <Compile Remove="Serializers\**" />
-      <Compile Remove="Connectors\SinkTaskTests.cs" />
       <Compile Remove="Handlers\SinkConsumerTests.cs" />
       <Compile Remove="Handlers\SinkProcessorTests.cs" />
       <Compile Remove="Connectors\ConnectorTests.cs" />
