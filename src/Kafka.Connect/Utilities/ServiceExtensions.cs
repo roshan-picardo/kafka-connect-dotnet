@@ -43,7 +43,6 @@ namespace Kafka.Connect.Utilities
                 .AddScoped<IKafkaClientBuilder, KafkaClientBuilder>()
                 .AddScoped<IKafkaClientEventHandler, KafkaClientEventHandler>()
                 
-                .AddScoped<IConnectDeadLetter, ConnectDeadLetter>()
                 .AddScoped<ITokenHandler, TokenHandler>()
                 .AddScoped<IConfigurationChangeHandler, ConfigurationChangeHandler>()
 

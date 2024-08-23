@@ -28,16 +28,5 @@ public class SinkRecord : ConnectRecord
     
     public bool IsPartitionEof { get; set; }
 
-    public Message<byte[], byte[]> GetDeadLetterMessage(Exception ex)
-    {
-        var deadMessage = new Message<byte[], byte[]> { Headers = new Headers() };
-        if (Serialized != null)
-        {
-            deadMessage.Key = Serialized.Key;
-            deadMessage.Value = Serialized.Value;
-            deadMessage.Headers = Serialized.Headers.ToMessageHeaders();
-        }
-        deadMessage.Headers.Add("_errorContext", ByteConvert.Serialize(new DeadLetterErrorContext(Topic, Partition, Offset, ex)));
-        return deadMessage;
-    }
+    
 }

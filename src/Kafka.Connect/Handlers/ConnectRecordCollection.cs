@@ -25,7 +25,6 @@ public class ConnectRecordCollection(
     IMessageHandler messageHandler,
     IConfigurationProvider configurationProvider,
     IEnumerable<IPluginHandler> pluginHandlers,
-    ISinkExceptionHandler sinkExceptionHandler,
     IExecutionContext executionContext,
     IConfigurationChangeHandler configurationChangeHandler,
     IConnectorClient connectClient,
@@ -117,6 +116,7 @@ public class ConnectRecordCollection(
 
         await connectClient.Produce(new TopicPartition(command.Topic, command.Partition),
             new Message<byte[], byte[]> { Key = message.Key, Value = message.Value });
+
         return command.Command;
     }
 
@@ -151,19 +151,14 @@ public class ConnectRecordCollection(
 
     public void UpdateTo(Status status, string topic, int partition, long offset, Exception ex = null)
     {
-        var record =
-            _sinkConnectRecords.SingleOrDefault(r =>
-                r.Topic == topic && r.Partition == partition && r.Offset == offset) ?? _sourceConnectRecords
-                .SelectMany(s => s.Value)
-                .SingleOrDefault(r => r.Topic == topic && r.Partition == partition && r.Offset == offset);
+        var record = GetRecordByTopicPartitionOffset(topic, partition, offset);
 
-        if (record != null)
+        if (record == null) return;
+        
+        record.Status = status;
+        if (ex != null)
         {
-            record.Status = status;
-            if (ex != null)
-            {
-                record.Exception = ex;
-            }
+            record.Exception = ex;
         }
     }
 
@@ -231,8 +226,7 @@ public class ConnectRecordCollection(
 
     public void Commit() => connectClient.Commit(GetCommitReadyOffsets());
 
-    public Task DeadLetter(Exception ex, string batchId = null) =>
-        sinkExceptionHandler.HandleDeadLetter(GetConnectRecords(batchId).Select(r => r as SinkRecord).ToList(), ex, _connector);
+    public Task DeadLetter(string batchId = null) => connectClient.SendToDeadLetter(GetConnectRecords(batchId), _connector);
 
     public void Record(string batchId = null) =>
         Record(GetConnectRecords(batchId).ToList(), GetConnectRecords(batchId).Count);
@@ -243,6 +237,7 @@ public class ConnectRecordCollection(
         var record = _sinkConnectRecords.FirstOrDefault(r => r.IsOf(command.Topic, command.Partition, command.Offset));
         if (record != null)
         {
+            record.Exception = command.Exception;
             records.Add(record);
         }
 
@@ -412,4 +407,10 @@ public class ConnectRecordCollection(
         logger.Trace("Selected plugin handler.", new { config.Name, Handler = pluginHandler?.GetType().FullName });
         return pluginHandler;
     }
+    
+    private ConnectRecord GetRecordByTopicPartitionOffset(string topic, int partition, long offset) => 
+        _sinkConnectRecords.SingleOrDefault(r =>
+        r.Topic == topic && r.Partition == partition && r.Offset == offset) ?? _sourceConnectRecords
+        .SelectMany(s => s.Value)
+        .SingleOrDefault(r => r.Topic == topic && r.Partition == partition && r.Offset == offset);
 }

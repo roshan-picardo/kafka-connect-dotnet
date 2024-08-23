@@ -6,4 +6,6 @@ public class ParallelRetryOptions
     public int Attempts { get; init; }
     public int TimeoutMs { get; init; }
     public bool ErrorTolerated { get; init; }
+    
+    public (bool All, bool Data, bool None) ErrorTolerance { get; set; }
 }

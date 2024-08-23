@@ -39,7 +39,7 @@ namespace Kafka.Connect.Background
                     {
                         _logger.Health(_executionContext.GetStatus());
                         await Task.Delay(config.PeriodicDelayMs, stoppingToken);
-                        _tokenHandler.DoNothing();
+                        _tokenHandler.NoOp();
                     }
                 }
             }

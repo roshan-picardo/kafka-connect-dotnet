@@ -125,7 +125,7 @@ public class FailOverMonitorService : BackgroundService
                             .ToDictionary(c => c.Name, _ => failOverConfig.FailureThreshold);
                     }
 
-                    _tokenHandler.DoNothing();
+                    _tokenHandler.NoOp();
                 }
             }
         }

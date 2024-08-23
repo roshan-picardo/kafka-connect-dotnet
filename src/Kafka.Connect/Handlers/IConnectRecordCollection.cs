@@ -18,7 +18,7 @@ public interface IConnectRecordCollection
     Task Process(string batchId = null);
     Task Sink();
     void Commit();
-    Task DeadLetter(Exception ex, string batchId = null);
+    Task DeadLetter(string batchId = null);
     void Record(string batchId = null);
     void Record(CommandRecord command);
     Task NotifyEndOfPartition();

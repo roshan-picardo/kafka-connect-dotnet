@@ -248,12 +248,17 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
     {
         var batch = GetBatchConfig(connector);
         var retries = GetRetriesConfig(connector);
+        var errorsConfig = GetErrorsConfig(connector);
         return new ParallelRetryOptions
         {
             DegreeOfParallelism = batch.Parallelism,
             Attempts = retries.Attempts,
             TimeoutMs = retries.TimeoutInMs,
-            ErrorTolerated = IsErrorTolerated(connector)
+            ErrorTolerated = IsErrorTolerated(connector),
+            ErrorTolerance = (
+                All: errorsConfig.Tolerance == ErrorTolerance.All,
+                Data: errorsConfig.Tolerance == ErrorTolerance.Data,
+                None: errorsConfig.Tolerance == ErrorTolerance.None)
         };
     }
 
