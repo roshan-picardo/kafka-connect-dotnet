@@ -51,7 +51,6 @@ namespace Kafka.Connect.Utilities
                 .AddScoped<IGenericRecordHandler, GenericRecordHandler>()
                 .AddScoped<IMessageHandler, MessageHandler>()
                 .AddScoped<IConnectorClient, ConnectorClient>()
-                .AddScoped<ISinkExceptionHandler, SinkExceptionHandler>()
 
                 .AddScoped<IProcessor, JsonTypeOverrider>()
                 .AddScoped<IProcessor, DateTimeTypeOverrider>()

@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Text.Json.Nodes;
 using System.Threading;
@@ -31,7 +30,6 @@ public interface IConnectRecordCollection
     void Commit(IList<CommandRecord> commands);
     Task Configure(string batchId, bool refresh);
     void UpdateTo(Status status, string batchId = null);
-    void UpdateTo(Status status, string topic, int partition, long offset, Exception ex = null);
     int Count(string batchId = null);
     void StartTiming();
     void EndTiming();

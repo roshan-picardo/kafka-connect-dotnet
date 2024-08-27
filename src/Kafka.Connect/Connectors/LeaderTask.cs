@@ -16,7 +16,7 @@ public class LeaderTask(
     IExecutionContext executionContext,
     IConfigurationProvider configurationProvider,
     IConnectRecordCollection leaderRecordCollection,
-    ISinkExceptionHandler sinkExceptionHandler)
+    ILogger<LeaderTask> logger)
     : ILeaderTask
 {
     private FileSystemWatcher _fileSystemWatcher;
@@ -34,6 +34,8 @@ public class LeaderTask(
         }
 
         Trigger();
+        var parallelOptions = configurationProvider.GetParallelRetryOptions(connector);
+        var attempts = parallelOptions.Attempts;
 
         while (!cts.IsCancellationRequested)
         {
@@ -68,10 +70,17 @@ public class LeaderTask(
                     {
                         _timer.Enabled = true;
                     }
+
+                    attempts = parallelOptions.Attempts;
                 }
                 catch (Exception ex)
                 {
-                    sinkExceptionHandler.Handle(ex, () => _pauseTokenSource.Pause());
+                    --attempts;
+                    logger.Critical($"Unhandled exception has occured. Attempts remaining: {attempts}", ex);
+                    if (attempts == 0)
+                    {
+                        await cts.CancelAsync();
+                    }
                 }
                 finally
                 {

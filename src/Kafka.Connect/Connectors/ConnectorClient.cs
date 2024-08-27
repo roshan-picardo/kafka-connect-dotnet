@@ -25,7 +25,7 @@ public interface IConnectorClient
     Task Produce(string connector, List<IConnectRecord> records);
     Task Produce(TopicPartition topicPartition, Message<byte[], byte[]> message);
     void Commit(IList<(string Topic, int Partition, long Offset)> offsets);
-    Task SendToDeadLetter(IEnumerable<ConnectRecord> records, string connector);
+    Task SendToDeadLetter(IEnumerable<ConnectRecord> records, string connector, int taskId, string command = null);
 
     Task NotifyEndOfPartition(
         string connector,
@@ -204,7 +204,7 @@ public class ConnectorClient(
         }
     }
     
-    public async Task SendToDeadLetter(IEnumerable<ConnectRecord> records, string connector)
+    public async Task SendToDeadLetter(IEnumerable<ConnectRecord> records, string connector, int taskId, string command = null)
     {
         using (logger.Track("Sending message to dead letter queue."))
         {
@@ -213,7 +213,7 @@ public class ConnectorClient(
             {
                 using (ConnectLog.TopicPartitionOffset(record.Topic, record.Partition, record.Offset))
                 {
-                    var delivered = await _producer.ProduceAsync(topic, GetDeadLetterMessage(record));
+                    var delivered = await _producer.ProduceAsync(topic, GetDeadLetterMessage(record, connector, taskId, command));
                     logger.Info("Error message delivered.", new
                     {
                         delivered.Topic,
@@ -322,7 +322,7 @@ public class ConnectorClient(
         }
     }
 
-    private static Message<byte[], byte[]> GetDeadLetterMessage(ConnectRecord record)
+    private static Message<byte[], byte[]> GetDeadLetterMessage(ConnectRecord record, string connector, int taskId, string command = null)
     {
         var deadMessage = new Message<byte[], byte[]> { Headers = [] };
         if (record.Serialized != null)
@@ -340,7 +340,7 @@ public class ConnectorClient(
                     v => ByteConvert.Serialize(v.Value ?? JsonNode.Parse("{}"))).ToMessageHeaders() ?? [];
         }
         
-        deadMessage.Headers.Add("__errorContext", ByteConvert.Serialize(new DeadLetterErrorContext(record)));
+        deadMessage.Headers.Add("_errorContext", ByteConvert.Serialize(new DeadLetterErrorContext(record, connector, taskId, command)));
         return deadMessage;
     }
 }

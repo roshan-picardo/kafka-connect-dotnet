@@ -226,7 +226,7 @@ public class ConnectRecordCollection(
 
     public void Commit() => connectClient.Commit(GetCommitReadyOffsets());
 
-    public Task DeadLetter(string batchId = null) => connectClient.SendToDeadLetter(GetConnectRecords(batchId), _connector);
+    public Task DeadLetter(string batchId = null) => connectClient.SendToDeadLetter(GetConnectRecords(batchId), _connector, _taskId);
 
     public void Record(string batchId = null) =>
         Record(GetConnectRecords(batchId).ToList(), GetConnectRecords(batchId).Count);
@@ -385,14 +385,10 @@ public class ConnectRecordCollection(
             }
         }
     }
-    
-    private List<(string Topic, int Partition, long Offset)> GetCommitReadyOffsets()
-    {
-        var isTolerated = configurationProvider.IsErrorTolerated(_connector);
-        return (from record in _sinkConnectRecords
-            where record.IsCommitReady(isTolerated)
-            select (record.Topic, record.Partition, record.Offset)).ToList();
-    }
+
+    private List<(string Topic, int Partition, long Offset)> GetCommitReadyOffsets() => _sinkConnectRecords
+        .TakeWhile(record => record.Status != Status.Aborted)
+        .Select(record => (record.Topic, record.Partition, record.Offset)).ToList();
 
     private BlockingCollection<ConnectRecord> GetConnectRecords(string batchId) => string.IsNullOrWhiteSpace(batchId)
         ? _sinkConnectRecords
