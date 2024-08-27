@@ -11,11 +11,11 @@ using Kafka.Connect.Tokens;
 namespace Kafka.Connect.Connectors;
 
 public class SinkTask(
-    ISinkExceptionHandler sinkExceptionHandler,
     IConfigurationProvider configurationProvider,
     IExecutionContext executionContext,
     IConnectRecordCollection sinkRecordCollection, 
-    ITokenHandler tokenHandler)
+    ITokenHandler tokenHandler,
+    ILogger<SinkTask> logger)
     : ISinkTask
 {
     private readonly PauseTokenSource _pauseTokenSource = PauseTokenSource.New();
@@ -34,6 +34,9 @@ public class SinkTask(
             return;
         }
 
+        var parallelOptions = configurationProvider.GetParallelRetryOptions(connector);
+        var attempts = parallelOptions.Attempts;
+
         while (!cts.IsCancellationRequested)
         {
             tokenHandler.NoOp();
@@ -48,37 +51,33 @@ public class SinkTask(
                     await sinkRecordCollection.Consume(cts.Token);
                     await sinkRecordCollection.Process();
                     await sinkRecordCollection.Sink();
-                    sinkRecordCollection.Commit();
                 }
                 catch (Exception ex)
                 {
-                    if (configurationProvider.IsErrorTolerated(connector))
+                    attempts--;
+                    logger.Critical($"Unhandled exception has occured. Attempts remaining: {attempts}", ex);
+                    if (attempts == 0)
                     {
-                        await sinkRecordCollection.DeadLetter();
-                        sinkRecordCollection.Commit();
+                        await cts.CancelAsync();
                     }
-
-                    sinkExceptionHandler.Handle(ex, Cancel);
                 }
                 finally
                 {
+                    if (configurationProvider.IsDeadLetterEnabled(connector))
+                    {
+                        await sinkRecordCollection.DeadLetter();
+                    }
+                    sinkRecordCollection.Commit();
                     sinkRecordCollection.Record();
                     await sinkRecordCollection.NotifyEndOfPartition();
                 }
-            }
 
+                attempts = parallelOptions.Attempts;
+            }
             sinkRecordCollection.Cleanup();
         }
-
         IsStopped = true;
-        return;
-
-        void Cancel()
-        {
-            if (!configurationProvider.IsErrorTolerated(connector))
-            {
-                cts.Cancel();
-            }
-        }
     }
 }
+
+

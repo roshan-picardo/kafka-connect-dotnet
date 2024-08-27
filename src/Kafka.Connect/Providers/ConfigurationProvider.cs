@@ -196,7 +196,7 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
     public bool IsDeadLetterEnabled(string connector)
     {
         var errors = GetErrorsConfig(connector);
-        return errors.Tolerance == ErrorTolerance.All && !string.IsNullOrWhiteSpace(errors.Topic);
+        return errors.Tolerance != ErrorTolerance.None && !string.IsNullOrWhiteSpace(errors.Topic);
     }
 
     public (bool EnableAutoCommit, bool EnableAutoOffsetStore) GetAutoCommitConfig()

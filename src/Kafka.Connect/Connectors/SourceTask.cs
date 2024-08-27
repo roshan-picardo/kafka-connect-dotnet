@@ -17,7 +17,8 @@ public class SourceTask(
     IExecutionContext executionContext,
     IConfigurationProvider configurationProvider,
     IConnectRecordCollection pollRecordCollection, 
-    ITokenHandler tokenHandler)
+    ITokenHandler tokenHandler,
+    ILogger<SourceTask> logger)
     : ISourceTask
 {
     private readonly PauseTokenSource _pauseTokenSource = new();
@@ -39,6 +40,8 @@ public class SourceTask(
         var timeoutInMs = configurationProvider.GetBatchConfig(connector).TimeoutInMs;
         var parallelOptions = configurationProvider.GetParallelRetryOptions(connector);
 
+        var attempts = parallelOptions.Attempts;
+
         while (!cts.IsCancellationRequested)
         {
             tokenHandler.NoOp();
@@ -48,54 +51,69 @@ public class SourceTask(
 
             using (ConnectLog.Batch())
             {
-                await pollRecordCollection.Consume(cts.Token);
-
-                if (cts.IsCancellationRequested) break;
-
-                var commands = await pollRecordCollection.GetCommands();
-                executionContext.UpdateCommands(connector, taskId, commands);
-
-                await commands.ForEachAsync(parallelOptions, async cr =>
+                try
                 {
-                    if (cr is not CommandRecord record) return;
-                    using (ConnectLog.Command(record.Name))
+                    await pollRecordCollection.Consume(cts.Token);
+
+                    if (cts.IsCancellationRequested) break;
+
+                    var commands = await pollRecordCollection.GetCommands();
+                    executionContext.UpdateCommands(connector, taskId, commands);
+
+                    await commands.ForEachAsync(parallelOptions, async cr =>
                     {
-                        try
+                        if (cr is not CommandRecord record) return;
+                        using (ConnectLog.Command(record.Name))
                         {
-                            pollRecordCollection.UpdateTo(Status.Sourcing, record.Topic, record.Partition, record.Offset);
-                            await pollRecordCollection.Source(record);
-                            await pollRecordCollection.Process(record.Id.ToString());
-                            await pollRecordCollection.Produce(record.Id.ToString());
-                            pollRecordCollection.UpdateTo(Status.Sourced, record.Topic, record.Partition, record.Offset);
-                        }
-                        catch (Exception ex)
-                        {
-                            pollRecordCollection.UpdateTo(Status.Failed, record.Topic, record.Partition, record.Offset, 
-                                ex is not ConnectAggregateException ? ex : null);
-                        }
-                        finally
-                        {
-                            if (configurationProvider.IsErrorTolerated(connector))
+                            try
                             {
-                                await pollRecordCollection.DeadLetter(record.Id.ToString());
+                                record.Status = Status.Sourcing;
+                                await pollRecordCollection.Source(record);
+                                await pollRecordCollection.Process(record.Id.ToString());
+                                await pollRecordCollection.Produce(record.Id.ToString());
+                                record.Status = Status.Sourced;
                             }
-                            pollRecordCollection.Record(record);
-                            await pollRecordCollection.UpdateCommand(record);
+                            catch (Exception ex)
+                            {
+                                record.Status = Status.Failed;
+                                record.Exception = ex is not ConnectAggregateException ? ex : null;
+                            }
+                            finally
+                            {
+                                if (configurationProvider.IsDeadLetterEnabled(connector))
+                                {
+                                    await pollRecordCollection.DeadLetter(record.Id.ToString());
+                                }
 
-                            if (pollRecordCollection.Count(record.Id.ToString()) >= record.BatchSize)
-                            {
-                                Interlocked.Exchange(ref timeoutInMs, 0);
+                                pollRecordCollection.Record(record);
+                                await pollRecordCollection.UpdateCommand(record);
+
+                                if (pollRecordCollection.Count(record.Id.ToString()) >= record.BatchSize)
+                                {
+                                    Interlocked.Exchange(ref timeoutInMs, 0);
+                                }
                             }
+
+                            pollRecordCollection.Clear(record.Id.ToString());
                         }
-                        pollRecordCollection.Clear(record.Id.ToString());
+                    });
+                    if (!cts.IsCancellationRequested)
+                    {
+                        pollRecordCollection.Commit(commands);
                     }
-                });
-                if (!cts.IsCancellationRequested)
-                {
-                    pollRecordCollection.Commit(commands);
+
+                    pollRecordCollection.Clear();
+                    attempts = parallelOptions.Attempts;
                 }
-                
-                pollRecordCollection.Clear();
+                catch (Exception ex)
+                {
+                    attempts--;
+                    logger.Critical($"Unhandled exception has occured. Attempts remaining: {attempts}", ex);
+                    if (attempts == 0)
+                    {
+                        await cts.CancelAsync();
+                    }
+                }
             }
         }
         IsStopped = true;
