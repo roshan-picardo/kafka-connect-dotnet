@@ -19,13 +19,12 @@ public interface IConfigurationProvider
     string GetNodeName();
     RestartsConfig GetRestartsConfig();
     ErrorsConfig GetErrorsConfig(string connector);
-    RetryConfig GetRetriesConfig(string connector);
+    RetryConfigOld GetRetriesConfig(string connector);
     EofConfig GetEofSignalConfig(string connector);
-    BatchConfig GetBatchConfig(string connector);
+    BatchConfigOld GetBatchConfig(string connector);
     int GetDegreeOfParallelism(string connector);
     ParallelRetryOptions GetParallelRetryOptions(string connector);
     IList<string> GetTopics(string connector);
-    InternalTopicConfig GetTopics();
     ConverterConfig GetMessageConverters(string connector, string topic);
     IList<ProcessorConfig> GetMessageProcessors(string connector, string topic);
     PluginConfig GetPluginConfig(string connector);
@@ -38,4 +37,5 @@ public interface IConfigurationProvider
     bool IsLeader { get; }
     bool IsWorker { get; }
     InitializerConfig GetPlugin(string connector);
+    string GetTopic(TopicType purpose);
 }

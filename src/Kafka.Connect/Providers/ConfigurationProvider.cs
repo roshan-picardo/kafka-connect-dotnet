@@ -16,7 +16,7 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
     private readonly WorkerConfig _workerConfig;
     private LeaderConfig _leaderConfig;
     private readonly IConfiguration _configuration;
-    private const string DefaultConverter = "Kafka.Connect.Serializers.AvroDeserializer";
+    private const string DefaultConverter = "Kafka.Connect.Converters.AvroConverter";
 
     public ConfigurationProvider(IConfiguration configuration)
     {
@@ -115,8 +115,8 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
     public ErrorsConfig GetErrorsConfig(string connector) 
         => GetBatchConfig(connector).Retries?.Errors ?? new ErrorsConfig { Tolerance = ErrorTolerance.All };
 
-    public RetryConfig GetRetriesConfig(string connector)
-        => GetBatchConfig(connector).Retries ?? new RetryConfig();
+    public RetryConfigOld GetRetriesConfig(string connector)
+        => GetBatchConfig(connector).Retries ?? new RetryConfigOld();
 
     public EofConfig GetEofSignalConfig(string connector)
         => GetConnectorConfig(connector)?.Batches?.EofSignal
@@ -124,17 +124,17 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
            ?? new EofConfig();
     
 
-    public BatchConfig GetBatchConfig(string connector)
+    public BatchConfigOld GetBatchConfig(string connector)
     {
         NodeConfig nodeConfig = IsLeader ? _leaderConfig : _workerConfig;
         if (!(nodeConfig?.EnablePartitionEof ?? false))
         {
-            return new BatchConfig { Size = 1, Parallelism = 1 };
+            return new BatchConfigOld { Size = 1, Parallelism = 1 };
         }
 
         return GetConnectorConfig(connector)?.Batches
                ?? nodeConfig.Batches
-               ?? new BatchConfig();
+               ?? new BatchConfigOld();
     }
 
     public string GetGroupId(string connector)
@@ -147,43 +147,51 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
         return GetConnectorConfig(connector).Log?.Provider;
     }
 
-    public InternalTopicConfig GetTopics() => IsLeader ? _leaderConfig.Topics : _workerConfig.Topics;
-
+    public string GetTopic(TopicType purpose) => (IsLeader ? _leaderConfig.Topics : _workerConfig.Topics)
+        ?.SingleOrDefault(t => t.Value.Purpose == TopicType.Command).Key;
+    
     public ConverterConfig GetMessageConverters(string connector, string topic)
     {
-        var shared = IsLeader ? _leaderConfig.Converters : _workerConfig.Converters;
-        var converters = GetConnectorConfig(connector).Converters;
-        return FindConverterConfig(converters?.Overrides?.SingleOrDefault(t => t.Topic == topic), converters,
-            shared?.Overrides?.SingleOrDefault(t => t.Topic == topic), shared, DefaultConverter);
-    }
+        var topicConfig = GetConnectorConfig(connector).Topics.SingleOrDefault(t => t.Key == topic).Value?.Converters ??
+                          (IsLeader ? _leaderConfig.Topics : _workerConfig.Topics).SingleOrDefault(t => t.Key == topic)
+                          .Value?.Converters;
+        var connectorConfig = GetConnectorConfig(connector).Converters;
+        var workerConfig = IsLeader ? _leaderConfig.Converters : _workerConfig.Converters;
 
-    private static ConverterConfig FindConverterConfig(
-        ConverterOverrideConfig localOverride,
-        ConverterConfig localConfig,
-        ConverterOverrideConfig globalOverride,
-        ConverterConfig globalConfig,
-        string defaultValue)
-        =>
-            new()
-            {
-                Key = localOverride?.Key ??
-                      localConfig?.Key ?? globalOverride?.Key ?? globalConfig?.Key ?? defaultValue,
-                Value = localOverride?.Value ??
-                        localConfig?.Value ?? globalOverride?.Value ?? globalConfig?.Value ?? defaultValue,
-                Subject = localOverride?.Subject ?? localConfig?.Subject ??
-                    globalOverride?.Subject ?? globalConfig?.Subject ?? "Topic",
-                Record = localOverride?.Record ??
-                         localConfig?.Record ?? globalOverride?.Record ?? globalConfig?.Record,
-            };
+        return new ConverterConfig
+        {
+            Key = topicConfig?.Key ?? connectorConfig?.Key ?? workerConfig?.Key ?? DefaultConverter,
+            Value = topicConfig?.Value ?? connectorConfig?.Value ?? workerConfig?.Value ?? DefaultConverter,
+            Subject = topicConfig?.Subject ?? connectorConfig?.Subject ?? workerConfig?.Subject ?? "Topic",
+            Record = topicConfig?.Record ?? connectorConfig?.Record ?? workerConfig?.Record
+        };
+    }
 
     public IList<string> GetTopics(string connector)
     {
-        return IsLeader ? new List<string> { _leaderConfig.Topics.Config } : GetConnectorConfig(connector).Topics;
+        if (IsLeader)
+        {
+            return [_leaderConfig.Topics.SingleOrDefault(t => t.Value.Purpose == TopicType.Config).Key];
+        }
+
+        var connectorConfig = GetConnectorConfig(connector);
+        return connectorConfig?.Plugin.Type == ConnectorType.Source
+            ? [_workerConfig.Topics.SingleOrDefault(t => t.Value.Purpose == TopicType.Command).Key]
+            : GetConnectorConfig(connector).Topics.Select(t => t.Key).ToList();
     }
 
-    public IList<ProcessorConfig> GetMessageProcessors(string connector, string topic)
+    public IList<ProcessorConfig> GetMessageProcessors(string connector, string topic)  
     {
-        return GetConnectorConfig(connector).Processors?.Values.Where(p=> p.Topics == null || p.Topics.Contains(topic)).ToList() ?? new List<ProcessorConfig>();
+        var workerConfigs = _workerConfig.Processors;
+        var connectorConfigs = GetConnectorConfig(connector).Processors;
+        var topicConfigs = GetConnectorConfig(connector).Topics.SingleOrDefault(t => t.Key == topic).Value?.Processors;
+
+        var processors = new Dictionary<int, ProcessorConfig>();
+        topicConfigs?.ForEach(config => processors.TryAdd(config.Key, config.Value));
+        connectorConfigs?.ForEach(config => processors.TryAdd(config.Key, config.Value));
+        workerConfigs?.ForEach(config => processors.TryAdd(config.Key, config.Value));
+
+        return processors.OrderBy(p => p.Key).Select(p => p.Value).ToList();
     }
 
     public PluginConfig GetPluginConfig(string connector) => GetConnectorConfig(connector).Plugin ?? new PluginConfig();

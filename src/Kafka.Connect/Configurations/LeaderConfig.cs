@@ -30,7 +30,7 @@ public class LeaderConfig : NodeConfig
     public ConnectorConfig Connector => new()
     {
         Name = Name,
-        Topic = Topics.Config,
+        Topics = Topics.Where(t => t.Value.Purpose == TopicType.Config).ToDictionary(t => t.Key, t => t.Value),
         MaxTasks = 1,
         GroupId = GroupId
     };

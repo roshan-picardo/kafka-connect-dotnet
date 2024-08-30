@@ -50,7 +50,7 @@ public class Connector(
 
             var tasks = (from scope in Enumerable.Range(1, connectorConfig.MaxTasks)
                     .Select(_ => serviceScopeFactory.CreateScope())
-                let task = (ITask)(connectorConfig.Type switch
+                let task = (ITask)(connectorConfig.Plugin.Type switch
                 {
                     ConnectorType.Leader => scope.ServiceProvider.GetService<ILeaderTask>(),
                     ConnectorType.Worker => scope.ServiceProvider.GetService<IWorkerTask>(),

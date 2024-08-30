@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,37 +10,29 @@ using Kafka.Connect.Plugin.Tokens;
 using Kafka.Connect.Providers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Serilog.Context;
+
 
 namespace Kafka.Connect.Background;
 
-public class FailOverMonitorService : BackgroundService
+public class FailOverMonitorService(
+    ILogger<FailOverMonitorService> logger,
+    IExecutionContext executionContext,
+    IServiceScopeFactory serviceScopeFactory,
+    ITokenHandler tokenHandler,
+    IConfigurationProvider configurationProvider)
+    : BackgroundService
 {
-    private readonly ILogger<FailOverMonitorService> _logger;
-    private readonly IExecutionContext _executionContext;
-    private readonly ITokenHandler _tokenHandler;
-    private readonly IConfigurationProvider _configurationProvider;
-    private readonly IKafkaClientBuilder _kafkaClientBuilder;
-
-    public FailOverMonitorService(ILogger<FailOverMonitorService> logger, IExecutionContext executionContext,
-        IServiceScopeFactory serviceScopeFactory, ITokenHandler tokenHandler, IConfigurationProvider configurationProvider)
-    {
-        _logger = logger;
-        _executionContext = executionContext;
-        _tokenHandler = tokenHandler;
-        _configurationProvider = configurationProvider;
-        _kafkaClientBuilder = serviceScopeFactory.CreateScope().ServiceProvider.GetService<IKafkaClientBuilder>();
-    }
+    private readonly IKafkaClientBuilder _kafkaClientBuilder = serviceScopeFactory.CreateScope().ServiceProvider.GetService<IKafkaClientBuilder>();
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var failOverConfig = _configurationProvider.GetFailOverConfig();
-        var connectorConfigs = _configurationProvider.GetAllConnectorConfigs();
+        var failOverConfig = configurationProvider.GetFailOverConfig();
+        var connectorConfigs = configurationProvider.GetAllConnectorConfigs();
         try
         {
             if (!failOverConfig.Disabled)
             {
-                _logger.Debug("Starting fail over monitoring service...");
+                logger.Debug("Starting fail over monitoring service...");
                 await Task.Delay(failOverConfig.InitialDelayMs, stoppingToken);
                 var adminClient =  _kafkaClientBuilder.GetAdminClient();
                     
@@ -55,7 +46,7 @@ public class FailOverMonitorService : BackgroundService
                     {
                         using (ConnectLog.Connector(connector.Name))
                         {
-                            var topics = connector.Topics ?? new List<string>();
+                            var topics = connector.Topics?.Select(t => t.Key).ToList() ?? [];
                             try
                             {
                                 var metadata = topics.Select(topic =>
@@ -82,19 +73,19 @@ public class FailOverMonitorService : BackgroundService
                                 else
                                 {
                                     thresholds[connector.Name]--;
-                                    _logger.Trace("Broker failure detected.",  data:new { Connector = connector.Name, Threshold = thresholds[connector.Name] });
+                                    logger.Trace("Broker failure detected.",  data:new { Connector = connector.Name, Threshold = thresholds[connector.Name] });
                                 }
                             }
                             catch (Exception ex)
                             {
                                 thresholds[connector.Name]--;
-                                _logger.Error( "Unhandled error while reading metadata.", 
+                                logger.Error( "Unhandled error while reading metadata.", 
                                     new
                                     {
                                         Connector = connector.Name,
                                         Threshold = thresholds[connector.Name]
                                     }, ex);
-                                _logger.Trace("Broker failure detected.", new
+                                logger.Trace("Broker failure detected.", new
                                 {
                                     Connector = connector.Name,
                                     Threshold = thresholds[connector.Name]
@@ -107,17 +98,17 @@ public class FailOverMonitorService : BackgroundService
                     {
                         if (thresholds.All(t => t.Value <= 0))
                         {
-                            await _executionContext.Restart(failOverConfig.RestartDelayMs);
+                            await executionContext.Restart(failOverConfig.RestartDelayMs);
                         }
                         else
                         {
                             foreach (var connector in thresholds.Where(t=>t.Value <= 0)
-                                         .Select(t => new {Name = t.Key, Connector = _executionContext.GetConnector(t.Key)})
+                                         .Select(t => new {Name = t.Key, Connector = executionContext.GetConnector(t.Key)})
                                          .Where(c => c.Connector != null))
                             {
                                 using (ConnectLog.Connector(connector.Name))
                                 {
-                                    await _executionContext.Restart(failOverConfig.RestartDelayMs, connector.Name);
+                                    await executionContext.Restart(failOverConfig.RestartDelayMs, connector.Name);
                                 }
                             }
                         }
@@ -125,7 +116,7 @@ public class FailOverMonitorService : BackgroundService
                             .ToDictionary(c => c.Name, _ => failOverConfig.FailureThreshold);
                     }
 
-                    _tokenHandler.NoOp();
+                    tokenHandler.NoOp();
                 }
             }
         }
@@ -133,16 +124,16 @@ public class FailOverMonitorService : BackgroundService
         {
             if (ex is TaskCanceledException or OperationCanceledException)
             {
-                _logger.Trace("Task has been cancelled. Fail over service will be terminated.");
+                logger.Trace("Task has been cancelled. Fail over service will be terminated.");
             }
             else
             {
-                _logger.Error("Fail over monitoring service reported errors / hasn't started.", ex);
+                logger.Error("Fail over monitoring service reported errors / hasn't started.", ex);
             }
         }
         finally
         {
-            _logger.Debug(failOverConfig.Disabled ? "Fail over monitoring service is not enabled..." :  "Stopping fail over monitoring service...");
+            logger.Debug(failOverConfig.Disabled ? "Fail over monitoring service is not enabled..." :  "Stopping fail over monitoring service...");
         }
     }
 }

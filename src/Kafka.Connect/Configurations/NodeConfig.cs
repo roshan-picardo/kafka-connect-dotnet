@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Confluent.Kafka;
 
 namespace Kafka.Connect.Configurations
@@ -13,12 +14,12 @@ namespace Kafka.Connect.Configurations
             init => _name = value;
         }
         
-        public InternalTopicConfig Topics { get; set; }
+        public IDictionary<string, TopicConfig> Topics { get; set; }
         public PluginAssemblyConfig Plugins { get; init; }
         public HealthCheckConfig HealthCheck { get; init; }
         public FailOverConfig FailOver { get; init; }
         public RestartsConfig Restarts { get; init; }
-        public BatchConfig Batches { get; set; }
+        public BatchConfigOld Batches { get; set; }
         public ConverterConfig Converters { get; set; }
     }
 }
