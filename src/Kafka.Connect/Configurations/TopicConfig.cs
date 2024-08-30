@@ -8,3 +8,10 @@ public class TopicConfig
     public ConverterConfig Converters { get; set; }
     public IDictionary<int, ProcessorConfig> Processors { get; set; }
 }
+
+public enum TopicType
+{
+    None = 0,
+    Command,
+    Config
+}

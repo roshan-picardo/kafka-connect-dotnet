@@ -19,9 +19,9 @@ public interface IConfigurationProvider
     string GetNodeName();
     RestartsConfig GetRestartsConfig();
     ErrorsConfig GetErrorsConfig(string connector);
-    RetryConfigOld GetRetriesConfig(string connector);
+    RetryConfig GetRetriesConfig(string connector);
     EofConfig GetEofSignalConfig(string connector);
-    BatchConfigOld GetBatchConfig(string connector);
+    BatchConfig GetBatchConfig(string connector);
     int GetDegreeOfParallelism(string connector);
     ParallelRetryOptions GetParallelRetryOptions(string connector);
     IList<string> GetTopics(string connector);

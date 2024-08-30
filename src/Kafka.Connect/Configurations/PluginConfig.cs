@@ -8,6 +8,14 @@ public class PluginConfig
     public StrategyConfig Strategy { get; set; }
 }
 
+public enum ConnectorType
+{
+    Leader,
+    Worker,
+    Sink,
+    Source
+}
+
 public class PluginConfig<T> : PluginConfig
 {
     public T Properties { get; set; }
