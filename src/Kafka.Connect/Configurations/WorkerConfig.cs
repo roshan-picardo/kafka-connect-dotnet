@@ -23,16 +23,11 @@ public class WorkerConfig : NodeConfig
                 {
                     connector.Name = name;
                 }
-
-                if (connector.Type == ConnectorType.Source)
-                {
-                    connector.Topics.Clear();
-                    connector.Topics.Add(Topics.Command);
-                }
-
             }
             return _connectors;
         }
         init => _connectors = value;
     }
+    
+    public IDictionary<int, ProcessorConfig> Processors { get; init; }
 }

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
+using Kafka.Connect.Configurations;
 using Kafka.Connect.Models;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Providers;
@@ -22,10 +23,11 @@ public class ConfigurationChangeHandler(IConfigurationProvider configurationProv
     {
         var sourceRecords = new BlockingCollection<ConnectRecord>();
         var leaderConfig = configurationProvider.GetLeaderConfig(true);
+        var topic = leaderConfig.Topics.SingleOrDefault(t => t.Value.Purpose == TopicType.Config).Key;
         
         var latestRecords = records.GroupBy(r => r.GetKey<string>())
             .Select(g => g.Aggregate((max, cur) => (max == null || cur.Offset > max.Offset) ? cur : max)).ToList();
-       
+        
             if (!refresh)
             {
                 if (latestRecords.Count == 0)
@@ -33,7 +35,7 @@ public class ConfigurationChangeHandler(IConfigurationProvider configurationProv
                     // local as the source of truth!!
                     foreach (var connector in leaderConfig.Connectors)
                     {
-                        sourceRecords.Add(new ConfigRecord(leaderConfig.Topics.Config, connector.Key, connector.Value));
+                        sourceRecords.Add(new ConfigRecord(topic, connector.Key, connector.Value));
                     }
                     // no need to save the files again
                 }
@@ -42,7 +44,7 @@ public class ConfigurationChangeHandler(IConfigurationProvider configurationProv
                     // kafka as source of truth!!
                     foreach (var record in latestRecords)
                     {
-                        sourceRecords.Add(new ConfigRecord(leaderConfig.Topics.Config, record.GetKey<string>(), record.GetValue<JsonNode>()));
+                        sourceRecords.Add(new ConfigRecord(topic, record.GetKey<string>(), record.GetValue<JsonNode>()));
                     }
                     
                     var files = Directory.EnumerateFiles(leaderConfig.Settings, "*.json").ToList();
@@ -67,8 +69,8 @@ public class ConfigurationChangeHandler(IConfigurationProvider configurationProv
                 {
                     var file = leaderConfig.Connectors.SingleOrDefault(lc => lc.Key == connector);
                     sourceRecords.Add(file.Value != null
-                        ? new ConfigRecord(leaderConfig.Topics.Config, connector, file.Value)
-                        : new ConfigRecord(leaderConfig.Topics.Config, connector, null));
+                        ? new ConfigRecord(topic, connector, file.Value)
+                        : new ConfigRecord(topic, connector, null));
                 }
                 
             }

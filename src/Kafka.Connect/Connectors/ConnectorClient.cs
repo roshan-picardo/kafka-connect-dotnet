@@ -234,8 +234,8 @@ public class ConnectorClient(
     
     private async Task<IList<SinkRecord>> ConsumeInternal(string connector, int taskId, CancellationToken token)
     {
-        var internalTopics = configurationProvider.GetTopics();
-        var consumeAll = _consumer.Subscription.All(s => s == internalTopics.Command);
+        var commandTopic = configurationProvider.GetTopic(TopicType.Command);
+        var consumeAll = _consumer.Subscription.All(s => s == commandTopic);
         var batch = new List<SinkRecord>();
         try
         {

@@ -5,7 +5,6 @@ namespace Kafka.Connect.Configurations
     public class ProcessorConfig
     {
         public string Name { get; set; }
-        public IList<string> Topics { get; init; }
         
     }
 

@@ -2,6 +2,12 @@ namespace Kafka.Connect.Configurations
 {
     public class RetryConfig
     {
+        public int Attempts { get; set; }
+        public int Interval { get; set; }
+    }
+    
+    public class RetryConfigOld
+    {
         private readonly int _attempts = 3;
         private readonly int _timeoutInMs = 1000;
 

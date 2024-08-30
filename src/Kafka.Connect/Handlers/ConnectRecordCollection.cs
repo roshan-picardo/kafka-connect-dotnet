@@ -237,6 +237,7 @@ public class ConnectRecordCollection(
         var record = _sinkConnectRecords.FirstOrDefault(r => r.IsOf(command.Topic, command.Partition, command.Offset));
         if (record != null)
         {
+            record.Status = command.Status;
             record.Exception = command.Exception;
             records.Add(record);
         }
@@ -290,7 +291,7 @@ public class ConnectRecordCollection(
         using (logger.Track("Sourcing the poll commands.."))
         {
             var batch = configurationProvider.GetBatchConfig(_connector);
-            var commandTopic = configurationProvider.GetTopics().Command;
+            var commandTopic = configurationProvider.GetTopic(TopicType.Command);
             var pluginHandler = GetPluginHandler(_connector);
             if (pluginHandler != null)
             {

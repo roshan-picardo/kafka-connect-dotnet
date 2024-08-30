@@ -10,7 +10,6 @@ using Kafka.Connect.Connectors;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Providers;
 using Microsoft.Extensions.DependencyInjection;
-using Serilog.Context;
 
 namespace Kafka.Connect;
 
@@ -91,20 +90,26 @@ public class Leader(
         }
     }
 
-    private async Task CreateInternalTopics(InternalTopicConfig topics)
+    private async Task CreateInternalTopics(IDictionary<string, TopicConfig> topics)
     {
         var adminClient = kafkaClientBuilder.GetAdminClient();
         var metadata = adminClient.GetMetadata(TimeSpan.FromSeconds(20));
         var replication = (short)(metadata.Brokers.Count > 3 ? 3 : metadata.Brokers.Count);
         var topicSpecs = new List<TopicSpecification>();
-        if (!metadata.Topics.Exists(t => t.Topic == topics.Config))
+        foreach (var (name, config) in topics)
         {
-            topicSpecs.Add(new() { Name = topics.Config, NumPartitions = 1, ReplicationFactor = replication });
-        }
-
-        if (!metadata.Topics.Exists(t => t.Topic == topics.Command))
-        {
-            topicSpecs.Add(new() { Name = topics.Command, NumPartitions = 50, ReplicationFactor = replication });
+            var partitions = config.Purpose switch
+            {
+                TopicType.Command => 50,
+                TopicType.Config => 1,
+                _ => 1
+            };
+            // In production like environment we should have these topics created manually.
+            if (!metadata.Topics.Exists(t => t.Topic == name))
+            {
+                topicSpecs.Add(new()
+                    { Name = name, NumPartitions = partitions, ReplicationFactor = replication });
+            }
         }
 
         if (topicSpecs.Count > 0)

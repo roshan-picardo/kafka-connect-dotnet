@@ -1,19 +1,41 @@
 using System.Collections.Generic;
-using System.Linq;
 using Kafka.Connect.Providers;
+// ReSharper disable UnusedAutoPropertyAccessor.Global
 
 namespace Kafka.Connect.Configurations;
 
-public class ConnectorConfig 
+public class ConnectorConfig
 {
-    private readonly List<string> _topics = new();
     private readonly string _groupId;
     private readonly string _clientId;
-    private string _topic;
     private readonly LogConfig _log;
+    private readonly Dictionary<string, TopicConfig> _topics = new();
+    
+    public ConverterConfig Converters { get; init; }
+    
+    // ReSharper disable once InconsistentNaming ::Allowing to use an array for topics
+    // ReSharper disable once UnusedAutoPropertyAccessor.Local
+    private string[] topics { get; init; }
+
+    public Dictionary<string, TopicConfig> Topics
+    {
+        get
+        {
+            if (topics != null && topics.Length != 0)
+            {
+                _topics.Clear();
+                foreach (var topic in topics)
+                {
+                    _topics.Add(topic, new TopicConfig());
+                }
+            }
+
+            return _topics;
+        }
+        init => _topics = value;
+    }
 
     public string Name { get; set; }
-    public ConnectorType Type { get; set; }
 
     public string GroupId
     {
@@ -22,36 +44,9 @@ public class ConnectorConfig
     }
     public bool Disabled { get; init; }
 
-    public string Topic
-    {
-        get
-        {
-            if (Type == ConnectorType.Source && string.IsNullOrWhiteSpace(_topic))
-            {
-                _topic = _topics.FirstOrDefault();
-            }
-
-            return _topic;
-        }
-        init => _topic = value;
-    }
-
-    public IList<string> Topics
-    {
-        get
-        {
-            if (Type == ConnectorType.Sink && !string.IsNullOrWhiteSpace(_topic) && !_topics.Contains(_topic))
-            {
-                _topics.Add(_topic);
-            }
-
-            return _topics;
-        }
-        init => _topics = value?.ToList() ?? new List<string>();
-    }
     public int MaxTasks { get; init; }
     public bool Paused { get; init; }
-    public PluginConfig Plugin { get; set; }
+    public PluginConfig Plugin { get; init; }
 
     public LogConfig Log
     {
@@ -59,8 +54,7 @@ public class ConnectorConfig
         init => _log = value;
     }
 
-    public BatchConfig Batches { get; init; }
-    public ConverterConfig Converters { get; init; }
+    public BatchConfigOld Batches { get; init; }
         
     public IDictionary<int, ProcessorConfig> Processors { get; init; }
 
@@ -77,4 +71,11 @@ public enum ConnectorType
     Worker,
     Sink,
     Source
+}
+
+public enum TopicType
+{
+    None = 0,
+    Command,
+    Config
 }

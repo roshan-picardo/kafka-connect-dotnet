@@ -2,6 +2,13 @@ namespace Kafka.Connect.Configurations;
 
 public class BatchConfig
 {
+    public int Size { get; set; }
+    public int Parallelism { get; set; }
+    public int Timeout { get; set; }
+}
+
+public class BatchConfigOld
+{
     private readonly int _size = 100;
     private readonly int _parallelism = 10;
     private readonly int _timeout = 60000;
@@ -26,5 +33,5 @@ public class BatchConfig
 
     public EofConfig EofSignal { get; init; }
         
-    public RetryConfig Retries { get; init; }
+    public RetryConfigOld Retries { get; init; }
 }
