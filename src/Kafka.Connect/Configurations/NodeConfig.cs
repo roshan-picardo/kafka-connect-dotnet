@@ -19,7 +19,7 @@ namespace Kafka.Connect.Configurations
         public HealthCheckConfig HealthCheck { get; init; }
         public FailOverConfig FailOver { get; init; }
         public RestartsConfig Restarts { get; init; }
-        public BatchConfigOld Batches { get; set; }
         public ConverterConfig Converters { get; set; }
+        public ResiliencyConfig Resiliency { get; init; }
     }
 }

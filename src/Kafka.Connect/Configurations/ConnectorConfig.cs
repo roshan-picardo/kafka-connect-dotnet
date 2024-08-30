@@ -54,7 +54,7 @@ public class ConnectorConfig
         init => _log = value;
     }
 
-    public BatchConfigOld Batches { get; init; }
+    public ResiliencyConfig Resiliency { get; init; }
         
     public IDictionary<int, ProcessorConfig> Processors { get; init; }
 
@@ -63,19 +63,4 @@ public class ConnectorConfig
         get => _clientId ?? Name;
         init => _clientId = value;
     }
-}
-
-public enum ConnectorType
-{
-    Leader,
-    Worker,
-    Sink,
-    Source
-}
-
-public enum TopicType
-{
-    None = 0,
-    Command,
-    Config
 }

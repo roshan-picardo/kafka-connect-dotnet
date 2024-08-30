@@ -37,7 +37,7 @@ public class SourceTask(
             return;
         }
 
-        var timeoutInMs = configurationProvider.GetBatchConfig(connector).TimeoutInMs;
+        var timeoutInMs = configurationProvider.GetBatchConfig(connector).Interval;
         var parallelOptions = configurationProvider.GetParallelRetryOptions(connector);
 
         var attempts = parallelOptions.Attempts;
@@ -45,7 +45,7 @@ public class SourceTask(
         while (!cts.IsCancellationRequested)
         {
             tokenHandler.NoOp();
-            await _pauseTokenSource.WaitUntilTimeout(Interlocked.Exchange(ref timeoutInMs, configurationProvider.GetBatchConfig(connector).TimeoutInMs), cts.Token);
+            await _pauseTokenSource.WaitUntilTimeout(Interlocked.Exchange(ref timeoutInMs, configurationProvider.GetBatchConfig(connector).Interval), cts.Token);
 
             if (cts.IsCancellationRequested) break;
 

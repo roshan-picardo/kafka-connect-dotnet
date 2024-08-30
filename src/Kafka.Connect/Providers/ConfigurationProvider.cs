@@ -112,29 +112,30 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
         return _workerConfig?.Restarts ?? _leaderConfig?.Restarts ?? new RestartsConfig();
     }
 
-    public ErrorsConfig GetErrorsConfig(string connector) 
-        => GetBatchConfig(connector).Retries?.Errors ?? new ErrorsConfig { Tolerance = ErrorTolerance.All };
+    public ErrorsConfig GetErrorsConfig(string connector)
+        => ((IsLeader ? _leaderConfig.Resiliency : _workerConfig.Resiliency) ??
+            GetConnectorConfig(connector)?.Resiliency)?.Errors ?? new ErrorsConfig { Tolerance = ErrorTolerance.None };
 
-    public RetryConfigOld GetRetriesConfig(string connector)
-        => GetBatchConfig(connector).Retries ?? new RetryConfigOld();
+    public RetryConfig GetRetriesConfig(string connector)
+        => ((IsLeader ? _leaderConfig.Resiliency : _workerConfig.Resiliency) ??
+            GetConnectorConfig(connector)?.Resiliency)?.Retries ?? new RetryConfig { Attempts = 3, Interval = 1000 };
 
     public EofConfig GetEofSignalConfig(string connector)
-        => GetConnectorConfig(connector)?.Batches?.EofSignal
-           ?? _workerConfig.Batches?.EofSignal
-           ?? new EofConfig();
+        => ((IsLeader ? _leaderConfig.Resiliency : _workerConfig.Resiliency) ??
+            GetConnectorConfig(connector)?.Resiliency)?.Eof ?? new EofConfig();
     
 
-    public BatchConfigOld GetBatchConfig(string connector)
+    public BatchConfig GetBatchConfig(string connector)
     {
         NodeConfig nodeConfig = IsLeader ? _leaderConfig : _workerConfig;
         if (!(nodeConfig?.EnablePartitionEof ?? false))
         {
-            return new BatchConfigOld { Size = 1, Parallelism = 1 };
+            return new BatchConfig { Size = 1, Parallelism = 1 };
         }
 
-        return GetConnectorConfig(connector)?.Batches
-               ?? nodeConfig.Batches
-               ?? new BatchConfigOld();
+        return GetConnectorConfig(connector)?.Resiliency?.Batches
+               ?? nodeConfig.Resiliency?.Batches
+               ?? new BatchConfig { Size = 100, Parallelism = Environment.ProcessorCount, Interval = 5000 };
     }
 
     public string GetGroupId(string connector)
@@ -261,7 +262,7 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
         {
             DegreeOfParallelism = batch.Parallelism,
             Attempts = retries.Attempts,
-            TimeoutMs = retries.TimeoutInMs,
+            Interval = retries.Interval,
             ErrorTolerated = IsErrorTolerated(connector),
             ErrorTolerance = (
                 All: errorsConfig.Tolerance == ErrorTolerance.All,
