@@ -12,7 +12,7 @@ public interface IPluginHandler
 {
     Task Startup(string connector);
     Task<IList<ConnectRecord>> Get(string connector, int taskId, CommandRecord command);
-    Task Put(IEnumerable<ConnectRecord> models, string connector, int taskId);
+    Task Put(IList<ConnectRecord> models, string connector, int taskId);
 
     IDictionary<string, Command> Commands(string connector);
     JsonNode NextCommand(CommandRecord command, List<ConnectRecord> records);
@@ -24,7 +24,7 @@ public abstract class PluginHandler(IConfigurationProvider configurationProvider
 {
     public abstract Task Startup(string connector);
     public abstract Task<IList<ConnectRecord>> Get(string connector, int taskId, CommandRecord command);
-    public abstract Task Put(IEnumerable<ConnectRecord> models, string connector, int taskId);
+    public abstract Task Put(IList<ConnectRecord> models, string connector, int taskId);
     
     public abstract IDictionary<string, Command> Commands(string connector);
     public abstract JsonNode NextCommand(CommandRecord command, List<ConnectRecord> records);
