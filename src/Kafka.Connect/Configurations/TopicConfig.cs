@@ -4,9 +4,9 @@ namespace Kafka.Connect.Configurations;
 
 public class TopicConfig
 {
-    public TopicType Purpose { get; set; }
-    public ConverterConfig Converters { get; set; }
-    public IDictionary<int, ProcessorConfig> Processors { get; set; }
+    public TopicType Purpose { get; init; }
+    public ConverterConfig Converters { get; init; }
+    public IDictionary<int, ProcessorConfig> Processors { get; init; }
 }
 
 public enum TopicType

@@ -46,9 +46,9 @@ public class Connector(
             }
 
             var taskId = 0;
-            logger.Debug("Starting tasks.", new { Tasks = connectorConfig.MaxTasks });
+            logger.Debug("Starting tasks.", new { connectorConfig.Tasks });
 
-            var tasks = (from scope in Enumerable.Range(1, connectorConfig.MaxTasks)
+            var tasks = (from scope in Enumerable.Range(1, connectorConfig.Tasks)
                     .Select(_ => serviceScopeFactory.CreateScope())
                 let task = (ITask)(connectorConfig.Plugin.Type switch
                 {

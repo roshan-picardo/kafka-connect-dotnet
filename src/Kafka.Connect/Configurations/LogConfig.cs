@@ -4,7 +4,7 @@ namespace Kafka.Connect.Configurations;
 
 public class LogConfig
 {
-    private string _provider = null;
+    private string _provider;
 
     public string Provider
     {

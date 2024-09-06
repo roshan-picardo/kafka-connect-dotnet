@@ -14,6 +14,7 @@ publish:
 	-dotnet publish ./src/Plugins/Kafka.Connect.Postgres/Kafka.Connect.Postgres.csproj --output ./app/bin/plugins/postgres --configuration debug --no-build --verbosity m
 
 run:
+	-docker compose up -d
 	-sleep 5
 	-echo ""
 	-echo "---------------------"

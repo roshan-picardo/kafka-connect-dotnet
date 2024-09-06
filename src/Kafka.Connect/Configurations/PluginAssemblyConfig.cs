@@ -10,7 +10,7 @@ public class PluginAssemblyConfig
     
 public class InitializerConfig
 {
-    public string Prefix { get; set; }
+    public string Folder { get; init; }
     public string Assembly { get; init; }
     public string Class { get; init; }
 }

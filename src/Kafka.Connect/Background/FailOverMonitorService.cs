@@ -11,7 +11,6 @@ using Kafka.Connect.Providers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
-
 namespace Kafka.Connect.Background;
 
 public class FailOverMonitorService(
@@ -46,7 +45,7 @@ public class FailOverMonitorService(
                     {
                         using (ConnectLog.Connector(connector.Name))
                         {
-                            var topics = connector.Topics?.Select(t => t.Key).ToList() ?? [];
+                            var topics = connector.Topics  ?? [];
                             try
                             {
                                 var metadata = topics.Select(topic =>

@@ -30,10 +30,11 @@ public class LeaderConfig : NodeConfig
     public ConnectorConfig Connector => new()
     {
         Name = Name,
-        Topics = Topics.Where(t => t.Value.Purpose == TopicType.Config).ToDictionary(t => t.Key, t => t.Value),
-        MaxTasks = 1,
+        Topics = Topics.Where(t => t.Value.Purpose == TopicType.Config).Select(t => t.Key).ToArray(),
+        Overrides = Topics.Where(t => t.Value.Purpose == TopicType.Config).ToDictionary(t => t.Key, t => t.Value),
+        Tasks = 1,
         GroupId = GroupId
     };
     
-    public string Settings { get; set; }
+    public string Settings { get; init; }
 }

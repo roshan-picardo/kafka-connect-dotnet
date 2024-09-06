@@ -4,8 +4,7 @@ namespace Kafka.Connect.Configurations
 {
     public class ProcessorConfig
     {
-        public string Name { get; set; }
-        
+        public string Name { get; init; }
     }
 
     public class ProcessorConfig<T> : ProcessorConfig

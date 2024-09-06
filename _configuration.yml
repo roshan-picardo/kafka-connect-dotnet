@@ -1,77 +1,109 @@
-worker: # Root for worker configuration
-  name: "worker-name" # Name of the worker
-  allowAutoCreateTopics: false # Allow the worker to create topics
-  bootstrapServers: "localhost:9092" # Kafka bootstrap servers
-  securityProtocol: "PLAINTEXT" # Kafka security protocol {PLAINTEXT, SSL, SASL_PLAINTEXT, SASL_SSL}
-  sslCaLocation: "" # SSL CA location
-  sslCertificateLocation: "" # SSL certificate location
-  sslKeyLocation: "" # SSL key location
-  sslKeyPassword: "" # SSL key password
-  enableAutoCommit: true # Enable auto commit
-  enableAutoOffsetStore: false # Enable auto offset store
-  enablePartitionEof: true # Enable partition EOF
-  fetchWaitMaxMs: 100 # Fetch wait max milliseconds
-  partitionAssignmentStrategy: "RoundRobin" # Partition assignment strategy { RoundRobin, Range, Sticky }
-  autoOffsetReset: "earliest" # Auto offset reset {earliest, latest, none}
-  isolationLevel: "ReadUncommitted" # Isolation level {ReadUncommitted, ReadCommitted}
-  topics: # internal topics configuration
-    config: "config-topic" # Configuration topic - used by Leader to send configurations to workers
-    command: "command-topic" # Command topic - used to store and propagate source command information
-  schemaRegistry: # Schema registry configuration
-    url: "http://localhost:8081" # Schema registry URL
-    maxCachedSchemas: 1000 # Maximum number of cached schemas
-    connectionTimeoutMs: 5000 # Connection timeout milliseconds
-  healthcheck: # Healthcheck configuration
-    enabled: true # Enable healthcheck
-    interval: 10000 # Healthcheck interval
-    timeout: 5000 # Healthcheck timeout
-    retries: 3 # Healthcheck retries
-  batches: # Batches configuration
-    size: 1000 # Maximum batch size
-    parallelism: 1 # Maximum parallelism
-    timeoutMs: 1000 # Batch timeout milliseconds
-    eofSignal: # Eof signal configuration - lets send a EOF notification for batched topics
-      enabled: true # Enable metrics
-      topic: "eof-signal-topic" # Metrics topic
-  converters: # Converters configuration
-    key: "Kafka.Connect.Converters.JsonConverter" # Key serializer {Kafka.Connect.Converters.JsonConverter, org.apache.kafka.common.serialization.StringSerializer} 
-    value: "Kafka.Connect.Converters.JsonConverter" # Value serializer
-    overrides: # Topic overrides key and value converters
-      key: # Key overrides
-        - topic: "topic-name" # Topic name
-          converter: "Kafka.Connect.Converters.JsonConverter" # Converter
-      value: # Value overrides
-        - topic: "topic-name" # Topic name
-          converter: "Kafka.Connect.Converters.JsonConverter" # Converter
-  plugins: # Plugins configuration
-    location: "plugins" # Plugins path - where to load plugins from
-    initializers: # Plugin Initializer configuration { one or more plugins can be defined here }
-      plugin-name: # Friendly name of the plugin
-        prefix: "plugin-prefix" # The subfolder where the plugin is located
-        assembly: "Plugin.Assembly" # Plugin assembly - a dll file
-        class: "Plugin.Class" # Plugin initializer class must inherit from IPluginInitializer
-  connectors: # List of connectors { one or more connectors can be defined here }
-    location: "connectors" # Connectors path - where to load connectors from
-    initializers: # Connector Initializer configuration { one or more connectors can be defined here }
-      connector-name: # Friendly name of the connector
-        type: "sink" # Connector type { Sink, Source }
-        groupId: "connector-group-id" # Connector group id - optional
-        topics: # List of topics - required for sink connectors
-          - "topic-name" # Topic name
-        maxTasks: 1 # Maximum number of tasks
-        paused: false # determines whether to run or pause this connector
-        processors: # List of record post processors - these will be applied on each Kafka message.
-          1: # An integer key to determine the order of the processor 
-            name: "Kafka.Connect.Processors.WhitelistFieldProjector" # Processor name, the fully qualified class name
-            settings: { } # Processor settings - these are specific to each processor
-            topics:  # List of topics - optional, if not defined, the processor will be applied to all topics
-              - "topic-name" # Topic name
-        plugin:  # Connector plugin configuration
-          name: "plugin-name" # Plugin name to be applied for this connector, must be the one defined in { plugins } section.
-          handler: "Plugin.Handler" # Plugin handler class - must inherit from IPluginHandler
-          strategy: "Plugin.Strategy" # Plugin strategy class - must inherit from IPluginStrategy
-          properties: {} # Plugin properties - specific to plugin configuration
-        log: # Connector log extenders
-          provider: "Kafka.Connect.Logs.ConsoleLogExtender" # Log provider - must inherit from ILogExtender
-          attributes: {} # Log attributes - specific to log provider
-          
+worker:
+  name: "worker"
+  healthCheck:
+    interval: 10000
+    timeout: 5000
+  converters:
+    key: "key-converter"
+    value: "value-converter"
+  processors: 
+    01: 
+      name: "processor-name"
+      settings: { } #processor specific settings
+  faultTolerance:
+    batches:
+      size: 100
+      interval: 1000
+      parallelism: 1
+    retries:
+      attempts: 3
+      interval: 1000
+    errors:
+      tolerance: none #none, all, data
+      topic: dead-letter-topic
+    eof:
+      enabled: false
+      topic: end-of-file-topic
+  plugins:
+    location: "path-to-plugins"
+    initializers: # one or more initializers
+      plugin-name:
+        folder: "path-to-initializer"
+        assembly: "assembly-name"
+        class: "class-name"
+  topics: # internal topics only go here
+    topic-name:
+      purpose: "purpose" #none, config, command, sink, source
+      converters: 
+        key: "key-converter"
+        value: "value-converter"
+      processors:
+        01: 
+          name: "processor-name"
+          settings: { } #processor specific settings
+  connectors:
+    connector-name:
+      overrides: # topic level overrides
+        topic-name:
+          converters:
+            key: "key-converter"
+            value: "value-converter"
+          processors:
+            01: 
+              name: "processor-name"
+              settings: { } #processor specific settings
+              
+      groupId: "group-id"
+      disabled: false
+      paused: false
+      tasks: 3
+      topics:
+        - topic1
+        - topic2
+      faultTolerance:
+        batches:
+          size: 100
+          interval: 1000
+          parallelism: 1
+        retries:
+          attempts: 3
+          interval: 1000
+        errors:
+          tolerance: none #none, all, data
+          topic: dead-letter-topic
+        eof:
+          enabled: false
+          topic: end-of-file-topic
+      plugin:
+        type: "type" #source, sink
+        name: "plugin-name"
+        handler: "handler-name"
+        strategy: 
+          name: "strategy-name"
+          selector: "selector-name"
+        properties: 
+          # postgresql sink properties
+          host: "localhost"
+          port: 5432
+          database: "database"
+          userId: "user"
+          password: "password"
+          # sink properties
+          schema: "public"
+          table: "table"
+          lookup: "lookup"
+          filter: "filter"
+          # source properties
+          changelog:  # merge this with the sink properties
+            schema: "public"
+            table: "table"
+          commands:
+            command-1:
+              schema: "public"
+              table: "table"
+              keys: ["key-1", "key-2"]
+              filters: ["filter-1", "filter-2"]
+              snapshot: # do i need enabled flag or can this just contain the key?
+                enabled: true
+                key: "key"
+  

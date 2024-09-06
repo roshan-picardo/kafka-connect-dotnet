@@ -7,61 +7,51 @@ using Kafka.Connect.Plugin.Tokens;
 using Kafka.Connect.Providers;
 using Microsoft.Extensions.Hosting;
 
-namespace Kafka.Connect.Background
+namespace Kafka.Connect.Background;
+
+public class HealthCheckService(
+    ILogger<HealthCheckService> logger,
+    IConfigurationProvider configurationProvider,
+    IExecutionContext executionContext,
+    ITokenHandler tokenHandler)
+    : BackgroundService
 {
-    public class HealthCheckService : BackgroundService
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        private readonly ILogger<HealthCheckService> _logger;
-        private readonly IConfigurationProvider _configurationProvider;
-        private readonly IExecutionContext _executionContext;
-        private readonly ITokenHandler _tokenHandler;
-
-        public HealthCheckService(ILogger<HealthCheckService> logger, IConfigurationProvider configurationProvider,
-            IExecutionContext executionContext, ITokenHandler tokenHandler)
+        var config = configurationProvider.GetHealthCheckConfig();
+        await Task.Delay(config.Timeout, stoppingToken);
+        // _logger.Health(_executionContext.GetFullDetails() as object);
+        try
         {
-            _logger = logger;
-            _configurationProvider = configurationProvider;
-            _executionContext = executionContext;
-            _tokenHandler = tokenHandler;
+            if (!config.Disabled)
+            {
+                logger.Debug("Starting the health check service...");
+                while (!stoppingToken.IsCancellationRequested)
+                {
+                    logger.Health(executionContext.GetStatus());
+                    await Task.Delay(config.Interval, stoppingToken);
+                    tokenHandler.NoOp();
+                }
+            }
         }
-
-        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+        catch (Exception ex)
         {
-            var config = _configurationProvider.GetHealthCheckConfig();
-            await Task.Delay(config.InitialDelayMs, stoppingToken);
-            // _logger.Health(_executionContext.GetFullDetails() as object);
-            try
+            if (ex is TaskCanceledException or OperationCanceledException)
             {
-                if (!config.Disabled)
-                {
-                    _logger.Debug("Starting the health check service...");
-                    while (!stoppingToken.IsCancellationRequested)
-                    {
-                        _logger.Health(_executionContext.GetStatus());
-                        await Task.Delay(config.PeriodicDelayMs, stoppingToken);
-                        _tokenHandler.NoOp();
-                    }
-                }
+                logger.Trace("Task has been cancelled. Health check service will be terminated.", ex);
             }
-            catch (Exception ex)
+            else
             {
-                if (ex is TaskCanceledException or OperationCanceledException)
-                {
-                    _logger.Trace("Task has been cancelled. Health check service will be terminated.", ex);
-                }
-                else
-                {
-                    _logger.Error(
-                        "Health check service reported errors / hasn't started. Please use '/workers/status' Rest API to get the worker status.",
-                        ex);
-                }
+                logger.Error(
+                    "Health check service reported errors / hasn't started. Please use '/workers/status' Rest API to get the worker status.",
+                    ex);
             }
-            finally
-            {
-                _logger.Debug(config.Disabled
-                    ? "Health check service is disabled..."
-                    : "Stopping the health check service...");
-            }
+        }
+        finally
+        {
+            logger.Debug(config.Disabled
+                ? "Health check service is disabled..."
+                : "Stopping the health check service...");
         }
     }
 }
