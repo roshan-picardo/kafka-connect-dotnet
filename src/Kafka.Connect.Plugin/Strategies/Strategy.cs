@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -53,7 +54,7 @@ public abstract class Strategy<T> : IStrategy
     }
 
     protected string BuildCondition(string condition, IDictionary<string, object> flattened) =>
-        _regex.Replace(condition, match => (string)flattened[match.Groups[1].Value]);
+        _regex.Replace(condition, match => Convert.ToString(flattened[match.Groups[1].Value]));
 
     protected abstract Task<StrategyModel<T>> BuildModels(string connector, ConnectRecord record);
     protected abstract Task<StrategyModel<T>> BuildModels(string connector, CommandRecord record);

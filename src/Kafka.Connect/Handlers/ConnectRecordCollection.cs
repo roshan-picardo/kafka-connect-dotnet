@@ -213,14 +213,8 @@ public class ConnectRecordCollection(
                     new ArgumentException(nameof(pluginHandler)));
             }
 
-            await pluginHandler.Put(_sinkConnectRecords, _connector, _taskId);
-            
-            /*
-            foreach (var batch in GetByTopicPartition())
-            {
-                await pluginHandler.Put(batch.Batch, _connector, _taskId);
-                batch.Batch.ForEach(record => record.UpdateStatus());
-            }*/
+            await pluginHandler.Put(_sinkConnectRecords.ToList(), _connector, _taskId);
+            _sinkConnectRecords.ForEach(record => record.UpdateStatus());
         }
     }
 

@@ -33,7 +33,7 @@ public class ConnectRecord : IConnectRecord
     public ConnectMessage<JsonNode> Deserialized { get; set; }
     
     public ConnectMessage<byte[]> Serialized { get; set; }
-
+    
     public string Topic { get; protected set; }
     public int Partition { get; protected set; }
     public long Offset { get; protected set; }
@@ -104,6 +104,18 @@ public class ConnectRecord : IConnectRecord
             Batch = new { Size = batchSize, Total = LogTimestamp.Batch }
         };
     }
+    
+    private StrategyModel<object> Strategy { get; set; }
+    
+    public T GetModel<T>() where T : class => Strategy?.Model as T;
+    
+    public void SetModel<T>(T model) where T : class
+    {
+        Strategy = new StrategyModel<object>
+        {
+            Model = model
+        };
+    }
 
     [JsonIgnore]
     public Exception Exception { get; set; }
@@ -114,6 +126,7 @@ public class ConnectRecord : IConnectRecord
     public bool Processing => Status is Status.Retrying or Status.Consumed or Status.Selected;
     public bool Sinking => Status is Status.Retrying or Status.Processed;
     public bool Publishing => Status is Status.Retrying or Status.Processed;
+    public bool Saving => Status is Status.Retrying or Status.Inserting or Status.Updating or Status.Deleting;
     public T Clone<T>() where T : ConnectRecord, new() => new T().Clone<T>(this);
     protected virtual T Clone<T>(ConnectRecord record) where T: ConnectRecord  => record as T;
 }

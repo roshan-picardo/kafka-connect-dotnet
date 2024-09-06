@@ -41,7 +41,7 @@ public class MongoPluginHandler(
         }
     }
 
-    public override async Task Put(IEnumerable<ConnectRecord> records, string connector, int taskId)
+    public override async Task Put(IList<ConnectRecord> records, string connector, int taskId)
     {
         using (logger.Track("Putting batch of records"))
         {

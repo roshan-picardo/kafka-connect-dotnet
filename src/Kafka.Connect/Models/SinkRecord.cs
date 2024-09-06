@@ -1,9 +1,6 @@
-using System;
 using System.Linq;
 using Confluent.Kafka;
-using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Models;
-using Kafka.Connect.Utilities;
 
 namespace Kafka.Connect.Models;
 
@@ -27,6 +24,4 @@ public class SinkRecord : ConnectRecord
     }
     
     public bool IsPartitionEof { get; set; }
-
-    
 }

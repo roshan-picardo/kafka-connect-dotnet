@@ -64,12 +64,11 @@ public class PostgresPluginHandler(
         }
     }
 
-    public override async Task Put(IEnumerable<ConnectRecord> records, string connector, int taskId)
+    public override async Task Put(IList<ConnectRecord> records, string connector, int taskId)
     {
         using (logger.Track("Putting batch of records"))
         {
             var parallelRetryOptions = _configurationProvider.GetParallelRetryOptions(connector);
-            var models = new List<StrategyModel<string>>();
             await records.ForEachAsync(parallelRetryOptions, async cr =>
             {
                 using (ConnectLog.TopicPartitionOffset(cr.Topic, cr.Partition, cr.Offset))
@@ -78,22 +77,32 @@ public class PostgresPluginHandler(
                     {
                         var model = await connectPluginFactory.GetStrategy(connector, record)
                             .Build<string>(connector, record);
-                        models.Add(model);
+                        record.SetModel(model.Model);
                         record.Status = model.Status;
                     }
                 }
             });
 
-
-            foreach (var model in models.OrderBy(m => m.Topic)
-                         .ThenBy(m => m.Partition)
-                         .ThenBy(m => m.Offset)
-                         .SelectMany(m => m.Models))
-            {
-                var command = new NpgsqlCommand(model,
-                    postgresClientProvider.GetPostgresClient(connector, taskId).GetConnection());
-                await command.ExecuteNonQueryAsync();
-            }
+            var connection = postgresClientProvider.GetPostgresClient(connector, taskId).GetConnection();
+            parallelRetryOptions.DegreeOfParallelism = 1;
+            await records
+                .OrderBy(r => r.Topic)
+                .ThenBy(r => r.Partition)
+                .ThenBy(r => r.Offset)
+                .ForEachAsync(parallelRetryOptions, async cr =>
+                {
+                    using (ConnectLog.TopicPartitionOffset(cr.Topic, cr.Partition, cr.Offset))
+                    {
+                        if (cr is ConnectRecord { Saving: true } record)
+                        {
+                            var command = new NpgsqlCommand(record.GetModel<string>(), connection);
+                            if (await command.ExecuteNonQueryAsync() == 0)
+                            {
+                                record.Status = Status.Skipped;
+                            }
+                        }
+                    }
+                });
         }
     }
 
@@ -102,7 +111,6 @@ public class PostgresPluginHandler(
     public override JsonNode NextCommand(CommandRecord command, List<ConnectRecord> records) =>
         postgresCommandHandler.Next(command, records.Where(r => r.Status is Status.Published or Status.Skipped or Status.Triggered)
             .Select(r => r.Deserialized).ToList());
-    
     
     private static ConnectRecord GetConnectRecord(Dictionary<string, object> message, CommandRecord command)
     {

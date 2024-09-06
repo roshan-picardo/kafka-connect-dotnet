@@ -74,8 +74,9 @@ public class SinkTask(
 
                 attempts = parallelOptions.Attempts;
             }
-            sinkRecordCollection.Cleanup();
+            sinkRecordCollection.Clear();
         }
+        sinkRecordCollection.Cleanup();
         IsStopped = true;
     }
 }
