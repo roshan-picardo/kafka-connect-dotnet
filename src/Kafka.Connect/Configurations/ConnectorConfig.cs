@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using Kafka.Connect.Providers;
-// ReSharper disable UnusedAutoPropertyAccessor.Global
 
 namespace Kafka.Connect.Configurations;
 
@@ -9,30 +8,15 @@ public class ConnectorConfig
     private readonly string _groupId;
     private readonly string _clientId;
     private readonly LogConfig _log;
-    private readonly Dictionary<string, TopicConfig> _topics = new();
-    
+
     public ConverterConfig Converters { get; init; }
     
-    // ReSharper disable once InconsistentNaming ::Allowing to use an array for topics
-    // ReSharper disable once UnusedAutoPropertyAccessor.Local
-    private string[] topics { get; init; }
+    public string[] Topics { get; init; }
 
-    public Dictionary<string, TopicConfig> Topics
+    public Dictionary<string, TopicConfig> Overrides
     {
-        get
-        {
-            if (topics != null && topics.Length != 0)
-            {
-                _topics.Clear();
-                foreach (var topic in topics)
-                {
-                    _topics.Add(topic, new TopicConfig());
-                }
-            }
-
-            return _topics;
-        }
-        init => _topics = value;
+        get;
+        init;
     }
 
     public string Name { get; set; }
@@ -44,7 +28,7 @@ public class ConnectorConfig
     }
     public bool Disabled { get; init; }
 
-    public int MaxTasks { get; init; }
+    public int Tasks { get; init; }
     public bool Paused { get; init; }
     public PluginConfig Plugin { get; init; }
 
@@ -54,7 +38,7 @@ public class ConnectorConfig
         init => _log = value;
     }
 
-    public ResiliencyConfig Resiliency { get; init; }
+    public FaultToleranceConfig FaultTolerance { get; init; }
         
     public IDictionary<int, ProcessorConfig> Processors { get; init; }
 

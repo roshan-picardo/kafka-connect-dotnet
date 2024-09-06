@@ -17,6 +17,5 @@ namespace Kafka.Connect.Configurations
             get => _retryWaitTimeMs <= 0 ? 30000 : _retryWaitTimeMs;
             init => _retryWaitTimeMs = value;
         }
-        public bool StopOnFailure { get; init; }
     }
 }

@@ -2,10 +2,10 @@ namespace Kafka.Connect.Configurations;
 
 public class PluginConfig
 {
-    public string Name { get; set; }
-    public ConnectorType Type { get; set; }
-    public string Handler { get; set; }
-    public StrategyConfig Strategy { get; set; }
+    public string Name { get; init; }
+    public ConnectorType Type { get; init; }
+    public string Handler { get; init; }
+    public StrategyConfig Strategy { get; init; }
 }
 
 public enum ConnectorType
@@ -18,10 +18,10 @@ public enum ConnectorType
 
 public class PluginConfig<T> : PluginConfig
 {
-    public T Properties { get; set; }
+    public T Properties { get; init; }
 }
 
 public class ConnectorPluginConfig<T> : ConnectorConfig
 {
-    public new PluginConfig<T> Plugin { get; set; }
+    public new PluginConfig<T> Plugin { get; init; }
 }

@@ -33,12 +33,12 @@ public class WorkerController : ControllerBase
     [HttpGet("version")]
     public IActionResult Version()
     {
-        return Ok(new {version = new
+        return Ok(new {versions = new
         {
-            Dotnet = Environment.Version.ToString(),
+            Runtime = Environment.Version.ToString(),
             Library = Library.VersionString,
             Connect = Assembly.GetExecutingAssembly().GetName().Version?.ToString(),
-            Application = Environment.GetEnvironmentVariable("APPLICATION_VERSION")
+            Extends = Environment.GetEnvironmentVariable("APPLICATION_VERSION")
         }});
     }
 

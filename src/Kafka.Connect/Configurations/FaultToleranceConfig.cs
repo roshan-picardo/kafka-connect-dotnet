@@ -1,11 +1,11 @@
 namespace Kafka.Connect.Configurations;
 
-public class ResiliencyConfig
+public class FaultToleranceConfig
 {
-    public BatchConfig Batches { get; set; }
-    public RetryConfig Retries { get; set; }
-    public ErrorsConfig Errors { get; set; }
-    public EofConfig Eof { get; set; }
+    public BatchConfig Batches { get; init; }
+    public RetryConfig Retries { get; init; }
+    public ErrorsConfig Errors { get; init; }
+    public EofConfig Eof { get; init; }
 }
 
 public class BatchConfig
@@ -17,8 +17,8 @@ public class BatchConfig
 
 public class RetryConfig
 {
-    public int Attempts { get; set; }
-    public int Interval { get; set; }
+    public int Attempts { get; init; }
+    public int Interval { get; init; }
 }
 
 public class ErrorsConfig

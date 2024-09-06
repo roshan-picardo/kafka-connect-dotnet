@@ -32,7 +32,7 @@ namespace UnitTests.Kafka.Connect.Background
         [Fact]
         public void ExecuteAsync_ServiceNotEnabled()
         {
-            _configurationProvider.GetHealthCheckConfig().Returns(new HealthCheckConfig{Disabled = true, InitialDelayMs = 1});
+            _configurationProvider.GetHealthCheckConfig().Returns(new HealthCheckConfig{Disabled = true, Timeout = 1});
             _healthCheckService =
                 new HealthCheckService(_logger, _configurationProvider, _executionContext, _tokenHandler);
 
@@ -49,7 +49,7 @@ namespace UnitTests.Kafka.Connect.Background
         [Fact]
         public void ExecuteAsync_ServiceEnabledWithHealthCheckLogs()
         {
-            _configurationProvider.GetHealthCheckConfig().Returns(new HealthCheckConfig{InitialDelayMs = 1, PeriodicDelayMs = 1});
+            _configurationProvider.GetHealthCheckConfig().Returns(new HealthCheckConfig{Timeout = 1, Interval = 1});
             var log = new WorkerContext();
             _executionContext.GetStatus().Returns(log);
             _healthCheckService =
@@ -73,7 +73,7 @@ namespace UnitTests.Kafka.Connect.Background
         [InlineData(typeof(OperationCanceledException), LogLevel.Trace, "Task has been cancelled. Health check service will be terminated.")]
         public void ExecuteAsync_ServiceEnabledThrowsException(Type exType, LogLevel expectedLevel, string expectedMessage)
         {
-            _configurationProvider.GetHealthCheckConfig().Returns(new HealthCheckConfig{InitialDelayMs = 1, PeriodicDelayMs = 1});
+            _configurationProvider.GetHealthCheckConfig().Returns(new HealthCheckConfig{Timeout = 1, Interval = 1});
             _healthCheckService =
                 new HealthCheckService(_logger, _configurationProvider, _executionContext, _tokenHandler);
             var exception = Activator.CreateInstance(exType, "Unit Tests Exception.") as Exception ?? new Exception();
