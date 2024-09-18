@@ -75,6 +75,7 @@ namespace Kafka.Connect.Utilities
                 .AddScoped<IMessageConverter, StringConverter>()
                 
                 .AddScoped<IStrategySelector, TopicStrategySelector>()
+                .AddScoped<IStrategy, SkipStrategy>()
                 //.AddScoped<IWriteStrategySelector, ValueStrategySelector>()
 
                 .Configure<WorkerConfig>(configuration.GetSection("worker"), options => options.BindNonPublicProperties = true)

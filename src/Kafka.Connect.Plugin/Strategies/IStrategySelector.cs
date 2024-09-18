@@ -5,5 +5,5 @@ namespace Kafka.Connect.Plugin.Strategies;
 
 public interface IStrategySelector
 {
-    IStrategy GetQueryStrategy(IConnectRecord record, IDictionary<string, string> overrides);
+    IStrategy GetStrategy(ConnectRecord record, IDictionary<string, string> settings = null);
 }

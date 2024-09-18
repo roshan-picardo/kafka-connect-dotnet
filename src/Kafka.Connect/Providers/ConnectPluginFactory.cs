@@ -36,11 +36,11 @@ public class ConnectPluginFactory(
                 queryStrategies.SingleOrDefault(s => s.GetType().FullName == config.Name);
         }
 
-        if (config?.Selector?.Name != null)
+        if (config?.Selector != null)
         {
             var selector =
-                strategySelectors.SingleOrDefault(s => s.GetType().FullName == config.Selector.Name);
-            strategy = selector?.GetQueryStrategy(record, config.Selector.Overrides) ??
+                strategySelectors.SingleOrDefault(s => s.GetType().FullName == config.Selector);
+            strategy = selector?.GetStrategy(record as ConnectRecord, config.Settings) ??
                        strategy;
         }
 

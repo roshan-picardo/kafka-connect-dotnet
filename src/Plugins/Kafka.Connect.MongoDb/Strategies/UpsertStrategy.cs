@@ -19,7 +19,7 @@ public class UpsertStrategy(ILogger<UpsertStrategy> logger, IConfigurationProvid
         {
             var condition = configurationProvider.GetPluginConfig<PluginConfig>(connector).Filter;
             
-            return Task.FromResult(new StrategyModel<UpdateOneModel<BsonDocument>>()
+            return Task.FromResult(new StrategyModel<UpdateOneModel<BsonDocument>>
             {
                 Status = Status.Updating,
                 Model = new UpdateOneModel<BsonDocument>(

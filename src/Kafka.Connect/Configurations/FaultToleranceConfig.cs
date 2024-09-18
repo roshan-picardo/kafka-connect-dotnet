@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace Kafka.Connect.Configurations;
 
 public class FaultToleranceConfig
@@ -24,6 +26,7 @@ public class RetryConfig
 public class ErrorsConfig
 {
     public ErrorTolerance Tolerance { get; init; }
+    public List<string> Exceptions { get; init; }
     public string Topic { get; init; }
 }
 

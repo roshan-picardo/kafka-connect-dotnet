@@ -6,7 +6,7 @@ using Kafka.Connect.Plugin.Strategies;
 
 namespace Kafka.Connect.Strategies;
 
-public class SkipWriteStrategy : IStrategy
+public class SkipStrategy : IStrategy
 {
     public Task<(Status Status, IList<T> Models)> BuildModels<T>(string connector, IConnectRecord record)
     {
