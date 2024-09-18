@@ -20,6 +20,7 @@ public class DefaultPluginInitializer : IPluginInitializer
             .AddScoped<IStrategy, UpsertStrategy>()
             .AddScoped<IStrategy, DeleteStrategy>()
             .AddScoped<IStrategy, ReadStrategy>()
+            .AddScoped<IStrategySelector, ChangelogStrategySelector>()
             .AddScoped<IPostgresClientProvider, PostgresClientProvider>()
             .AddScoped<IPostgresCommandHandler, PostgresCommandHandler>();
         AddPostgresClients(collection, connectors);

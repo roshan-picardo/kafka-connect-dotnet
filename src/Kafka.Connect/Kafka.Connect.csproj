@@ -20,9 +20,6 @@
         <PackageReference Include="Serilog.Settings.Configuration" />
         <PackageReference Include="Serilog.Sinks.Console" />
     </ItemGroup>
-    <ItemGroup>
-      <Folder Include="Configs\" />
-    </ItemGroup>
     <Choose>
         <When Condition="'$(Configuration)'=='Debug'">
             <ItemGroup>

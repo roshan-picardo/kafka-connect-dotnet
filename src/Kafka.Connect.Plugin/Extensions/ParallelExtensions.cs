@@ -25,7 +25,6 @@ public static class ParallelExtensions
                 {
                     try
                     {
-                        record.Exception = null;
                         await body(record);
                     }
                     catch (Exception ex)
@@ -34,7 +33,7 @@ public static class ParallelExtensions
                         record.Exception = handleEx is ConnectException
                             ? handleEx
                             : new ConnectDataException(handleEx.Message, handleEx);
-                        record.Status = handleEx is ConnectRetriableException ? Status.Retrying : Status.Failed;
+                        record.Status = handleEx.IsRetryable(parallelRetryOptions.Exceptions) ? Status.Retrying : Status.Failed;
                     }
                 });
         } while (connectRecords.Any(r => r.Status == Status.Retrying) && attempts > 0);
@@ -81,5 +80,10 @@ public static class ParallelExtensions
                 yield break;
             }
         }
+    }
+    
+    private static bool IsRetryable(this Exception ex, IList<string> exceptions)
+    {
+        return ex is ConnectRetriableException || exceptions.Any(e => ex.GetType().FullName == e);
     }
 }

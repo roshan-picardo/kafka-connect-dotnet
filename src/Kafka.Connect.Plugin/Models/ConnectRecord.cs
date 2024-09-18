@@ -32,6 +32,8 @@ public class ConnectRecord : IConnectRecord
     
     public ConnectMessage<JsonNode> Deserialized { get; set; }
     
+    public ConnectMessage<JsonNode> Raw { get; set; }
+    
     public ConnectMessage<byte[]> Serialized { get; set; }
     
     public string Topic { get; protected set; }
@@ -39,7 +41,6 @@ public class ConnectRecord : IConnectRecord
     public long Offset { get; protected set; }
 
     public Guid Key => new(MD5.HashData(Serialized.Key));
-    public int Order { get; set; }
 
     public void Published(string topic, int partition, long offset)
     {
@@ -48,19 +49,6 @@ public class ConnectRecord : IConnectRecord
         Offset = offset;
         UpdateStatus();
     }
-
-    public bool IsCommitReady(bool tolerated) => Status switch
-    {
-        Status.Inserted => true,
-        Status.Deleted => true,
-        Status.Updated => true,
-        Status.Skipped => true,
-        Status.Excluded => true,
-        Status.Published => true,
-        Status.Reviewed => true,
-        Status.Failed => tolerated,
-        _ => false
-    };
 
     public Status Status { get; set; }
 

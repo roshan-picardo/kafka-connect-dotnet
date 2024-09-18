@@ -123,7 +123,6 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
     public EofConfig GetEofSignalConfig(string connector)
         => ((IsLeader ? _leaderConfig.FaultTolerance : _workerConfig.FaultTolerance) ??
             GetConnectorConfig(connector)?.FaultTolerance)?.Eof ?? new EofConfig();
-    
 
     public BatchConfig GetBatchConfig(string connector)
     {
@@ -267,7 +266,8 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
             ErrorTolerance = (
                 All: errorsConfig.Tolerance == ErrorTolerance.All,
                 Data: errorsConfig.Tolerance == ErrorTolerance.Data,
-                None: errorsConfig.Tolerance == ErrorTolerance.None)
+                None: errorsConfig.Tolerance == ErrorTolerance.None),
+            Exceptions = errorsConfig.Exceptions ?? []
         };
     }
 

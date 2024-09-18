@@ -183,12 +183,14 @@ public class ConnectRecordCollection(
                                 var deserialized =
                                     await messageHandler.Deserialize(_connector, record.Topic, record.Serialized);
                                 logger.Document(deserialized);
+                                record.Raw = deserialized;
                                 processed = await messageHandler.Process(_connector, record.Topic, deserialized);
                             }
 
                             break;
                         case SourceRecord or ConfigRecord:
                             logger.Document(record.Deserialized);
+                            record.Raw = record.Deserialized;
                             processed = await messageHandler.Process(_connector, record.Topic, record.Deserialized);
                             record.Serialized = await messageHandler.Serialize(_connector, record.Topic, processed.Message);
                             break;
