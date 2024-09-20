@@ -112,6 +112,8 @@ public class PostgresPluginHandler(
         postgresCommandHandler.Next(command, records.Where(r => r.Status is Status.Published or Status.Skipped or Status.Triggered)
             .Select(r => r.Deserialized).ToList());
     
+    public override Task Purge(string connector) => postgresCommandHandler.Purge(connector);
+    
     private static ConnectRecord GetConnectRecord(Dictionary<string, object> message, CommandRecord command)
     {
         var config = command.GetCommand<CommandConfig>();

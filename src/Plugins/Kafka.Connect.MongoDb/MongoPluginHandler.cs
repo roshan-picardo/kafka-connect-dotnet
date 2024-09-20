@@ -25,6 +25,7 @@ public class MongoPluginHandler(
 {
     private readonly IConfigurationProvider _configurationProvider = configurationProvider;
     public override Task Startup(string connector) => Task.CompletedTask;
+    public override Task Purge(string connector) => Task.CompletedTask;
 
     public override async Task<IList<ConnectRecord>> Get(string connector, int taskId, CommandRecord command)
     {

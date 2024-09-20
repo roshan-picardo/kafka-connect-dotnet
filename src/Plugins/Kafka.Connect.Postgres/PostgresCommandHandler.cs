@@ -13,6 +13,7 @@ public interface IPostgresCommandHandler
     Task Initialize(string connector);
     IDictionary<string, Command> Get(string connector);
     JsonNode Next(CommandRecord command, IList<ConnectMessage<JsonNode>> records);
+    Task Purge(string connector);
 }
 
 public class PostgresCommandHandler(
@@ -183,5 +184,30 @@ public class PostgresCommandHandler(
         }
 
         return config.ToJson();
+    }
+
+    public async Task Purge(string connector)
+    {
+        var config = configurationProvider.GetPluginConfig<PluginConfig>(connector);
+        if(config.Changelog is { Table: not null, Retention: > 0 })
+        {
+            using (logger.Track($"Purging audit log for {config.Changelog.Table} with retention {config.Changelog.Retention} days."))
+            {
+                try
+                {
+                    var connection = postgresClientProvider.GetPostgresClient(connector).GetConnection();
+                    var purge = $"""
+                                 DELETE FROM {config.Changelog.Schema}.{config.Changelog.Table}
+                                 WHERE log_timestamp < now() - interval '{config.Changelog.Retention} days';
+                                 """;
+                   var records = await new NpgsqlCommand(purge, connection).ExecuteNonQueryAsync();
+                   logger.Debug($"Purged {records} records from the audit log.");
+                }
+                catch (Exception exception)
+                {
+                    logger.Critical("Failed to purge the audit log.", exception);
+                }
+            }
+        }
     }
 }

@@ -40,10 +40,9 @@ public class CommandConfig : Command
 
 public class ChangelogConfig
 {
-    public bool Enabled => string.IsNullOrWhiteSpace(Table);
     public string Schema { get; set; } = "public";
     public string Table { get; set; }
-    public int RetentionInDays { get; set; } = 7;
+    public int Retention { get; set; } = 1;
 }
 
 public class SnapshotConfig
