@@ -9,18 +9,12 @@ using Kafka.Connect.Plugin.Providers;
 
 namespace Kafka.Connect.Processors;
 
-public class FieldRenamer : Processor<IDictionary<string, string>>
+public class FieldRenamer(ILogger<FieldRenamer> logger, IConfigurationProvider configurationProvider)
+    : Processor<IDictionary<string, string>>(configurationProvider)
 {
-    private readonly ILogger<FieldRenamer> _logger;
-
-    public FieldRenamer(ILogger<FieldRenamer> logger, IConfigurationProvider configurationProvider) : base(configurationProvider)
-    {
-        _logger = logger;
-    }
-
     protected override Task<(bool Skip,  ConnectMessage<IDictionary<string, object>> Flattened)> Apply(IDictionary<string, string> settings, ConnectMessage<IDictionary<string, object>> message)
     {
-        using (_logger.Track("Applying field renamer."))
+        using (logger.Track("Applying field renamer."))
         {
             var processed = new ConnectMessage<IDictionary<string, object>>
             {
@@ -39,7 +33,7 @@ public class FieldRenamer : Processor<IDictionary<string, string>>
         foreach (var (key, value) in maps.GetMatchingMaps(flattened).ToList())
         {
             if (flattened[key] == null || !(flattened[key] is { } o)) continue;
-            renamed.Add(value, o);
+            renamed[value] = o;
             flattened.Remove(key);
         }
 

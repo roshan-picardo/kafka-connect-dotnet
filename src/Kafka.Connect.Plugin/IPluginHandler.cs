@@ -4,13 +4,14 @@ using System.Threading.Tasks;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Plugin.Providers;
 using Kafka.Connect.Plugin.Extensions;
-using Kafka.Connect.Plugin.Strategies;
 
 namespace Kafka.Connect.Plugin;
 
 public interface IPluginHandler
 {
     Task Startup(string connector);
+    Task Purge(string connector);
+    
     Task<IList<ConnectRecord>> Get(string connector, int taskId, CommandRecord command);
     Task Put(IList<ConnectRecord> models, string connector, int taskId);
 
@@ -23,6 +24,8 @@ public interface IPluginHandler
 public abstract class PluginHandler(IConfigurationProvider configurationProvider) : IPluginHandler
 {
     public abstract Task Startup(string connector);
+    public abstract Task Purge(string connector);
+    
     public abstract Task<IList<ConnectRecord>> Get(string connector, int taskId, CommandRecord command);
     public abstract Task Put(IList<ConnectRecord> models, string connector, int taskId);
     
@@ -32,4 +35,3 @@ public abstract class PluginHandler(IConfigurationProvider configurationProvider
     public bool Is(string connector, string plugin, string handler) =>
         plugin == configurationProvider.GetPluginName(connector) && this.Is(handler);
 }
-    

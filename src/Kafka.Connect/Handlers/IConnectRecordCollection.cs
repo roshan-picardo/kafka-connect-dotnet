@@ -10,6 +10,7 @@ namespace Kafka.Connect.Handlers;
 public interface IConnectRecordCollection
 {
     Task Setup(ConnectorType connectorType, string connector, int taskId);
+    Task Purge(ConnectorType connectorType, string connector, int taskId);
     void Clear(string batchId = null);
     void ClearAll();
     bool TrySubscribe();

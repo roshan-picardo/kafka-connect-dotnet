@@ -104,6 +104,7 @@ public class SourceTask(
 
                     pollRecordCollection.Clear();
                     attempts = parallelOptions.Attempts;
+                    await pollRecordCollection.Purge(ConnectorType.Source, connector, taskId);
                 }
                 catch (Exception ex)
                 {

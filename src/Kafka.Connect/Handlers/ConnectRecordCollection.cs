@@ -48,6 +48,14 @@ public class ConnectRecordCollection(
         }
     }
 
+    public async Task Purge(ConnectorType connectorType, string connector, int taskId)
+    {
+        if (connectorType == ConnectorType.Source)
+        {
+            await GetPluginHandler(connector).Purge(connector);
+        }
+    }
+
     public void Clear(string batchId = null)
     {
         using (logger.Track("Clearing collection"))
