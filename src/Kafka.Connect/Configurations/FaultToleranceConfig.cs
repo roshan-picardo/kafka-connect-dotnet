@@ -15,6 +15,7 @@ public class BatchConfig
     public int Size { get; init; }
     public int Parallelism { get; init; }
     public int Interval { get; init; }
+    public int Poll { get; set; }
 }
 
 public class RetryConfig

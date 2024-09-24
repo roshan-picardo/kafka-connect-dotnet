@@ -22,6 +22,7 @@ public class SourceTask(
     : ISourceTask
 {
     private readonly PauseTokenSource _pauseTokenSource = new();
+    private readonly PauseTokenSource _pauseTokenSourcePoll = new();
 
     public bool IsPaused => false;
     public bool IsStopped { get; private set; }
@@ -38,6 +39,7 @@ public class SourceTask(
         }
 
         var timeoutInMs = configurationProvider.GetBatchConfig(connector).Interval;
+        var pollInMs = configurationProvider.GetBatchConfig(connector).Poll;
         var parallelOptions = configurationProvider.GetParallelRetryOptions(connector);
 
         var attempts = parallelOptions.Attempts;
@@ -68,7 +70,15 @@ public class SourceTask(
                             try
                             {
                                 record.Status = Status.Sourcing;
-                                await pollRecordCollection.Source(record);
+                                do
+                                {
+                                    await pollRecordCollection.Source(record);
+                                    if (cts.IsCancellationRequested || pollRecordCollection.Count(record.Id.ToString()) > 0)
+                                    {
+                                        break;
+                                    }
+                                    await _pauseTokenSourcePoll.WaitUntilTimeout(pollInMs, cts.Token);
+                                } while (_pauseTokenSource.IsPaused);
                                 await pollRecordCollection.Process(record.Id.ToString());
                                 await pollRecordCollection.Produce(record.Id.ToString());
                                 record.Status = Status.Sourced;
@@ -88,7 +98,7 @@ public class SourceTask(
                                 pollRecordCollection.Record(record);
                                 await pollRecordCollection.UpdateCommand(record);
 
-                                if (pollRecordCollection.Count(record.Id.ToString()) >= record.BatchSize)
+                                if (pollRecordCollection.Count(record.Id.ToString()) > 0)
                                 {
                                     Interlocked.Exchange(ref timeoutInMs, 0);
                                 }
