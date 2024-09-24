@@ -14,7 +14,7 @@ public class ChangelogStrategySelector(IEnumerable<IStrategy> strategies) : IStr
             "IMPORT" => strategies.SingleOrDefault(s => s.Is<UpsertStrategy>()),
             "CHANGE" => strategies.SingleOrDefault(s => s.Is<UpsertStrategy>()),
             "INSERT" => strategies.SingleOrDefault(s => s.Is<InsertStrategy>()),
-            "UPDATE" => strategies.SingleOrDefault(s => s.Is<UpsertStrategy>()),
+            "UPDATE" => strategies.SingleOrDefault(s => s.Is<UpdateStrategy>()),
             "DELETE" => strategies.SingleOrDefault(s => s.Is<DeleteStrategy>()),
             _ => strategies.SingleOrDefault(s => s.Is("Kafka.Connect.Strategies.SkipStrategy"))
         };
