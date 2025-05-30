@@ -140,7 +140,7 @@ public class PostgresCommandHandler(
                     sorted = sorted.ThenBy(d => d[key]);
                 }
 
-                config.Filters = sorted.LastOrDefault()?.Where(x => config.Filters.Keys.Contains(x.Key))
+                config.Filters = sorted.LastOrDefault()?.Where(x => config.Filters.ContainsKey(x.Key))
                     .ToDictionary();
             }
         }

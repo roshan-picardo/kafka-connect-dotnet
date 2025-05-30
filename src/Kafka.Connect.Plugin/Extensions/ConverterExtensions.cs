@@ -223,27 +223,18 @@ public static class ConverterExtensions
 
     public static object GetValue(this JsonElement je)
     {
-        switch (je.ValueKind)
+        return je.ValueKind switch
         {
-            case JsonValueKind.String:
-                return je.GetString();
-            case JsonValueKind.Number when je.TryGetInt32(out var intValue):
-                return intValue;
-            case JsonValueKind.Number when je.TryGetInt64(out var longValue):
-                return longValue;
-            case JsonValueKind.Number when je.TryGetSingle(out var singleValue):
-                return singleValue;
-            case JsonValueKind.Number when je.TryGetDouble(out var doubleValue):
-                return doubleValue;
-            case JsonValueKind.Number:
-                return 0;
-            case JsonValueKind.True or JsonValueKind.False:
-                return je.GetBoolean();
-            case JsonValueKind.Undefined or JsonValueKind.Null:
-                return null;
-        }
-
-        return null;
+            JsonValueKind.String => je.GetString(),
+            JsonValueKind.Number when je.TryGetInt32(out var intValue) => intValue,
+            JsonValueKind.Number when je.TryGetInt64(out var longValue) => longValue,
+            JsonValueKind.Number when je.TryGetSingle(out var singleValue) => singleValue,
+            JsonValueKind.Number when je.TryGetDouble(out var doubleValue) => doubleValue,
+            JsonValueKind.Number => 0,
+            JsonValueKind.True or JsonValueKind.False => je.GetBoolean(),
+            JsonValueKind.Undefined or JsonValueKind.Null => null,
+            _ => null
+        };
     }
 
     public static Guid ToGuid(this string s) => new(MD5.HashData(Encoding.UTF8.GetBytes(s)));

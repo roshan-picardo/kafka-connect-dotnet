@@ -10,6 +10,7 @@ using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Plugin.Strategies;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using MongoDB.Driver.Linq;
 
 namespace Kafka.Connect.MongoDb.Strategies;
 
@@ -25,41 +26,37 @@ public class ReadStrategy(ILogger<ReadStrategy> logger) : Strategy<FindModel<Bso
         using (logger.Track("Creating read models"))
         {
             var command = record.GetCommand<CommandConfig>();
-            var buildOrder = Builders<BsonDocument>.Sort;
-            var sort = buildOrder.Ascending(command.TimestampColumn);
-            var filters = new List<List<FilterDefinition<BsonDocument>>>
+            var model = new StrategyModel<FindModel<BsonDocument>> { Status = Status.Selecting };
+            if (!record.IsChangeLog())
             {
-                new() { Builders<BsonDocument>.Filter.Gt(command.TimestampColumn, command.Timestamp) },
-                new() { Builders<BsonDocument>.Filter.Eq(command.TimestampColumn, command.Timestamp) }
-            };
-            if (command.KeyColumns != null)
-            {
-                const int index = 1;
-                foreach (var keyColumn in command.KeyColumns)
+                List<FilterDefinition<BsonDocument>> filters = [];
+                var lookup = command.Filters?.Where(f => f.Value != null)
+                    .Select(f => new {f.Key, Value =  f.Value is JsonElement je ? je.GetValue() : f.Value } ).ToList() ?? [];
+                for (var i = 0; i < lookup.Count; i++)
                 {
-                    if (command.Keys?.TryGetValue(keyColumn, out var obj) ?? false)
-                    {
-                        var value = obj is JsonElement je ? je.GetValue() : obj;
-                        filters.Add([..filters[index], Builders<BsonDocument>.Filter.Eq(keyColumn, value)]);
-                        filters[index].Add(Builders<BsonDocument>.Filter.Gt(keyColumn, value));
-                    }
-
-                    sort.Ascending(keyColumn);
+                    var rules = lookup.Take(i).Select(f => Builders<BsonDocument>.Filter.Eq(f.Key, f.Value)).ToList();
+                    rules.Add(Builders<BsonDocument>.Filter.Gt(lookup.ElementAt(i).Key, lookup.ElementAt(i).Value));
+                    filters.Add(Builders<BsonDocument>.Filter.And(rules));
                 }
+
+                model.Model = new FindModel<BsonDocument>
+                {
+                    Operation = "CHANGE",
+                    Filter = filters.Count > 0
+                        ? Builders<BsonDocument>.Filter.Or(filters)
+                        : FilterDefinition<BsonDocument>.Empty,
+                    Options = new FindOptions<BsonDocument>
+                    {
+                        Sort = command.Filters == null
+                            ? null
+                            : Builders<BsonDocument>.Sort.Combine(
+                                command.Filters.Keys.Select(k => Builders<BsonDocument>.Sort.Ascending(k))),
+                        BatchSize = record.BatchSize
+                    }
+                };
             }
 
-            filters.RemoveAt(filters.Count - 1);
-
-            return Task.FromResult(new StrategyModel<FindModel<BsonDocument>>
-            {
-                Status = Status.Selecting,
-                Model = new FindModel<BsonDocument>
-                {
-                    Filter =
-                        Builders<BsonDocument>.Filter.Or(filters.Select(f => Builders<BsonDocument>.Filter.And(f))),
-                    Options = new FindOptions<BsonDocument> { Sort = sort, Limit = record.BatchSize }
-                }
-            });
+            return Task.FromResult(model);
         }
     }
 }

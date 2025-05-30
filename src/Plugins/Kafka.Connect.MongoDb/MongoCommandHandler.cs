@@ -27,14 +27,27 @@ public class MongoCommandHandler(IConfigurationProvider configurationProvider)
     public JsonNode Next(CommandRecord command, IList<ConnectMessage<JsonNode>> records)
     {
         var config = command.GetCommand<CommandConfig>();
-        if (records.Any())
+        if (!command.IsChangeLog())
+        {
+            if (records.Count > 0)
+            {
+                var sorted = records.Select(r => r.Value["after"].ToDictionary("after", true)).OrderBy(_ => 1);
+                foreach (var key in config.Filters.Keys)
+                {
+                    sorted = sorted.ThenBy(d => d[key]);
+                }
+                config.Filters = sorted.LastOrDefault()?.Where(x => config.Filters.ContainsKey(x.Key))
+                    .ToDictionary();
+            }
+        }
+        else if (records.Any())
         {
             var maxTimestamp = records.Max(m => m.Timestamp);
             var keys = records.Where(m => m.Timestamp == maxTimestamp).Select(m => m.Key.ToDictionary())
                 .OrderBy(_ => 1);
-            keys = config.KeyColumns.Aggregate(keys, (current, keyColumn) => current.ThenBy(d => d[keyColumn]));
+            keys = config.Keys.Aggregate(keys, (current, keyColumn) => current.ThenBy(d => d[keyColumn]));
             config.Timestamp = maxTimestamp;
-            config.Keys = keys.LastOrDefault();
+            config.Filters = keys.LastOrDefault();
         }
 
         return config.ToJson();
