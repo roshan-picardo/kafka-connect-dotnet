@@ -19,7 +19,6 @@ public class UpdateStrategy(ILogger<UpdateStrategy> logger, IConfigurationProvid
         using (logger.Track("Creating update models"))
         {
             var condition = configurationProvider.GetPluginConfig<PluginConfig>(connector).Filter;
-            
             return Task.FromResult(new StrategyModel<UpdateOneModel<BsonDocument>>
             {
                 Status = Status.Updating,

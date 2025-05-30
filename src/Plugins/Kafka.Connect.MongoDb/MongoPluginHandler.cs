@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
@@ -37,8 +38,7 @@ public class MongoPluginHandler(
 
             var records = await mongoQueryRunner.ReadMany(model, connector, taskId, commandConfig.Collection);
 
-            return records.Select(doc => new ConnectRecord(commandConfig.Topic, -1, -1)
-                { Deserialized = GetConnectMessage(doc, commandConfig) }).ToList();
+            return records.Select(doc => GetConnectRecord(doc, command, model.Model.Operation)).ToList();
         }
     }
 
@@ -76,16 +76,37 @@ public class MongoPluginHandler(
             records.Where(r => r.Status is Status.Published or Status.Skipped)
                 .Select(r => r.Deserialized).ToList());
 
-    private static ConnectMessage<JsonNode> GetConnectMessage(BsonValue bson, CommandConfig command)
+    private static ConnectRecord GetConnectRecord(BsonValue bson, CommandRecord command, string operation)
     {
-        var record = JsonNode.Parse(JsonSerializer.Serialize(BsonTypeMapper.MapToDotNetValue(bson)));
-        var flattened = record.ToDictionary();
-        return new ConnectMessage<JsonNode>
+        var config = command.GetCommand<CommandConfig>();
+        var json = JsonNode.Parse(JsonSerializer.Serialize(BsonTypeMapper.MapToDotNetValue(bson)))!;
+        var value = operation switch
         {
-            Timestamp = (long)flattened[command.TimestampColumn],
-            Key = JsonNode.Parse(JsonSerializer.Serialize(flattened
-                .Where(r => command.KeyColumns?.Contains(r.Key) ?? false).ToDictionary(k => k.Key, v => v.Value))),
-            Value = record
+            "CHANGE" => new JsonObject
+            {
+                { "id", JsonNode.Parse(json["_id"]?.ToString() ?? "{}") },
+                { "operation", operation },
+                { "timestamp", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() },
+                { "before", null },
+                { "after", json }
+            }!,
+            _ => JsonNode.Parse("[]")!
+        };
+
+        return new ConnectRecord(config.Topic, -1, -1)
+        {
+            Status = Status.Selected,
+            Deserialized = new ConnectMessage<JsonNode>
+            {
+                Key = config.Keys != null
+                    ? (value["after"]?.ToDictionary("after", true) ?? 
+                       value["before"]?.ToDictionary("before", true))?
+                            .Where(r => config.Keys.Contains(r.Key))
+                            .ToDictionary(k => k.Key, v => v.Value)
+                            .ToJson()
+                    : null,
+                Value = value
+            }
         };
     }
 }

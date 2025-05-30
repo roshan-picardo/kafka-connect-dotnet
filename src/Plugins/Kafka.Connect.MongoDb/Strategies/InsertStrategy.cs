@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
@@ -16,7 +14,7 @@ public class InsertStrategy(ILogger<InsertStrategy> logger) : Strategy<InsertOne
     {
         using (logger.Track("Creating insert write models"))
         {
-            return Task.FromResult(new StrategyModel<InsertOneModel<BsonDocument>>()
+            return Task.FromResult(new StrategyModel<InsertOneModel<BsonDocument>>
             {
                 Key = record.Key,
                 Status = Status.Inserting,
