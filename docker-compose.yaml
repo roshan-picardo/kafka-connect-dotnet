@@ -1,7 +1,7 @@
 ---
 services:
   zookeeper:
-    image: confluentinc/cp-zookeeper:7.2.1
+    image: confluentinc/cp-zookeeper:7.6.0
     hostname: zookeeper
     container_name: zookeeper
     ports:
@@ -11,7 +11,7 @@ services:
       ZOOKEEPER_TICK_TIME: 2000
 
   broker:
-    image: confluentinc/cp-server:7.2.1
+    image: confluentinc/cp-server:7.6.0
     hostname: broker
     container_name: broker
     depends_on:
@@ -40,7 +40,7 @@ services:
       CONFLUENT_SUPPORT_CUSTOMER_ID: 'anonymous'
 
   schema-registry:
-    image: confluentinc/cp-schema-registry:7.2.1
+    image: confluentinc/cp-schema-registry:7.6.0
     hostname: schema-registry
     container_name: schema-registry
     depends_on:
@@ -50,17 +50,21 @@ services:
     environment:
       SCHEMA_REGISTRY_HOST_NAME: schema-registry
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: 'broker:29092'
-      #SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:28081
       
   mongodb:
-    image: mongo:6.0.1
+    image: mongo:7.0
     container_name: mongodb
     ports:
       - "27017:27017"
     restart: always
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=admin
+    volumes:
+      - mongodb_data:/data/db
 
   postgres:
-    image: hub.docker.internal.cba/postgres:14.6
+    image: postgres:16.1
     hostname: postgres
     container_name: postgres
     ports:
@@ -68,3 +72,24 @@ services:
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=kafka_connect
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  sqlserver:
+    image: mssql/server:2022-latest
+    container_name: sqlserver
+    restart: always
+    ports:
+      - "1433:1433"
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=Password123!
+      - MSSQL_PID=Developer
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+
+volumes:
+  mongodb_data:
+  postgres_data:
+  sqlserver_data:

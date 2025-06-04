@@ -33,7 +33,11 @@ public class LeaderConfig : NodeConfig
         Topics = Topics.Where(t => t.Value.Purpose == TopicType.Config).Select(t => t.Key).ToArray(),
         Overrides = Topics.Where(t => t.Value.Purpose == TopicType.Config).ToDictionary(t => t.Key, t => t.Value),
         Tasks = 1,
-        GroupId = GroupId
+        GroupId = GroupId,
+        Plugin = new PluginConfig
+        {
+            Type = ConnectorType.Leader
+        }
     };
     
     public string Settings { get; init; }
