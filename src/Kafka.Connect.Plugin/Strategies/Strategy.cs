@@ -56,6 +56,11 @@ public abstract class Strategy<T> : IStrategy
     protected string BuildCondition(string condition, IDictionary<string, object> flattened) =>
         _regex.Replace(condition, match => Convert.ToString(flattened[match.Groups[1].Value]));
 
+    protected List<string> GetConditionParameters(string condition) =>
+        _regex.Matches(condition).Select(m => m.Groups[1].Value).ToList();
+
+    protected string GetValueByType(object value) => value is string ? $"'{value}'" : $"{value}";
+
     protected abstract Task<StrategyModel<T>> BuildModels(string connector, ConnectRecord record);
     protected abstract Task<StrategyModel<T>> BuildModels(string connector, CommandRecord record);
 }
