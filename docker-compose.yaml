@@ -59,7 +59,7 @@ services:
     restart: always
     environment:
       - MONGO_INITDB_ROOT_USERNAME=admin
-      - MONGO_INITDB_ROOT_PASSWORD=admin
+      - MONGO_INITDB_ROOT_PASSWORD=
     volumes:
       - mongodb_data:/data/db
 
@@ -71,7 +71,7 @@ services:
       - "5432:5432"
     environment:
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_PASSWORD=
       - POSTGRES_DB=kafka_connect
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -84,12 +84,46 @@ services:
       - "1433:1433"
     environment:
       - ACCEPT_EULA=Y
-      - SA_PASSWORD=Password123!
+      - SA_PASSWORD=
       - MSSQL_PID=Developer
     volumes:
       - sqlserver_data:/var/opt/mssql
+
+  oracle:
+    image: gvenzl/oracle-xe:21-slim
+    container_name: oracle
+    restart: always
+    ports:
+      - "1521:1521"
+    environment:
+      - ORACLE_PASSWORD=
+      - ORACLE_DATABASE=XEPDB1
+      - APP_USER=kafka_connect
+      - APP_USER_PASSWORD=kafka_connect
+    volumes:
+      - oracle_data:/opt/oracle/oradata
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  cloudbeaver:
+    image: dbeaver/cloudbeaver:latest
+    container_name: cloudbeaver
+    ports:
+      - "8978:8978"  # Web UI
+    environment:
+      - CB_ADMIN_NAME=admin
+      - CB_ADMIN_PASSWORD=
+    volumes:
+      - dbeaver_data:/opt/cloudbeaver/workspace
+    restart: unless-stopped
+    command: ["--no-restore-config"]
 
 volumes:
   mongodb_data:
   postgres_data:
   sqlserver_data:
+  oracle_data:
+  dbeaver_data:
