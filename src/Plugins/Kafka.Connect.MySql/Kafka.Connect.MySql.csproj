@@ -3,7 +3,28 @@
     <PropertyGroup>
         <TargetFramework>net8.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
-        <Nullable>enable</Nullable>
+        <Nullable>disable</Nullable>
     </PropertyGroup>
 
+    <ItemGroup>
+        <PackageReference Include="MySql.Data" />
+    </ItemGroup>
+    <Choose>
+        <When Condition="'$(Configuration)'=='Debug'">
+            <ItemGroup>
+                <ProjectReference Include="..\..\Kafka.Connect.Plugin\Kafka.Connect.Plugin.csproj">
+                    <Private>false</Private>
+                    <ExcludeAssets>runtime</ExcludeAssets>
+                </ProjectReference>
+            </ItemGroup>
+        </When>
+        <Otherwise>
+            <ItemGroup>
+                <PackageReference Include="Kafka.Connect.Plugin" Version="*">
+                    <Private>false</Private>
+                    <ExcludeAssets>runtime</ExcludeAssets>
+                </PackageReference>
+            </ItemGroup>
+        </Otherwise>
+    </Choose>
 </Project>

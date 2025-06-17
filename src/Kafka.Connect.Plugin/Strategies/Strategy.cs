@@ -59,7 +59,12 @@ public abstract class Strategy<T> : IStrategy
     protected List<string> GetConditionParameters(string condition) =>
         _regex.Matches(condition).Select(m => m.Groups[1].Value).ToList();
 
-    protected string GetValueByType(object value) => value is string ? $"'{value}'" : $"{value}";
+    protected string GetValueByType(object value) => value switch
+    {
+        null => "NULL",
+        string s => $"'{s.Replace("'", "''")}'",
+        _ => $"'{value}'"
+    };
 
     protected abstract Task<StrategyModel<T>> BuildModels(string connector, ConnectRecord record);
     protected abstract Task<StrategyModel<T>> BuildModels(string connector, CommandRecord record);
