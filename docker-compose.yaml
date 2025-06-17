@@ -59,7 +59,7 @@ services:
     restart: always
     environment:
       - MONGO_INITDB_ROOT_USERNAME=admin
-      - MONGO_INITDB_ROOT_PASSWORD=
+      - MONGO_INITDB_ROOT_PASSWORD=admin
     volumes:
       - mongodb_data:/data/db
 
@@ -71,7 +71,7 @@ services:
       - "5432:5432"
     environment:
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=
+      - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=kafka_connect
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -84,7 +84,7 @@ services:
       - "1433:1433"
     environment:
       - ACCEPT_EULA=Y
-      - SA_PASSWORD=
+      - SA_PASSWORD=Password123!
       - MSSQL_PID=Developer
     volumes:
       - sqlserver_data:/var/opt/mssql
@@ -96,7 +96,7 @@ services:
     ports:
       - "1521:1521"
     environment:
-      - ORACLE_PASSWORD=
+      - ORACLE_PASSWORD=Password123!
       - ORACLE_DATABASE=XEPDB1
       - APP_USER=kafka_connect
       - APP_USER_PASSWORD=kafka_connect
@@ -108,6 +108,21 @@ services:
       timeout: 10s
       retries: 5
 
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    restart: always
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_USER=kafka_connect
+      - MYSQL_PASSWORD=kafka_connect
+      - MYSQL_DATABASE=kafka_connect
+    volumes:
+      - mysql_data:/var/lib/mysql
+    command: --default-authentication-plugin=mysql_native_password --log-bin-trust-function-creators=1
+
   cloudbeaver:
     image: dbeaver/cloudbeaver:latest
     container_name: cloudbeaver
@@ -115,7 +130,7 @@ services:
       - "8978:8978"  # Web UI
     environment:
       - CB_ADMIN_NAME=admin
-      - CB_ADMIN_PASSWORD=
+      - CB_ADMIN_PASSWORD=admin
     volumes:
       - dbeaver_data:/opt/cloudbeaver/workspace
     restart: unless-stopped
@@ -126,4 +141,5 @@ volumes:
   postgres_data:
   sqlserver_data:
   oracle_data:
+  mysql_data:
   dbeaver_data:
