@@ -123,6 +123,21 @@ services:
       - mysql_data:/var/lib/mysql
     command: --default-authentication-plugin=mysql_native_password --log-bin-trust-function-creators=1
 
+  mariadb:
+    image: mariadb:11.2
+    container_name: mariadb
+    restart: always
+    ports:
+      - "3307:3306"
+    environment:
+      - MARIADB_ROOT_PASSWORD=root
+      - MARIADB_USER=kafka_connect
+      - MARIADB_PASSWORD=kafka_connect
+      - MARIADB_DATABASE=kafka_connect
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    command: --log-bin-trust-function-creators=1
+
   cloudbeaver:
     image: dbeaver/cloudbeaver:latest
     container_name: cloudbeaver
@@ -142,4 +157,5 @@ volumes:
   sqlserver_data:
   oracle_data:
   mysql_data:
+  mariadb_data:
   dbeaver_data:

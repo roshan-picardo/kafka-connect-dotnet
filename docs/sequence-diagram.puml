@@ -1,0 +1,73 @@
+@startuml Kafka Connect .NET Sequence Diagram
+
+actor Client
+participant Leader
+participant Worker
+participant Connector
+participant MessageHandler
+participant "MariaDbPluginHandler" as PluginHandler
+participant "MariaDbCommandHandler" as CommandHandler
+participant "ChangelogStrategySelector" as StrategySelector
+participant "Database Strategy" as Strategy
+database "MariaDB" as Database
+queue "Kafka" as Kafka
+
+== Initialization Flow ==
+
+Client -> Leader: Start
+Leader -> Leader: Execute()
+Leader -> Leader: CreateInternalTopics()
+Leader -> Worker: Execute(connector.Name, tokenSource)
+Worker -> Connector: Execute(connector.Name, tokenSource)
+Connector -> PluginHandler: Startup(connector)
+PluginHandler -> CommandHandler: Initialize(connector)
+CommandHandler -> Database: Create audit log table if not exists
+CommandHandler -> Database: Create triggers for tables
+
+== Source Connector Flow (Reading from Database) ==
+
+Connector -> PluginHandler: Get(connector, taskId, command)
+PluginHandler -> CommandHandler: Get(connector)
+PluginHandler -> StrategySelector: GetStrategy(connector, command)
+StrategySelector -> Strategy: ReadStrategy
+Strategy -> PluginHandler: Build SQL query
+PluginHandler -> Database: Execute SQL query
+Database --> PluginHandler: Return result set
+PluginHandler -> PluginHandler: Convert to ConnectRecords
+PluginHandler --> Connector: Return ConnectRecords
+Connector -> MessageHandler: Process(connector, topic, message)
+MessageHandler -> MessageHandler: Apply processors
+MessageHandler -> MessageHandler: Serialize(connector, topic, message)
+Connector -> Kafka: Produce messages
+
+== Sink Connector Flow (Writing to Database) ==
+
+Kafka -> Connector: Consume messages
+Connector -> MessageHandler: Deserialize(connector, topic, message)
+Connector -> MessageHandler: Process(connector, topic, message)
+Connector -> PluginHandler: Put(records, connector, taskId)
+PluginHandler -> StrategySelector: GetStrategy(connector, record)
+
+alt operation = INSERT
+    StrategySelector -> Strategy: InsertStrategy
+else operation = UPDATE
+    StrategySelector -> Strategy: UpdateStrategy
+else operation = DELETE
+    StrategySelector -> Strategy: DeleteStrategy
+else operation = IMPORT or CHANGE
+    StrategySelector -> Strategy: UpsertStrategy
+end
+
+Strategy --> PluginHandler: Build SQL statement
+PluginHandler -> Database: Execute SQL statement
+Database --> PluginHandler: Return result
+PluginHandler --> Connector: Return status
+
+== Changelog/Audit Flow ==
+
+CommandHandler -> Database: Query audit log table
+Database --> CommandHandler: Return changelog records
+CommandHandler --> PluginHandler: Return changelog data
+PluginHandler --> Connector: Process changelog data
+
+@enduml

@@ -1,0 +1,191 @@
+version: '3.8'
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    hostname: zookeeper
+    container_name: test-zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - kafka-connect-test
+
+  broker:
+    image: confluentinc/cp-server:7.6.0
+    hostname: broker
+    container_name: test-broker
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "9101:9101"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_METRIC_REPORTERS: io.confluent.metrics.reporter.ConfluentMetricsReporter
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_CONFLUENT_LICENSE_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_CONFLUENT_BALANCER_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_JMX_PORT: 9101
+      KAFKA_JMX_HOSTNAME: localhost
+      KAFKA_CONFLUENT_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS: broker:29092
+      CONFLUENT_METRICS_REPORTER_TOPIC_REPLICAS: 1
+      CONFLUENT_METRICS_ENABLE: 'true'
+      CONFLUENT_SUPPORT_CUSTOMER_ID: 'anonymous'
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+    networks:
+      - kafka-connect-test
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.6.0
+    hostname: schema-registry
+    container_name: test-schema-registry
+    depends_on:
+      - broker
+    ports:
+      - "28081:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: 'broker:29092'
+    networks:
+      - kafka-connect-test
+
+  # Database Services
+  mongodb:
+    image: mongo:7.0
+    container_name: test-mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=admin123
+      - MONGO_INITDB_DATABASE=kafka_connect_test
+    volumes:
+      - mongodb_test_data:/data/db
+      - ./TestData/MongoDB/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+    networks:
+      - kafka-connect-test
+
+  postgres:
+    image: postgres:16.1
+    hostname: postgres
+    container_name: test-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres123
+      - POSTGRES_DB=kafka_connect_test
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+      - ./TestData/PostgreSQL/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - kafka-connect-test
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: test-sqlserver
+    ports:
+      - "1433:1433"
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=Password123!
+      - MSSQL_PID=Developer
+    volumes:
+      - sqlserver_test_data:/var/opt/mssql
+      - ./TestData/SqlServer/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - kafka-connect-test
+
+  mysql:
+    image: mysql:8.0
+    container_name: test-mysql
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root123
+      - MYSQL_USER=kafka_connect
+      - MYSQL_PASSWORD=kafka_connect123
+      - MYSQL_DATABASE=kafka_connect_test
+    volumes:
+      - mysql_test_data:/var/lib/mysql
+      - ./TestData/MySQL/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    command: --default-authentication-plugin=mysql_native_password --log-bin-trust-function-creators=1
+    networks:
+      - kafka-connect-test
+
+  mariadb:
+    image: mariadb:11.2
+    container_name: test-mariadb
+    ports:
+      - "3307:3306"
+    environment:
+      - MARIADB_ROOT_PASSWORD=root123
+      - MARIADB_USER=kafka_connect
+      - MARIADB_PASSWORD=kafka_connect123
+      - MARIADB_DATABASE=kafka_connect_test
+    volumes:
+      - mariadb_test_data:/var/lib/mysql
+      - ./TestData/MariaDB/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    command: --log-bin-trust-function-creators=1
+    networks:
+      - kafka-connect-test
+
+  # Kafka Connect Service
+  kafka-connect:
+    build:
+      context: ../../
+      dockerfile: tests/Kafka.Connect.Tests/Dockerfile
+      network: host
+      args:
+        - BUILDER_IMAGE=mcr.docker.internal.cba/dotnet/sdk:8.0-alpine
+        - RUNTIME_IMAGE=mcr.docker.internal.cba/dotnet/aspnet:8.0-bookworm-slim
+        - ARTIFACTORY_ENTERPRISE_USERNAME=${ARTIFACTORY_ENTERPRISE_USERNAME:-default_user}
+        - ARTIFACTORY_ENTERPRISE_APIKEY=${ARTIFACTORY_ENTERPRISE_APIKEY:-default_key}
+        - GIT_COMMIT_DESC=${GIT_COMMIT_DESC:-1.0.0-test}
+    container_name: test-kafka-connect
+    depends_on:
+      - broker
+      - schema-registry
+      - mongodb
+      - postgres
+      - sqlserver
+      - mysql
+      - mariadb
+    ports:
+      - "6000:6000"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Testing
+      - ASPNETCORE_URLS=http://+:6000
+    volumes:
+      - ./Configurations:/app/configurations:ro
+      - kafka_connect_logs:/app/logs
+    networks:
+      - kafka-connect-test
+    healthcheck:
+      test: ["CMD", "/app/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+volumes:
+  mongodb_test_data:
+  postgres_test_data:
+  sqlserver_test_data:
+  mysql_test_data:
+  mariadb_test_data:
+  kafka_connect_logs:
+
+networks:
+  kafka-connect-test:
+    driver: bridge

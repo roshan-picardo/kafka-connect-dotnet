@@ -1,0 +1,154 @@
+@startuml Kafka Connect .NET Component Diagram
+
+!define RECTANGLE class
+
+' Components
+[Leader] as Leader
+[Worker] as Worker
+[Connector] as Connector
+[Plugin System] as PluginSystem
+[Message Handler] as MessageHandler
+[Configuration Provider] as ConfigProvider
+[Plugin Factory] as PluginFactory
+
+package "Database Plugins" {
+  [MariaDB Plugin] as MariaDbPlugin
+  [MySQL Plugin] as MySqlPlugin
+  [Oracle Plugin] as OraclePlugin
+  [PostgreSQL Plugin] as PostgresPlugin
+  [SQL Server Plugin] as SqlServerPlugin
+  [MongoDB Plugin] as MongoDbPlugin
+  [DynamoDB Plugin] as DynamoDbPlugin
+}
+
+package "Strategies" {
+  [Insert Strategy] as InsertStrategy
+  [Update Strategy] as UpdateStrategy
+  [Delete Strategy] as DeleteStrategy
+  [Upsert Strategy] as UpsertStrategy
+  [Read Strategy] as ReadStrategy
+  [Strategy Selector] as StrategySelector
+}
+
+package "Converters" {
+  [Avro Converter] as AvroConverter
+  [JSON Converter] as JsonConverter
+  [JSON Schema Converter] as JsonSchemaConverter
+  [String Converter] as StringConverter
+  [Null Converter] as NullConverter
+}
+
+package "Processors" {
+  [Field Renamer] as FieldRenamer
+  [Whitelist Field Projector] as WhitelistProjector
+  [Blacklist Field Projector] as BlacklistProjector
+  [DateTime Type Overrider] as DateTimeOverrider
+  [JSON Type Overrider] as JsonTypeOverrider
+}
+
+database "Databases" {
+  [MariaDB] as MariaDb
+  [MySQL] as MySql
+  [Oracle] as Oracle
+  [PostgreSQL] as Postgres
+  [SQL Server] as SqlServer
+  [MongoDB] as MongoDb
+  [DynamoDB] as DynamoDb
+}
+
+queue "Kafka" as Kafka
+
+' Interfaces
+interface "IPluginHandler" as IPluginHandler
+interface "ISinkHandler" as ISinkHandler
+interface "ISourceHandler" as ISourceHandler
+interface "IMessageHandler" as IMessageHandler
+interface "IStrategySelector" as IStrategySelector
+interface "IStrategy" as IStrategy
+interface "IMessageConverter" as IMessageConverter
+interface "IProcessor" as IProcessor
+
+' Relationships
+Leader --> Worker : manages
+Worker --> Connector : manages
+Connector --> MessageHandler : uses
+Connector --> PluginSystem : uses
+PluginSystem --> PluginFactory : creates plugins
+PluginFactory --> MariaDbPlugin : creates
+PluginFactory --> MySqlPlugin : creates
+PluginFactory --> OraclePlugin : creates
+PluginFactory --> PostgresPlugin : creates
+PluginFactory --> SqlServerPlugin : creates
+PluginFactory --> MongoDbPlugin : creates
+PluginFactory --> DynamoDbPlugin : creates
+
+MariaDbPlugin --> StrategySelector : uses
+StrategySelector --> InsertStrategy : selects
+StrategySelector --> UpdateStrategy : selects
+StrategySelector --> DeleteStrategy : selects
+StrategySelector --> UpsertStrategy : selects
+StrategySelector --> ReadStrategy : selects
+
+MessageHandler --> AvroConverter : uses
+MessageHandler --> JsonConverter : uses
+MessageHandler --> JsonSchemaConverter : uses
+MessageHandler --> StringConverter : uses
+MessageHandler --> NullConverter : uses
+
+MessageHandler --> FieldRenamer : uses
+MessageHandler --> WhitelistProjector : uses
+MessageHandler --> BlacklistProjector : uses
+MessageHandler --> DateTimeOverrider : uses
+MessageHandler --> JsonTypeOverrider : uses
+
+MariaDbPlugin --> MariaDb : connects to
+MySqlPlugin --> MySql : connects to
+OraclePlugin --> Oracle : connects to
+PostgresPlugin --> Postgres : connects to
+SqlServerPlugin --> SqlServer : connects to
+MongoDbPlugin --> MongoDb : connects to
+DynamoDbPlugin --> DynamoDb : connects to
+
+Connector --> Kafka : reads from/writes to
+
+' Implement interfaces
+MariaDbPlugin -up-|> IPluginHandler
+MySqlPlugin -up-|> IPluginHandler
+OraclePlugin -up-|> IPluginHandler
+PostgresPlugin -up-|> IPluginHandler
+SqlServerPlugin -up-|> IPluginHandler
+MongoDbPlugin -up-|> IPluginHandler
+DynamoDbPlugin -up-|> IPluginHandler
+
+InsertStrategy -up-|> IStrategy
+UpdateStrategy -up-|> IStrategy
+DeleteStrategy -up-|> IStrategy
+UpsertStrategy -up-|> IStrategy
+ReadStrategy -up-|> IStrategy
+StrategySelector -up-|> IStrategySelector
+
+AvroConverter -up-|> IMessageConverter
+JsonConverter -up-|> IMessageConverter
+JsonSchemaConverter -up-|> IMessageConverter
+StringConverter -up-|> IMessageConverter
+NullConverter -up-|> IMessageConverter
+
+FieldRenamer -up-|> IProcessor
+WhitelistProjector -up-|> IProcessor
+BlacklistProjector -up-|> IProcessor
+DateTimeOverrider -up-|> IProcessor
+JsonTypeOverrider -up-|> IProcessor
+
+MessageHandler -up-|> IMessageHandler
+
+' Data flows
+Kafka ..> Connector : messages
+Connector ..> MessageHandler : messages
+MessageHandler ..> PluginSystem : records
+PluginSystem ..> Databases : SQL/commands
+Databases ..> PluginSystem : results
+PluginSystem ..> MessageHandler : records
+MessageHandler ..> Connector : messages
+Connector ..> Kafka : messages
+
+@enduml

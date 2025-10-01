@@ -1,0 +1,179 @@
+@startuml Kafka Connect .NET Class Diagram
+
+' Core Interfaces
+interface "IPluginHandler" {
+  +Task Startup(string connector)
+  +Task Purge(string connector)
+  +Task<IList<ConnectRecord>> Get(string connector, int taskId, CommandRecord command)
+  +Task Put(IList<ConnectRecord> models, string connector, int taskId)
+  +IDictionary<string, Command> Commands(string connector)
+  +JsonNode NextCommand(CommandRecord command, List<ConnectRecord> records)
+  +bool Is(string connector, string plugin, string handler)
+}
+
+interface "ISinkHandler" {
+  +Task Startup(string connector)
+  +Task Cleanup(string connector)
+  +bool Is(string connector, string plugin, string handler)
+  +Task Put(IEnumerable<ConnectRecord> models, string connector, int taskId)
+}
+
+interface "ISourceHandler" {
+  +Task<IList<ConnectRecord>> Get(string connector, int taskId, CommandRecord command)
+  +bool Is(string connector, string plugin, string handler)
+  +IDictionary<string, Command> GetCommands(string connector)
+  +CommandRecord GetUpdatedCommand(CommandRecord command, IList<ConnectMessage<JsonNode>> records)
+  +Task Bootstrap(string connector)
+}
+
+interface "IMessageHandler" {
+  +Task<(bool Skip, ConnectMessage<JsonNode> Message)> Process(string connector, string topic, ConnectMessage<JsonNode> deserialized)
+  +Task<ConnectMessage<byte[]>> Serialize(string connector, string topic, ConnectMessage<JsonNode> message)
+  +Task<ConnectMessage<JsonNode>> Deserialize(string connector, string topic, ConnectMessage<byte[]> message)
+}
+
+interface "IStrategySelector" {
+  +IStrategy GetStrategy(ConnectRecord record, IDictionary<string, string> settings)
+}
+
+interface "IStrategy" {
+  +Task<StrategyModel<T>> Build<T>(string connector, ConnectRecord record)
+  +Task<StrategyModel<T>> Build<T>(string connector, CommandRecord command)
+}
+
+interface "IMariaDbCommandHandler" {
+  +Task Initialize(string connector)
+  +IDictionary<string, Command> Get(string connector)
+  +JsonNode Next(CommandRecord command, IList<ConnectMessage<JsonNode>> records)
+  +Task Purge(string connector)
+}
+
+interface "IMariaDbClientProvider" {
+  +IMariaDbClient GetMariaDbClient(string connector, int taskId = 1)
+}
+
+interface "IMariaDbClient" {
+  +MySqlConnection GetConnection()
+}
+
+' Abstract Classes
+abstract "PluginHandler" {
+  +abstract Task Startup(string connector)
+  +abstract Task Purge(string connector)
+  +abstract Task<IList<ConnectRecord>> Get(string connector, int taskId, CommandRecord command)
+  +abstract Task Put(IList<ConnectRecord> models, string connector, int taskId)
+  +abstract IDictionary<string, Command> Commands(string connector)
+  +abstract JsonNode NextCommand(CommandRecord command, List<ConnectRecord> records)
+  +bool Is(string connector, string plugin, string handler)
+}
+
+abstract "Strategy<T>" {
+  #abstract Task<StrategyModel<T>> BuildModels(string connector, ConnectRecord record)
+  #abstract Task<StrategyModel<T>> BuildModels(string connector, CommandRecord command)
+  +Task<StrategyModel<T>> Build<T>(string connector, ConnectRecord record)
+  +Task<StrategyModel<T>> Build<T>(string connector, CommandRecord command)
+}
+
+' Concrete Classes
+class "Leader" {
+  +Task Pause()
+  +Task Resume()
+  +Task Execute(CancellationTokenSource cts)
+  -Task CreateInternalTopics(IDictionary<string, TopicConfig> topics)
+  +bool IsPaused
+  +bool IsStopped
+}
+
+class "Worker" {
+  +Task Execute(string connector, CancellationTokenSource cts)
+  +Task Pause()
+  +Task Resume()
+  +bool IsPaused
+  +bool IsStopped
+}
+
+class "MessageHandler" {
+  +Task<(bool Skip, ConnectMessage<JsonNode> Message)> Process(string connector, string topic, ConnectMessage<JsonNode> deserialized)
+  +Task<ConnectMessage<byte[]>> Serialize(string connector, string topic, ConnectMessage<JsonNode> message)
+  +Task<ConnectMessage<JsonNode>> Deserialize(string connector, string topic, ConnectMessage<byte[]> message)
+}
+
+class "MariaDbPluginHandler" {
+  +override Task Startup(string connector)
+  +override Task<IList<ConnectRecord>> Get(string connector, int taskId, CommandRecord command)
+  +override Task Put(IList<ConnectRecord> records, string connector, int taskId)
+  +override IDictionary<string, Command> Commands(string connector)
+  +override JsonNode NextCommand(CommandRecord command, List<ConnectRecord> records)
+  +override Task Purge(string connector)
+  -static ConnectRecord GetConnectRecord(Dictionary<string, object> message, CommandRecord command)
+}
+
+class "MariaDbCommandHandler" {
+  +Task Initialize(string connector)
+  +IDictionary<string, Command> Get(string connector)
+  +JsonNode Next(CommandRecord command, IList<ConnectMessage<JsonNode>> records)
+  +Task Purge(string connector)
+}
+
+class "ChangelogStrategySelector" {
+  +IStrategy GetStrategy(ConnectRecord record, IDictionary<string, string> settings)
+}
+
+class "InsertStrategy" {
+  #override Task<StrategyModel<string>> BuildModels(string connector, ConnectRecord record)
+  #override Task<StrategyModel<string>> BuildModels(string connector, CommandRecord record)
+}
+
+class "UpdateStrategy" {
+  #override Task<StrategyModel<string>> BuildModels(string connector, ConnectRecord record)
+  #override Task<StrategyModel<string>> BuildModels(string connector, CommandRecord record)
+}
+
+class "DeleteStrategy" {
+  #override Task<StrategyModel<string>> BuildModels(string connector, ConnectRecord record)
+  #override Task<StrategyModel<string>> BuildModels(string connector, CommandRecord record)
+}
+
+class "UpsertStrategy" {
+  #override Task<StrategyModel<string>> BuildModels(string connector, ConnectRecord record)
+  #override Task<StrategyModel<string>> BuildModels(string connector, CommandRecord record)
+}
+
+class "ReadStrategy" {
+  #override Task<StrategyModel<string>> BuildModels(string connector, ConnectRecord record)
+  #override Task<StrategyModel<string>> BuildModels(string connector, CommandRecord record)
+}
+
+class "DefaultPluginInitializer" {
+  +void AddServices(IServiceCollection collection, IConfiguration configuration, params (string Name, int Tasks)[] connectors)
+  -static void AddMariaDbClients(IServiceCollection collection, (string Name, int Tasks)[] connectors)
+}
+
+' Relationships
+IPluginHandler <|.. PluginHandler
+PluginHandler <|-- MariaDbPluginHandler
+
+IMariaDbCommandHandler <|.. MariaDbCommandHandler
+IStrategySelector <|.. ChangelogStrategySelector
+
+IStrategy <|.. Strategy
+Strategy <|-- InsertStrategy
+Strategy <|-- UpdateStrategy
+Strategy <|-- DeleteStrategy
+Strategy <|-- UpsertStrategy
+Strategy <|-- ReadStrategy
+
+IMessageHandler <|.. MessageHandler
+
+MariaDbPluginHandler --> MariaDbCommandHandler : uses
+MariaDbPluginHandler --> ChangelogStrategySelector : uses
+ChangelogStrategySelector --> InsertStrategy : selects
+ChangelogStrategySelector --> UpdateStrategy : selects
+ChangelogStrategySelector --> DeleteStrategy : selects
+ChangelogStrategySelector --> UpsertStrategy : selects
+ChangelogStrategySelector --> ReadStrategy : selects
+
+Leader --> Worker : manages
+Worker --> IPluginHandler : uses
+
+@enduml
