@@ -37,8 +37,8 @@ RUN if [[ "$PUBLISH" == "true" ]] ; then \
     fi
 
 # Restore and build all plugins using solution file
-RUN echo "Restoring all plugins using Kafka.Connect.Plugins.sln"
-RUN dotnet restore Kafka.Connect.Plugins.sln --configfile /src/nuget.config --no-cache --force --verbosity detailed
+RUN echo "Restoring all plugins using Kafka.Connect.Plugins.sln in Release configuration"
+RUN dotnet restore Kafka.Connect.Plugins.sln /p:Configuration=Release --configfile /src/nuget.config --no-cache --force --verbosity detailed
 RUN dotnet build Kafka.Connect.Plugins.sln /p:Version=$BUILD_VERSION --configuration Release --no-restore
 
 # Pack all plugins
