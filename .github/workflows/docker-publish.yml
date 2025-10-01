@@ -81,7 +81,7 @@ jobs:
           BUILD_VERSION=${{ steps.version.outputs.VERSION }}
           GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
           GITHUB_USERNAME=${{ github.actor }}
-          PUBLISH=true
+          PUBLISH=false
         cache-from: type=gha
         cache-to: type=gha,mode=max
         
