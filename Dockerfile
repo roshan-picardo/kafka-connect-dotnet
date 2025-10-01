@@ -27,11 +27,13 @@ RUN if [[ "$PUBLISH" == "true" ]] ; then \
         dotnet nuget push ./nupkgs/Kafka.Connect.Plugin.${BUILD_VERSION}.nupkg --api-key $GITHUB_TOKEN --source $GITHUB_PACKAGES_SOURCE ; \
     fi
 
-# Clear NuGet cache and wait for package availability, then dynamically restore, build and pack all Plugins
+# Clear NuGet cache and update Directory.Packages.props with the new version
 WORKDIR /src/Plugins
 RUN if [[ "$PUBLISH" == "true" ]] ; then \
         echo "Clearing NuGet cache to ensure fresh package resolution..."; \
         dotnet nuget locals all --clear; \
+        echo "Adding Kafka.Connect.Plugin version $BUILD_VERSION to Directory.Packages.props"; \
+        sed -i "/<\/ItemGroup>/i\\    <PackageVersion Include=\"Kafka.Connect.Plugin\" Version=\"$BUILD_VERSION\" />" /src/Directory.Packages.props; \
         sleep 5; \
     fi
 RUN for plugin_dir in */; do \
@@ -40,8 +42,7 @@ RUN for plugin_dir in */; do \
             cd "$plugin_dir"; \
             if [[ "$PUBLISH" == "true" ]] ; then \
                 echo "Restoring with specific Kafka.Connect.Plugin version: $BUILD_VERSION"; \
-                dotnet add package Kafka.Connect.Plugin --version $BUILD_VERSION --source $GITHUB_PACKAGES_SOURCE; \
-                dotnet restore --configfile /src/nuget.config --force; \
+                dotnet restore --configfile /src/nuget.config --force --verbosity detailed; \
             else \
                 dotnet restore --configfile /src/nuget.config; \
             fi; \
