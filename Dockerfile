@@ -30,16 +30,15 @@ RUN if [[ "$PUBLISH" == "true" ]] ; then \
 # Build all plugins using the dedicated solution file
 WORKDIR /src/Plugins
 RUN if [[ "$PUBLISH" == "true" ]] ; then \
-        echo "Clearing NuGet cache to ensure fresh package resolution..."; \
-        dotnet nuget locals all --clear; \
         echo "Adding Kafka.Connect.Plugin version $BUILD_VERSION to Directory.Packages.props"; \
         sed -i "/<\/ItemGroup>/i\\    <PackageVersion Include=\"Kafka.Connect.Plugin\" Version=\"$BUILD_VERSION\" />" /src/Directory.Packages.props; \
-        sleep 5; \
+        echo "Waiting for package to be available in registry..."; \
+        sleep 10; \
     fi
 
 # Restore and build all plugins using solution file
 RUN echo "Restoring all plugins using Kafka.Connect.Plugins.sln"
-RUN dotnet restore Kafka.Connect.Plugins.sln --configfile /src/nuget.config --force --verbosity detailed
+RUN dotnet restore Kafka.Connect.Plugins.sln --configfile /src/nuget.config --no-cache --force --verbosity detailed
 RUN dotnet build Kafka.Connect.Plugins.sln /p:Version=$BUILD_VERSION --configuration Release --no-restore
 
 # Pack all plugins
