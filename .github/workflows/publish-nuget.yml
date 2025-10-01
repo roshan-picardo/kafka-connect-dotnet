@@ -46,13 +46,13 @@ jobs:
         echo "Publishing version: $VERSION"
         
     - name: Restore dependencies
-      run: dotnet restore --configfile nuget.config
+      run: dotnet restore src --configfile nuget.config
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         GITHUB_USERNAME: ${{ github.actor }}
         
     - name: Build solution
-      run: dotnet build --configuration Release --no-restore /p:Version=${{ steps.version.outputs.VERSION }}
+      run: dotnet build src --configuration Release --no-restore /p:Version=${{ steps.version.outputs.VERSION }}
         
     - name: Pack Kafka.Connect.Plugin
       run: |

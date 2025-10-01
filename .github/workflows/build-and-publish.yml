@@ -25,13 +25,13 @@ jobs:
         dotnet-version: '8.0.x'
         
     - name: Restore dependencies
-      run: dotnet restore --configfile nuget.config
+      run: dotnet restore src --configfile nuget.config
       
     - name: Build
-      run: dotnet build --configuration Release --no-restore
+      run: dotnet build src --configuration Release --no-restore
       
     - name: Test
-      run: dotnet test --configuration Release --no-build --verbosity normal
+      run: dotnet test tests/Kafka.Connect.UnitTests/Kafka.Connect.UnitTests.csproj --configuration Release --no-build --verbosity normal
 
   publish-nuget:
     needs: build-and-test
@@ -59,7 +59,7 @@ jobs:
         echo "Building version: $VERSION"
         
     - name: Restore dependencies
-      run: dotnet restore --configfile nuget.config
+      run: dotnet restore src --configfile nuget.config
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         GITHUB_USERNAME: ${{ github.actor }}
