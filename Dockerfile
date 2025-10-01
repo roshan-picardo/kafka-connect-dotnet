@@ -18,29 +18,44 @@ COPY ./src/Directory.Packages.props ./Directory.Packages.props
 COPY ./src/Kafka.sln ./Kafka.sln
 COPY ./nuget.config ./nuget.config
 
-# Restore all projects using the solution file
-RUN dotnet restore Kafka.sln /p:Configuration=Release --configfile ./nuget.config
-
-# Build and pack Kafka.Connect.Plugin
+# Build and pack Kafka.Connect.Plugin first
 WORKDIR /src/Kafka.Connect.Plugin
+RUN dotnet restore --configfile /src/nuget.config
 RUN dotnet build /p:Version=$BUILD_VERSION --configuration Release --no-restore
 RUN if [[ "$PUBLISH" == "true" ]] ; then \
         dotnet pack /p:Version=$BUILD_VERSION --configuration Release --no-build --no-restore --verbosity normal --output ./nupkgs ; \
         dotnet nuget push ./nupkgs/Kafka.Connect.Plugin.${BUILD_VERSION}.nupkg --api-key $GITHUB_TOKEN --source $GITHUB_PACKAGES_SOURCE ; \
     fi
 
-# Build and pack all Plugins
+# Dynamically restore, build and pack all Plugins
 WORKDIR /src/Plugins
-RUN dotnet build /p:Version=$BUILD_VERSION --configuration Release --no-restore
+RUN for plugin_dir in */; do \
+        if [ -d "$plugin_dir" ] && [ -f "$plugin_dir"*.csproj ]; then \
+            echo "Processing plugin: $plugin_dir"; \
+            cd "$plugin_dir"; \
+            dotnet restore --configfile /src/nuget.config; \
+            dotnet build /p:Version=$BUILD_VERSION --configuration Release --no-restore; \
+            if [[ "$PUBLISH" == "true" ]] ; then \
+                dotnet pack /p:Version=$BUILD_VERSION --configuration Release --no-build --no-restore --verbosity normal --output ../nupkgs; \
+            fi; \
+            cd ..; \
+        fi; \
+    done
+
+# Publish all plugin packages
 RUN if [[ "$PUBLISH" == "true" ]] ; then \
-        dotnet pack /p:Version=$BUILD_VERSION --configuration Release --no-build --no-restore --verbosity normal --output ./nupkgs ; \
+        mkdir -p nupkgs; \
         for package in ./nupkgs/*.${BUILD_VERSION}.nupkg; do \
-            dotnet nuget push "$package" --api-key $GITHUB_TOKEN --source $GITHUB_PACKAGES_SOURCE ; \
+            if [ -f "$package" ]; then \
+                echo "Publishing: $package"; \
+                dotnet nuget push "$package" --api-key $GITHUB_TOKEN --source $GITHUB_PACKAGES_SOURCE ; \
+            fi; \
         done \
     fi
 
 # Build the main application
 WORKDIR /src/Kafka.Connect
+RUN dotnet restore --configfile /src/nuget.config
 RUN dotnet publish /p:Version=$BUILD_VERSION -c Release -o out --no-restore
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine AS runtime
