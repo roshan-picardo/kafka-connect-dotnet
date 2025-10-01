@@ -134,15 +134,4 @@ jobs:
           BUILD_VERSION=${{ steps.version.outputs.VERSION }}
           GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
           GITHUB_USERNAME=${{ github.actor }}
-          PUBLISH=false
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
-        
-    - name: Upload NuGet packages as artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: nuget-packages-${{ steps.version.outputs.VERSION }}
-        path: |
-          src/Kafka.Connect.Plugin/nupkgs/*.nupkg
-          src/Plugins/nupkgs/*.nupkg
-        retention-days: 30
+          PUBLISH=true
