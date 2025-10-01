@@ -1,4 +1,4 @@
-name: .NET
+name: .NET (Disabled)
 
 on:
   push:
@@ -8,8 +8,8 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
+    if: false  # Disabled - functionality moved to build-and-publish.yml
 
     steps:
     - uses: actions/checkout@v2

@@ -1,4 +1,4 @@
-name: Build and Publish Docker Image
+name: Build and Publish Docker Image (Disabled)
 
 on:
   push:
@@ -20,6 +20,7 @@ env:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    if: false  # Disabled - functionality moved to ci-cd.yml
     
     permissions:
       contents: read
@@ -81,7 +82,7 @@ jobs:
           BUILD_VERSION=${{ steps.version.outputs.VERSION }}
           GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
           GITHUB_USERNAME=${{ github.actor }}
-          PUBLISH=true
+          PUBLISH=false
         cache-from: type=gha
         cache-to: type=gha,mode=max
         

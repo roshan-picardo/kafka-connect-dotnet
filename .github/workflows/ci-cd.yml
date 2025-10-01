@@ -1,8 +1,8 @@
-name: Build and Publish (Disabled)
+name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main ]
     tags: [ 'v*' ]
   pull_request:
     branches: [ main ]
@@ -14,7 +14,6 @@ env:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    if: false  # Disabled - functionality moved to ci-cd.yml
     
     steps:
     - name: Checkout code
@@ -26,19 +25,26 @@ jobs:
         dotnet-version: '8.0.x'
         
     - name: Restore dependencies
-      run: dotnet restore src
-      
+      run: dotnet restore src --configfile nuget.config
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_USERNAME: ${{ github.actor }}
+        
     - name: Build
       run: dotnet build src --no-restore
       
     - name: Test
       run: dotnet test tests/Kafka.Connect.UnitTests/Kafka.Connect.UnitTests.csproj --no-build --verbosity normal
 
-  publish-nuget:
+  publish-artifacts:
     needs: build-and-test
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     
+    permissions:
+      contents: read
+      packages: write
+      
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -54,7 +60,7 @@ jobs:
         if [[ $GITHUB_REF == refs/tags/v* ]]; then
           VERSION=${GITHUB_REF#refs/tags/v}
         else
-          VERSION="1.0.0-preview.${GITHUB_RUN_NUMBER}"
+          VERSION="1.0.0.${GITHUB_RUN_NUMBER}"
         fi
         echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
         echo "Building version: $VERSION"
@@ -65,14 +71,17 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         GITHUB_USERNAME: ${{ github.actor }}
         
-    - name: Build Kafka.Connect.Plugin
-      run: |
-        cd src/Kafka.Connect.Plugin
-        dotnet build /p:Version=${{ steps.version.outputs.VERSION }} --configuration Release --no-restore
+    - name: Build solution
+      run: dotnet build src --configuration Release --no-restore /p:Version=${{ steps.version.outputs.VERSION }}
         
     - name: Pack Kafka.Connect.Plugin
       run: |
         cd src/Kafka.Connect.Plugin
+        dotnet pack /p:Version=${{ steps.version.outputs.VERSION }} --configuration Release --no-build --no-restore --output ./nupkgs
+        
+    - name: Pack all Plugins
+      run: |
+        cd src/Plugins
         dotnet pack /p:Version=${{ steps.version.outputs.VERSION }} --configuration Release --no-build --no-restore --output ./nupkgs
         
     - name: Publish Kafka.Connect.Plugin to GitHub Packages
@@ -80,40 +89,20 @@ jobs:
         cd src/Kafka.Connect.Plugin
         dotnet nuget push ./nupkgs/Kafka.Connect.Plugin.${{ steps.version.outputs.VERSION }}.nupkg \
           --api-key ${{ secrets.GITHUB_TOKEN }} \
-          --source https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
+          --source https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json \
+          --skip-duplicate
           
-    - name: Build Plugins
-      run: |
-        cd src/Plugins
-        dotnet build /p:Version=${{ steps.version.outputs.VERSION }} --configuration Release --no-restore
-        
-    - name: Pack Plugins
-      run: |
-        cd src/Plugins
-        dotnet pack /p:Version=${{ steps.version.outputs.VERSION }} --configuration Release --no-build --no-restore --output ./nupkgs
-        
-    - name: Publish Plugins to GitHub Packages
+    - name: Publish all Plugins to GitHub Packages
       run: |
         cd src/Plugins
         for package in ./nupkgs/*.${{ steps.version.outputs.VERSION }}.nupkg; do
+          echo "Publishing: $package"
           dotnet nuget push "$package" \
             --api-key ${{ secrets.GITHUB_TOKEN }} \
-            --source https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
+            --source https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json \
+            --skip-duplicate
         done
-
-  build-and-push-docker:
-    needs: build-and-test
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
-    
-    permissions:
-      contents: read
-      packages: write
-      
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
+        
     - name: Log in to Container Registry
       uses: docker/login-action@v3
       with:
@@ -128,23 +117,12 @@ jobs:
         images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
         tags: |
           type=ref,event=branch
-          type=ref,event=pr
           type=semver,pattern={{version}}
           type=semver,pattern={{major}}.{{minor}}
           type=semver,pattern={{major}}
           type=raw,value=latest,enable={{is_default_branch}}
+          type=raw,value=${{ steps.version.outputs.VERSION }}
           
-    - name: Determine version
-      id: version
-      run: |
-        if [[ $GITHUB_REF == refs/tags/v* ]]; then
-          VERSION=${GITHUB_REF#refs/tags/v}
-        else
-          VERSION="1.0.0-preview.${GITHUB_RUN_NUMBER}"
-        fi
-        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-        echo "Building version: $VERSION"
-        
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:
@@ -157,3 +135,14 @@ jobs:
           GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
           GITHUB_USERNAME=${{ github.actor }}
           PUBLISH=false
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        
+    - name: Upload NuGet packages as artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: nuget-packages-${{ steps.version.outputs.VERSION }}
+        path: |
+          src/Kafka.Connect.Plugin/nupkgs/*.nupkg
+          src/Plugins/nupkgs/*.nupkg
+        retention-days: 30
