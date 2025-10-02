@@ -17,14 +17,21 @@ COPY ./src/Plugins ./Plugins
 COPY ./src/Directory.Packages.props ./Directory.Packages.props
 COPY ./src/Kafka.sln ./Kafka.sln
 COPY ./nuget.config ./nuget.config
+COPY ./nuget.debug.config ./nuget.debug.config
 
 # Build and pack Kafka.Connect.Plugin first
 WORKDIR /src/Kafka.Connect.Plugin
-RUN dotnet restore --configfile /src/nuget.config
-RUN dotnet build /p:Version=$BUILD_VERSION --configuration Release --no-restore
 RUN if [[ "$PUBLISH" == "true" ]] ; then \
+        dotnet restore --configfile /src/nuget.config ; \
+    else \
+        dotnet restore --configfile /src/nuget.debug.config ; \
+    fi
+RUN if [[ "$PUBLISH" == "true" ]] ; then \
+        dotnet build /p:Version=$BUILD_VERSION --configuration Release --no-restore ; \
         dotnet pack /p:Version=$BUILD_VERSION --configuration Release --no-build --no-restore --verbosity normal --output ./nupkgs ; \
         dotnet nuget push ./nupkgs/Kafka.Connect.Plugin.${BUILD_VERSION}.nupkg --api-key $GITHUB_TOKEN --source $GITHUB_PACKAGES_SOURCE ; \
+    else \
+        dotnet build /p:Version=$BUILD_VERSION --configuration Debug --no-restore ; \
     fi
 
 # Build all plugins using the dedicated solution file
@@ -34,12 +41,14 @@ RUN if [[ "$PUBLISH" == "true" ]] ; then \
         sed -i "/<\/ItemGroup>/i\\    <PackageVersion Include=\"Kafka.Connect.Plugin\" Version=\"$BUILD_VERSION\" />" /src/Directory.Packages.props; \
         echo "Waiting for package to be available in registry..."; \
         sleep 10; \
+        echo "Restoring all plugins using Kafka.Connect.Plugins.sln in Release configuration"; \
+        dotnet restore Kafka.Connect.Plugins.sln /p:Configuration=Release --configfile /src/nuget.config --no-cache --force --verbosity detailed ; \
+        dotnet build Kafka.Connect.Plugins.sln /p:Version=$BUILD_VERSION --configuration Release --no-restore ; \
+    else \
+        echo "Restoring all plugins using Kafka.Connect.Plugins.sln in Debug configuration"; \
+        dotnet restore Kafka.Connect.Plugins.sln /p:Configuration=Debug --configfile /src/nuget.debug.config --no-cache --force --verbosity detailed ; \
+        dotnet build Kafka.Connect.Plugins.sln /p:Version=$BUILD_VERSION --configuration Debug --no-restore ; \
     fi
-
-# Restore and build all plugins using solution file
-RUN echo "Restoring all plugins using Kafka.Connect.Plugins.sln in Release configuration"
-RUN dotnet restore Kafka.Connect.Plugins.sln /p:Configuration=Release --configfile /src/nuget.config --no-cache --force --verbosity detailed
-RUN dotnet build Kafka.Connect.Plugins.sln /p:Version=$BUILD_VERSION --configuration Release --no-restore
 
 # Pack all plugins
 RUN if [[ "$PUBLISH" == "true" ]] ; then \
@@ -59,8 +68,13 @@ RUN if [[ "$PUBLISH" == "true" ]] ; then \
 
 # Build the main application
 WORKDIR /src/Kafka.Connect
-RUN dotnet restore --configfile /src/nuget.config
-RUN dotnet publish /p:Version=$BUILD_VERSION -c Release -o out --no-restore
+RUN if [[ "$PUBLISH" == "true" ]] ; then \
+        dotnet restore --configfile /src/nuget.config ; \
+        dotnet publish /p:Version=$BUILD_VERSION -c Release -o out --no-restore ; \
+    else \
+        dotnet restore --configfile /src/nuget.debug.config ; \
+        dotnet publish /p:Version=$BUILD_VERSION -c Debug -o out --no-restore ; \
+    fi
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine AS runtime
 WORKDIR /app
@@ -74,6 +88,8 @@ RUN mkdir -p ./plugins && \
             plugin_name=$(basename "$plugin_dir" | sed 's/Kafka\.Connect\.//' | tr '[:upper:]' '[:lower:]'); \
             if [ -d "$plugin_dir/bin/Release/net8.0" ]; then \
                 cp -r "$plugin_dir/bin/Release/net8.0" "./plugins/$plugin_name/"; \
+            elif [ -d "$plugin_dir/bin/Debug/net8.0" ]; then \
+                cp -r "$plugin_dir/bin/Debug/net8.0" "./plugins/$plugin_name/"; \
             fi; \
         fi; \
     done && \

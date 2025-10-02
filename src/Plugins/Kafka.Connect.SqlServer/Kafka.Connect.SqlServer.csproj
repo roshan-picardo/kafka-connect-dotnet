@@ -21,7 +21,7 @@
         </When>
         <Otherwise>
             <ItemGroup>
-                <PackageReference Include="Kafka.Connect.Plugin" Version="*">
+                <PackageReference Include="Kafka.Connect.Plugin">
                     <Private>false</Private>
                     <ExcludeAssets>runtime</ExcludeAssets>
                 </PackageReference>
