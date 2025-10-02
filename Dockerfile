@@ -69,10 +69,10 @@ RUN if [[ "$PUBLISH" == "true" ]] ; then \
 # Build the main application
 WORKDIR /src/Kafka.Connect
 RUN if [[ "$PUBLISH" == "true" ]] ; then \
-        dotnet restore --configfile /src/nuget.config ; \
+        dotnet restore /p:Configuration=Release --configfile /src/nuget.config ; \
         dotnet publish /p:Version=$BUILD_VERSION -c Release -o out --no-restore ; \
     else \
-        dotnet restore --configfile /src/nuget.debug.config ; \
+        dotnet restore /p:Configuration=Debug --configfile /src/nuget.debug.config ; \
         dotnet publish /p:Version=$BUILD_VERSION -c Debug -o out --no-restore ; \
     fi
 
