@@ -1,0 +1,221 @@
+version: '3.8'
+
+services:
+  # Zookeeper - Required for Kafka
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    hostname: zookeeper
+    container_name: test-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo 'ruok' | nc localhost 2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kafka-connect-test
+
+  # Kafka Broker
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    hostname: kafka
+    container_name: test-kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
+    ports:
+      - "9092:9092"
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kafka-connect-test
+
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    hostname: mysql
+    container_name: test-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: testdb
+      MYSQL_USER: testuser
+      MYSQL_PASSWORD: testpass
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "testuser", "-ptestpass"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - kafka-connect-test
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15
+    hostname: postgres
+    container_name: test-postgres
+    environment:
+      POSTGRES_DB: testdb
+      POSTGRES_USER: testuser
+      POSTGRES_PASSWORD: testpass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U testuser -d testdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kafka-connect-test
+
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    hostname: mongodb
+    container_name: test-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: testuser
+      MONGO_INITDB_ROOT_PASSWORD: testpass
+      MONGO_INITDB_DATABASE: testdb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./mongodb-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kafka-connect-test
+
+  # Kafka Connect Application (Debug Mode)
+  kafka-connect:
+    build:
+      context: ../../
+      dockerfile: Dockerfile
+      args:
+        BUILD_VERSION: 1.0.0-test
+    hostname: kafka-connect
+    container_name: test-kafka-connect
+    depends_on:
+      kafka:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    environment:
+      # Kafka Configuration
+      - KAFKA__BOOTSTRAPSERVERS=kafka:29092
+      - KAFKA__GROUPID=kafka-connect-test-group
+      - KAFKA__CLIENTID=kafka-connect-test-client
+      
+      # Database Connection Strings
+      - CONNECTIONSTRINGS__MYSQL=Server=mysql;Port=3306;Database=testdb;Uid=testuser;Pwd=testpass;
+      - CONNECTIONSTRINGS__POSTGRESQL=Host=postgres;Port=5432;Database=testdb;Username=testuser;Password=testpass;
+      - CONNECTIONSTRINGS__MONGODB=mongodb://testuser:testpass@mongodb:27017/testdb?authSource=admin
+      
+      # Logging
+      - LOGGING__LOGLEVEL__DEFAULT=Debug
+      - LOGGING__LOGLEVEL__KAFKA.CONNECT=Trace
+      
+      # Plugin Configuration
+      - PLUGINS__PATH=/app/plugins
+      - PLUGINS__ENABLED=MySql,PostgreSql,MongoDb,Oracle,SqlServer
+      
+      # API Configuration
+      - ASPNETCORE_URLS=http://+:8083
+      - ASPNETCORE_ENVIRONMENT=Testing
+    ports:
+      - "8083:8083"
+    volumes:
+      - ./appsettings.testing.json:/app/appsettings.Testing.json:ro
+      - kafka_connect_logs:/app/logs
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8083/health", "||", "exit", "1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    networks:
+      - kafka-connect-test
+
+  # Test Runner Container
+  test-runner:
+    build:
+      context: ../../
+      dockerfile: Dockerfile
+      args:
+        BUILD_VERSION: 1.0.0-test
+    container_name: test-runner
+    depends_on:
+      kafka-connect:
+        condition: service_healthy
+    environment:
+      # Test Configuration
+      - ASPNETCORE_ENVIRONMENT=Testing
+      - KAFKA__BOOTSTRAPSERVERS=kafka:29092
+      - CONNECTIONSTRINGS__MYSQL=Server=mysql;Port=3306;Database=testdb;Uid=testuser;Pwd=testpass;
+      - CONNECTIONSTRINGS__POSTGRESQL=Host=postgres;Port=5432;Database=testdb;Username=testuser;Password=testpass;
+      - CONNECTIONSTRINGS__MONGODB=mongodb://testuser:testpass@mongodb:27017/testdb?authSource=admin
+      - KAFKA_CONNECT_URL=http://kafka-connect:8083
+    working_dir: /src
+    volumes:
+      - test_results:/src/TestResults
+    command: >
+      sh -c "
+        echo 'Waiting for Kafka Connect to be ready...' &&
+        sleep 30 &&
+        echo 'Running integration tests...' &&
+        dotnet test tests/Kafka.Connect.Tests/Kafka.Connect.Tests.csproj 
+          --configfile nuget.debug.config 
+          --logger 'trx;LogFileName=TestResults.trx' 
+          --logger 'console;verbosity=detailed' 
+          --results-directory /src/TestResults 
+          --collect:'XPlat Code Coverage'
+      "
+    networks:
+      - kafka-connect-test
+
+volumes:
+  mysql_data:
+    driver: local
+  postgres_data:
+    driver: local
+  mongodb_data:
+    driver: local
+  kafka_connect_logs:
+    driver: local
+  test_results:
+    driver: local
+
+networks:
+  kafka-connect-test:
+    driver: bridge
