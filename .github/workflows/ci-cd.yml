@@ -86,6 +86,7 @@ jobs:
       uses: docker/build-push-action@v5
       with:
         context: .
+        target: release
         push: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
@@ -93,4 +94,3 @@ jobs:
           BUILD_VERSION=${{ steps.version.outputs.VERSION }}
           GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
           GITHUB_USERNAME=${{ github.actor }}
-          PUBLISH=true
