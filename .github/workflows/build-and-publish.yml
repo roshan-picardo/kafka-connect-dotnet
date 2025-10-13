@@ -26,10 +26,10 @@ jobs:
         dotnet-version: '8.0.x'
         
     - name: Restore dependencies
-      run: dotnet restore src
+      run: dotnet restore src/Kafka.Connect.sln
       
     - name: Build
-      run: dotnet build src --no-restore
+      run: dotnet build src/Kafka.Connect.sln --no-restore
       
     - name: Test
       run: dotnet test tests/Kafka.Connect.UnitTests/Kafka.Connect.UnitTests.csproj --no-build --verbosity normal
@@ -60,7 +60,7 @@ jobs:
         echo "Building version: $VERSION"
         
     - name: Restore dependencies
-      run: dotnet restore src --configfile nuget.config
+      run: dotnet restore src/Kafka.Connect.sln --configfile nuget.config
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         GITHUB_USERNAME: ${{ github.actor }}

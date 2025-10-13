@@ -20,8 +20,8 @@ FROM base AS release
 RUN echo "=== RELEASE MODE: Building with NuGet packages ===" && \
     # Build and pack Kafka.Connect.Plugin first
     cd /src/src/Kafka.Connect.Plugin && \
-    dotnet restore --configfile /src/nuget.config && \
-    dotnet build /p:Version=$BUILD_VERSION --configuration Release --no-restore && \
+    dotnet restore Kafka.Connect.Plugin.csproj --configfile /src/nuget.config && \
+    dotnet build Kafka.Connect.Plugin.csproj /p:Version=$BUILD_VERSION --configuration Release --no-restore && \
     dotnet pack /p:Version=$BUILD_VERSION --configuration Release --no-build --no-restore --verbosity normal --output ./nupkgs && \
     dotnet nuget push ./nupkgs/Kafka.Connect.Plugin.${BUILD_VERSION}.nupkg --api-key $GITHUB_TOKEN --source $GITHUB_PACKAGES_SOURCE && \
     \
@@ -49,8 +49,8 @@ RUN echo "=== RELEASE MODE: Building with NuGet packages ===" && \
     \
     # Build main application
     cd /src/src/Kafka.Connect && \
-    dotnet restore /p:Configuration=Release --configfile /src/nuget.config && \
-    dotnet publish /p:Version=$BUILD_VERSION -c Release -o /app/out --no-restore
+    dotnet restore Kafka.Connect.csproj /p:Configuration=Release --configfile /src/nuget.config && \
+    dotnet publish Kafka.Connect.csproj /p:Version=$BUILD_VERSION -c Release -o /app/out --no-restore
 
 # Runtime stage for release builds
 FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine AS runtime
