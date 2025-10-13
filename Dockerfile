@@ -11,14 +11,12 @@ ENV GITHUB_PACKAGES_SOURCE=$GITHUB_PACKAGES_SOURCE
 
 WORKDIR /src
 
-# Always copy src directory and config files
+# Copy only src directory and config files (no tests)
 COPY ./src ./src
 COPY ./nuget.config ./nuget.config
-COPY ./nuget.debug.config ./nuget.debug.config
 
 # Release build stage
 FROM base AS release
-
 RUN echo "=== RELEASE MODE: Building with NuGet packages ===" && \
     # Build and pack Kafka.Connect.Plugin first
     cd /src/src/Kafka.Connect.Plugin && \
@@ -54,59 +52,32 @@ RUN echo "=== RELEASE MODE: Building with NuGet packages ===" && \
     dotnet restore /p:Configuration=Release --configfile /src/nuget.config && \
     dotnet publish /p:Version=$BUILD_VERSION -c Release -o /app/out --no-restore
 
-# Debug build stage
-FROM base AS debug
-
-# Copy tests directory for debug builds
-COPY ./tests ./tests
-
-RUN echo "=== DEBUG MODE: Building entire solution with project references ===" && \
-    cd /src/src && \
-    echo "Restoring entire solution using Kafka.sln in Debug configuration" && \
-    dotnet restore Kafka.sln --configfile /src/nuget.debug.config --no-cache --force && \
-    echo "Building entire solution in Debug configuration" && \
-    dotnet build Kafka.sln /p:Version=$BUILD_VERSION --configuration Debug --no-restore && \
-    echo "Publishing main application in Debug configuration" && \
-    dotnet publish Kafka.Connect/Kafka.Connect.csproj /p:Version=$BUILD_VERSION -c Debug -o /app/out --no-restore
-
-# Runtime stage
+# Runtime stage for release builds
 FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine AS runtime
 WORKDIR /app
 
-# Copy the published application from either build stage
-COPY --from=release /app/out* ./
-COPY --from=debug /app/out* ./
+# Copy the published application from release stage
+COPY --from=release /app/out ./
 
-# Copy all plugin outputs dynamically based on build configuration
-COPY --from=release /src/src/Plugins/ /tmp/plugins-release/
-COPY --from=debug /src/src/Plugins/ /tmp/plugins-debug/
+# Copy release plugin outputs
+COPY --from=release /src/src/Plugins/ /tmp/plugins/
 
 RUN mkdir -p ./plugins && \
-    # Copy Release plugins if they exist
-    if [ -d "/tmp/plugins-release" ]; then \
-        for plugin_dir in /tmp/plugins-release/*/; do \
-            if [ -d "$plugin_dir" ]; then \
-                plugin_name=$(basename "$plugin_dir" | sed 's/Kafka\.Connect\.//' | tr '[:upper:]' '[:lower:]'); \
-                if [ -d "$plugin_dir/bin/Release/net8.0" ]; then \
-                    echo "Copying Release build for plugin: $plugin_name"; \
-                    cp -r "$plugin_dir/bin/Release/net8.0" "./plugins/$plugin_name/"; \
-                fi; \
+    echo "Setting up Release plugins..." && \
+    for plugin_dir in /tmp/plugins/*/; do \
+        if [ -d "$plugin_dir" ]; then \
+            plugin_name=$(basename "$plugin_dir" | sed 's/Kafka\.Connect\.//' | tr '[:upper:]' '[:lower:]'); \
+            plugin_bin_dir="$plugin_dir/bin/Release/net8.0"; \
+            if [ -d "$plugin_bin_dir" ]; then \
+                echo "Copying Release build for plugin: $plugin_name"; \
+                mkdir -p "./plugins/$plugin_name"; \
+                cp -r "$plugin_bin_dir"/* "./plugins/$plugin_name/"; \
+            else \
+                echo "Warning: No Release build found for plugin: $plugin_name"; \
             fi; \
-        done; \
-    fi && \
-    # Copy Debug plugins if they exist
-    if [ -d "/tmp/plugins-debug" ]; then \
-        for plugin_dir in /tmp/plugins-debug/*/; do \
-            if [ -d "$plugin_dir" ]; then \
-                plugin_name=$(basename "$plugin_dir" | sed 's/Kafka\.Connect\.//' | tr '[:upper:]' '[:lower:]'); \
-                if [ -d "$plugin_dir/bin/Debug/net8.0" ]; then \
-                    echo "Copying Debug build for plugin: $plugin_name"; \
-                    cp -r "$plugin_dir/bin/Debug/net8.0" "./plugins/$plugin_name/"; \
-                fi; \
-            fi; \
-        done; \
-    fi && \
-    rm -rf /tmp/plugins-*
+        fi; \
+    done && \
+    rm -rf /tmp/plugins
 
 ENTRYPOINT ["dotnet", "Kafka.Connect.dll"]
 CMD ["--config", "appsettings.json"]
