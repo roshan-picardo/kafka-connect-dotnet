@@ -6,6 +6,7 @@
     </PropertyGroup>
     <ItemGroup>
         <PackageReference Include="MongoDB.Driver" />
+        <PackageReference Include="MongoDB.Bson" />
         <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" ExcludeAssets="runtime" />
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" ExcludeAssets="runtime" />
     </ItemGroup>

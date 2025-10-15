@@ -1,0 +1,60 @@
+{
+  "Serilog": {
+    "MinimumLevel": {
+      "Default": "Information",
+      "Override": {
+        "Microsoft": "Warning",
+        "System": "Warning"
+      }
+    },
+    "WriteTo": [
+      {
+        "Name": "Console",
+        "Args": {
+          "outputTemplate": "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}"
+        }
+      }
+    ]
+  },
+  "Worker": {
+    "Id": "mongodb-sink-worker",
+    "GroupId": "mongodb-sink-group",
+    "BootstrapServers": "kafka:29092",
+    "EnableAutoCommit": false,
+    "AutoOffsetReset": "Earliest",
+    "Topics": [
+      {
+        "Name": "mongo-sink-test",
+        "Partitions": 1,
+        "ReplicationFactor": 1,
+        "Config": {
+          "cleanup.policy": "delete",
+          "retention.ms": "604800000"
+        }
+      }
+    ],
+    "Connectors": [
+      {
+        "Name": "mongodb-sink-connector",
+        "Plugin": "MongoDb",
+        "Tasks": 1,
+        "Config": {
+          "ConnectionString": "mongodb://admin:password@mongodb:27017/kafka_connect_test?authSource=admin",
+          "Database": "kafka_connect_test",
+          "Collection": "mongo_sink_test",
+          "BatchSize": 100,
+          "Strategy": "Insert"
+        },
+        "Topics": ["mongo-sink-test"],
+        "Converters": {
+          "Key": {
+            "Type": "String"
+          },
+          "Value": {
+            "Type": "Json"
+          }
+        }
+      }
+    ]
+  }
+}
