@@ -12,7 +12,7 @@ ENV GITHUB_PACKAGES_SOURCE=$GITHUB_PACKAGES_SOURCE
 WORKDIR /src
 
 # Copy contents of src directory and config files (no tests)
-COPY ./src/* ./
+COPY ./src/ ./
 COPY ./nuget.config ./nuget.config
 
 # Release build stage
