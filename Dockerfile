@@ -11,19 +11,20 @@ ENV GITHUB_PACKAGES_SOURCE=$GITHUB_PACKAGES_SOURCE
 
 WORKDIR /src
 
-# Copy only src directory and config files (no tests)
-COPY ./src ./src
+# Copy contents of src directory and config files (no tests)
+COPY ./src/* ./
 COPY ./nuget.config ./nuget.config
 
 # Release build stage
 FROM base AS release
-RUN cd /src/src && \
+RUN cd /src && \
+    mkdir -p nupkgs && \
     cd Kafka.Connect.Plugin && \
     dotnet restore Kafka.Connect.Plugin.csproj /p:Configuration=Release --configfile /src/nuget.config && \
     dotnet build Kafka.Connect.Plugin.csproj /p:Version=$BUILD_VERSION --configuration Release --no-restore && \
-    dotnet pack /p:Version=$BUILD_VERSION --configuration Release --no-build --no-restore --verbosity normal --output ./nupkgs && \
-    dotnet nuget push ./nupkgs/Kafka.Connect.Plugin.${BUILD_VERSION}.nupkg --api-key $GITHUB_TOKEN --source $GITHUB_PACKAGES_SOURCE && \
-    cd /src/src && \
+    dotnet pack /p:Version=$BUILD_VERSION --configuration Release --no-build --no-restore --verbosity normal --output /src/nupkgs && \
+    dotnet nuget push /src/nupkgs/Kafka.Connect.Plugin.${BUILD_VERSION}.nupkg --api-key $GITHUB_TOKEN --source $GITHUB_PACKAGES_SOURCE && \
+    cd /src && \
     sed -i "/<\/ItemGroup>/i\\    <PackageVersion Include=\"Kafka.Connect.Plugin\" Version=\"$BUILD_VERSION\" />" Directory.Packages.props && \
     sleep 10 && \
     dotnet restore Kafka.Connect/Kafka.Connect.csproj /p:Configuration=Release --configfile /src/nuget.config --no-cache --force && \
@@ -37,17 +38,16 @@ RUN cd /src/src && \
             if [ -f "$project_file" ]; then \
                 dotnet restore "$project_file" /p:Configuration=Release --configfile /src/nuget.config --no-cache --force; \
                 dotnet build "$project_file" /p:Version=$BUILD_VERSION --configuration Release --no-restore; \
-                dotnet pack "$project_file" /p:Version=$BUILD_VERSION --configuration Release --no-build --no-restore --verbosity normal --output ./nupkgs ; \
+                dotnet pack "$project_file" /p:Version=$BUILD_VERSION --configuration Release --no-build --no-restore --verbosity normal --output /src/nupkgs ; \
                 dotnet publish "$project_file" -c Release -o "/app/plugins/$plugin_name" --no-restore; \
             fi; \
         fi; \
-    done; 
-
-RUN for package in "./nupkgs"/*.${BUILD_VERSION}.nupkg; do \
+    done; \
+    for package in /src/nupkgs/*.$BUILD_VERSION.nupkg; do \
         if [ -f "$package" ]; then \
-            dotnet nuget push "$package" --skip-duplicate --api-key $GITHUB_TOKEN --source $GITHUB_PACKAGES_SOURCE; \
+            dotnet nuget push "$package" --api-key $GITHUB_TOKEN --source $GITHUB_PACKAGES_SOURCE; \
         fi; \
-    done; 
+    done;
 
 # Runtime stage for release builds
 FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine AS runtime
