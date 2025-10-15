@@ -61,7 +61,7 @@ public static class ConfigurationExtensions
             {
                 var connectors = configuration.GetSection("worker:connectors")
                     .Get<IDictionary<string, ConnectorConfig>>()?
-                    .Where(c => c.Value.Plugin.Name == name).Select(c => (c.Value.Name ?? c.Key, MaxTasks: c.Value.Tasks));
+                    .Where(c => c.Value.Plugin.Name == name && !c.Value.Disabled).Select(c => (c.Value.Name ?? c.Key, MaxTasks: c.Value.Tasks));
                 if (connectors != null)
                 {
                     ServiceExtensions.AddPluginServices +=
