@@ -38,15 +38,16 @@ RUN cd /src/src && \
                 dotnet restore "$project_file" /p:Configuration=Release --configfile /src/nuget.config --no-cache --force; \
                 dotnet build "$project_file" /p:Version=$BUILD_VERSION --configuration Release --no-restore; \
                 dotnet pack "$project_file" /p:Version=$BUILD_VERSION --configuration Release --no-build --no-restore --verbosity normal --output ./nupkgs ; \
-                for package in "./nupkgs"/*.${BUILD_VERSION}.nupkg; do \
-                    if [ -f "$package" ]; then \
-                        dotnet nuget push "$package" --api-key $GITHUB_TOKEN --source $GITHUB_PACKAGES_SOURCE; \
-                    fi; \
-                done; \
                 dotnet publish "$project_file" -c Release -o "/app/plugins/$plugin_name" --no-restore; \
             fi; \
         fi; \
-    done
+    done; 
+
+RUN for package in "./nupkgs"/*.${BUILD_VERSION}.nupkg; do \
+        if [ -f "$package" ]; then \
+            dotnet nuget push "$package" --skip-duplicate --api-key $GITHUB_TOKEN --source $GITHUB_PACKAGES_SOURCE; \
+        fi; \
+    done; 
 
 # Runtime stage for release builds
 FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine AS runtime
