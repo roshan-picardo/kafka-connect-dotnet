@@ -37,8 +37,8 @@ RUN cd /src/src && \
             if [ -f "$project_file" ]; then \
                 dotnet restore "$project_file" /p:Configuration=Release --configfile /src/nuget.config --no-cache --force; \
                 dotnet build "$project_file" /p:Version=$BUILD_VERSION --configuration Release --no-restore; \
-                dotnet pack "$project_file" /p:Version=$BUILD_VERSION --configuration Release --no-build --no-restore --verbosity normal --output "$plugin_dir/nupkgs"; \
-                for package in "$plugin_dir/nupkgs"/*.${BUILD_VERSION}.nupkg; do \
+                dotnet pack "$project_file" /p:Version=$BUILD_VERSION --configuration Release --no-build --no-restore --verbosity normal --output ./nupkgs ; \
+                for package in "./nupkgs"/*.${BUILD_VERSION}.nupkg; do \
                     if [ -f "$package" ]; then \
                         dotnet nuget push "$package" --api-key $GITHUB_TOKEN --source $GITHUB_PACKAGES_SOURCE; \
                     fi; \
