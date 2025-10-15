@@ -19,14 +19,14 @@ COPY ./nuget.config ./nuget.config
 FROM base AS release
 RUN cd /src/src && \
     cd Kafka.Connect.Plugin && \
-    dotnet restore Kafka.Connect.Plugin.csproj --configfile /src/nuget.config && \
+    dotnet restore Kafka.Connect.Plugin.csproj /p:Configuration=Release --configfile /src/nuget.config && \
     dotnet build Kafka.Connect.Plugin.csproj /p:Version=$BUILD_VERSION --configuration Release --no-restore && \
     dotnet pack /p:Version=$BUILD_VERSION --configuration Release --no-build --no-restore --verbosity normal --output ./nupkgs && \
     dotnet nuget push ./nupkgs/Kafka.Connect.Plugin.${BUILD_VERSION}.nupkg --api-key $GITHUB_TOKEN --source $GITHUB_PACKAGES_SOURCE && \
     cd /src/src && \
     sed -i "/<\/ItemGroup>/i\\    <PackageVersion Include=\"Kafka.Connect.Plugin\" Version=\"$BUILD_VERSION\" />" Directory.Packages.props && \
     sleep 10 && \
-    dotnet restore Kafka.Connect/Kafka.Connect.csproj --configfile /src/nuget.config --no-cache --force && \
+    dotnet restore Kafka.Connect/Kafka.Connect.csproj /p:Configuration=Release --configfile /src/nuget.config --no-cache --force && \
     dotnet publish Kafka.Connect/Kafka.Connect.csproj /p:Version=$BUILD_VERSION -c Release -o /app --no-restore && \
     mkdir -p /app/plugins && \
     for plugin_dir in Plugins/*/; do \
@@ -35,7 +35,7 @@ RUN cd /src/src && \
             project_name=$(basename "$plugin_dir"); \
             project_file="$plugin_dir/$project_name.csproj"; \
             if [ -f "$project_file" ]; then \
-                dotnet restore "$project_file" --configfile /src/nuget.config --no-cache --force; \
+                dotnet restore "$project_file" /p:Configuration=Release --configfile /src/nuget.config --no-cache --force; \
                 dotnet build "$project_file" /p:Version=$BUILD_VERSION --configuration Release --no-restore; \
                 dotnet pack "$project_file" /p:Version=$BUILD_VERSION --configuration Release --no-build --no-restore --verbosity normal --output "$plugin_dir/nupkgs"; \
                 for package in "$plugin_dir/nupkgs"/*.${BUILD_VERSION}.nupkg; do \
