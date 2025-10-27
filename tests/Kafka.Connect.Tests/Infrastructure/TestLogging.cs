@@ -52,7 +52,7 @@ public class TestLoggingService
         return false;
     }
 
-    public void SetupTestcontainersLogging()
+    public void SetupTestcontainersLogging(bool detailedLog = true)
     {
         var originalOut = Console.Out;
         var originalError = Console.Error;
@@ -60,15 +60,16 @@ public class TestLoggingService
         SetOriginalConsoleOut(originalOut);
         KafkaConnectLogStream.SetOriginalConsoleOut(originalOut);
             
-        Console.SetOut(new TestContainersLogWriter(originalOut));
-        Console.SetError(new TestContainersLogWriter(originalError));
+        Console.SetOut(new TestContainersLogWriter(originalOut, detailedLog));
+        Console.SetError(new TestContainersLogWriter(originalError, detailedLog));
     }
 }
 
-public class TestContainersLogWriter(TextWriter textWriter) : TextWriter
+public class TestContainersLogWriter(TextWriter textWriter, bool detailedLog = true) : TextWriter
 {
     private static readonly ConcurrentDictionary<string, DateTime> RecentMessages = new();
     private static readonly TimeSpan MessageDeduplicationWindow = TimeSpan.FromMilliseconds(100);
+    private readonly bool _detailedLog = detailedLog;
 
     public override System.Text.Encoding Encoding => textWriter.Encoding;
 
@@ -84,6 +85,12 @@ public class TestContainersLogWriter(TextWriter textWriter) : TextWriter
             if (value.Contains("[testcontainers.org"))
             {
                 var message = ExtractTestcontainersMessage(value);
+                
+                if (!_detailedLog && IsRegexCacheMessage(message))
+                {
+                    return;
+                }
+                
                 LogDockerMessage(message);
             }
             else if (value.Contains("|rdkafka#") || value.Contains("| [thrd:") || value.Contains("|PARTCNT|") || value.StartsWith("%"))
@@ -110,6 +117,12 @@ public class TestContainersLogWriter(TextWriter textWriter) : TextWriter
             if (value.Contains("[testcontainers.org"))
             {
                 var message = ExtractTestcontainersMessage(value);
+                
+                if (!_detailedLog && IsRegexCacheMessage(message))
+                {
+                    return;
+                }
+                
                 LogDockerMessage(message);
             }
             else if (value.Contains("|rdkafka#") || value.Contains("| [thrd:") || value.Contains("|PARTCNT|") || value.StartsWith("%"))
@@ -127,6 +140,11 @@ public class TestContainersLogWriter(TextWriter textWriter) : TextWriter
 
     private void LogDockerMessage(string message)
     {
+        if (message.Contains("Stop Docker container"))
+        {
+            return;
+        }
+
         var formattedMessage = $"[{DateTime.Now:HH:mm:ss}] {message}";
         if (TestLoggingService.IsGlobalDuplicate(formattedMessage))
         {
@@ -212,6 +230,11 @@ public class TestContainersLogWriter(TextWriter textWriter) : TextWriter
             
         RecentMessages.TryAdd(message, now);
         return false;
+    }
+    
+    private static bool IsRegexCacheMessage(string message)
+    {
+        return message.Contains("Pattern") && message.Contains("added to the regex cache");
     }
 }
 

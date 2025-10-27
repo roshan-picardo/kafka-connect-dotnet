@@ -11,7 +11,7 @@ public class InfrastructureTests(TestFixture fixture, ITestOutputHelper output)
     [Fact, TestPriority(1)]
     public async Task Kafka()
     {
-        const string topicName = "test-connectivity";
+        const string topicName = "infra-test-mongo";
         var testData = new
         {
             Id = Guid.NewGuid(),
@@ -51,8 +51,8 @@ public class InfrastructureTests(TestFixture fixture, ITestOutputHelper output)
     [Fact, TestPriority(1)]
     public async Task MongoDb()
     {
-        const string collectionName = "test-connectivity";
-        var database = fixture.MongoDatabase;
+        const string collectionName = "test-events";
+        var database = fixture.GetMongoDatabase("infra-test-mongo");
         var testData = new BsonDocument
         {
             ["_id"] = ObjectId.GenerateNewId(),

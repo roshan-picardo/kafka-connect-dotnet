@@ -19,10 +19,13 @@ public class TestFixture : IAsyncLifetime
     
     private IContainer? _zookeeperContainer;
     private IContainer? _kafkaContainer;
+    private IContainer? _schemaRegistryContainer;
     private IContainer? _mongoContainer;
     private IContainer? _kafkaConnectContainer;
     
-    private IMongoDatabase? _mongoDatabase;
+    private IAdminClient? _adminClient;
+    
+    private IMongoClient? _mongoClient;
     private bool _kafkaConnectDeployed;
 
     static TestFixture()
@@ -52,15 +55,12 @@ public class TestFixture : IAsyncLifetime
         // Create TestLoggingService with simple logging
         _loggingService = new TestLoggingService();
 
-        _loggingService.SetupTestcontainersLogging();
+        _loggingService.SetupTestcontainersLogging(_config.DetailedLog);
     }
-
-    public IMongoDatabase MongoDatabase => _mongoDatabase ??
-                                           throw new InvalidOperationException("MongoDB database not initialized");
 
     public bool IsKafkaConnectDeployed => _kafkaConnectDeployed || !_config.TestContainers.Worker.Enabled;
 
-    private void LogMessage(string message, string sourceContext = "IntegrationTests.Infrastructure")
+    private void LogMessage(string message)
     {
         TestLoggingService.LogMessage(message);
     }
@@ -74,9 +74,8 @@ public class TestFixture : IAsyncLifetime
             await CreateNetworkAsync();
             await CreateZookeeperContainerAsync();
             await CreateKafkaContainerAsync();
+            await CreateSchemaRegistryContainerAsync();
             await CreateMongoContainerAsync();
-
-            InitializeMongoClient();
                 
             if (_config.TestContainers.Worker.Enabled)
             {
@@ -84,7 +83,8 @@ public class TestFixture : IAsyncLifetime
             }
 
             LogMessage("Integration test infrastructure ready!");
-            LogMessage("===================================");
+            LogMessage("");
+            LogMessage("========== KAFKA CONNECT ==========");
             KafkaConnectLogStream.SetInfrastructureReady();
         }
         catch (Exception ex)
@@ -119,6 +119,13 @@ public class TestFixture : IAsyncLifetime
         LogMessage($"Kafka container started: {_config.TestContainers.Broker.Name} -> {_config.TestContainers.Broker.Hostname}:{_kafkaContainer.GetMappedPublicPort(9092)}");
     }
 
+    private async Task CreateSchemaRegistryContainerAsync()
+    {
+        LogMessage($"Creating Schema Registry container: {_config.TestContainers.SchemaRegistry.Name}");
+        _schemaRegistryContainer = await _containerService.CreateContainerAsync(_config.TestContainers.SchemaRegistry, _network!, _loggingService);
+        LogMessage($"Schema Registry container started: {_config.TestContainers.SchemaRegistry.Name} -> {_config.TestContainers.SchemaRegistry.Hostname}:{_schemaRegistryContainer.GetMappedPublicPort(8081)}");
+    }
+
     private async Task CreateMongoContainerAsync()
     {
         LogMessage($"Creating MongoDB container: {_config.TestContainers.Mongo.Name}");
@@ -126,18 +133,17 @@ public class TestFixture : IAsyncLifetime
         LogMessage($"MongoDB container started: {_config.TestContainers.Mongo.Name} -> {_config.Shakedown.Mongo}");
     }
 
-
-    private void InitializeMongoClient()
+    public IMongoDatabase GetMongoDatabase(string databaseName)
     {
-        var mongoClient = new MongoClient(_config.Shakedown.Mongo);
-        _mongoDatabase = mongoClient.GetDatabase(_config.TestContainers.Mongo.DatabaseName);
+        _mongoClient ??= new MongoClient(_config.Shakedown.Mongo);
+        return _mongoClient.GetDatabase(databaseName);
     }
 
     public async Task CreateTopicAsync(string topicName, int partitions = 1, short replicationFactor = 1)
     {
         var bootstrapServers = _config.Shakedown.Kafka;
             
-        using var adminClient = new AdminClientBuilder(new AdminClientConfig
+        _adminClient ??= new AdminClientBuilder(new AdminClientConfig
             {
                 BootstrapServers = bootstrapServers
             })
@@ -166,7 +172,7 @@ public class TestFixture : IAsyncLifetime
 
         try
         {
-            await adminClient.CreateTopicsAsync(new[] { topicSpecification }, new CreateTopicsOptions
+            await _adminClient.CreateTopicsAsync([topicSpecification], new CreateTopicsOptions
             {
                 RequestTimeout = TimeSpan.FromSeconds(30)
             });
@@ -340,42 +346,39 @@ public class TestFixture : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
-        LogMessage("===================================");
+        await StopContainerAsync(_kafkaConnectContainer);
+        LogMessage("========== KAFKA CONNECT ==========");
+        LogMessage("");
         LogMessage("Tearing down test infrastructure...");
-        if (_kafkaConnectContainer != null)
-        {
-            LogMessage("Stopping Kafka Connect container: local-worker");
-            await _kafkaConnectContainer.DisposeAsync();
-            await Task.Delay(1000);
-        }
-
-        LogMessage("Cleaning up test infrastructure...");
-
-
-        if (_kafkaContainer != null)
-        {
-            LogMessage("Stopping Kafka container: broker");
-            await _kafkaContainer.DisposeAsync();
-        }
-
-        if (_zookeeperContainer != null)
-        {
-            await _zookeeperContainer.DisposeAsync();
-        }
-
-        if (_mongoContainer != null)
-        {
-            LogMessage("Stopping MongoDB container: mongodb");
-            await _mongoContainer.DisposeAsync();
-        }
-
+        await DisposeContainerAsync(_kafkaConnectContainer);
+        await DisposeContainerAsync(_kafkaContainer);
+        await DisposeContainerAsync(_schemaRegistryContainer);
+        await DisposeContainerAsync(_zookeeperContainer);
+        await DisposeContainerAsync(_mongoContainer);
         if (_network != null)
         {
             LogMessage($"Cleaning up test network: {_config.TestContainers.Network.Name}");
             await _network.DisposeAsync();
         }
             
-        LogMessage("All containers stopped and cleaned up");
+        LogMessage("All containers stopped and cleaned up!");
+    }
+
+    private static async Task StopContainerAsync(IContainer? container)
+    {
+        if (container != null)
+        {
+            await container.StopAsync();
+        }
+    }
+
+    private async Task DisposeContainerAsync(IContainer? container)
+    {
+        if (container != null)
+        {
+            LogMessage($"Stopping container: {container.Name}");
+            await container.DisposeAsync();
+        }
     }
 }
 

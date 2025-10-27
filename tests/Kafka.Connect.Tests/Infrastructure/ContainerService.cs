@@ -62,6 +62,7 @@ public class ContainerService : IContainerService
             .WithDockerfileDirectory(new CommonDirectoryPath(dockerContextPath), string.Empty)
             .WithDockerfile(config.DockerfilePath)
             .WithName("kafka-connect:latest")
+            .WithCleanUp(config.CleanUpImage)
             .Build();
 
         await futureImage.CreateAsync();
