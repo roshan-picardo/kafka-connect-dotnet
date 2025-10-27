@@ -2,11 +2,11 @@ using System.Collections.Concurrent;
 
 namespace IntegrationTests.Kafka.Connect.Infrastructure;
 
-public class TestLoggingService(TestConfiguration config)
+public class TestLoggingService
 {
     private static readonly ConcurrentDictionary<string, DateTime> GlobalLogDeduplication = new();
     private static readonly TimeSpan GlobalDeduplicationWindow = TimeSpan.FromMilliseconds(500);
-    public void LogMessage(string message, string sourceContext = "IntegrationTests.Infrastructure")
+    public static void LogMessage(string message)
     {
         if (IsGlobalDuplicate(message))
         {

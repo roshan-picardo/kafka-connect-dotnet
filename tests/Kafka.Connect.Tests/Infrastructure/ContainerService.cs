@@ -34,9 +34,9 @@ public class ContainerService : IContainerService
         }
 
         var container = containerBuilder.Build();
-        loggingService.LogMessage($"Creating container: {config.Name} ({config.Image})");
+        TestLoggingService.LogMessage($"Creating container: {config.Name} ({config.Image})");
         await container.StartAsync();
-        loggingService.LogMessage($"Container started: {config.Name}");
+        TestLoggingService.LogMessage($"Container started: {config.Name}");
         return container;
     }
 
@@ -103,9 +103,9 @@ public class ContainerService : IContainerService
 
         var container = containerBuilder.Build();
 
-        loggingService.LogMessage($"Creating Kafka Connect Worker: {config.Name}");
+        TestLoggingService.LogMessage($"Creating Kafka Connect Worker: {config.Name}");
         await container.StartAsync();
-        loggingService.LogMessage($"Kafka Connect Worker started: {config.Name}");
+        TestLoggingService.LogMessage($"Kafka Connect Worker started: {config.Name}");
 
         return container;
     }

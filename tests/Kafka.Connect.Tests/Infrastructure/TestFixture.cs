@@ -50,7 +50,7 @@ public class TestFixture : IAsyncLifetime
         _containerService = serviceProvider.GetRequiredService<IContainerService>();
 
         // Create TestLoggingService with simple logging
-        _loggingService = new TestLoggingService(_config);
+        _loggingService = new TestLoggingService();
 
         _loggingService.SetupTestcontainersLogging();
     }
@@ -62,7 +62,7 @@ public class TestFixture : IAsyncLifetime
 
     private void LogMessage(string message, string sourceContext = "IntegrationTests.Infrastructure")
     {
-        _loggingService.LogMessage(message, sourceContext);
+        TestLoggingService.LogMessage(message);
     }
 
     public async Task InitializeAsync()
@@ -89,7 +89,7 @@ public class TestFixture : IAsyncLifetime
         }
         catch (Exception ex)
         {
-            _loggingService.LogMessage($"Failed to initialize test infrastructure: {ex.Message}");
+            TestLoggingService.LogMessage($"Failed to initialize test infrastructure: {ex.Message}");
             await DisposeAsync();
             throw;
         }
