@@ -18,6 +18,10 @@
 
         <!-- Additional test-specific packages -->
         <PackageVersion Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
+        <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="8.0.0" />
+        <PackageVersion Include="Microsoft.Extensions.Logging" Version="8.0.0" />
+        <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="8.0.0" />
         <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
+        <PackageVersion Include="System.Text.Json" Version="8.0.0" />
     </ItemGroup>
 </Project>

@@ -23,7 +23,7 @@ RUN cd /src && \
     dotnet restore Kafka.Connect.Plugin.csproj /p:Configuration=Release --configfile /src/nuget.config && \
     dotnet build Kafka.Connect.Plugin.csproj /p:Version=$BUILD_VERSION --configuration Release --no-restore && \
     dotnet pack /p:Version=$BUILD_VERSION --configuration Release --no-build --no-restore --verbosity normal --output /src/nupkgs && \
-    dotnet nuget push /src/nupkgs/Kafka.Connect.Plugin.${BUILD_VERSION}.nupkg --api-key $GITHUB_TOKEN --source $GITHUB_PACKAGES_SOURCE && \
+    dotnet nuget push /src/nupkgs/Kafka.Connect.Plugin.${BUILD_VERSION}.nupkg --api-key $GITHUB_TOKEN --source $GITHUB_PACKAGES_SOURCE --skip-duplicate && \
     cd /src && \
     sed -i "/<\/ItemGroup>/i\\    <PackageVersion Include=\"Kafka.Connect.Plugin\" Version=\"$BUILD_VERSION\" />" Directory.Packages.props && \
     sleep 10 && \
@@ -45,7 +45,7 @@ RUN cd /src && \
     done; \
     for package in /src/nupkgs/*.$BUILD_VERSION.nupkg; do \
         if [ -f "$package" ]; then \
-            dotnet nuget push "$package" --api-key $GITHUB_TOKEN --source $GITHUB_PACKAGES_SOURCE; \
+            dotnet nuget push "$package" --api-key $GITHUB_TOKEN --source $GITHUB_PACKAGES_SOURCE --skip-duplicate; \
         fi; \
     done;
 

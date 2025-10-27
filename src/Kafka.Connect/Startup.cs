@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Kafka.Connect.Background;
@@ -38,14 +39,33 @@ using Serilog.Formatting.Json;
 
          private static IConfiguration LoadConfiguration(Arguments args)
          {
-             var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "loc";
              var builder = new ConfigurationBuilder()
                  .SetBasePath(Directory.GetCurrentDirectory());
              builder.AddJsonFile("appsettings.json", true, true);
-             builder.AddJsonFile($"appsettings.{environment}.json", true, true);
-             if (!args.TryGetValue("config", out var files)) return builder.Build();
-             files.ForEach(file => builder.AddJsonFile(string.Format(file, environment), false, true));
-             return builder.Build();
+             if (args.TryGetValue("settings", out var settingsPaths) && settingsPaths?.Length > 0)
+             {
+                 var settingsFolder = settingsPaths[0];
+                 if (Directory.Exists(settingsFolder))
+                 {
+                     var jsonFiles = Directory.GetFiles(settingsFolder, "*.json", SearchOption.TopDirectoryOnly);
+                     foreach (var file in jsonFiles.OrderBy(f => f))
+                     {
+                         builder.AddJsonFile(file, optional: true, reloadOnChange: true);
+                     }
+                 }
+             }
+             
+             // Load individual config files if --config switch is provided
+             if (args.TryGetValue("config", out var files))
+             {
+                 foreach (var file in files)
+                 {
+                     builder.AddJsonFile(file, false, true);
+                 }
+             }
+             
+             var configuration = builder.Build();
+             return configuration;
          }
 
          private static async Task Main(string[] args)
