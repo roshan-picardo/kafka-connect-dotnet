@@ -34,7 +34,7 @@ public class MongoDbTests(TestFixture fixture, ITestOutputHelper output)
         await fixture.CreateTopicAsync(topicName);
         var deliveryResult = await fixture.ProduceMessageAsync(topicName, testKey, testValue);
 
-        var database = fixture.MongoDatabase;
+        var database = fixture.GetMongoDatabase("");
         var collection = database.GetCollection<BsonDocument>("user_events");
             
         var document = BsonDocument.Parse(testValue);

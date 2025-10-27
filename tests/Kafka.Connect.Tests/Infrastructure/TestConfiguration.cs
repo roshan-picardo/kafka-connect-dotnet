@@ -12,6 +12,7 @@ public class TestContainersConfig
     public NetworkConfig Network { get; set; } = new();
     public ZookeeperConfig Zookeeper { get; set; } = new();
     public KafkaConfig Broker { get; set; } = new();
+    public SchemaRegistryConfig SchemaRegistry { get; set; } = new();
     public MongoDbConfig Mongo { get; set; } = new();
     public KafkaConnectConfig Worker { get; set; } = new();
 }
@@ -54,6 +55,16 @@ public class KafkaConfig : ContainerConfig
     }
 }
 
+public class SchemaRegistryConfig : ContainerConfig
+{
+    public SchemaRegistryConfig()
+    {
+        Image = "confluentinc/cp-schema-registry:7.6.0";
+        Name = "schema";
+        Hostname = "schema";
+    }
+}
+
 public class MongoDbConfig : ContainerConfig
 {
     public string DatabaseName { get; set; } = "kafka_connect_test";
@@ -73,6 +84,7 @@ public class KafkaConnectConfig : ContainerConfig
     public string HealthCheckEndpoint { get; set; } = string.Empty;
     public int StartupTimeoutSeconds { get; set; }
     public bool Enabled { get; set; } = true;
+    public bool CleanUpImage { get; set; } = true;
     public List<string> Command { get; set; } = [];
     public Dictionary<string, string> BindMounts { get; set; } = new();
 
@@ -99,6 +111,7 @@ public class TestConsumerConfig
 public class ShakedownConfig
 {
     public string Kafka { get; set; } = string.Empty;
+    public string SchemaRegistry { get; set; } = string.Empty;
     public string Mongo { get; set; } = string.Empty;
     public string Worker { get; set; } = string.Empty;
 }
