@@ -36,8 +36,52 @@ jobs:
     - name: Test
       run: dotnet test tests/Kafka.Connect.UnitTests/Kafka.Connect.UnitTests.csproj --no-build --verbosity normal
 
+  integration-tests:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+        
+    - name: Restore main solution dependencies
+      run: dotnet restore src/Kafka.Connect.sln --configfile nuget.config
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_USERNAME: ${{ github.actor }}
+        
+    - name: Build main solution
+      run: dotnet build src/Kafka.Connect.sln --no-restore
+        
+    - name: Restore integration test dependencies
+      run: dotnet restore tests/Kafka.Connect.Tests/Kafka.Connect.Tests.csproj --configfile nuget.config
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_USERNAME: ${{ github.actor }}
+        
+    - name: Build integration tests
+      run: dotnet build tests/Kafka.Connect.Tests/Kafka.Connect.Tests.csproj --no-restore
+      
+    - name: Run integration tests
+      run: dotnet test tests/Kafka.Connect.Tests/Kafka.Connect.Tests.csproj --no-build --verbosity normal --logger trx --results-directory TestResults
+      env:
+        DOCKER_HOST: unix:///var/run/docker.sock
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_USERNAME: ${{ github.actor }}
+        
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: integration-test-results
+        path: TestResults/*.trx
+
   build-and-push-docker:
-    needs: build-and-test
+    needs: [build-and-test, integration-tests]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     
