@@ -1,9 +1,7 @@
-version: '3.8'
-
+---
 services:
-  # Zookeeper - Required for Kafka
   zookeeper:
-    image: confluentinc/cp-zookeeper:7.4.0
+    image: confluentinc/cp-zookeeper:7.6.0
     hostname: zookeeper
     container_name: zookeeper
     ports:
@@ -12,87 +10,106 @@ services:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
     networks:
-      - kafka-connect-network
+      - local
 
-  # Kafka Broker
-  kafka:
-    image: confluentinc/cp-kafka:7.4.0
-    hostname: kafka
-    container_name: kafka
+  broker:
+    image: confluentinc/cp-server:7.6.0
+    hostname: broker
+    container_name: broker
     depends_on:
       - zookeeper
     ports:
       - "9092:9092"
+      - "9093:9093"
       - "9101:9101"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:9092,PLAINTEXT_HOST://localhost:9093
+      KAFKA_METRIC_REPORTERS: io.confluent.metrics.reporter.ConfluentMetricsReporter
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_CONFLUENT_LICENSE_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_CONFLUENT_BALANCER_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_JMX_PORT: 9101
       KAFKA_JMX_HOSTNAME: localhost
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_CONFLUENT_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS: broker:9092
+      CONFLUENT_METRICS_REPORTER_TOPIC_REPLICAS: 1
+      CONFLUENT_METRICS_ENABLE: 'true'
+      CONFLUENT_SUPPORT_CUSTOMER_ID: 'anonymous'
     networks:
-      - kafka-connect-network
+      - local
 
-  # MongoDB
-  mongodb:
-    image: mongo:7.0
-    hostname: mongodb
-    container_name: mongodb
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.6.0
+    hostname: schema-registry
+    container_name: schema-registry
+    depends_on:
+      - broker
     ports:
-      - "27017:27017"
+      - "8081:8081"
     environment:
-      MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: password
-      MONGO_INITDB_DATABASE: kafka_connect_test
-    volumes:
-      - mongodb_data:/data/db
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: 'broker:9092'
     networks:
-      - kafka-connect-network
-
-  # Kafka Connect using local.Dockerfile
+      - local
+  
   kafka-connect:
     build:
       context: .
       dockerfile: local.Dockerfile
+      target: runtime
     hostname: kafka-connect
     container_name: kafka-connect
     depends_on:
-      - kafka
-      - mongodb
+      - broker
+      - schema-registry
     ports:
-      - "8083:8083"
+      - "6000:6000"
     volumes:
-      - ./tests/Kafka.Connect.Tests/Configurations/mongodb-sink-config.json:/app/appSettings.json
-    stdin_open: true
-    tty: true
+      - ./tests/Kafka.Connect.Tests/Configurations/appsettings.json:/app/appsettings.json:ro
+      - ./tests/Kafka.Connect.Tests/Configurations/appsettings.mongodb.json:/app/appsettings.mongodb.json:ro
+    command: ["dotnet", "Kafka.Connect.dll", "--config", "appsettings.json", "--config", "appsettings.mongodb.json"]
     networks:
-      - kafka-connect-network
+      - local
 
-  # Kafka UI for monitoring (optional)
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
-    hostname: kafka-ui
     container_name: kafka-ui
     depends_on:
-      - kafka
+      - broker
+      - schema-registry
     ports:
       - "8080:8080"
     environment:
       KAFKA_CLUSTERS_0_NAME: local
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: broker:9092
       KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://schema-registry:8081
     networks:
-      - kafka-connect-network
+      - local
+
+  mongodb:
+    image: mongo:7.0
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    restart: always
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=admin
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - local
 
 volumes:
   mongodb_data:
 
 networks:
-  kafka-connect-network:
+  local:
     driver: bridge

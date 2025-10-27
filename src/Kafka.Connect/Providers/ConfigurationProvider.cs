@@ -22,6 +22,7 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
     {
         _configuration = configuration;
         _workerConfig = configuration.GetSection("worker").Get<WorkerConfig>();
+        
         SetLeaderConfig(configuration);
     }
 

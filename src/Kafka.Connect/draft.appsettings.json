@@ -30,7 +30,7 @@
   },
   "AllowedHosts": "*",
   "worker": {
-    "bootstrapServers": "localhost:9092",
+    "bootstrapServers": "local-kafka:9092",
     "securityProtocol": "PlainText",
     "sslCaLocation": "",
     "sslCertificateLocation": "",
