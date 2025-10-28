@@ -46,7 +46,7 @@ jobs:
       run: dotnet build tests/Kafka.Connect.Tests/Kafka.Connect.Tests.csproj --no-restore
       
     - name: Run integration tests
-      run: dotnet test tests/Kafka.Connect.Tests/Kafka.Connect.Tests.csproj --no-build --verbosity quiet --logger trx --results-directory TestResults
+      run: dotnet test tests/Kafka.Connect.Tests/Kafka.Connect.Tests.csproj --no-build --verbosity normal --logger trx --results-directory TestResults
       env:
         DOCKER_HOST: unix:///var/run/docker.sock
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
