@@ -14,7 +14,7 @@ public interface IStrategy
 
 public abstract class Strategy<T> : IStrategy
 {
-    private readonly Regex _regex = new("{(.*?)}", RegexOptions.Compiled);
+    private readonly Regex _regex = new("%(.*?)%", RegexOptions.Compiled);
     public async Task<StrategyModel<TType>> Build<TType>(string connector, IConnectRecord record)
     {
         StrategyModel<TType> Convert(StrategyModel<T> response)

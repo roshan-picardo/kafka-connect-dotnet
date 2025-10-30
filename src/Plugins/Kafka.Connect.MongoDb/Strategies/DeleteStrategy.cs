@@ -19,7 +19,7 @@ public class DeleteStrategy(ILogger<DeleteStrategy> logger, IConfigurationProvid
         using (logger.Track("Creating delete models"))
         {
             var config = configurationProvider.GetPluginConfig<PluginConfig>(connector);
-            var filter = BsonDocument.Parse(BuildCondition(config.Filter.ToString(), record.Deserialized.Value.ToDictionary()));
+            var filter = BsonDocument.Parse(BuildCondition(config.Filter, record.Deserialized.Value.ToDictionary()));
             return Task.FromResult(new StrategyModel<DeleteOneModel<BsonDocument>>()
             {
                 Status = Status.Deleting,

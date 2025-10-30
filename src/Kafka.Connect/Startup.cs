@@ -39,9 +39,11 @@ using Serilog.Formatting.Json;
 
          private static IConfiguration LoadConfiguration(Arguments args)
          {
+             var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "loc";
              var builder = new ConfigurationBuilder()
                  .SetBasePath(Directory.GetCurrentDirectory());
              builder.AddJsonFile("appsettings.json", true, true);
+             builder.AddJsonFile($"appsettings.{environment}.json", true, true);
              if (args.TryGetValue("settings", out var settingsPaths) && settingsPaths?.Length > 0)
              {
                  var settingsFolder = settingsPaths[0];

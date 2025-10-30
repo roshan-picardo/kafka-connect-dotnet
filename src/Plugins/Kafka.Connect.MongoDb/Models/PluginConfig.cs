@@ -30,7 +30,7 @@ public class PluginConfig
     
     public string Collection { get; set; }
     public bool IsWriteOrdered { get; set; } = true;
-    public JsonNode Filter { get; set; }
+    public string Filter { get; set; }
     
     public IDictionary<string, CommandConfig> Commands { get; set; }
 }
