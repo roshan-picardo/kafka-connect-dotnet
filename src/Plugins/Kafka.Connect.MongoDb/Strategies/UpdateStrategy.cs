@@ -24,7 +24,7 @@ public class UpdateStrategy(ILogger<UpdateStrategy> logger, IConfigurationProvid
                 Status = Status.Updating,
                 Model = new UpdateOneModel<BsonDocument>(
                     new BsonDocumentFilterDefinition<BsonDocument>(
-                        BsonDocument.Parse(BuildCondition(condition.ToJsonString(), record.Deserialized.Value.ToDictionary()))),
+                        BsonDocument.Parse(BuildCondition(condition, record.Deserialized.Value.ToDictionary()))),
                     new BsonDocumentUpdateDefinition<BsonDocument>(
                         new BsonDocument("$set", BsonDocument.Parse(record.Deserialized.Value.ToJsonString()))))
             });
