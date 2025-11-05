@@ -7,7 +7,8 @@ public class TestLoggingService
 {
     private static readonly ConcurrentDictionary<string, DateTime> GlobalLogDeduplication = new();
     private static readonly TimeSpan GlobalDeduplicationWindow = TimeSpan.FromMilliseconds(500);
-    private static readonly Regex TestResultPattern = new(@"^\s*(Passed|Failed|Skipped)\s+.*\[\d+(\.\d+)?\s*s\]", RegexOptions.Compiled);
+    private static readonly Regex TestResultPattern = new(@"^\s*(Passed|Failed|Skipped)\s+.*\[\d+(\.\d+)?\s*(s|ms)\]", RegexOptions.Compiled);
+    private static readonly Regex XUnitFrameworkPattern = new(@"^\s*\[xUnit\.net.*\]", RegexOptions.Compiled);
     
     public static void LogMessage(string message)
     {
@@ -30,7 +31,7 @@ public class TestLoggingService
 
     private static bool IsTestResultMessage(string message)
     {
-        return TestResultPattern.IsMatch(message);
+        return TestResultPattern.IsMatch(message) || XUnitFrameworkPattern.IsMatch(message);
     }
 
     private static TextWriter? _originalConsoleOut = null;
@@ -85,7 +86,8 @@ public class TestContainersLogWriter(TextWriter textWriter, bool detailedLog = t
 {
     private static readonly ConcurrentDictionary<string, DateTime> RecentMessages = new();
     private static readonly TimeSpan MessageDeduplicationWindow = TimeSpan.FromMilliseconds(100);
-    private static readonly Regex TestResultPattern = new(@"^\s*(Passed|Failed|Skipped)\s+.*\[\d+(\.\d+)?\s*s\]", RegexOptions.Compiled);
+    private static readonly Regex TestResultPattern = new(@"^\s*(Passed|Failed|Skipped)\s+.*\[\d+(\.\d+)?\s*(s|ms)\]", RegexOptions.Compiled);
+    private static readonly Regex XUnitFrameworkPattern = new(@"^\s*\[xUnit\.net.*\]", RegexOptions.Compiled);
     private readonly bool _detailedLog = detailedLog;
 
     public override System.Text.Encoding Encoding => textWriter.Encoding;
@@ -190,6 +192,12 @@ public class TestContainersLogWriter(TextWriter textWriter, bool detailedLog = t
         if (TestResultPattern.IsMatch(message))
         {
             TestResultCollector.ParseAndAddResult(message);
+            return;
+        }
+        
+        // Suppress XUnit framework messages
+        if (XUnitFrameworkPattern.IsMatch(message))
+        {
             return;
         }
 

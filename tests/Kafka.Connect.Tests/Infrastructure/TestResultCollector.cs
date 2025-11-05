@@ -9,7 +9,8 @@ public class TestResultCollector
     private static readonly ConcurrentQueue<TestResult> TestResults = new();
     private static readonly object Lock = new();
     private static bool _summaryDisplayed = false;
-    private static readonly Regex TestResultPattern = new(@"^\s*(Passed|Failed|Skipped)\s+(.+?)\s+\[(\d+(?:\.\d+)?)\s*s\]", RegexOptions.Compiled);
+    private static readonly Regex TestResultPattern = new(@"^\s*(Passed|Failed|Skipped)\s+(.+?)\s+\[(\d+(?:\.\d+)?)\s*(s|ms)\]", RegexOptions.Compiled);
+    private static readonly Regex XUnitSummaryPattern = new(@"^\s*(Passed|Failed|Skipped)\s+(.+?)\s+\[(\d+(?:\.\d+)?)\s*ms\]", RegexOptions.Compiled);
 
     public static void AddResult(TestResult result)
     {
@@ -23,7 +24,11 @@ public class TestResultCollector
         {
             var status = match.Groups[1].Value;
             var testName = match.Groups[2].Value.Trim();
-            var duration = double.Parse(match.Groups[3].Value);
+            var durationValue = double.Parse(match.Groups[3].Value);
+            var unit = match.Groups[4].Value;
+            
+            // Convert milliseconds to seconds for consistency
+            var duration = unit == "ms" ? durationValue / 1000.0 : durationValue;
 
             var testStatus = status switch
             {
