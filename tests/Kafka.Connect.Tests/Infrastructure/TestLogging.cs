@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Text.RegularExpressions;
 
 namespace IntegrationTests.Kafka.Connect.Infrastructure;
 
@@ -6,6 +7,8 @@ public class TestLoggingService
 {
     private static readonly ConcurrentDictionary<string, DateTime> GlobalLogDeduplication = new();
     private static readonly TimeSpan GlobalDeduplicationWindow = TimeSpan.FromMilliseconds(500);
+    private static readonly Regex TestResultPattern = new(@"^\s*(Passed|Failed|Skipped)\s+.*\[\d+(\.\d+)?\s*s\]", RegexOptions.Compiled);
+    
     public static void LogMessage(string message)
     {
         if (IsGlobalDuplicate(message))
@@ -13,9 +16,20 @@ public class TestLoggingService
             return;
         }
 
+        // Suppress XUnit test result messages during execution
+        if (IsTestResultMessage(message))
+        {
+            return;
+        }
+
         var timestamp = DateTime.Now.ToString("HH:mm:ss");
         if (_originalConsoleOut != null)
             _originalConsoleOut.WriteLine($"[{timestamp}] {message}");
+    }
+
+    private static bool IsTestResultMessage(string message)
+    {
+        return TestResultPattern.IsMatch(message);
     }
 
     private static TextWriter? _originalConsoleOut = null;
@@ -70,6 +84,7 @@ public class TestContainersLogWriter(TextWriter textWriter, bool detailedLog = t
 {
     private static readonly ConcurrentDictionary<string, DateTime> RecentMessages = new();
     private static readonly TimeSpan MessageDeduplicationWindow = TimeSpan.FromMilliseconds(100);
+    private static readonly Regex TestResultPattern = new(@"^\s*(Passed|Failed|Skipped)\s+.*\[\d+(\.\d+)?\s*s\]", RegexOptions.Compiled);
     private readonly bool _detailedLog = detailedLog;
 
     public override System.Text.Encoding Encoding => textWriter.Encoding;
@@ -170,6 +185,12 @@ public class TestContainersLogWriter(TextWriter textWriter, bool detailedLog = t
 
     private void LogConsoleMessage(string message)
     {
+        // Suppress XUnit test result messages during execution
+        if (TestResultPattern.IsMatch(message))
+        {
+            return;
+        }
+
         var formattedMessage = $"[{DateTime.Now:HH:mm:ss}] {message}";
         if (TestLoggingService.IsGlobalDuplicate(formattedMessage))
         {

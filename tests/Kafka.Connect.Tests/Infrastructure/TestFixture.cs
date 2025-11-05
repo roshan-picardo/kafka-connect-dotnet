@@ -423,12 +423,18 @@ public class TestFixture : IAsyncLifetime
         if (_config.SkipInfrastructure)
         {
             LogMessage("Skipping infrastructure cleanup (SkipInfrastructure = true)");
+            // Display test summary even when skipping infrastructure
+            TestResultCollector.DisplaySummary();
             return;
         }
 
         await StopContainerAsync(_kafkaConnectContainer);
         LogMessage("========== KAFKA CONNECT ==========");
         LogMessage("");
+        
+        // Display test results summary before tearing down infrastructure
+        TestResultCollector.DisplaySummary();
+        
         LogMessage("Tearing down test infrastructure...");
         await DisposeContainerAsync(_kafkaConnectContainer);
         await DisposeContainerAsync(_kafkaContainer);
