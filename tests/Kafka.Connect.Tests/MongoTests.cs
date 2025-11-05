@@ -13,7 +13,7 @@ namespace IntegrationTests.Kafka.Connect;
 public class MongoTests(TestFixture fixture, ITestOutputHelper output) : IDisposable
 {
     [Theory]
-    [ClassData(typeof(MongoTestCaseBuilder))]
+    [ClassData(typeof(TestCaseBuilder))]
     public async Task ExecuteMongoSinkTest(MongoTestCase testCase)
     {
         output.WriteLine($"Executing test: {testCase.Title}");
@@ -123,87 +123,6 @@ public class MongoTests(TestFixture fixture, ITestOutputHelper output) : IDispos
     public void Dispose()
     {
     }
-}
-
-public class MongoTestCaseBuilder : IEnumerable<object[]>
-{
-    public IEnumerator<object[]> GetEnumerator()
-    {
-        var testDataBasePath = Path.Combine(Directory.GetCurrentDirectory(), "data");
-        var configPath = Path.Combine(testDataBasePath, "mongo-test-config.json");
-        
-        if (!File.Exists(configPath))
-        {
-            yield break;
-        }
-
-        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-        var configs = JsonSerializer.Deserialize<MongoTestConfig[]>(File.ReadAllText(configPath), options);
-        
-        if (configs == null) yield break;
-
-        foreach (var config in configs)
-        {
-            MongoSchemaRecord? schema = null;
-            if (!string.IsNullOrEmpty(config.Schema))
-            {
-                var schemaPath = Path.Combine(testDataBasePath, config.Schema.TrimStart('/'));
-                if (File.Exists(schemaPath))
-                {
-                    var schemaNode = JsonNode.Parse(File.ReadAllText(schemaPath))?.AsObject();
-                    var valueNode = schemaNode?["Value"];
-                    if (valueNode != null)
-                    {
-                        schema = new MongoSchemaRecord(schemaNode?["Key"], valueNode);
-                    }
-                }
-            }
-
-            if (schema == null) continue;
-
-            IList<string> testFiles = new List<string>();
-            
-            if (config.Files?.Any() == true)
-            {
-                foreach (var file in config.Files)
-                {
-                    var filePath = Path.Combine(testDataBasePath, file.TrimStart('/'));
-                    if (File.Exists(filePath))
-                    {
-                        testFiles.Add(filePath);
-                    }
-                }
-            }
-            else if (!string.IsNullOrEmpty(config.Folder))
-            {
-                var folderPath = Path.Combine(testDataBasePath, config.Folder.TrimStart('/'));
-                if (Directory.Exists(folderPath))
-                {
-                    testFiles = Directory.GetFiles(folderPath, "*.json")
-                        .OrderBy(Path.GetFileName)
-                        .ToList();
-                }
-            }
-
-            foreach (var testFile in testFiles)
-            {
-                var testData = JsonSerializer.Deserialize<MongoTestData>(File.ReadAllText(testFile), options);
-                if (testData == null) continue;
-
-                yield return
-                [
-                    new MongoTestCase(
-                        testData.Title ?? Path.GetFileNameWithoutExtension(testFile),
-                        schema,
-                        testData.Records ?? [],
-                        testData.Sink ?? new MongoSink()
-                    )
-                ];
-            }
-        }
-    }
-
-    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 }
 
 // Data models for MongoDB tests
