@@ -7,6 +7,7 @@ using DotNet.Testcontainers.Networks;
 using Microsoft.Extensions.Configuration;
 using Xunit;
 using Microsoft.Extensions.DependencyInjection;
+using System.Text.Json;
 
 namespace IntegrationTests.Kafka.Connect.Infrastructure;
 
@@ -84,6 +85,9 @@ public class TestFixture : IAsyncLifetime
             await CreateKafkaContainerAsync();
             await CreateSchemaRegistryContainerAsync();
             await CreateMongoContainerAsync();
+            
+            // Create topics from connector configurations before starting Kafka-Connect
+            await CreateConnectorTopicsAsync();
                 
             if (_config.TestContainers.Worker.Enabled)
             {
@@ -145,6 +149,68 @@ public class TestFixture : IAsyncLifetime
     {
         _mongoClient ??= new MongoClient(_config.Shakedown.Mongo);
         return _mongoClient.GetDatabase(databaseName);
+    }
+
+    private async Task CreateConnectorTopicsAsync()
+    {
+        LogMessage("Creating topics from connector configurations...");
+        
+        var configurationPath = Path.Combine(Directory.GetCurrentDirectory(), "Configurations");
+        if (!Directory.Exists(configurationPath))
+        {
+            LogMessage("No Configurations directory found, skipping topic creation");
+            return;
+        }
+
+        var configFiles = Directory.GetFiles(configurationPath, "appsettings.*.json");
+        var allTopics = new HashSet<string>();
+
+        foreach (var configFile in configFiles)
+        {
+            try
+            {
+                var configContent = await File.ReadAllTextAsync(configFile);
+                var configJson = JsonDocument.Parse(configContent);
+                
+                if (configJson.RootElement.TryGetProperty("worker", out var worker) &&
+                    worker.TryGetProperty("connectors", out var connectors))
+                {
+                    foreach (var connector in connectors.EnumerateObject())
+                    {
+                        if (connector.Value.TryGetProperty("topics", out var topics))
+                        {
+                            foreach (var topic in topics.EnumerateArray())
+                            {
+                                var topicName = topic.GetString();
+                                if (!string.IsNullOrEmpty(topicName))
+                                {
+                                    allTopics.Add(topicName);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogMessage($"Failed to parse config file {Path.GetFileName(configFile)}: {ex.Message}");
+            }
+        }
+
+        foreach (var topic in allTopics)
+        {
+            try
+            {
+                await CreateTopicAsync(topic);
+                LogMessage($"Created topic: {topic}");
+            }
+            catch (Exception ex)
+            {
+                LogMessage($"Failed to create topic {topic}: {ex.Message}");
+            }
+        }
+        
+        LogMessage($"Topic creation completed. Created {allTopics.Count} topics.");
     }
 
     public async Task CreateTopicAsync(string topicName, int partitions = 1, short replicationFactor = 1)
