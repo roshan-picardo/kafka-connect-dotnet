@@ -155,14 +155,14 @@ public class TestFixture : IAsyncLifetime
     {
         LogMessage("Creating topics from connector configurations...");
         
-        var configurationPath = Path.Combine(Directory.GetCurrentDirectory(), "Configurations");
-        if (!Directory.Exists(configurationPath))
+        // Look for configuration files in the current directory (they should be copied by the build)
+        var configFiles = Directory.GetFiles(Directory.GetCurrentDirectory(), "appsettings.*.json");
+        
+        if (configFiles.Length == 0)
         {
-            LogMessage("No Configurations directory found, skipping topic creation");
+            LogMessage("No connector configuration files found, skipping topic creation");
             return;
         }
-
-        var configFiles = Directory.GetFiles(configurationPath, "appsettings.*.json");
         var allTopics = new HashSet<string>();
 
         foreach (var configFile in configFiles)
