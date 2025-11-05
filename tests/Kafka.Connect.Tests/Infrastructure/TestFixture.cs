@@ -69,6 +69,14 @@ public class TestFixture : IAsyncLifetime
     {
         try
         {
+            if (_config.SkipInfrastructure)
+            {
+                LogMessage("Skipping infrastructure setup (SkipInfrastructure = true)");
+                LogMessage("========== KAFKA CONNECT ==========");
+                KafkaConnectLogStream.SetInfrastructureReady();
+                return;
+            }
+
             LogMessage("Starting integration test infrastructure...");
 
             await CreateNetworkAsync();
@@ -346,6 +354,12 @@ public class TestFixture : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
+        if (_config.SkipInfrastructure)
+        {
+            LogMessage("Skipping infrastructure cleanup (SkipInfrastructure = true)");
+            return;
+        }
+
         await StopContainerAsync(_kafkaConnectContainer);
         LogMessage("========== KAFKA CONNECT ==========");
         LogMessage("");
