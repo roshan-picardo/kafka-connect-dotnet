@@ -18,6 +18,7 @@
     "topic": "user-events",
     "collection": "users",
     "database": "kafka_connect_test",
+    "keyField": "userId",
     "setup": [
       {
         "userId": "user-003",
