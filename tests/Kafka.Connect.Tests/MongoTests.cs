@@ -207,7 +207,7 @@ public class MongoTestCaseBuilder : IEnumerable<object[]>
 }
 
 // Data models for MongoDB tests
-public abstract record MongoTestConfig(
+public record MongoTestConfig(
     string Topic,
     string? Schema,
     string? Folder,
@@ -221,7 +221,7 @@ public record MongoTestData(
     MongoSink? Sink
 );
 
-public abstract record MongoRecord(JsonNode? Key, JsonNode Value);
+public record MongoRecord(JsonNode? Key, JsonNode Value);
 public record MongoSchemaRecord(JsonNode? Key, JsonNode Value);
 public record MongoSink(
     string Type = "mongodb",
