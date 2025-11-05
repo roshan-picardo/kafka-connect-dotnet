@@ -332,26 +332,35 @@ public class KafkaConnectLogStream : Stream
 
     private static string FormatLogMessage(string trimmedLine)
     {
-        try
+        if (_rawJsonLog)
         {
-            var jsonDoc = System.Text.Json.JsonDocument.Parse(trimmedLine);
-            if (jsonDoc.RootElement.TryGetProperty("Properties", out var props) &&
-                props.TryGetProperty("Log", out var log) &&
-                log.TryGetProperty("Message", out var message))
-            {
-                var messageText = message.GetString();
-                var timestamp = DateTime.Now.ToString("HH:mm:ss");
-                return $"[{timestamp}] {messageText}";
-            }
-            else
-            {
-                return trimmedLine;
-            }
+            // Return raw JSON as is, no additional timestamp
+            return trimmedLine;
         }
-        catch
+        else
         {
-            var timestamp = DateTime.Now.ToString("HH:mm:ss");
-            return $"[{timestamp}] {trimmedLine}";
+            // Parse JSON and format message with timestamp
+            try
+            {
+                var jsonDoc = System.Text.Json.JsonDocument.Parse(trimmedLine);
+                if (jsonDoc.RootElement.TryGetProperty("Properties", out var props) &&
+                    props.TryGetProperty("Log", out var log) &&
+                    log.TryGetProperty("Message", out var message))
+                {
+                    var messageText = message.GetString();
+                    var timestamp = DateTime.Now.ToString("HH:mm:ss");
+                    return $"[{timestamp}] {messageText}";
+                }
+                else
+                {
+                    return trimmedLine;
+                }
+            }
+            catch
+            {
+                var timestamp = DateTime.Now.ToString("HH:mm:ss");
+                return $"[{timestamp}] {trimmedLine}";
+            }
         }
     }
 
