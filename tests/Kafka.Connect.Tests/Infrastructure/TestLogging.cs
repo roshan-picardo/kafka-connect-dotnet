@@ -52,13 +52,14 @@ public class TestLoggingService
         return false;
     }
 
-    public void SetupTestcontainersLogging(bool detailedLog = true)
+    public void SetupTestcontainersLogging(bool detailedLog = true, bool rawJsonLog = false)
     {
         var originalOut = Console.Out;
         var originalError = Console.Error;
             
         SetOriginalConsoleOut(originalOut);
         KafkaConnectLogStream.SetOriginalConsoleOut(originalOut);
+        KafkaConnectLogStream.SetRawJsonLog(rawJsonLog);
             
         Console.SetOut(new TestContainersLogWriter(originalOut, detailedLog));
         Console.SetError(new TestContainersLogWriter(originalError, detailedLog));
@@ -247,10 +248,16 @@ public class KafkaConnectLogStream : Stream
     private static TextWriter? _originalConsoleOut;
     private static readonly ConcurrentDictionary<string, DateTime> RecentLogs = new();
     private static readonly TimeSpan DeduplicationWindow = TimeSpan.FromSeconds(1);
+    private static bool _rawJsonLog = false;
 
     public static void SetOriginalConsoleOut(TextWriter originalOut)
     {
         _originalConsoleOut = originalOut;
+    }
+
+    public static void SetRawJsonLog(bool rawJsonLog)
+    {
+        _rawJsonLog = rawJsonLog;
     }
 
     public static void SetInfrastructureReady()
@@ -350,29 +357,39 @@ public class KafkaConnectLogStream : Stream
 
     private static void LogKafkaConnectMessage(string trimmedLine)
     {
-        try
+        if (_rawJsonLog)
         {
-            var jsonDoc = System.Text.Json.JsonDocument.Parse(trimmedLine);
-            if (jsonDoc.RootElement.TryGetProperty("Properties", out var props) &&
-                props.TryGetProperty("Log", out var log) &&
-                log.TryGetProperty("Message", out var message))
+            // Display raw JSON as is, no additional timestamp
+            if (_originalConsoleOut != null)
+                _originalConsoleOut.WriteLine(trimmedLine);
+        }
+        else
+        {
+            // Parse JSON and display message with timestamp
+            try
             {
-                var messageText = message.GetString();
+                var jsonDoc = System.Text.Json.JsonDocument.Parse(trimmedLine);
+                if (jsonDoc.RootElement.TryGetProperty("Properties", out var props) &&
+                    props.TryGetProperty("Log", out var log) &&
+                    log.TryGetProperty("Message", out var message))
+                {
+                    var messageText = message.GetString();
+                    var timestamp = DateTime.Now.ToString("HH:mm:ss");
+                    if (_originalConsoleOut != null)
+                        _originalConsoleOut.WriteLine($"[{timestamp}] {messageText}");
+                }
+                else
+                {
+                    if (_originalConsoleOut != null)
+                        _originalConsoleOut.WriteLine(trimmedLine);
+                }
+            }
+            catch
+            {
                 var timestamp = DateTime.Now.ToString("HH:mm:ss");
                 if (_originalConsoleOut != null)
-                    _originalConsoleOut.WriteLine($"[{timestamp}] {messageText}");
+                    _originalConsoleOut.WriteLine($"[{timestamp}] {trimmedLine}");
             }
-            else
-            {
-                if (_originalConsoleOut != null)
-                    _originalConsoleOut.WriteLine(trimmedLine);
-            }
-        }
-        catch
-        {
-            var timestamp = DateTime.Now.ToString("HH:mm:ss");
-            if (_originalConsoleOut != null)
-                _originalConsoleOut.WriteLine($"[{timestamp}] {trimmedLine}");
         }
     }
 

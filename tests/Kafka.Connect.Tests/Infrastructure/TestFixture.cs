@@ -55,7 +55,7 @@ public class TestFixture : IAsyncLifetime
         // Create TestLoggingService with simple logging
         _loggingService = new TestLoggingService();
 
-        _loggingService.SetupTestcontainersLogging(_config.DetailedLog);
+        _loggingService.SetupTestcontainersLogging(_config.DetailedLog, _config.RawJsonLog);
     }
 
     public bool IsKafkaConnectDeployed => _kafkaConnectDeployed || !_config.TestContainers.Worker.Enabled;

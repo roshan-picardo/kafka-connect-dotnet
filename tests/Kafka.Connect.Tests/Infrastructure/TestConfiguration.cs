@@ -3,6 +3,7 @@ namespace IntegrationTests.Kafka.Connect.Infrastructure;
 public class TestConfiguration
 {
     public bool DetailedLog { get; set; } = true;
+    public bool RawJsonLog { get; set; } = false;
     public TestContainersConfig TestContainers { get; set; } = new();
     public ShakedownConfig Shakedown { get; set; } = new();
 }
