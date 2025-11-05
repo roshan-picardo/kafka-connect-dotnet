@@ -16,9 +16,10 @@ public class TestLoggingService
             return;
         }
 
-        // Suppress XUnit test result messages during execution
+        // Capture XUnit test result messages and suppress them during execution
         if (IsTestResultMessage(message))
         {
+            TestResultCollector.ParseAndAddResult(message);
             return;
         }
 
@@ -185,9 +186,10 @@ public class TestContainersLogWriter(TextWriter textWriter, bool detailedLog = t
 
     private void LogConsoleMessage(string message)
     {
-        // Suppress XUnit test result messages during execution
+        // Capture XUnit test result messages and suppress them during execution
         if (TestResultPattern.IsMatch(message))
         {
+            TestResultCollector.ParseAndAddResult(message);
             return;
         }
 

@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Text.RegularExpressions;
 using Xunit.Abstractions;
 
 namespace IntegrationTests.Kafka.Connect.Infrastructure;
@@ -8,10 +9,37 @@ public class TestResultCollector
     private static readonly ConcurrentQueue<TestResult> TestResults = new();
     private static readonly object Lock = new();
     private static bool _summaryDisplayed = false;
+    private static readonly Regex TestResultPattern = new(@"^\s*(Passed|Failed|Skipped)\s+(.+?)\s+\[(\d+(?:\.\d+)?)\s*s\]", RegexOptions.Compiled);
 
     public static void AddResult(TestResult result)
     {
         TestResults.Enqueue(result);
+    }
+
+    public static void ParseAndAddResult(string logLine)
+    {
+        var match = TestResultPattern.Match(logLine);
+        if (match.Success)
+        {
+            var status = match.Groups[1].Value;
+            var testName = match.Groups[2].Value.Trim();
+            var duration = double.Parse(match.Groups[3].Value);
+
+            var testStatus = status switch
+            {
+                "Passed" => TestStatus.Passed,
+                "Failed" => TestStatus.Failed,
+                "Skipped" => TestStatus.Skipped,
+                _ => TestStatus.Passed
+            };
+
+            AddResult(new TestResult
+            {
+                TestName = testName,
+                Status = testStatus,
+                Duration = duration
+            });
+        }
     }
 
     public static void DisplaySummary()
