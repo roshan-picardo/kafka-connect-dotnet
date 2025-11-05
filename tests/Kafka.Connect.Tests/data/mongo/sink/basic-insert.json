@@ -26,8 +26,8 @@
   "sink": {
     "type": "mongodb",
     "topic": "mongodb-sink-data-topic",
-    "collection": "sink-database",
-    "database": "sink-collection",
+    "collection": "sink-collection",
+    "database": "sink-database",
     "keyField": "userId",
     "setup": [],
     "expected": [

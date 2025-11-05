@@ -15,9 +15,9 @@
   ],
   "sink": {
     "type": "mongodb",
-    "topic": "user-events",
-    "collection": "users",
-    "database": "kafka_connect_test",
+    "topic": "mongodb-sink-data-topic",
+    "collection": "sink-collection",
+    "database": "sink-database",
     "keyField": "userId",
     "setup": [
       {
