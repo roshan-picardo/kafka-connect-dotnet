@@ -1,0 +1,11 @@
+[
+  {
+    "topic": "mongo-sink-test",
+    "schema": "/Schemas/user-event.avsc",
+    "folder": "/Mongo/Sink",
+    "files": [
+      "/Mongo/Sink/01.basic-insert.json",
+      "/Mongo/Sink/02.update-operation.json"
+    ]
+  }
+]

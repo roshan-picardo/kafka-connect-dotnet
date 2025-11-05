@@ -1,0 +1,57 @@
+{
+  "title": "Basic MongoDB Insert Test",
+  "schema": "/Schemas/user-event.avsc",
+  "records": [
+    {
+      "key": null,
+      "value": {
+        "userId": "user-001",
+        "userName": "John Doe",
+        "email": "john.doe@example.com",
+        "timestamp": "2024-01-15T10:30:00Z",
+        "action": "CREATE"
+      }
+    },
+    {
+      "key": null,
+      "value": {
+        "userId": "user-002",
+        "userName": "Jane Smith",
+        "email": "jane.smith@example.com",
+        "timestamp": "2024-01-15T10:31:00Z",
+        "action": "CREATE"
+      }
+    }
+  ],
+  "sink": {
+    "type": "mongodb",
+    "topic": "user-events",
+    "collection": "users",
+    "database": "kafka_connect_test",
+    "setup": [],
+    "expected": [
+      {
+        "userId": "user-001",
+        "userName": "John Doe",
+        "email": "john.doe@example.com",
+        "timestamp": "2024-01-15T10:30:00Z",
+        "action": "CREATE"
+      },
+      {
+        "userId": "user-002",
+        "userName": "Jane Smith",
+        "email": "jane.smith@example.com",
+        "timestamp": "2024-01-15T10:31:00Z",
+        "action": "CREATE"
+      }
+    ],
+    "cleanup": [
+      {
+        "userId": "user-001"
+      },
+      {
+        "userId": "user-002"
+      }
+    ]
+  }
+}
