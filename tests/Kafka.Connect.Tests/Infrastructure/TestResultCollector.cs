@@ -17,6 +17,11 @@ public class TestResultCollector
         TestResults.Enqueue(result);
     }
 
+    public static bool IsTestResultMessage(string message)
+    {
+        return TestResultPattern.IsMatch(message) || XUnitSummaryPattern.IsMatch(message);
+    }
+
     public static void ParseAndAddResult(string logLine)
     {
         var match = TestResultPattern.Match(logLine);
