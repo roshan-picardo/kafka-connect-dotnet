@@ -1,6 +1,6 @@
 {
   "title": "Basic MongoDB Insert Test",
-  "schema": "/Schemas/user-event.avsc",
+  "schema": "/schemas/user-event.avsc",
   "records": [
     {
       "key": null,

@@ -129,7 +129,7 @@ public class MongoTestCaseBuilder : IEnumerable<object[]>
 {
     public IEnumerator<object[]> GetEnumerator()
     {
-        var testDataBasePath = Path.Combine(Directory.GetCurrentDirectory(), "TestData");
+        var testDataBasePath = Path.Combine(Directory.GetCurrentDirectory(), "data");
         var configPath = Path.Combine(testDataBasePath, "mongo-test-config.json");
         
         if (!File.Exists(configPath))
