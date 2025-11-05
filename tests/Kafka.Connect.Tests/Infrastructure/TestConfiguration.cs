@@ -91,7 +91,7 @@ public class KafkaConnectConfig : ContainerConfig
 
     public KafkaConnectConfig()
     {
-        Name = "local-worker";
+        Name = "worker";
         Hostname = "worker";
         NetworkAliases = new List<string> { "worker" };
     }
