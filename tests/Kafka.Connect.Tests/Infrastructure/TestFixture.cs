@@ -28,8 +28,6 @@ public class TestFixture : IAsyncLifetime
     
     private IMongoClient? _mongoClient;
     private bool _kafkaConnectDeployed;
-    private ConsoleOutputRedirector? _consoleOutRedirector;
-    private ConsoleOutputRedirector? _consoleErrorRedirector;
 
     static TestFixture()
     {
@@ -72,12 +70,6 @@ public class TestFixture : IAsyncLifetime
     {
         try
         {
-            // Set up console output redirection to capture test results from both Out and Error
-            _consoleOutRedirector = new ConsoleOutputRedirector(Console.Out);
-            _consoleErrorRedirector = new ConsoleOutputRedirector(Console.Error);
-            Console.SetOut(_consoleOutRedirector);
-            Console.SetError(_consoleErrorRedirector);
-            
             if (_config.SkipInfrastructure)
             {
                 LogMessage("Skipping infrastructure setup (SkipInfrastructure = true)");
@@ -428,49 +420,34 @@ public class TestFixture : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
-        try
+        if (_config.SkipInfrastructure)
         {
-            if (_config.SkipInfrastructure)
-            {
-                LogMessage("Skipping infrastructure cleanup (SkipInfrastructure = true)");
-                // Display test summary even when skipping infrastructure
-                TestResultCollector.DisplaySummary();
-                return;
-            }
-
-            await StopContainerAsync(_kafkaConnectContainer);
-            LogMessage("========== KAFKA CONNECT ==========");
-            LogMessage("");
-            
-            // Display test results summary before tearing down infrastructure
+            LogMessage("Skipping infrastructure cleanup (SkipInfrastructure = true)");
+            // Display test summary even when skipping infrastructure
             TestResultCollector.DisplaySummary();
-            
-            LogMessage("Tearing down test infrastructure...");
-            await DisposeContainerAsync(_kafkaConnectContainer);
-            await DisposeContainerAsync(_kafkaContainer);
-            await DisposeContainerAsync(_schemaRegistryContainer);
-            await DisposeContainerAsync(_zookeeperContainer);
-            await DisposeContainerAsync(_mongoContainer);
-            if (_network != null)
-            {
-                LogMessage($"Cleaning up test network: {_config.TestContainers.Network.Name}");
-                await _network.DisposeAsync();
-            }
-                
-            LogMessage("All containers stopped and cleaned up!");
+            return;
         }
-        finally
+
+        await StopContainerAsync(_kafkaConnectContainer);
+        LogMessage("========== KAFKA CONNECT ==========");
+        LogMessage("");
+        
+        // Display test results summary before tearing down infrastructure
+        TestResultCollector.DisplaySummary();
+        
+        LogMessage("Tearing down test infrastructure...");
+        await DisposeContainerAsync(_kafkaConnectContainer);
+        await DisposeContainerAsync(_kafkaContainer);
+        await DisposeContainerAsync(_schemaRegistryContainer);
+        await DisposeContainerAsync(_zookeeperContainer);
+        await DisposeContainerAsync(_mongoContainer);
+        if (_network != null)
         {
-            // Restore original console output
-            if (_consoleOutRedirector != null)
-            {
-                Console.SetOut(new StreamWriter(Console.OpenStandardOutput()) { AutoFlush = true });
-            }
-            if (_consoleErrorRedirector != null)
-            {
-                Console.SetError(new StreamWriter(Console.OpenStandardError()) { AutoFlush = true });
-            }
+            LogMessage($"Cleaning up test network: {_config.TestContainers.Network.Name}");
+            await _network.DisposeAsync();
         }
+            
+        LogMessage("All containers stopped and cleaned up!");
     }
 
     private static async Task StopContainerAsync(IContainer? container)
