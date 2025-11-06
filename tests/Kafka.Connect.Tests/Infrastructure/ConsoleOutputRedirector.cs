@@ -48,7 +48,7 @@ public class ConsoleOutputRedirector : TextWriter
             if (TestResultCollector.IsTestResultMessage(value))
             {
                 TestResultCollector.ParseAndAddResult(value);
-                // Don't output test results to console during execution
+                // Don't output test results to console during execution - suppress completely
                 return;
             }
         }

@@ -28,7 +28,8 @@ public class TestFixture : IAsyncLifetime
     
     private IMongoClient? _mongoClient;
     private bool _kafkaConnectDeployed;
-    private ConsoleOutputRedirector? _consoleRedirector;
+    private ConsoleOutputRedirector? _consoleOutRedirector;
+    private ConsoleOutputRedirector? _consoleErrorRedirector;
 
     static TestFixture()
     {
@@ -71,9 +72,11 @@ public class TestFixture : IAsyncLifetime
     {
         try
         {
-            // Set up console output redirection to capture test results
-            _consoleRedirector = new ConsoleOutputRedirector(Console.Out);
-            Console.SetOut(_consoleRedirector);
+            // Set up console output redirection to capture test results from both Out and Error
+            _consoleOutRedirector = new ConsoleOutputRedirector(Console.Out);
+            _consoleErrorRedirector = new ConsoleOutputRedirector(Console.Error);
+            Console.SetOut(_consoleOutRedirector);
+            Console.SetError(_consoleErrorRedirector);
             
             if (_config.SkipInfrastructure)
             {
@@ -459,9 +462,13 @@ public class TestFixture : IAsyncLifetime
         finally
         {
             // Restore original console output
-            if (_consoleRedirector != null)
+            if (_consoleOutRedirector != null)
             {
                 Console.SetOut(new StreamWriter(Console.OpenStandardOutput()) { AutoFlush = true });
+            }
+            if (_consoleErrorRedirector != null)
+            {
+                Console.SetError(new StreamWriter(Console.OpenStandardError()) { AutoFlush = true });
             }
         }
     }
