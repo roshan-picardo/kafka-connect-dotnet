@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Text.RegularExpressions;
 
 namespace IntegrationTests.Kafka.Connect.Infrastructure;
 
@@ -6,6 +7,9 @@ public class TestLoggingService
 {
     private static readonly ConcurrentDictionary<string, DateTime> GlobalLogDeduplication = new();
     private static readonly TimeSpan GlobalDeduplicationWindow = TimeSpan.FromMilliseconds(500);
+    private static readonly Regex TestResultPattern = new(@"^\s*(Passed|Failed|Skipped)\s+.*\[\d+(\.\d+)?\s*(s|ms)\]", RegexOptions.Compiled);
+    private static readonly Regex XUnitFrameworkPattern = new(@"^\s*\[xUnit\.net.*\]", RegexOptions.Compiled);
+    
     public static void LogMessage(string message)
     {
         if (IsGlobalDuplicate(message))
@@ -13,9 +17,21 @@ public class TestLoggingService
             return;
         }
 
+        // Capture XUnit test result messages and suppress them during execution
+        if (IsTestResultMessage(message))
+        {
+            TestResultCollector.ParseAndAddResult(message);
+            return;
+        }
+
         var timestamp = DateTime.Now.ToString("HH:mm:ss");
         if (_originalConsoleOut != null)
             _originalConsoleOut.WriteLine($"[{timestamp}] {message}");
+    }
+
+    private static bool IsTestResultMessage(string message)
+    {
+        return TestResultPattern.IsMatch(message) || XUnitFrameworkPattern.IsMatch(message);
     }
 
     private static TextWriter? _originalConsoleOut = null;
@@ -52,13 +68,14 @@ public class TestLoggingService
         return false;
     }
 
-    public void SetupTestcontainersLogging(bool detailedLog = true)
+    public void SetupTestcontainersLogging(bool detailedLog = true, bool rawJsonLog = false)
     {
         var originalOut = Console.Out;
         var originalError = Console.Error;
             
         SetOriginalConsoleOut(originalOut);
         KafkaConnectLogStream.SetOriginalConsoleOut(originalOut);
+        KafkaConnectLogStream.SetRawJsonLog(rawJsonLog);
             
         Console.SetOut(new TestContainersLogWriter(originalOut, detailedLog));
         Console.SetError(new TestContainersLogWriter(originalError, detailedLog));
@@ -69,6 +86,8 @@ public class TestContainersLogWriter(TextWriter textWriter, bool detailedLog = t
 {
     private static readonly ConcurrentDictionary<string, DateTime> RecentMessages = new();
     private static readonly TimeSpan MessageDeduplicationWindow = TimeSpan.FromMilliseconds(100);
+    private static readonly Regex TestResultPattern = new(@"^\s*(Passed|Failed|Skipped)\s+.*\[\d+(\.\d+)?\s*(s|ms)\]", RegexOptions.Compiled);
+    private static readonly Regex XUnitFrameworkPattern = new(@"^\s*\[xUnit\.net.*\]", RegexOptions.Compiled);
     private readonly bool _detailedLog = detailedLog;
 
     public override System.Text.Encoding Encoding => textWriter.Encoding;
@@ -169,6 +188,19 @@ public class TestContainersLogWriter(TextWriter textWriter, bool detailedLog = t
 
     private void LogConsoleMessage(string message)
     {
+        // Capture XUnit test result messages and suppress them during execution
+        if (TestResultPattern.IsMatch(message))
+        {
+            TestResultCollector.ParseAndAddResult(message);
+            return;
+        }
+        
+        // Suppress XUnit framework messages
+        if (XUnitFrameworkPattern.IsMatch(message))
+        {
+            return;
+        }
+
         var formattedMessage = $"[{DateTime.Now:HH:mm:ss}] {message}";
         if (TestLoggingService.IsGlobalDuplicate(formattedMessage))
         {
@@ -247,10 +279,16 @@ public class KafkaConnectLogStream : Stream
     private static TextWriter? _originalConsoleOut;
     private static readonly ConcurrentDictionary<string, DateTime> RecentLogs = new();
     private static readonly TimeSpan DeduplicationWindow = TimeSpan.FromSeconds(1);
+    private static bool _rawJsonLog = false;
 
     public static void SetOriginalConsoleOut(TextWriter originalOut)
     {
         _originalConsoleOut = originalOut;
+    }
+
+    public static void SetRawJsonLog(bool rawJsonLog)
+    {
+        _rawJsonLog = rawJsonLog;
     }
 
     public static void SetInfrastructureReady()
@@ -325,54 +363,73 @@ public class KafkaConnectLogStream : Stream
 
     private static string FormatLogMessage(string trimmedLine)
     {
-        try
+        if (_rawJsonLog)
         {
-            var jsonDoc = System.Text.Json.JsonDocument.Parse(trimmedLine);
-            if (jsonDoc.RootElement.TryGetProperty("Properties", out var props) &&
-                props.TryGetProperty("Log", out var log) &&
-                log.TryGetProperty("Message", out var message))
-            {
-                var messageText = message.GetString();
-                var timestamp = DateTime.Now.ToString("HH:mm:ss");
-                return $"[{timestamp}] {messageText}";
-            }
-            else
-            {
-                return trimmedLine;
-            }
+            // Return raw JSON as is, no additional timestamp
+            return trimmedLine;
         }
-        catch
+        else
         {
-            var timestamp = DateTime.Now.ToString("HH:mm:ss");
-            return $"[{timestamp}] {trimmedLine}";
+            // Parse JSON and format message with timestamp
+            try
+            {
+                var jsonDoc = System.Text.Json.JsonDocument.Parse(trimmedLine);
+                if (jsonDoc.RootElement.TryGetProperty("Properties", out var props) &&
+                    props.TryGetProperty("Log", out var log) &&
+                    log.TryGetProperty("Message", out var message))
+                {
+                    var messageText = message.GetString();
+                    var timestamp = DateTime.Now.ToString("HH:mm:ss");
+                    return $"[{timestamp}] {messageText}";
+                }
+                else
+                {
+                    return trimmedLine;
+                }
+            }
+            catch
+            {
+                var timestamp = DateTime.Now.ToString("HH:mm:ss");
+                return $"[{timestamp}] {trimmedLine}";
+            }
         }
     }
 
     private static void LogKafkaConnectMessage(string trimmedLine)
     {
-        try
+        if (_rawJsonLog)
         {
-            var jsonDoc = System.Text.Json.JsonDocument.Parse(trimmedLine);
-            if (jsonDoc.RootElement.TryGetProperty("Properties", out var props) &&
-                props.TryGetProperty("Log", out var log) &&
-                log.TryGetProperty("Message", out var message))
+            // Display raw JSON as is, no additional timestamp
+            if (_originalConsoleOut != null)
+                _originalConsoleOut.WriteLine(trimmedLine);
+        }
+        else
+        {
+            // Parse JSON and display message with timestamp
+            try
             {
-                var messageText = message.GetString();
+                var jsonDoc = System.Text.Json.JsonDocument.Parse(trimmedLine);
+                if (jsonDoc.RootElement.TryGetProperty("Properties", out var props) &&
+                    props.TryGetProperty("Log", out var log) &&
+                    log.TryGetProperty("Message", out var message))
+                {
+                    var messageText = message.GetString();
+                    var timestamp = DateTime.Now.ToString("HH:mm:ss");
+                    if (_originalConsoleOut != null)
+                        _originalConsoleOut.WriteLine($"[{timestamp}] {messageText}");
+                }
+                else
+                {
+                    if (_originalConsoleOut != null)
+                        _originalConsoleOut.WriteLine(trimmedLine);
+                }
+            }
+            catch
+            {
                 var timestamp = DateTime.Now.ToString("HH:mm:ss");
                 if (_originalConsoleOut != null)
-                    _originalConsoleOut.WriteLine($"[{timestamp}] {messageText}");
+                    _originalConsoleOut.WriteLine($"[{timestamp}] {trimmedLine}");
             }
-            else
-            {
-                if (_originalConsoleOut != null)
-                    _originalConsoleOut.WriteLine(trimmedLine);
-            }
-        }
-        catch
-        {
-            var timestamp = DateTime.Now.ToString("HH:mm:ss");
-            if (_originalConsoleOut != null)
-                _originalConsoleOut.WriteLine($"[{timestamp}] {trimmedLine}");
         }
     }
 

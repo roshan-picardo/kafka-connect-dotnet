@@ -3,6 +3,8 @@ namespace IntegrationTests.Kafka.Connect.Infrastructure;
 public class TestConfiguration
 {
     public bool DetailedLog { get; set; } = true;
+    public bool RawJsonLog { get; set; } = false;
+    public bool SkipInfrastructure { get; set; } = false;
     public TestContainersConfig TestContainers { get; set; } = new();
     public ShakedownConfig Shakedown { get; set; } = new();
 }
@@ -90,7 +92,7 @@ public class KafkaConnectConfig : ContainerConfig
 
     public KafkaConnectConfig()
     {
-        Name = "local-worker";
+        Name = "worker";
         Hostname = "worker";
         NetworkAliases = new List<string> { "worker" };
     }

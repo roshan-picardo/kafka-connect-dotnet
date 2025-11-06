@@ -7,6 +7,7 @@ using DotNet.Testcontainers.Networks;
 using Microsoft.Extensions.Configuration;
 using Xunit;
 using Microsoft.Extensions.DependencyInjection;
+using System.Text.Json;
 
 namespace IntegrationTests.Kafka.Connect.Infrastructure;
 
@@ -27,9 +28,17 @@ public class TestFixture : IAsyncLifetime
     
     private IMongoClient? _mongoClient;
     private bool _kafkaConnectDeployed;
+    private XUnitOutputSuppressor? _outputSuppressor;
+    private XUnitOutputSuppressor? _errorSuppressor;
 
     static TestFixture()
     {
+        // Set up XUnit output suppression as early as possible
+        var outputSuppressor = new XUnitOutputSuppressor(Console.Out);
+        var errorSuppressor = new XUnitOutputSuppressor(Console.Error);
+        Console.SetOut(outputSuppressor);
+        Console.SetError(errorSuppressor);
+        
         Environment.SetEnvironmentVariable("TESTCONTAINERS_RYUK_DISABLED", "false");
         Environment.SetEnvironmentVariable("TESTCONTAINERS_CHECKS_DISABLE", "false");
         Environment.SetEnvironmentVariable("TESTCONTAINERS_LOG_LEVEL", "INFO");
@@ -55,7 +64,7 @@ public class TestFixture : IAsyncLifetime
         // Create TestLoggingService with simple logging
         _loggingService = new TestLoggingService();
 
-        _loggingService.SetupTestcontainersLogging(_config.DetailedLog);
+        _loggingService.SetupTestcontainersLogging(_config.DetailedLog, _config.RawJsonLog);
     }
 
     public bool IsKafkaConnectDeployed => _kafkaConnectDeployed || !_config.TestContainers.Worker.Enabled;
@@ -69,6 +78,20 @@ public class TestFixture : IAsyncLifetime
     {
         try
         {
+            // Set up aggressive XUnit output suppression
+            _outputSuppressor = new XUnitOutputSuppressor(Console.Out);
+            _errorSuppressor = new XUnitOutputSuppressor(Console.Error);
+            Console.SetOut(_outputSuppressor);
+            Console.SetError(_errorSuppressor);
+            
+            if (_config.SkipInfrastructure)
+            {
+                LogMessage("Skipping infrastructure setup (SkipInfrastructure = true)");
+                LogMessage("========== KAFKA CONNECT ==========");
+                KafkaConnectLogStream.SetInfrastructureReady();
+                return;
+            }
+
             LogMessage("Starting integration test infrastructure...");
 
             await CreateNetworkAsync();
@@ -76,6 +99,9 @@ public class TestFixture : IAsyncLifetime
             await CreateKafkaContainerAsync();
             await CreateSchemaRegistryContainerAsync();
             await CreateMongoContainerAsync();
+            
+            // Create topics from connector configurations before starting Kafka-Connect
+            await CreateConnectorTopicsAsync();
                 
             if (_config.TestContainers.Worker.Enabled)
             {
@@ -137,6 +163,68 @@ public class TestFixture : IAsyncLifetime
     {
         _mongoClient ??= new MongoClient(_config.Shakedown.Mongo);
         return _mongoClient.GetDatabase(databaseName);
+    }
+
+    private async Task CreateConnectorTopicsAsync()
+    {
+        LogMessage("Creating topics from connector configurations...");
+        
+        // Look for configuration files in the current directory (they should be copied by the build)
+        var configFiles = Directory.GetFiles(Directory.GetCurrentDirectory(), "appsettings.*.json");
+        
+        if (configFiles.Length == 0)
+        {
+            LogMessage("No connector configuration files found, skipping topic creation");
+            return;
+        }
+        var allTopics = new HashSet<string>();
+
+        foreach (var configFile in configFiles)
+        {
+            try
+            {
+                var configContent = await File.ReadAllTextAsync(configFile);
+                var configJson = JsonDocument.Parse(configContent);
+                
+                if (configJson.RootElement.TryGetProperty("worker", out var worker) &&
+                    worker.TryGetProperty("connectors", out var connectors))
+                {
+                    foreach (var connector in connectors.EnumerateObject())
+                    {
+                        if (connector.Value.TryGetProperty("topics", out var topics))
+                        {
+                            foreach (var topic in topics.EnumerateArray())
+                            {
+                                var topicName = topic.GetString();
+                                if (!string.IsNullOrEmpty(topicName))
+                                {
+                                    allTopics.Add(topicName);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogMessage($"Failed to parse config file {Path.GetFileName(configFile)}: {ex.Message}");
+            }
+        }
+
+        foreach (var topic in allTopics)
+        {
+            try
+            {
+                await CreateTopicAsync(topic);
+                LogMessage($"Created topic: {topic}");
+            }
+            catch (Exception ex)
+            {
+                LogMessage($"Failed to create topic {topic}: {ex.Message}");
+            }
+        }
+        
+        LogMessage($"Topic creation completed. Created {allTopics.Count} topics.");
     }
 
     public async Task CreateTopicAsync(string topicName, int partitions = 1, short replicationFactor = 1)
@@ -346,22 +434,51 @@ public class TestFixture : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
-        await StopContainerAsync(_kafkaConnectContainer);
-        LogMessage("========== KAFKA CONNECT ==========");
-        LogMessage("");
-        LogMessage("Tearing down test infrastructure...");
-        await DisposeContainerAsync(_kafkaConnectContainer);
-        await DisposeContainerAsync(_kafkaContainer);
-        await DisposeContainerAsync(_schemaRegistryContainer);
-        await DisposeContainerAsync(_zookeeperContainer);
-        await DisposeContainerAsync(_mongoContainer);
-        if (_network != null)
+        try
         {
-            LogMessage($"Cleaning up test network: {_config.TestContainers.Network.Name}");
-            await _network.DisposeAsync();
-        }
+            if (_config.SkipInfrastructure)
+            {
+                LogMessage("Skipping infrastructure cleanup (SkipInfrastructure = true)");
+                // Display test summary even when skipping infrastructure
+                TestResultCollector.DisplaySummary();
+                return;
+            }
+
+            await StopContainerAsync(_kafkaConnectContainer);
+            LogMessage("========== KAFKA CONNECT ==========");
+            LogMessage("");
             
-        LogMessage("All containers stopped and cleaned up!");
+            // Display test results summary before tearing down infrastructure
+            TestResultCollector.DisplaySummary();
+            
+            LogMessage("Tearing down test infrastructure...");
+            await DisposeContainerAsync(_kafkaConnectContainer);
+            await DisposeContainerAsync(_kafkaContainer);
+            await DisposeContainerAsync(_schemaRegistryContainer);
+            await DisposeContainerAsync(_zookeeperContainer);
+            await DisposeContainerAsync(_mongoContainer);
+            if (_network != null)
+            {
+                LogMessage($"Cleaning up test network: {_config.TestContainers.Network.Name}");
+                await _network.DisposeAsync();
+            }
+                
+            LogMessage("All containers stopped and cleaned up!");
+        }
+        finally
+        {
+            // Restore original console output
+            if (_outputSuppressor != null)
+            {
+                Console.SetOut(new StreamWriter(Console.OpenStandardOutput()) { AutoFlush = true });
+                _outputSuppressor.Dispose();
+            }
+            if (_errorSuppressor != null)
+            {
+                Console.SetError(new StreamWriter(Console.OpenStandardError()) { AutoFlush = true });
+                _errorSuppressor.Dispose();
+            }
+        }
     }
 
     private static async Task StopContainerAsync(IContainer? container)

@@ -1,0 +1,36 @@
+{
+  "Key": null,
+  "Value": {
+    "type": "record",
+    "name": "UserEvent",
+    "namespace": "test.mongo.sink",
+    "doc": "Schema for user events in MongoDB sink tests",
+    "fields": [
+      {
+        "name": "userId",
+        "type": "string",
+        "doc": "Unique identifier for the user"
+      },
+      {
+        "name": "userName",
+        "type": "string",
+        "doc": "Full name of the user"
+      },
+      {
+        "name": "email",
+        "type": "string",
+        "doc": "Email address of the user"
+      },
+      {
+        "name": "timestamp",
+        "type": "string",
+        "doc": "ISO 8601 timestamp of the event"
+      },
+      {
+        "name": "action",
+        "type": "string",
+        "doc": "Action type (CREATE, UPDATE, DELETE)"
+      }
+    ]
+  }
+}
