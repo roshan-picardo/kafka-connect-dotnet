@@ -70,12 +70,16 @@ public class XUnitOutputSuppressor : TextWriter
         {
             // Capture the test result and suppress output
             TestResultCollector.ParseAndAddResult(trimmedLine);
+            // Debug: Log that we're suppressing this line
+            System.Diagnostics.Debug.WriteLine($"SUPPRESSED TEST RESULT: {trimmedLine}");
             return; // Don't write to original output
         }
 
         // Check if this is an XUnit framework message
         if (XUnitFrameworkPattern.IsMatch(trimmedLine))
         {
+            // Debug: Log that we're suppressing this line
+            System.Diagnostics.Debug.WriteLine($"SUPPRESSED XUNIT FRAMEWORK: {trimmedLine}");
             return; // Suppress XUnit framework messages
         }
 

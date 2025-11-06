@@ -33,6 +33,12 @@ public class TestFixture : IAsyncLifetime
 
     static TestFixture()
     {
+        // Set up XUnit output suppression as early as possible
+        var outputSuppressor = new XUnitOutputSuppressor(Console.Out);
+        var errorSuppressor = new XUnitOutputSuppressor(Console.Error);
+        Console.SetOut(outputSuppressor);
+        Console.SetError(errorSuppressor);
+        
         Environment.SetEnvironmentVariable("TESTCONTAINERS_RYUK_DISABLED", "false");
         Environment.SetEnvironmentVariable("TESTCONTAINERS_CHECKS_DISABLE", "false");
         Environment.SetEnvironmentVariable("TESTCONTAINERS_LOG_LEVEL", "INFO");
