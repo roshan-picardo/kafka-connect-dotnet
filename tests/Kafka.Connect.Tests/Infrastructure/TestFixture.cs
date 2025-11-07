@@ -443,11 +443,8 @@ public class TestFixture : IAsyncLifetime
             LogMessage("========== KAFKA CONNECT ==========");
             LogMessage("");
             
-            // Display test results summary before tearing down infrastructure
-            TestResultCollector.DisplaySummary();
-            
-            // Display buffered Kafka Connect logs at the end of XUnit lifecycle
-            KafkaConnectLogBuffer.DisplayBufferedLogs();
+            // Remove test results summary - not needed
+            // Move Kafka Connect logs to be displayed after entire test run completes
             
             LogMessage("Tearing down test infrastructure...");
             await DisposeContainerAsync(_kafkaConnectContainer);

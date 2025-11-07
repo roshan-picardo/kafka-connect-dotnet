@@ -11,7 +11,15 @@ public class KafkaConnectLogBuffer : Stream
     private readonly MemoryStream _buffer = new();
     private static readonly ConcurrentQueue<string> BufferedLogs = new();
     private static readonly object Lock = new();
+    private static bool _logsDisplayed = false;
     private bool _disposed = false;
+    
+    static KafkaConnectLogBuffer()
+    {
+        // Register to display logs when the application domain is unloading
+        AppDomain.CurrentDomain.ProcessExit += (sender, e) => DisplayBufferedLogs();
+        AppDomain.CurrentDomain.DomainUnload += (sender, e) => DisplayBufferedLogs();
+    }
 
     public override bool CanRead => false;
     public override bool CanSeek => false;
@@ -101,8 +109,11 @@ public class KafkaConnectLogBuffer : Stream
     {
         lock (Lock)
         {
-            if (BufferedLogs.IsEmpty)
+            // Prevent double logging
+            if (_logsDisplayed || BufferedLogs.IsEmpty)
                 return;
+
+            _logsDisplayed = true;
 
             Console.WriteLine();
             Console.WriteLine("========== KAFKA CONNECT LOGS ==========");
