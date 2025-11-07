@@ -437,11 +437,12 @@ public class TestFixture : IAsyncLifetime
             if (_config.SkipInfrastructure)
             {
                 LogMessage("Skipping infrastructure cleanup (SkipInfrastructure = true)");
-                // Display test summary even when skipping infrastructure
-                TestResultCollector.DisplaySummary();
                 return;
             }
 
+            // Add delay to ensure all test results are captured before teardown
+            await Task.Delay(10000); // 10 second delay
+            
             await StopContainerAsync(_kafkaConnectContainer);
             
             LogMessage("Tearing down test infrastructure...");
