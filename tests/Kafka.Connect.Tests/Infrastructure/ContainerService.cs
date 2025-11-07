@@ -77,8 +77,8 @@ public class ContainerService : IContainerService
             .WithHostname(config.Hostname)
             .WithName(config.Name)
             .WithOutputConsumer(Consume.RedirectStdoutAndStderrToStream(
-                new KafkaConnectLogStream(),
-                new KafkaConnectLogStream()));
+                new KafkaConnectLogBuffer(),
+                new KafkaConnectLogBuffer()));
 
         containerBuilder = config.NetworkAliases.Aggregate(containerBuilder, (current, alias) => current.WithNetworkAliases(alias));
 

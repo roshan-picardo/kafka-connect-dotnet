@@ -87,8 +87,6 @@ public class TestFixture : IAsyncLifetime
             if (_config.SkipInfrastructure)
             {
                 LogMessage("Skipping infrastructure setup (SkipInfrastructure = true)");
-                LogMessage("========== KAFKA CONNECT ==========");
-                KafkaConnectLogStream.SetInfrastructureReady();
                 return;
             }
 
@@ -109,9 +107,6 @@ public class TestFixture : IAsyncLifetime
             }
 
             LogMessage("Integration test infrastructure ready!");
-            LogMessage("");
-            LogMessage("========== KAFKA CONNECT ==========");
-            KafkaConnectLogStream.SetInfrastructureReady();
         }
         catch (Exception ex)
         {
@@ -450,6 +445,9 @@ public class TestFixture : IAsyncLifetime
             
             // Display test results summary before tearing down infrastructure
             TestResultCollector.DisplaySummary();
+            
+            // Display buffered Kafka Connect logs at the end of XUnit lifecycle
+            KafkaConnectLogBuffer.DisplayBufferedLogs();
             
             LogMessage("Tearing down test infrastructure...");
             await DisposeContainerAsync(_kafkaConnectContainer);
