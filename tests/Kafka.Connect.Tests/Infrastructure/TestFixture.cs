@@ -65,6 +65,9 @@ public class TestFixture : IAsyncLifetime
         _loggingService = new TestLoggingService();
 
         _loggingService.SetupTestcontainersLogging(_config.DetailedLog, _config.RawJsonLog);
+        
+        // Set the RawJsonMode for Kafka Connect log buffer
+        KafkaConnectLogBuffer.SetRawJsonMode(_config.RawJsonLog);
     }
 
     public bool IsKafkaConnectDeployed => _kafkaConnectDeployed || !_config.TestContainers.Worker.Enabled;
@@ -87,8 +90,6 @@ public class TestFixture : IAsyncLifetime
             if (_config.SkipInfrastructure)
             {
                 LogMessage("Skipping infrastructure setup (SkipInfrastructure = true)");
-                LogMessage("========== KAFKA CONNECT ==========");
-                KafkaConnectLogStream.SetInfrastructureReady();
                 return;
             }
 
@@ -109,9 +110,6 @@ public class TestFixture : IAsyncLifetime
             }
 
             LogMessage("Integration test infrastructure ready!");
-            LogMessage("");
-            LogMessage("========== KAFKA CONNECT ==========");
-            KafkaConnectLogStream.SetInfrastructureReady();
         }
         catch (Exception ex)
         {
@@ -439,17 +437,13 @@ public class TestFixture : IAsyncLifetime
             if (_config.SkipInfrastructure)
             {
                 LogMessage("Skipping infrastructure cleanup (SkipInfrastructure = true)");
-                // Display test summary even when skipping infrastructure
-                TestResultCollector.DisplaySummary();
                 return;
             }
 
-            await StopContainerAsync(_kafkaConnectContainer);
-            LogMessage("========== KAFKA CONNECT ==========");
-            LogMessage("");
+            // Add delay to ensure all test results are captured before teardown
+            await Task.Delay(10000); // 10 second delay
             
-            // Display test results summary before tearing down infrastructure
-            TestResultCollector.DisplaySummary();
+            await StopContainerAsync(_kafkaConnectContainer);
             
             LogMessage("Tearing down test infrastructure...");
             await DisposeContainerAsync(_kafkaConnectContainer);

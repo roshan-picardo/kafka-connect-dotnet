@@ -12,7 +12,7 @@ namespace IntegrationTests.Kafka.Connect;
 [Collection("Integration Tests")]
 public class MongoTests(TestFixture fixture, ITestOutputHelper output) : IDisposable
 {
-    [Theory]
+    [Theory, TestPriority(2)]
     [ClassData(typeof(TestCaseBuilder))]
     public async Task ExecuteMongoSinkTest(MongoTestCase testCase)
     {
