@@ -9,8 +9,7 @@ public class TestResultCollector
     private static readonly ConcurrentQueue<TestResult> TestResults = new();
     private static readonly object Lock = new();
     private static bool _summaryDisplayed = false;
-    private static readonly Regex TestResultPattern = new(@"^\s*(Passed|Failed|Skipped)\s+(.+?)\s+\[(\d+(?:\.\d+)?)\s*(s|ms)\]", RegexOptions.Compiled);
-    private static readonly Regex XUnitSummaryPattern = new(@"^\s*(Passed|Failed|Skipped)\s+(.+?)\s+\[(\d+(?:\.\d+)?)\s*ms\]", RegexOptions.Compiled);
+    // Removed complex regex patterns - using simple string parsing instead
 
     public static void AddResult(TestResult result)
     {
@@ -19,37 +18,104 @@ public class TestResultCollector
 
     public static bool IsTestResultMessage(string message)
     {
-        return TestResultPattern.IsMatch(message) || XUnitSummaryPattern.IsMatch(message);
+        var trimmed = message.Trim();
+        return (trimmed.StartsWith("Passed ") || trimmed.StartsWith("Failed ") || trimmed.StartsWith("Skipped ")) &&
+               trimmed.Contains("[") && (trimmed.Contains("ms]") || trimmed.Contains("s]"));
     }
 
     public static void ParseAndAddResult(string logLine)
     {
-        var match = TestResultPattern.Match(logLine);
-        if (match.Success)
+        var trimmed = logLine.Trim();
+        
+        // Simple string-based parsing - much more reliable
+        string status;
+        string testName;
+        double duration;
+        
+        if (trimmed.StartsWith("Passed "))
         {
-            var status = match.Groups[1].Value;
-            var testName = match.Groups[2].Value.Trim();
-            var durationValue = double.Parse(match.Groups[3].Value);
-            var unit = match.Groups[4].Value;
-            
-            // Convert milliseconds to seconds for consistency
-            var duration = unit == "ms" ? durationValue / 1000.0 : durationValue;
-
-            var testStatus = status switch
+            status = "Passed";
+            var remaining = trimmed.Substring(7); // Remove "Passed "
+            if (TryParseTestResult(remaining, out testName, out duration))
             {
-                "Passed" => TestStatus.Passed,
-                "Failed" => TestStatus.Failed,
-                "Skipped" => TestStatus.Skipped,
-                _ => TestStatus.Passed
-            };
-
-            AddResult(new TestResult
-            {
-                TestName = testName,
-                Status = testStatus,
-                Duration = duration
-            });
+                AddResult(new TestResult
+                {
+                    TestName = testName,
+                    Status = TestStatus.Passed,
+                    Duration = duration
+                });
+            }
         }
+        else if (trimmed.StartsWith("Failed "))
+        {
+            status = "Failed";
+            var remaining = trimmed.Substring(7); // Remove "Failed "
+            if (TryParseTestResult(remaining, out testName, out duration))
+            {
+                AddResult(new TestResult
+                {
+                    TestName = testName,
+                    Status = TestStatus.Failed,
+                    Duration = duration
+                });
+            }
+        }
+        else if (trimmed.StartsWith("Skipped "))
+        {
+            status = "Skipped";
+            var remaining = trimmed.Substring(8); // Remove "Skipped "
+            if (TryParseTestResult(remaining, out testName, out duration))
+            {
+                AddResult(new TestResult
+                {
+                    TestName = testName,
+                    Status = TestStatus.Skipped,
+                    Duration = duration
+                });
+            }
+        }
+    }
+    
+    private static bool TryParseTestResult(string remaining, out string testName, out double duration)
+    {
+        testName = string.Empty;
+        duration = 0.0;
+        
+        // Find the last occurrence of '[' to locate the duration
+        var lastBracketIndex = remaining.LastIndexOf('[');
+        if (lastBracketIndex == -1) return false;
+        
+        // Extract test name (everything before the last '[')
+        testName = remaining.Substring(0, lastBracketIndex).Trim();
+        
+        // Extract duration part
+        var durationPart = remaining.Substring(lastBracketIndex + 1);
+        var closeBracketIndex = durationPart.IndexOf(']');
+        if (closeBracketIndex == -1) return false;
+        
+        durationPart = durationPart.Substring(0, closeBracketIndex).Trim();
+        
+        // Parse duration and unit
+        if (durationPart.EndsWith("ms"))
+        {
+            var durationStr = durationPart.Substring(0, durationPart.Length - 2).Trim();
+            if (double.TryParse(durationStr, out var ms))
+            {
+                duration = ms / 1000.0; // Convert to seconds
+                return true;
+            }
+        }
+        else if (durationPart.EndsWith("s"))
+        {
+            var durationStr = durationPart.Substring(0, durationPart.Length - 1).Trim();
+            if (double.TryParse(durationStr, out var s))
+            {
+                duration = s;
+                return true;
+            }
+        }
+        
+        return false;
     }
 
     public static void DisplaySummary()
