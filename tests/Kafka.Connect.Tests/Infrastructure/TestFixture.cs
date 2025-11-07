@@ -14,7 +14,7 @@ namespace IntegrationTests.Kafka.Connect.Infrastructure;
 public class TestFixture : IAsyncLifetime
 {
     private readonly TestConfiguration _config;
-    private readonly TestLoggingService _loggingService;
+    private readonly TestLoggingCoordinator _loggingCoordinator;
     private readonly IContainerService _containerService;
     private INetwork? _network;
     
@@ -28,17 +28,9 @@ public class TestFixture : IAsyncLifetime
     
     private IMongoClient? _mongoClient;
     private bool _kafkaConnectDeployed;
-    private XUnitOutputSuppressor? _outputSuppressor;
-    private XUnitOutputSuppressor? _errorSuppressor;
 
     static TestFixture()
     {
-        // Set up XUnit output suppression as early as possible
-        var outputSuppressor = new XUnitOutputSuppressor(Console.Out);
-        var errorSuppressor = new XUnitOutputSuppressor(Console.Error);
-        Console.SetOut(outputSuppressor);
-        Console.SetError(errorSuppressor);
-        
         Environment.SetEnvironmentVariable("TESTCONTAINERS_RYUK_DISABLED", "false");
         Environment.SetEnvironmentVariable("TESTCONTAINERS_CHECKS_DISABLE", "false");
         Environment.SetEnvironmentVariable("TESTCONTAINERS_LOG_LEVEL", "INFO");
@@ -61,34 +53,34 @@ public class TestFixture : IAsyncLifetime
         var serviceProvider = services.BuildServiceProvider();
         _containerService = serviceProvider.GetRequiredService<IContainerService>();
 
-        // Create TestLoggingService with simple logging
-        _loggingService = new TestLoggingService();
-
-        _loggingService.SetupTestcontainersLogging(_config.DetailedLog, _config.RawJsonLog);
+        // Initialize the new logging coordinator
+        _loggingCoordinator = new TestLoggingCoordinator();
+        
+        // Configure Kafka Connect logger for raw JSON mode if needed
+        if (_config.RawJsonLog)
+        {
+            _loggingCoordinator.GetKafkaConnectLogger().SetRawJsonMode(true);
+        }
     }
 
     public bool IsKafkaConnectDeployed => _kafkaConnectDeployed || !_config.TestContainers.Worker.Enabled;
 
     private void LogMessage(string message)
     {
-        TestLoggingService.LogMessage(message);
+        _loggingCoordinator.LogMessage(message, LogSource.Infrastructure);
     }
 
     public async Task InitializeAsync()
     {
         try
         {
-            // Set up aggressive XUnit output suppression
-            _outputSuppressor = new XUnitOutputSuppressor(Console.Out);
-            _errorSuppressor = new XUnitOutputSuppressor(Console.Error);
-            Console.SetOut(_outputSuppressor);
-            Console.SetError(_errorSuppressor);
+            // Start with Infrastructure Setup phase
+            _loggingCoordinator.TransitionToPhase(LoggingPhase.InfrastructureSetup);
             
             if (_config.SkipInfrastructure)
             {
                 LogMessage("Skipping infrastructure setup (SkipInfrastructure = true)");
-                LogMessage("========== KAFKA CONNECT ==========");
-                KafkaConnectLogStream.SetInfrastructureReady();
+                _loggingCoordinator.TransitionToPhase(LoggingPhase.KafkaConnectStreaming);
                 return;
             }
 
@@ -109,13 +101,13 @@ public class TestFixture : IAsyncLifetime
             }
 
             LogMessage("Integration test infrastructure ready!");
-            LogMessage("");
-            LogMessage("========== KAFKA CONNECT ==========");
-            KafkaConnectLogStream.SetInfrastructureReady();
+            
+            // Transition to Kafka Connect streaming phase
+            _loggingCoordinator.TransitionToPhase(LoggingPhase.KafkaConnectStreaming);
         }
         catch (Exception ex)
         {
-            TestLoggingService.LogMessage($"Failed to initialize test infrastructure: {ex.Message}");
+            LogMessage($"Failed to initialize test infrastructure: {ex.Message}");
             await DisposeAsync();
             throw;
         }
@@ -134,28 +126,28 @@ public class TestFixture : IAsyncLifetime
     private async Task CreateZookeeperContainerAsync()
     {
         LogMessage($"Creating Zookeeper container: {_config.TestContainers.Zookeeper.Name}");
-        _zookeeperContainer = await _containerService.CreateContainerAsync(_config.TestContainers.Zookeeper, _network!, _loggingService);
+        _zookeeperContainer = await _containerService.CreateContainerAsync(_config.TestContainers.Zookeeper, _network!, _loggingCoordinator);
         LogMessage($"Zookeeper container started: {_config.TestContainers.Zookeeper.Name}");
     }
 
     private async Task CreateKafkaContainerAsync()
     {
         LogMessage($"Creating Kafka container: {_config.TestContainers.Broker.Name}");
-        _kafkaContainer = await _containerService.CreateContainerAsync(_config.TestContainers.Broker, _network!, _loggingService);
+        _kafkaContainer = await _containerService.CreateContainerAsync(_config.TestContainers.Broker, _network!, _loggingCoordinator);
         LogMessage($"Kafka container started: {_config.TestContainers.Broker.Name} -> {_config.TestContainers.Broker.Hostname}:{_kafkaContainer.GetMappedPublicPort(9092)}");
     }
 
     private async Task CreateSchemaRegistryContainerAsync()
     {
         LogMessage($"Creating Schema Registry container: {_config.TestContainers.SchemaRegistry.Name}");
-        _schemaRegistryContainer = await _containerService.CreateContainerAsync(_config.TestContainers.SchemaRegistry, _network!, _loggingService);
+        _schemaRegistryContainer = await _containerService.CreateContainerAsync(_config.TestContainers.SchemaRegistry, _network!, _loggingCoordinator);
         LogMessage($"Schema Registry container started: {_config.TestContainers.SchemaRegistry.Name} -> {_config.TestContainers.SchemaRegistry.Hostname}:{_schemaRegistryContainer.GetMappedPublicPort(8081)}");
     }
 
     private async Task CreateMongoContainerAsync()
     {
         LogMessage($"Creating MongoDB container: {_config.TestContainers.Mongo.Name}");
-        _mongoContainer = await _containerService.CreateContainerAsync(_config.TestContainers.Mongo, _network!, _loggingService);
+        _mongoContainer = await _containerService.CreateContainerAsync(_config.TestContainers.Mongo, _network!, _loggingCoordinator);
         LogMessage($"MongoDB container started: {_config.TestContainers.Mongo.Name} -> {_config.Shakedown.Mongo}");
     }
 
@@ -397,7 +389,7 @@ public class TestFixture : IAsyncLifetime
     private async Task CreateKafkaConnectContainerAsync()
     {
         LogMessage($"Creating Kafka Connect container: {_config.TestContainers.Worker.Name}");
-        _kafkaConnectContainer = await _containerService.CreateKafkaConnectContainerAsync(_config.TestContainers.Worker, _network!, _loggingService);
+        _kafkaConnectContainer = await _containerService.CreateKafkaConnectContainerAsync(_config.TestContainers.Worker, _network!, _loggingCoordinator);
         LogMessage($"Kafka Connect container started: {_config.TestContainers.Worker.Name} -> {_config.Shakedown.Worker}");
     }
 
@@ -436,6 +428,9 @@ public class TestFixture : IAsyncLifetime
     {
         try
         {
+            // Transition to Infrastructure Cleanup phase
+            _loggingCoordinator.TransitionToPhase(LoggingPhase.InfrastructureCleanup);
+            
             if (_config.SkipInfrastructure)
             {
                 LogMessage("Skipping infrastructure cleanup (SkipInfrastructure = true)");
@@ -445,8 +440,6 @@ public class TestFixture : IAsyncLifetime
             }
 
             await StopContainerAsync(_kafkaConnectContainer);
-            LogMessage("========== KAFKA CONNECT ==========");
-            LogMessage("");
             
             // Display test results summary before tearing down infrastructure
             TestResultCollector.DisplaySummary();
@@ -467,17 +460,8 @@ public class TestFixture : IAsyncLifetime
         }
         finally
         {
-            // Restore original console output
-            if (_outputSuppressor != null)
-            {
-                Console.SetOut(new StreamWriter(Console.OpenStandardOutput()) { AutoFlush = true });
-                _outputSuppressor.Dispose();
-            }
-            if (_errorSuppressor != null)
-            {
-                Console.SetError(new StreamWriter(Console.OpenStandardError()) { AutoFlush = true });
-                _errorSuppressor.Dispose();
-            }
+            // Dispose the logging coordinator which will restore console output
+            _loggingCoordinator?.Dispose();
         }
     }
 

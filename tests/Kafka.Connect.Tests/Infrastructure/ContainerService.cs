@@ -6,13 +6,13 @@ namespace IntegrationTests.Kafka.Connect.Infrastructure;
 
 public interface IContainerService
 {
-    Task<IContainer> CreateContainerAsync<T>(T config, INetwork network, TestLoggingService loggingService) where T : ContainerConfig;
-    Task<IContainer> CreateKafkaConnectContainerAsync(KafkaConnectConfig config, INetwork network, TestLoggingService loggingService);
+    Task<IContainer> CreateContainerAsync<T>(T config, INetwork network, TestLoggingCoordinator loggingCoordinator) where T : ContainerConfig;
+    Task<IContainer> CreateKafkaConnectContainerAsync(KafkaConnectConfig config, INetwork network, TestLoggingCoordinator loggingCoordinator);
 }
 
 public class ContainerService : IContainerService
 {
-    public async Task<IContainer> CreateContainerAsync<T>(T config, INetwork network, TestLoggingService loggingService) where T : ContainerConfig
+    public async Task<IContainer> CreateContainerAsync<T>(T config, INetwork network, TestLoggingCoordinator loggingCoordinator) where T : ContainerConfig
     {
         var containerBuilder = new ContainerBuilder()
             .WithImage(config.Image)
@@ -34,13 +34,13 @@ public class ContainerService : IContainerService
         }
 
         var container = containerBuilder.Build();
-        TestLoggingService.LogMessage($"Creating container: {config.Name} ({config.Image})");
+        loggingCoordinator.LogMessage($"Creating container: {config.Name} ({config.Image})", LogSource.TestContainers);
         await container.StartAsync();
-        TestLoggingService.LogMessage($"Container started: {config.Name}");
+        loggingCoordinator.LogMessage($"Container started: {config.Name}", LogSource.TestContainers);
         return container;
     }
 
-    public async Task<IContainer> CreateKafkaConnectContainerAsync(KafkaConnectConfig config, INetwork network, TestLoggingService loggingService)
+    public async Task<IContainer> CreateKafkaConnectContainerAsync(KafkaConnectConfig config, INetwork network, TestLoggingCoordinator loggingCoordinator)
     {
         var currentDir = Directory.GetCurrentDirectory();
         var projectRoot = currentDir;
@@ -77,8 +77,8 @@ public class ContainerService : IContainerService
             .WithHostname(config.Hostname)
             .WithName(config.Name)
             .WithOutputConsumer(Consume.RedirectStdoutAndStderrToStream(
-                new KafkaConnectLogStream(),
-                new KafkaConnectLogStream()));
+                loggingCoordinator.GetKafkaConnectLogger(),
+                loggingCoordinator.GetKafkaConnectLogger()));
 
         containerBuilder = config.NetworkAliases.Aggregate(containerBuilder, (current, alias) => current.WithNetworkAliases(alias));
 
@@ -104,9 +104,9 @@ public class ContainerService : IContainerService
 
         var container = containerBuilder.Build();
 
-        TestLoggingService.LogMessage($"Creating Kafka Connect Worker: {config.Name}");
+        loggingCoordinator.LogMessage($"Creating Kafka Connect Worker: {config.Name}", LogSource.TestContainers);
         await container.StartAsync();
-        TestLoggingService.LogMessage($"Kafka Connect Worker started: {config.Name}");
+        loggingCoordinator.LogMessage($"Kafka Connect Worker started: {config.Name}", LogSource.TestContainers);
 
         return container;
     }
