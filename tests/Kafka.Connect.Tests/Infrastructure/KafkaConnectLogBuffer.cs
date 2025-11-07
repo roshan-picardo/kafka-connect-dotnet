@@ -12,6 +12,7 @@ public class KafkaConnectLogBuffer : Stream
     private static readonly ConcurrentQueue<string> BufferedLogs = new();
     private static readonly object Lock = new();
     private static bool _logsDisplayed = false;
+    private static bool _rawJsonMode = false;
     private bool _disposed = false;
     
     static KafkaConnectLogBuffer()
@@ -19,6 +20,11 @@ public class KafkaConnectLogBuffer : Stream
         // Register to display logs when the application domain is unloading
         AppDomain.CurrentDomain.ProcessExit += (sender, e) => DisplayBufferedLogs();
         AppDomain.CurrentDomain.DomainUnload += (sender, e) => DisplayBufferedLogs();
+    }
+    
+    public static void SetRawJsonMode(bool enabled)
+    {
+        _rawJsonMode = enabled;
     }
 
     public override bool CanRead => false;
@@ -79,6 +85,12 @@ public class KafkaConnectLogBuffer : Stream
 
     private static string FormatKafkaConnectLog(string logLine)
     {
+        if (_rawJsonMode)
+        {
+            // Return raw JSON as is
+            return logLine;
+        }
+        
         try
         {
             // Try to parse as JSON and extract the message

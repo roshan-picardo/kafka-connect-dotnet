@@ -65,6 +65,9 @@ public class TestFixture : IAsyncLifetime
         _loggingService = new TestLoggingService();
 
         _loggingService.SetupTestcontainersLogging(_config.DetailedLog, _config.RawJsonLog);
+        
+        // Set the RawJsonMode for Kafka Connect log buffer
+        KafkaConnectLogBuffer.SetRawJsonMode(_config.RawJsonLog);
     }
 
     public bool IsKafkaConnectDeployed => _kafkaConnectDeployed || !_config.TestContainers.Worker.Enabled;
