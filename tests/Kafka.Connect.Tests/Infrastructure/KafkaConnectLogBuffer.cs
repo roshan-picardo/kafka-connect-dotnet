@@ -127,18 +127,14 @@ public class KafkaConnectLogBuffer : Stream
 
             _logsDisplayed = true;
 
-            Console.WriteLine();
-            Console.WriteLine("========== KAFKA CONNECT LOGS ==========");
-            Console.WriteLine();
+            Console.WriteLine("------------------- KAFKA CONNECT -------------------");
 
             while (BufferedLogs.TryDequeue(out var log))
             {
                 Console.WriteLine(log);
             }
 
-            Console.WriteLine();
-            Console.WriteLine("========================================");
-            Console.WriteLine();
+            Console.WriteLine("------------------- KAFKA CONNECT -------------------");
         }
     }
 
