@@ -2,11 +2,12 @@ using MongoDB.Driver;
 using MongoDB.Bson;
 using Xunit;
 using Xunit.Abstractions;
+using IntegrationTests.Kafka.Connect.Infrastructure;
 
-namespace IntegrationTests.Kafka.Connect.Infrastructure;
+namespace IntegrationTests.Kafka.Connect;
 
 [Collection("Integration Tests")]
-public class InfrastructureTests(TestFixture fixture, ITestOutputHelper output)
+public class InfrastructureTests(Infrastructure.TestFixture fixture, ITestOutputHelper output)
 {
     [Fact, TestPriority(1)]
     public async Task Kafka()
