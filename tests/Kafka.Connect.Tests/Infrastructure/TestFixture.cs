@@ -104,6 +104,10 @@ public class TestFixture : IAsyncLifetime
             
             // Transition to Kafka Connect streaming phase
             _loggingCoordinator.TransitionToPhase(LoggingPhase.KafkaConnectStreaming);
+            
+            // After a brief moment, transition to XUnit buffering to capture test execution
+            await Task.Delay(1000);
+            _loggingCoordinator.TransitionToPhase(LoggingPhase.XUnitBuffering);
         }
         catch (Exception ex)
         {

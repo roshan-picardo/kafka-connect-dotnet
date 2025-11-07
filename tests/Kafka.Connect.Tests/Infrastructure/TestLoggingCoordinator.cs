@@ -84,13 +84,15 @@ public class TestLoggingCoordinator : IDisposable
                 case LoggingPhase.KafkaConnectStreaming:
                     if (source == LogSource.KafkaConnect)
                         _kafkaConnectLogger.LogMessage(message);
+                    else if (source == LogSource.XUnit)
+                        _xunitLogger.BufferMessage(message); // Start buffering XUnit messages
                     else
                         _infrastructureLogger.LogMessage(message, source);
                     break;
                     
                 case LoggingPhase.XUnitBuffering:
                     if (source == LogSource.XUnit)
-                        _xunitLogger.BufferMessage(message);
+                        _xunitLogger.BufferMessage(message); // Buffer all XUnit messages including test results
                     else if (source == LogSource.KafkaConnect)
                         _kafkaConnectLogger.LogMessage(message);
                     else

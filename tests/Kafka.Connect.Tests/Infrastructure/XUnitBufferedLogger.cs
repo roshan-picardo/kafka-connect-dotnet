@@ -16,8 +16,8 @@ public class XUnitBufferedLogger : IDisposable
     private bool _disposed = false;
     
     // Patterns for identifying XUnit messages
-    private static readonly Regex TestResultPattern = new(@"^\s*(Passed|Failed|Skipped)\s+.*\[\d+(\.\d+)?\s*(s|ms)\]", RegexOptions.Compiled);
-    private static readonly Regex XUnitFrameworkPattern = new(@"^\s*\[xUnit\.net.*\]", RegexOptions.Compiled);
+    private static readonly Regex TestResultPattern = new(@"^\s*(Passed|Failed|Skipped)\s+.*\s*\[\d+(\.\d+)?\s*(s|ms)\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex XUnitFrameworkPattern = new(@"^\s*\[xUnit\.net.*\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     public void StartBuffering()
     {
@@ -37,9 +37,9 @@ public class XUnitBufferedLogger : IDisposable
         // Check if this is a test result message
         if (IsTestResultMessage(message))
         {
-            // Parse and store the test result, but don't buffer the output
+            // Parse and store the test result, but suppress the output completely
             TestResultCollector.ParseAndAddResult(message);
-            return;
+            return; // Don't display or buffer test results - they'll be shown in summary
         }
 
         // Check if this is an XUnit framework message
@@ -205,8 +205,8 @@ public class PhaseAwareConsoleWriter : TextWriter
     }
 
     // Patterns for identifying different log sources
-    private static readonly Regex TestResultPattern = new(@"^\s*(Passed|Failed|Skipped)\s+.*\[\d+(\.\d+)?\s*(s|ms)\]", RegexOptions.Compiled);
-    private static readonly Regex XUnitFrameworkPattern = new(@"^\s*\[xUnit\.net.*\]", RegexOptions.Compiled);
+    private static readonly Regex TestResultPattern = new(@"^\s*(Passed|Failed|Skipped)\s+.*\s*\[\d+(\.\d+)?\s*(s|ms)\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex XUnitFrameworkPattern = new(@"^\s*\[xUnit\.net.*\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     public override void Flush()
     {

@@ -9,8 +9,8 @@ public class TestResultCollector
     private static readonly ConcurrentQueue<TestResult> TestResults = new();
     private static readonly object Lock = new();
     private static bool _summaryDisplayed = false;
-    private static readonly Regex TestResultPattern = new(@"^\s*(Passed|Failed|Skipped)\s+(.+?)\s+\[(\d+(?:\.\d+)?)\s*(s|ms)\]", RegexOptions.Compiled);
-    private static readonly Regex XUnitSummaryPattern = new(@"^\s*(Passed|Failed|Skipped)\s+(.+?)\s+\[(\d+(?:\.\d+)?)\s*ms\]", RegexOptions.Compiled);
+    private static readonly Regex TestResultPattern = new(@"^\s*(Passed|Failed|Skipped)\s+(.+?)\s*\[(\d+(?:\.\d+)?)\s*(s|ms)\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex XUnitSummaryPattern = new(@"^\s*(Passed|Failed|Skipped)\s+(.+?)\s*\[(\d+(?:\.\d+)?)\s*ms\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     public static void AddResult(TestResult result)
     {
@@ -25,21 +25,27 @@ public class TestResultCollector
     public static void ParseAndAddResult(string logLine)
     {
         var match = TestResultPattern.Match(logLine);
+        if (!match.Success)
+        {
+            // Try the XUnit summary pattern as fallback
+            match = XUnitSummaryPattern.Match(logLine);
+        }
+        
         if (match.Success)
         {
             var status = match.Groups[1].Value;
             var testName = match.Groups[2].Value.Trim();
             var durationValue = double.Parse(match.Groups[3].Value);
-            var unit = match.Groups[4].Value;
+            var unit = match.Groups.Count > 4 ? match.Groups[4].Value : "ms";
             
             // Convert milliseconds to seconds for consistency
-            var duration = unit == "ms" ? durationValue / 1000.0 : durationValue;
+            var duration = unit.Equals("ms", StringComparison.OrdinalIgnoreCase) ? durationValue / 1000.0 : durationValue;
 
-            var testStatus = status switch
+            var testStatus = status.ToLowerInvariant() switch
             {
-                "Passed" => TestStatus.Passed,
-                "Failed" => TestStatus.Failed,
-                "Skipped" => TestStatus.Skipped,
+                "passed" => TestStatus.Passed,
+                "failed" => TestStatus.Failed,
+                "skipped" => TestStatus.Skipped,
                 _ => TestStatus.Passed
             };
 
