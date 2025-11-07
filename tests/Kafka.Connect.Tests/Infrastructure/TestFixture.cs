@@ -440,11 +440,6 @@ public class TestFixture : IAsyncLifetime
             }
 
             await StopContainerAsync(_kafkaConnectContainer);
-            LogMessage("========== KAFKA CONNECT ==========");
-            LogMessage("");
-            
-            // Remove test results summary - not needed
-            // Move Kafka Connect logs to be displayed after entire test run completes
             
             LogMessage("Tearing down test infrastructure...");
             await DisposeContainerAsync(_kafkaConnectContainer);
