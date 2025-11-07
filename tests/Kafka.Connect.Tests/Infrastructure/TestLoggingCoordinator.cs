@@ -17,6 +17,7 @@ public class TestLoggingCoordinator : IDisposable
     private readonly InfrastructureLogger _infrastructureLogger;
     private readonly KafkaConnectStreamLogger _kafkaConnectLogger;
     private readonly XUnitBufferedLogger _xunitLogger;
+    private readonly SimpleOutputSuppressor _outputSuppressor;
     
     private bool _disposed = false;
 
@@ -28,6 +29,7 @@ public class TestLoggingCoordinator : IDisposable
         _infrastructureLogger = new InfrastructureLogger(_originalOut);
         _kafkaConnectLogger = new KafkaConnectStreamLogger(_originalOut);
         _xunitLogger = new XUnitBufferedLogger();
+        _outputSuppressor = new SimpleOutputSuppressor(_originalOut, this);
         
         SetupConsoleRedirection();
     }
@@ -109,9 +111,9 @@ public class TestLoggingCoordinator : IDisposable
 
     private void SetupConsoleRedirection()
     {
-        var redirector = new PhaseAwareConsoleWriter(this);
-        Console.SetOut(redirector);
-        Console.SetError(redirector);
+        // Use the simple output suppressor instead of the complex phase-aware writer
+        Console.SetOut(_outputSuppressor);
+        Console.SetError(_outputSuppressor);
     }
 
     private void LogPhaseTransition(LoggingPhase from, LoggingPhase to)
