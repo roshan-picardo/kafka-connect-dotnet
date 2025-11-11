@@ -33,7 +33,6 @@ public class TestFixture : IAsyncLifetime
 
     static TestFixture()
     {
-        // Set up XUnit output suppression as early as possible
         var outputSuppressor = new XUnitOutputSuppressor(Console.Out);
         var errorSuppressor = new XUnitOutputSuppressor(Console.Error);
         Console.SetOut(outputSuppressor);
@@ -55,22 +54,17 @@ public class TestFixture : IAsyncLifetime
         _config = new TestConfiguration();
         configuration.Bind(_config);
 
-        // Register the container service
         var services = new ServiceCollection();
         services.AddSingleton<IContainerService, ContainerService>();
         var serviceProvider = services.BuildServiceProvider();
         _containerService = serviceProvider.GetRequiredService<IContainerService>();
 
-        // Create TestLoggingService with simple logging
         _loggingService = new TestLoggingService();
 
         _loggingService.SetupTestcontainersLogging(_config.DetailedLog, _config.RawJsonLog);
         
-        // Set the RawJsonMode for Kafka Connect log buffer
         KafkaConnectLogBuffer.SetRawJsonMode(_config.RawJsonLog);
     }
-
-    public bool IsKafkaConnectDeployed => _kafkaConnectDeployed || !_config.TestContainers.Worker.Enabled;
 
     private void LogMessage(string message)
     {
@@ -81,7 +75,6 @@ public class TestFixture : IAsyncLifetime
     {
         try
         {
-            // Set up aggressive XUnit output suppression
             _outputSuppressor = new XUnitOutputSuppressor(Console.Out);
             _errorSuppressor = new XUnitOutputSuppressor(Console.Error);
             Console.SetOut(_outputSuppressor);
@@ -101,7 +94,6 @@ public class TestFixture : IAsyncLifetime
             await CreateSchemaRegistryContainerAsync();
             await CreateMongoContainerAsync();
             
-            // Create topics from connector configurations before starting Kafka-Connect
             await CreateConnectorTopicsAsync();
                 
             if (_config.TestContainers.Worker.Enabled)
@@ -167,7 +159,6 @@ public class TestFixture : IAsyncLifetime
     {
         LogMessage("Creating topics from connector configurations...");
         
-        // Look for configuration files in the current directory (they should be copied by the build)
         var configFiles = Directory.GetFiles(Directory.GetCurrentDirectory(), "appsettings.*.json");
         
         if (configFiles.Length == 0)
@@ -440,8 +431,7 @@ public class TestFixture : IAsyncLifetime
                 return;
             }
 
-            // Add delay to ensure all test results are captured before teardown
-            await Task.Delay(10000); // 10 second delay
+            await Task.Delay(10000); 
             
             await StopContainerAsync(_kafkaConnectContainer);
             
@@ -461,16 +451,15 @@ public class TestFixture : IAsyncLifetime
         }
         finally
         {
-            // Restore original console output
             if (_outputSuppressor != null)
             {
                 Console.SetOut(new StreamWriter(Console.OpenStandardOutput()) { AutoFlush = true });
-                _outputSuppressor.Dispose();
+                await _outputSuppressor.DisposeAsync();
             }
             if (_errorSuppressor != null)
             {
                 Console.SetError(new StreamWriter(Console.OpenStandardError()) { AutoFlush = true });
-                _errorSuppressor.Dispose();
+                await _errorSuppressor.DisposeAsync();
             }
         }
     }
@@ -494,6 +483,4 @@ public class TestFixture : IAsyncLifetime
 }
 
 [CollectionDefinition("Integration Tests")]
-public class TestCollection : ICollectionFixture<TestFixture>
-{
-}
+public class TestCollection : ICollectionFixture<TestFixture>;

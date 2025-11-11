@@ -35,27 +35,7 @@ public class MongoTests(TestFixture fixture, ITestOutputHelper output) : IDispos
             {
                 await ValidateMongoData(testCase.Sink.Database, testCase.Sink.Collection, testCase.Sink.KeyField, testCase.Sink.Expected);
             }
-
-            var duration = (DateTime.UtcNow - startTime).TotalSeconds;
-            TestResultCollector.AddResult(new TestResult
-            {
-                TestName = $"ExecuteMongoSinkTest(testCase: {testCase.Title})",
-                Status = TestStatus.Passed,
-                Duration = duration
-            });
             output.WriteLine($"Test '{testCase.Title}' completed successfully");
-        }
-        catch (Exception ex)
-        {
-            var duration = (DateTime.UtcNow - startTime).TotalSeconds;
-            TestResultCollector.AddResult(new TestResult
-            {
-                TestName = $"ExecuteMongoSinkTest(testCase: {testCase.Title})",
-                Status = TestStatus.Failed,
-                Duration = duration,
-                ErrorMessage = ex.Message
-            });
-            throw;
         }
         finally
         {

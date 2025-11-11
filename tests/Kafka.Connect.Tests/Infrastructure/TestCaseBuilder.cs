@@ -10,14 +10,16 @@ public class TestCaseBuilder : IEnumerable<object[]>
     {
         var testConfig = TestConfig.Get();
         var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-
-        foreach (var node in JsonNode.Parse(File.ReadAllText($"{testConfig.RootFolder.TrimEnd('/')}/{testConfig.ConfigFile}")).AsArray())
+        var jsonNode = JsonNode.Parse(File.ReadAllText($"{testConfig.RootFolder.TrimEnd('/')}/{testConfig.ConfigFile}"));
+        if (jsonNode == null) yield break;
+        
+        foreach (var node in jsonNode.AsArray())
         {
             var config = node.Deserialize<MongoTestConfig>(options);
             if (config == null) continue;
 
             var testFiles = new List<string>();
-            
+
             if (config.Files?.Any() == true)
             {
                 foreach (var file in config.Files)
@@ -60,7 +62,7 @@ public class TestCaseBuilder : IEnumerable<object[]>
             foreach (var testFile in testFiles)
             {
                 if (string.IsNullOrEmpty(testFile) || !File.Exists(testFile)) continue;
-                
+
                 var testData = JsonSerializer.Deserialize<MongoTestData>(File.ReadAllText(testFile), options);
                 if (testData == null) continue;
 
@@ -76,7 +78,6 @@ public class TestCaseBuilder : IEnumerable<object[]>
             }
         }
     }
-
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 }
 
@@ -87,7 +88,6 @@ public class TestConfig
 
     public static TestConfig Get()
     {
-        // For Tests project, we use a simple approach with current directory
         return new TestConfig
         {
             RootFolder = Path.Combine(Directory.GetCurrentDirectory(), "data"),
