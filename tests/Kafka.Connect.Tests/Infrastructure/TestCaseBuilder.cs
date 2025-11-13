@@ -15,7 +15,7 @@ public class TestCaseBuilder : IEnumerable<object[]>
         
         foreach (var node in jsonNode.AsArray())
         {
-            var config = node.Deserialize<MongoTestConfig>(options);
+            var config = node.Deserialize<TestCaseConfig>(options);
             if (config == null) continue;
 
             var testFiles = new List<string>();
@@ -42,7 +42,7 @@ public class TestCaseBuilder : IEnumerable<object[]>
                 }
             }
 
-            MongoSchemaRecord? schema = null;
+            SchemaRecord? schema = null;
             if (!string.IsNullOrEmpty(config.Schema))
             {
                 var schemaPath = $"{testConfig.RootFolder.TrimEnd('/')}/{config.Schema.TrimStart('/')}";
@@ -52,7 +52,7 @@ public class TestCaseBuilder : IEnumerable<object[]>
                     var valueNode = schemaNode?["Value"];
                     if (valueNode != null)
                     {
-                        schema = new MongoSchemaRecord(schemaNode?["Key"], valueNode);
+                        schema = new SchemaRecord(schemaNode?["Key"], valueNode);
                     }
                 }
             }
@@ -63,17 +63,12 @@ public class TestCaseBuilder : IEnumerable<object[]>
             {
                 if (string.IsNullOrEmpty(testFile) || !File.Exists(testFile)) continue;
 
-                var testData = JsonSerializer.Deserialize<MongoTestData>(File.ReadAllText(testFile), options);
+                var testData = JsonSerializer.Deserialize<TestCase>(File.ReadAllText(testFile), options);
                 if (testData == null) continue;
 
                 yield return
                 [
-                    new MongoTestCase(
-                        testData.Title ?? Path.GetFileNameWithoutExtension(testFile),
-                        schema,
-                        testData.Records ?? [],
-                        testData.Sink ?? new MongoSink()
-                    )
+                    testData with { Records = testData.Records ?? [] }
                 ];
             }
         }

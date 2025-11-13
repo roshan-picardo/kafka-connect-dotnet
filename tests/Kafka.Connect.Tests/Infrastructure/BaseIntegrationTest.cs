@@ -1,55 +1,52 @@
-using System.Text.Json.Nodes;
-using IntegrationTests.Kafka.Connect.Infrastructure;
 using Xunit.Abstractions;
 
 namespace IntegrationTests.Kafka.Connect.Infrastructure;
 
-public abstract class BaseIntegrationTest<TTestCase>(TestFixture fixture, ITestOutputHelper output) : IDisposable
+public abstract class BaseIntegrationTest<T>(TestFixture fixture, ITestOutputHelper output) : IDisposable where T : BaseSinkRecord
 {
-    protected async Task ExecuteTestAsync(TTestCase testCase)
+    protected async Task ExecuteTestAsync(TestCase testCase)
     {
         var testTitle = GetTestTitle(testCase);
         output.WriteLine($"Executing test: {testTitle}");
 
         try
         {
-            await SetupAsync(testCase);
+            await SetupAsync(testCase.Sink.Properties as T);
 
             await PublishAsync(testCase);
 
             await Task.Delay(5000);
 
-            await ValidateAsync(testCase);
+            await ValidateAsync(testCase.Sink.Properties as T);
 
             output.WriteLine($"Test '{testTitle}' completed successfully");
         }
         finally
         {
-            await CleanupAsync(testCase);
+            await CleanupAsync(testCase.Sink.Properties as T);
         }
     }
 
-    protected abstract Task SetupAsync(TTestCase testCase);
+    protected abstract Task SetupAsync(T? sink);
 
-    private async Task PublishAsync(TTestCase testCase)
+    private async Task PublishAsync(TestCase testCase)
     {
-        var topicName = GetTopicName(testCase);
-        var records = GetRecords(testCase);
-
+        var topicName = testCase.Sink.Topic;
         await fixture.CreateTopicAsync(topicName);
-
-        await SendMessagesToKafka(topicName, records);
+        await SendMessagesToKafka(topicName, GetRecords(testCase));
     }
 
-    protected abstract Task ValidateAsync(TTestCase testCase);
+    protected abstract Task ValidateAsync(T? sink);
 
-    protected abstract Task CleanupAsync(TTestCase testCase);
+    protected abstract Task CleanupAsync(T? sink);
 
-    protected abstract string GetTestTitle(TTestCase testCase);
+    private string GetTestTitle(TestCase testCase) => testCase.Title;
 
-    protected abstract string GetTopicName(TTestCase testCase);
-
-    protected abstract IEnumerable<(string Key, string Value)> GetRecords(TTestCase testCase);
+    private IEnumerable<(string Key, string Value)> GetRecords(TestCase testCase) =>
+        testCase.Records.Select(record => (
+            Key: record.Key?.ToString() ?? "",
+            Value: record.Value.ToJsonString()
+        ));
 
     private async Task SendMessagesToKafka(string topicName, IEnumerable<(string Key, string Value)> records)
     {

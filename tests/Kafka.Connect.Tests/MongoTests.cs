@@ -10,60 +10,41 @@ using Xunit.Abstractions;
 namespace IntegrationTests.Kafka.Connect;
 
 [Collection("Integration Tests")]
-public class MongoTests(TestFixture fixture, ITestOutputHelper output) : BaseIntegrationTest<MongoTestCase>(fixture, output)
+public class MongoTests(TestFixture fixture, ITestOutputHelper output) : BaseIntegrationTest<MongoSinkRecord>(fixture, output)
 {
     private readonly TestFixture _fixture = fixture;
     private readonly ITestOutputHelper _output = output;
 
     [Theory, TestPriority(2)]
     [ClassData(typeof(TestCaseBuilder))]
-    public async Task ExecuteMongoSinkTest(MongoTestCase testCase)
+    public async Task ExecuteMongoSinkTest(TestCase testCase)
     {
         await ExecuteTestAsync(testCase);
     }
 
-    protected override async Task SetupAsync(MongoTestCase testCase)
+    protected override async Task SetupAsync(MongoSinkRecord? sink)
     {
-        if (testCase.Sink.Setup?.Any() == true)
+        if (sink?.Setup?.Any() == true)
         {
-            await SetupMongoData(testCase.Sink.Database, testCase.Sink.Collection, testCase.Sink.Setup);
+            await SetupMongoData(sink.Database, sink.Collection, sink.Setup);
         }
     }
 
-    protected override async Task ValidateAsync(MongoTestCase testCase)
+    protected override async Task ValidateAsync(MongoSinkRecord? sink)
     {
-        if (testCase.Sink.Expected?.Any() == true)
+        if (sink?.Expected?.Any() == true)
         {
-            await ValidateMongoData(testCase.Sink.Database, testCase.Sink.Collection, testCase.Sink.KeyField, testCase.Sink.Expected);
+            await ValidateMongoData(sink.Database, sink.Collection, sink.KeyField, sink.Expected);
         }
     }
 
-    protected override async Task CleanupAsync(MongoTestCase testCase)
+    protected override async Task CleanupAsync(MongoSinkRecord? sink)
     {
-        if (testCase.Sink.Cleanup?.Any() == true)
+        if (sink?.Cleanup?.Any() == true)
         {
-            await CleanupMongoData(testCase.Sink.Database, testCase.Sink.Collection, testCase.Sink.KeyField, testCase.Sink.Cleanup);
+            await CleanupMongoData(sink.Database, sink.Collection, sink.KeyField, sink.Cleanup);
         }
     }
-
-    protected override string GetTestTitle(MongoTestCase testCase)
-    {
-        return testCase.Title;
-    }
-
-    protected override string GetTopicName(MongoTestCase testCase)
-    {
-        return testCase.Sink.Topic;
-    }
-
-    protected override IEnumerable<(string Key, string Value)> GetRecords(MongoTestCase testCase)
-    {
-        return testCase.Records.Select(record => (
-            Key: record.Key?.ToString() ?? "",
-            Value: record.Value.ToJsonString()
-        ));
-    }
-
 
     private async Task SetupMongoData(string databaseName, string collectionName, JsonNode[] setupData)
     {
@@ -78,8 +59,6 @@ public class MongoTests(TestFixture fixture, ITestOutputHelper output) : BaseInt
         
         _output.WriteLine($"Setup: Inserted {setupData.Length} documents into {databaseName}.{collectionName}");
     }
-
-
 
     private async Task ValidateMongoData(string databaseName, string collectionName, string keyField, JsonNode[] expectedData)
     {
@@ -134,39 +113,16 @@ public class MongoTests(TestFixture fixture, ITestOutputHelper output) : BaseInt
     }
 }
 
-// Data models for MongoDB tests
-public record MongoTestConfig(
-    string Topic,
-    string? Schema,
-    string? Folder,
-    string[]? Files
-);
+public record SchemaRecord(JsonNode? Key, JsonNode Value);
+public record TestCaseConfig(string Schema, string? Folder, string[]? Files);
 
-public record MongoTestData(
-    string? Title,
-    string? Schema,
-    MongoRecord[]? Records,
-    MongoSink? Sink
-);
+public record TestCase(string Title, KafkaRecord[] Records, SinkRecord<MongoSinkRecord> Sink);
 
-public record MongoRecord(JsonNode? Key, JsonNode Value);
-public record MongoSchemaRecord(JsonNode? Key, JsonNode Value);
-public record MongoSink(
-    string Type = "mongodb",
-    string Topic = "test-topic",
-    string Collection = "test_collection",
-    string Database = "kafka_connect_test",
-    string KeyField = "id",
-    JsonNode[]? Setup = null,
-    JsonNode[]? Expected = null,
-    JsonNode[]? Cleanup = null
-);
+public record KafkaRecord(JsonNode? Key, JsonNode Value);
 
-public record MongoTestCase(
-    string Title,
-    MongoSchemaRecord Schema,
-    MongoRecord[] Records,
-    MongoSink Sink)
-{
-    public override string ToString() => Title;
-}
+public record SinkRecord<T>(string Topic = "", T? Properties = default);
+
+public record BaseSinkRecord;
+public record MongoSinkRecord(string Database, string Collection, string KeyField, JsonNode[] Setup, JsonNode[] Expected, JsonNode[] Cleanup) : BaseSinkRecord;
+
+
