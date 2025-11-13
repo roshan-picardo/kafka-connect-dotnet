@@ -10,46 +10,64 @@ using Xunit.Abstractions;
 namespace IntegrationTests.Kafka.Connect;
 
 [Collection("Integration Tests")]
-public class MongoTests(TestFixture fixture, ITestOutputHelper output) : IDisposable
+public class MongoTests(TestFixture fixture, ITestOutputHelper output) : BaseIntegrationTest<MongoTestCase>(fixture, output)
 {
+    private readonly TestFixture _fixture = fixture;
+    private readonly ITestOutputHelper _output = output;
+
     [Theory, TestPriority(2)]
     [ClassData(typeof(TestCaseBuilder))]
     public async Task ExecuteMongoSinkTest(MongoTestCase testCase)
     {
-        output.WriteLine($"Executing test: {testCase.Title}");
-        var startTime = DateTime.UtcNow;
+        await ExecuteTestAsync(testCase);
+    }
 
-        try
+    protected override async Task SetupAsync(MongoTestCase testCase)
+    {
+        if (testCase.Sink.Setup?.Any() == true)
         {
-            if (testCase.Sink.Setup?.Any() == true)
-            {
-                await SetupMongoData(testCase.Sink.Database, testCase.Sink.Collection, testCase.Sink.Setup);
-            }
-
-            await fixture.CreateTopicAsync(testCase.Sink.Topic);
-            await SendMessagesToKafka(testCase.Sink.Topic, testCase.Records);
-
-            await Task.Delay(5000);
-
-            if (testCase.Sink.Expected?.Any() == true)
-            {
-                await ValidateMongoData(testCase.Sink.Database, testCase.Sink.Collection, testCase.Sink.KeyField, testCase.Sink.Expected);
-            }
-            output.WriteLine($"Test '{testCase.Title}' completed successfully");
+            await SetupMongoData(testCase.Sink.Database, testCase.Sink.Collection, testCase.Sink.Setup);
         }
-        finally
+    }
+
+    protected override async Task ValidateAsync(MongoTestCase testCase)
+    {
+        if (testCase.Sink.Expected?.Any() == true)
         {
-            if (testCase.Sink.Cleanup?.Any() == true)
-            {
-                await CleanupMongoData(testCase.Sink.Database, testCase.Sink.Collection, testCase.Sink.KeyField, testCase.Sink.Cleanup);
-            }
+            await ValidateMongoData(testCase.Sink.Database, testCase.Sink.Collection, testCase.Sink.KeyField, testCase.Sink.Expected);
         }
+    }
+
+    protected override async Task CleanupAsync(MongoTestCase testCase)
+    {
+        if (testCase.Sink.Cleanup?.Any() == true)
+        {
+            await CleanupMongoData(testCase.Sink.Database, testCase.Sink.Collection, testCase.Sink.KeyField, testCase.Sink.Cleanup);
+        }
+    }
+
+    protected override string GetTestTitle(MongoTestCase testCase)
+    {
+        return testCase.Title;
+    }
+
+    protected override string GetTopicName(MongoTestCase testCase)
+    {
+        return testCase.Sink.Topic;
+    }
+
+    protected override IEnumerable<(string Key, string Value)> GetRecords(MongoTestCase testCase)
+    {
+        return testCase.Records.Select(record => (
+            Key: record.Key?.ToString() ?? "",
+            Value: record.Value.ToJsonString()
+        ));
     }
 
 
     private async Task SetupMongoData(string databaseName, string collectionName, JsonNode[] setupData)
     {
-        var database = fixture.GetMongoDatabase(databaseName);
+        var database = _fixture.GetMongoDatabase(databaseName);
         var collection = database.GetCollection<BsonDocument>(collectionName);
         
         foreach (var item in setupData)
@@ -58,24 +76,14 @@ public class MongoTests(TestFixture fixture, ITestOutputHelper output) : IDispos
             await collection.InsertOneAsync(bsonDoc);
         }
         
-        output.WriteLine($"Setup: Inserted {setupData.Length} documents into {databaseName}.{collectionName}");
+        _output.WriteLine($"Setup: Inserted {setupData.Length} documents into {databaseName}.{collectionName}");
     }
 
-    private async Task SendMessagesToKafka(string topicName, MongoRecord[] records)
-    {
-        foreach (var record in records)
-        {
-            var key = record.Key?.ToString() ?? "";
-            var value = record.Value.ToJsonString();
-            var result = await fixture.ProduceMessageAsync(topicName, key, value);
-            output.WriteLine($"Sent message to {result.Topic}:{result.Partition}:{result.Offset}");
-        }
-    }
 
 
     private async Task ValidateMongoData(string databaseName, string collectionName, string keyField, JsonNode[] expectedData)
     {
-        var database = fixture.GetMongoDatabase(databaseName);
+        var database = _fixture.GetMongoDatabase(databaseName);
         var collection = database.GetCollection<BsonDocument>(collectionName);
         
         foreach (var expected in expectedData)
@@ -96,14 +104,14 @@ public class MongoTests(TestFixture fixture, ITestOutputHelper output) : IDispos
                     Assert.Equal(element.Value, actualDoc[element.Name]);
                 }
                 
-                output.WriteLine($"Validation passed for {keyField}: {expectedDoc[keyField]}");
+                _output.WriteLine($"Validation passed for {keyField}: {expectedDoc[keyField]}");
             }
         }
     }
 
     private async Task CleanupMongoData(string databaseName, string collectionName, string keyField, JsonNode[] cleanupData)
     {
-        var database = fixture.GetMongoDatabase(databaseName);
+        var database = _fixture.GetMongoDatabase(databaseName);
         var collection = database.GetCollection<BsonDocument>(collectionName);
         
         foreach (var item in cleanupData)
@@ -117,11 +125,12 @@ public class MongoTests(TestFixture fixture, ITestOutputHelper output) : IDispos
             }
         }
         
-        output.WriteLine($"Cleanup: Removed {cleanupData.Length} documents from {databaseName}.{collectionName}");
+        _output.WriteLine($"Cleanup: Removed {cleanupData.Length} documents from {databaseName}.{collectionName}");
     }
 
-    public void Dispose()
+    public override void Dispose()
     {
+        base.Dispose();
     }
 }
 
