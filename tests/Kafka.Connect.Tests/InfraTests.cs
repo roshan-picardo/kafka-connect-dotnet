@@ -7,7 +7,7 @@ using IntegrationTests.Kafka.Connect.Infrastructure;
 namespace IntegrationTests.Kafka.Connect;
 
 [Collection("Integration Tests")]
-public class InfrastructureTests(Infrastructure.TestFixture fixture, ITestOutputHelper output)
+public class InfraTests(Infrastructure.TestFixture fixture, ITestOutputHelper output)
 {
     [Fact, TestPriority(1)]
     public async Task Kafka()

@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Text.Json;
 using System.Text.Json.Nodes;
 using IntegrationTests.Kafka.Connect.Infrastructure;
 using MongoDB.Bson;
@@ -10,7 +8,7 @@ using Xunit.Abstractions;
 namespace IntegrationTests.Kafka.Connect;
 
 [Collection("Integration Tests")]
-public class MongoTests(TestFixture fixture, ITestOutputHelper output) : BaseIntegrationTest<MongoSinkRecord>(fixture, output)
+public class MongoTests(TestFixture fixture, ITestOutputHelper output) : BaseTests<MongoSinkRecord>(fixture, output)
 {
     private readonly TestFixture _fixture = fixture;
     private readonly ITestOutputHelper _output = output;
@@ -106,23 +104,9 @@ public class MongoTests(TestFixture fixture, ITestOutputHelper output) : BaseInt
         
         _output.WriteLine($"Cleanup: Removed {cleanupData.Length} documents from {databaseName}.{collectionName}");
     }
-
-    public override void Dispose()
-    {
-        base.Dispose();
-    }
 }
 
-public record SchemaRecord(JsonNode? Key, JsonNode Value);
-public record TestCaseConfig(string Schema, string? Folder, string[]? Files);
-
-public record TestCase(string Title, KafkaRecord[] Records, SinkRecord<MongoSinkRecord> Sink);
-
-public record KafkaRecord(JsonNode? Key, JsonNode Value);
-
-public record SinkRecord<T>(string Topic = "", T? Properties = default);
-
-public record BaseSinkRecord;
 public record MongoSinkRecord(string Database, string Collection, string KeyField, JsonNode[] Setup, JsonNode[] Expected, JsonNode[] Cleanup) : BaseSinkRecord;
+
 
 

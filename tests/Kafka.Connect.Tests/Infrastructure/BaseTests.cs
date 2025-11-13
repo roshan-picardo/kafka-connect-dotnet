@@ -1,8 +1,9 @@
+using System.Text.Json.Nodes;
 using Xunit.Abstractions;
 
 namespace IntegrationTests.Kafka.Connect.Infrastructure;
 
-public abstract class BaseIntegrationTest<T>(TestFixture fixture, ITestOutputHelper output) : IDisposable where T : BaseSinkRecord
+public abstract class BaseTests<T>(TestFixture fixture, ITestOutputHelper output) : IDisposable where T : BaseSinkRecord
 {
     protected async Task ExecuteTestAsync(TestCase testCase)
     {
@@ -62,3 +63,22 @@ public abstract class BaseIntegrationTest<T>(TestFixture fixture, ITestOutputHel
         // Default implementation - can be overridden by derived classes
     }
 }
+
+
+
+public record SchemaRecord(JsonNode? Key, JsonNode Value);
+public record TestCaseConfig(string Schema, string? Folder, string[]? Files);
+
+public record TestCase(string Title, KafkaRecord[] Records, SinkRecord<BaseSinkRecord> Sink)
+{
+    public override string ToString()
+    {
+        return Title;
+    }
+}
+
+public record KafkaRecord(JsonNode? Key, JsonNode Value);
+
+public record SinkRecord<T>(string Topic = "", T? Properties = default);
+
+public record BaseSinkRecord;

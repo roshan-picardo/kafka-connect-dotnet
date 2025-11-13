@@ -14,33 +14,34 @@
     }
   ],
   "sink": {
-    "type": "mongodb",
     "topic": "mongodb-sink-data-topic",
-    "collection": "sink-collection",
-    "database": "sink-database",
-    "keyField": "userId",
-    "setup": [
-      {
-        "userId": "user-003",
-        "userName": "Alice J",
-        "email": "alice.j@example.com",
-        "timestamp": "2024-01-15T10:00:00Z",
-        "action": "CREATE"
-      }
-    ],
-    "expected": [
-      {
-        "userId": "user-003",
-        "userName": "Alice Johnson",
-        "email": "alice.johnson@example.com",
-        "timestamp": "2024-01-15T11:00:00Z",
-        "action": "UPDATE"
-      }
-    ],
-    "cleanup": [
-      {
-        "userId": "user-003"
-      }
-    ]
+    "properties": {
+      "collection": "sink-collection",
+      "database": "sink-database",
+      "keyField": "userId",
+      "setup": [
+        {
+          "userId": "user-003",
+          "userName": "Alice J",
+          "email": "alice.j@example.com",
+          "timestamp": "2024-01-15T10:00:00Z",
+          "action": "CREATE"
+        }
+      ],
+      "expected": [
+        {
+          "userId": "user-003",
+          "userName": "Alice Johnson",
+          "email": "alice.johnson@example.com",
+          "timestamp": "2024-01-15T11:00:00Z",
+          "action": "UPDATE"
+        }
+      ],
+      "cleanup": [
+        {
+          "userId": "user-003"
+        }
+      ]
+    }
   }
 }
