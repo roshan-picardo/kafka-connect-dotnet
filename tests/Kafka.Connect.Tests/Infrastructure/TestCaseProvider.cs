@@ -1,18 +1,16 @@
-using System.Collections;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
 namespace IntegrationTests.Kafka.Connect.Infrastructure;
 
-public class TestCaseBuilder : IEnumerable<object[]>
+public static class TestCaseProvider
 {
-    protected string? _testType = "testType";
-
-    public IEnumerator<object[]> GetEnumerator()
+    private const string RootFolder = "data";
+    private const string ConfigFile = "test-config.json";
+    public static IEnumerable<object[]> GetTestCases(string testType = "")
     {
-        var testConfig = TestConfig.Get();
         var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-        var jsonNode = JsonNode.Parse(File.ReadAllText($"{testConfig.RootFolder.TrimEnd('/')}/{testConfig.ConfigFile}"));
+        var jsonNode = JsonNode.Parse(File.ReadAllText($"{RootFolder.TrimEnd('/')}/{ConfigFile}"));
         if (jsonNode == null) yield break;
         
         foreach (var node in jsonNode.AsArray())
@@ -20,9 +18,9 @@ public class TestCaseBuilder : IEnumerable<object[]>
             var config = node.Deserialize<TestCaseConfig>(options);
             if (config == null) continue;
 
-            if (!string.IsNullOrEmpty(_testType) &&
+            if (!string.IsNullOrEmpty(testType) &&
                 !string.IsNullOrEmpty(config.TestType) &&
-                !config.TestType.Equals(_testType, StringComparison.OrdinalIgnoreCase))
+                !config.TestType.Equals(testType, StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
@@ -33,7 +31,7 @@ public class TestCaseBuilder : IEnumerable<object[]>
             {
                 foreach (var file in config.Files)
                 {
-                    var filePath = $"{testConfig.RootFolder.TrimEnd('/')}/{file.TrimStart('/')}";
+                    var filePath = $"{RootFolder.TrimEnd('/')}/{file.TrimStart('/')}";
                     if (File.Exists(filePath))
                     {
                         testFiles.Add(filePath);
@@ -42,7 +40,7 @@ public class TestCaseBuilder : IEnumerable<object[]>
             }
             else if (!string.IsNullOrEmpty(config.Folder))
             {
-                var folderPath = $"{testConfig.RootFolder.TrimEnd('/')}/{config.Folder.TrimStart('/')}";
+                var folderPath = $"{RootFolder.TrimEnd('/')}/{config.Folder.TrimStart('/')}";
                 if (Directory.Exists(folderPath))
                 {
                     testFiles = Directory.GetFiles(folderPath, "*.json")
@@ -54,7 +52,7 @@ public class TestCaseBuilder : IEnumerable<object[]>
             SchemaRecord? schema = null;
             if (!string.IsNullOrEmpty(config.Schema))
             {
-                var schemaPath = $"{testConfig.RootFolder.TrimEnd('/')}/{config.Schema.TrimStart('/')}";
+                var schemaPath = $"{RootFolder.TrimEnd('/')}/{config.Schema.TrimStart('/')}";
                 if (File.Exists(schemaPath))
                 {
                     var schemaNode = JsonNode.Parse(File.ReadAllText(schemaPath))?.AsObject();
@@ -81,21 +79,5 @@ public class TestCaseBuilder : IEnumerable<object[]>
                 ];
             }
         }
-    }
-    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-}
-
-public class TestConfig
-{
-    public string RootFolder { get; set; } = "data";
-    public string ConfigFile { get; set; } = "mongo-test-config.json";
-
-    public static TestConfig Get(string? configFile = null)
-    {
-        return new TestConfig
-        {
-            RootFolder = Path.Combine(Directory.GetCurrentDirectory(), "data"),
-            ConfigFile = configFile ?? "mongo-test-config.json"
-        };
     }
 }

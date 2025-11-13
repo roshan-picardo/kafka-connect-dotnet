@@ -9,26 +9,24 @@ public abstract class BaseTests<T>(TestFixture fixture, ITestOutputHelper output
     {
         var testTitle = GetTestTitle(testCase);
         output.WriteLine($"Executing test: {testTitle}");
-
-        try
+        if (testCase.Sink.Properties is T properties)
         {
-            await SetupAsync(testCase.Sink.Properties as T);
-
-            await PublishAsync(testCase);
-
-            await Task.Delay(5000);
-
-            await ValidateAsync(testCase.Sink.Properties as T);
-
-            output.WriteLine($"Test '{testTitle}' completed successfully");
-        }
-        finally
-        {
-            await CleanupAsync(testCase.Sink.Properties as T);
+            try
+            {
+                await SetupAsync(properties);
+                await PublishAsync(testCase);
+                await Task.Delay(5000);
+                await ValidateAsync(properties);
+                output.WriteLine($"Test '{testTitle}' completed successfully");
+            }
+            finally
+            {
+                await CleanupAsync(properties);
+            }
         }
     }
 
-    protected abstract Task SetupAsync(T? sink);
+    protected abstract Task SetupAsync(T sink);
 
     private async Task PublishAsync(TestCase testCase)
     {
@@ -37,13 +35,13 @@ public abstract class BaseTests<T>(TestFixture fixture, ITestOutputHelper output
         await SendMessagesToKafka(topicName, GetRecords(testCase));
     }
 
-    protected abstract Task ValidateAsync(T? sink);
+    protected abstract Task ValidateAsync(T sink);
 
-    protected abstract Task CleanupAsync(T? sink);
+    protected abstract Task CleanupAsync(T sink);
 
-    private string GetTestTitle(TestCase testCase) => testCase.Title;
+    private static string GetTestTitle(TestCase testCase) => testCase.Title;
 
-    private IEnumerable<(string Key, string Value)> GetRecords(TestCase testCase) =>
+    private static IEnumerable<(string Key, string Value)> GetRecords(TestCase testCase) =>
         testCase.Records.Select(record => (
             Key: record.Key?.ToString() ?? "",
             Value: record.Value.ToJsonString()
@@ -62,12 +60,14 @@ public abstract class BaseTests<T>(TestFixture fixture, ITestOutputHelper output
     {
         // Default implementation - can be overridden by derived classes
     }
+    
+    public static IEnumerable<object[]> TestCases(string testcase) => TestCaseProvider.GetTestCases(testcase);
 }
 
 
 
 public record SchemaRecord(JsonNode? Key, JsonNode Value);
-public record TestCaseConfig(string Schema, string? Folder, string[]? Files);
+public record TestCaseConfig(string Schema, string? Folder, string[]? Files, string? TestType = null);
 
 public record TestCase(string Title, KafkaRecord[] Records, SinkRecord<BaseSinkRecord> Sink)
 {

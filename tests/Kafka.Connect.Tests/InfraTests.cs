@@ -7,10 +7,10 @@ using IntegrationTests.Kafka.Connect.Infrastructure;
 namespace IntegrationTests.Kafka.Connect;
 
 [Collection("Integration Tests")]
-public class InfraTests(Infrastructure.TestFixture fixture, ITestOutputHelper output)
+public class InfraTests(TestFixture fixture, ITestOutputHelper output)
 {
     [Fact, TestPriority(1)]
-    public async Task Kafka()
+    public async Task KafkaHealth()
     {
         const string topicName = "infra-test-mongo";
         var testData = new
@@ -50,7 +50,7 @@ public class InfraTests(Infrastructure.TestFixture fixture, ITestOutputHelper ou
     }
 
     [Fact, TestPriority(1)]
-    public async Task MongoDb()
+    public async Task MongoHealth()
     {
         const string collectionName = "test-events";
         var database = fixture.GetMongoDatabase("infra-test-mongo");
