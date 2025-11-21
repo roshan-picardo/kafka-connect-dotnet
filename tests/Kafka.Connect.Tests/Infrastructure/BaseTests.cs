@@ -3,57 +3,58 @@ using Xunit.Abstractions;
 
 namespace IntegrationTests.Kafka.Connect.Infrastructure;
 
-public abstract class BaseTests<T>(TestFixture fixture, ITestOutputHelper output) : IDisposable where T : BaseSinkRecord
+public abstract class BaseTests<T>(TestFixture fixture, ITestOutputHelper output) : IDisposable where T : TargetProperties
 {
-    protected async Task ExecuteTestAsync(TestCase testCase)
+    protected async Task ExecuteTest(TestCase<T> testCase)
     {
-        var testTitle = GetTestTitle(testCase);
-        output.WriteLine($"Executing test: {testTitle}");
-        if (testCase.Sink.Properties is T properties)
+        output.WriteLine($"Executing test: {testCase.Title}");
+        if (testCase.Properties is { } properties)
         {
-            try
+            foreach (var record in testCase.Records)
             {
-                await SetupAsync(properties);
-                await PublishAsync(testCase);
-                await Task.Delay(5000);
-                await ValidateAsync(properties);
-                output.WriteLine($"Test '{testTitle}' completed successfully");
-            }
-            finally
-            {
-                await CleanupAsync(properties);
+                await Task.Delay(record.Delay);
+                switch (record.Operation)
+                {
+                    case RecordOperation.Search:
+                        await Search(properties, record);
+                        break;
+                    case RecordOperation.Insert:
+                        await Insert(properties, record);
+                        break;
+                    case RecordOperation.Update:
+                        await Update(properties, record);
+                        break;
+                    case RecordOperation.Delete:
+                        await Delete(properties, record);
+                        break;
+                    case RecordOperation.Publish:
+                        await Publish(testCase.Topic, record);
+                        break;
+                    case RecordOperation.Consume:
+                        await Consume(testCase.Topic, record);
+                        break;
+                    default:
+                        throw new InvalidOperationException();
+                }
             }
         }
     }
+    
+    protected abstract Task Search(T properties, TestCaseRecord record);
+    protected abstract Task Insert(T properties, TestCaseRecord record);
+    protected abstract Task Update(T properties, TestCaseRecord record);
+    protected abstract Task Delete(T properties, TestCaseRecord record);
 
-    protected abstract Task SetupAsync(T sink);
-
-    private async Task PublishAsync(TestCase testCase)
+    private async Task Publish(string topic, TestCaseRecord record)
     {
-        var topicName = testCase.Sink.Topic;
-        await fixture.CreateTopicAsync(topicName);
-        await SendMessagesToKafka(topicName, GetRecords(testCase));
+        var result = await fixture.ProduceMessageAsync(topic, record.Key?.ToJsonString() ?? "",
+            record.Value?.ToJsonString() ?? "");
+        output.WriteLine($"Sent message to {result.Topic}:{result.Partition}:{result.Offset}");
     }
 
-    protected abstract Task ValidateAsync(T sink);
-
-    protected abstract Task CleanupAsync(T sink);
-
-    private static string GetTestTitle(TestCase testCase) => testCase.Title;
-
-    private static IEnumerable<(string Key, string Value)> GetRecords(TestCase testCase) =>
-        testCase.Records.Select(record => (
-            Key: record.Key?.ToString() ?? "",
-            Value: record.Value.ToJsonString()
-        ));
-
-    private async Task SendMessagesToKafka(string topicName, IEnumerable<(string Key, string Value)> records)
+    private async Task Consume(string topic, TestCaseRecord record)
     {
-        foreach (var (key, value) in records)
-        {
-            var result = await fixture.ProduceMessageAsync(topicName, key, value);
-            output.WriteLine($"Sent message to {result.Topic}:{result.Partition}:{result.Offset}");
-        }
+        await Task.Delay(1);
     }
 
     public virtual void Dispose()
@@ -61,24 +62,24 @@ public abstract class BaseTests<T>(TestFixture fixture, ITestOutputHelper output
         // Default implementation - can be overridden by derived classes
     }
     
-    public static IEnumerable<object[]> TestCases(string testcase) => TestCaseProvider.GetTestCases(testcase);
+    public static IEnumerable<object[]> TestCases(string testcase) => TestCaseProvider.GetTestCases<T>(testcase);
 }
-
-
 
 public record SchemaRecord(JsonNode? Key, JsonNode Value);
-public record TestCaseConfig(string Schema, string? Folder, string[]? Files, string? TestType = null);
+public record TestCaseConfig(string Schema, string? Folder, string[]? Files, string? Target = null);
+public record TargetProperties;
+public record TestCaseRecord(RecordOperation Operation, int Delay, JsonNode? Key, JsonNode? Value);
 
-public record TestCase(string Title, KafkaRecord[] Records, SinkRecord<BaseSinkRecord> Sink)
+public record TestCase<T>(string Title, string Topic, T Properties, TestCaseRecord[] Records);
+
+
+public enum RecordOperation
 {
-    public override string ToString()
-    {
-        return Title;
-    }
+    Search,
+    Insert,
+    Update,
+    Delete,
+    Publish,
+    Consume
 }
 
-public record KafkaRecord(JsonNode? Key, JsonNode Value);
-
-public record SinkRecord<T>(string Topic = "", T? Properties = default);
-
-public record BaseSinkRecord;

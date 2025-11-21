@@ -1,8 +1,13 @@
 {
-  "title": "Basic MongoDB Insert Test",
-  "schema": "/schemas/user-event.avsc",
+  "title": "Insert record to mongo database",
+  "topic": "mongodb-sink-data-topic",
+  "properties": {
+    "collection": "sink-collection",
+    "database": "sink-database"
+  },
   "records": [
     {
+      "operation": "Publish",
       "key": null,
       "value": {
         "userId": "user-001",
@@ -13,6 +18,7 @@
       }
     },
     {
+      "operation": "Publish",
       "key": null,
       "value": {
         "userId": "user-002",
@@ -21,39 +27,46 @@
         "timestamp": "2024-01-15T10:31:00Z",
         "action": "CREATE"
       }
+    },
+    {
+      "delay": 1000,
+      "operation": "Search",
+      "key": {
+        "userId": "user-001"
+      },
+      "value": {
+        "userId": "user-001",
+        "userName": "John Doe",
+        "email": "john.doe@example.com",
+        "timestamp": "2024-01-15T10:30:00Z",
+        "action": "CREATE"
+      }
+    },
+    {
+      "operation": "Search",
+      "key": {
+        "userId": "user-001"
+      },
+      "value": {
+        "userId": "user-002",
+        "userName": "Jane Smith",
+        "email": "jane.smith@example.com",
+        "timestamp": "2024-01-15T10:31:00Z",
+        "action": "CREATE"
+      }
+    },
+    {
+      "operation": "Delete",
+      "key": {
+        "userId": "user-001"
+      }
+    },
+    {
+      "operation": "Delete",
+      "key": {
+        "userId": "user-001"
+      }
     }
-  ],
-  "sink": {
-    "topic": "mongodb-sink-data-topic",
-    "properties": {
-      "collection": "sink-collection",
-      "database": "sink-database",
-      "keyField": "userId",
-      "setup": [],
-      "expected": [
-        {
-          "userId": "user-001",
-          "userName": "John Doe",
-          "email": "john.doe@example.com",
-          "timestamp": "2024-01-15T10:30:00Z",
-          "action": "CREATE"
-        },
-        {
-          "userId": "user-002",
-          "userName": "Jane Smith",
-          "email": "jane.smith@example.com",
-          "timestamp": "2024-01-15T10:31:00Z",
-          "action": "CREATE"
-        }
-      ],
-      "cleanup": [
-        {
-          "userId": "user-001"
-        },
-        {
-          "userId": "user-002"
-        }
-      ]
-    }
-  }
+  ]
 }
+

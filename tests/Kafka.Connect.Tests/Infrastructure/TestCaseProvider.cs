@@ -7,7 +7,7 @@ public static class TestCaseProvider
 {
     private const string RootFolder = "data";
     private const string ConfigFile = "test-config.json";
-    public static IEnumerable<object[]> GetTestCases(string testType = "")
+    public static IEnumerable<object[]> GetTestCases<T>(string target = "")
     {
         var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
         var jsonNode = JsonNode.Parse(File.ReadAllText($"{RootFolder.TrimEnd('/')}/{ConfigFile}"));
@@ -18,9 +18,9 @@ public static class TestCaseProvider
             var config = node.Deserialize<TestCaseConfig>(options);
             if (config == null) continue;
 
-            if (!string.IsNullOrEmpty(testType) &&
-                !string.IsNullOrEmpty(config.TestType) &&
-                !config.TestType.Equals(testType, StringComparison.OrdinalIgnoreCase))
+            if (!string.IsNullOrEmpty(target) &&
+                !string.IsNullOrEmpty(config.Target) &&
+                !config.Target.Equals(target, StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
@@ -70,13 +70,10 @@ public static class TestCaseProvider
             {
                 if (string.IsNullOrEmpty(testFile) || !File.Exists(testFile)) continue;
 
-                var testData = JsonSerializer.Deserialize<TestCase>(File.ReadAllText(testFile), options);
+                var testData = JsonSerializer.Deserialize<TestCase<T>>(File.ReadAllText(testFile), options);
                 if (testData == null) continue;
 
-                yield return
-                [
-                    testData with { Records = testData.Records ?? [] }
-                ];
+                yield return [testData];
             }
         }
     }

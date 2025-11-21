@@ -1,10 +1,10 @@
 [
   {
-    "testcase": "MongoSink",
+    "target": "Mongo",
     "schema": "/schemas/user-event.avsc",
     "files": [
       "/mongo/sink/basic-insert.json",
-      "/mongo/sink/update-operation.json"
+      "/mongo/sink/basic-update.json"
     ]
   }
 ]
