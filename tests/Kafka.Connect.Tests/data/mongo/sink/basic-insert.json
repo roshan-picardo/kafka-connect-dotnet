@@ -45,7 +45,7 @@
     {
       "operation": "search",
       "key": {
-        "userId": "user-001"
+        "userId": "user-002"
       },
       "value": {
         "userId": "user-002",
