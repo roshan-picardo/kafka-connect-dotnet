@@ -70,5 +70,11 @@ public record TestCaseConfig(string Schema, string? Folder, string[]? Files, str
 public record TargetProperties;
 public record TestCaseRecord(string Operation, int Delay, JsonNode? Key, JsonNode? Value);
 
-public record TestCase<T>(string Title, string Topic, T Properties, TestCaseRecord[] Records);
+public record TestCase<T>(string Title, string Topic, T Properties, TestCaseRecord[] Records)
+{
+    public override string ToString()
+    {
+        return $"Title: {Title}, Topic: {Topic}, {Properties?.ToString()}, Records: {Records?.Length}";
+    }
+};
 

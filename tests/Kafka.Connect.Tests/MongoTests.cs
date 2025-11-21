@@ -59,7 +59,13 @@ public class MongoTests(TestFixture fixture, ITestOutputHelper output) : BaseTes
     }
 }
 
-public record MongoProperties(string Database, string Collection) : TargetProperties;
+public record MongoProperties(string Database, string Collection) : TargetProperties
+{
+    public override string ToString()
+    {
+        return $"Database: {Database}, Collection: {Collection}";
+    }
+};
 
 
 
