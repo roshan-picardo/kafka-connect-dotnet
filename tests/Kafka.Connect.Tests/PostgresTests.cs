@@ -35,9 +35,9 @@ public class PostgresTests(TestFixture fixture, ITestOutputHelper output) : Base
         }
 
         var sql = $"INSERT INTO {properties.Schema}.\"{properties.Table}\" ({string.Join(", ", columns)}) VALUES ({string.Join(", ", parameters)})";
-        
-        using var command = new NpgsqlCommand(sql, connection);
-        for (int i = 0; i < columns.Count; i++)
+
+        await using var command = new NpgsqlCommand(sql, connection);
+        for (var i = 0; i < columns.Count; i++)
         {
             command.Parameters.AddWithValue(parameters[i].TrimStart('@'), values[i]);
         }
@@ -47,7 +47,7 @@ public class PostgresTests(TestFixture fixture, ITestOutputHelper output) : Base
 
     protected override async Task Update(PostgresProperties properties, TestCaseRecord record)
     {
-        using var connection = _fixture.GetPostgresConnection(properties.Database);
+        await using var connection = _fixture.GetPostgresConnection(properties.Database);
         await connection.OpenAsync();
 
         var keyJson = record.Key?.ToJsonString() ?? "{}";
@@ -113,9 +113,27 @@ public class PostgresTests(TestFixture fixture, ITestOutputHelper output) : Base
         await command.ExecuteNonQueryAsync();
     }
 
+    protected override async Task Setup(PostgresProperties properties)
+    {
+        await using var connection = _fixture.GetPostgresConnection(properties.Database);
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand(properties.Setup, connection);
+        await command.ExecuteNonQueryAsync();
+        await connection.CloseAsync();
+    }
+
+    protected override async Task Cleanup(PostgresProperties properties)
+    {
+        await using var connection = _fixture.GetPostgresConnection(properties.Database);
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand(properties.Cleanup, connection);
+        await command.ExecuteNonQueryAsync();
+        await connection.CloseAsync();
+    }
+
     protected override async Task Search(PostgresProperties properties, TestCaseRecord record)
     {
-        using var connection = _fixture.GetPostgresConnection(properties.Database);
+        await using var connection = _fixture.GetPostgresConnection(properties.Database);
         await connection.OpenAsync();
 
         var keyJson = record.Key?.ToJsonString() ?? "{}";
@@ -131,14 +149,14 @@ public class PostgresTests(TestFixture fixture, ITestOutputHelper output) : Base
         }
 
         var sql = $"SELECT * FROM {properties.Schema}.\"{properties.Table}\" WHERE {string.Join(" AND ", whereConditions)}";
-        
-        using var command = new NpgsqlCommand(sql, connection);
+
+        await using var command = new NpgsqlCommand(sql, connection);
         foreach (var (name, value) in parameters)
         {
             command.Parameters.AddWithValue(name.TrimStart('@'), value);
         }
 
-        using var reader = await command.ExecuteReaderAsync();
+        await using var reader = await command.ExecuteReaderAsync();
         
         if (record.Value != null)
         {
@@ -182,7 +200,7 @@ public class PostgresTests(TestFixture fixture, ITestOutputHelper output) : Base
 
     private static bool HasColumn(NpgsqlDataReader reader, string columnName)
     {
-        for (int i = 0; i < reader.FieldCount; i++)
+        for (var i = 0; i < reader.FieldCount; i++)
         {
             if (reader.GetName(i).Equals(columnName, StringComparison.OrdinalIgnoreCase))
                 return true;
@@ -191,7 +209,7 @@ public class PostgresTests(TestFixture fixture, ITestOutputHelper output) : Base
     }
 }
 
-public record PostgresProperties(string Database, string Schema, string Table) : TargetProperties
+public record PostgresProperties(string Database, string Schema, string Table, string Setup, string Cleanup) : TargetProperties
 {
     public override string ToString()
     {

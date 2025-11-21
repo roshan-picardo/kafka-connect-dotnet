@@ -4,7 +4,9 @@
   "properties": {
     "database": "kafka_connect_test",
     "schema": "public",
-    "table": "sink_table"
+    "table": "sink_table",
+    "setup": "CREATE TABLE IF NOT EXISTS public.sink_table(userid text, userName text, email text, timestamp text, action text);",
+    "cleanup": "DROP TABLE IF EXISTS public.sink_table;"
   },
   "records": [
     {
