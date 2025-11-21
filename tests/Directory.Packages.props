@@ -14,6 +14,7 @@
         <!-- Test Container Packages (not in src) -->
         <PackageVersion Include="Testcontainers" Version="3.6.0" />
         <PackageVersion Include="Testcontainers.MongoDb" Version="3.6.0" />
+        <PackageVersion Include="Testcontainers.PostgreSql" Version="3.6.0" />
         <PackageVersion Include="Testcontainers.Kafka" Version="3.6.0" />
 
         <!-- Additional test-specific packages -->

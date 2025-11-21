@@ -36,6 +36,16 @@ public class MongoTests(TestFixture fixture, ITestOutputHelper output) : BaseTes
         await collection.DeleteOneAsync(BsonDocument.Parse(record.Key?.ToJsonString()));
     }
 
+    protected override Task Setup(MongoProperties properties)
+    {
+        return Task.CompletedTask;
+    }
+
+    protected override Task Cleanup(MongoProperties properties)
+    {
+        return Task.CompletedTask;
+    }
+
     protected override async Task Search(MongoProperties properties, TestCaseRecord record)
     {
         var database = _fixture.GetMongoDatabase(properties.Database);
