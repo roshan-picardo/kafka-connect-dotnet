@@ -29,7 +29,6 @@ public class TestFixture : IAsyncLifetime
     private IAdminClient? _adminClient;
     
     private IMongoClient? _mongoClient;
-    private NpgsqlDataSource? _postgresDataSource;
     private bool _kafkaConnectDeployed;
     private XUnitOutputSuppressor? _outputSuppressor;
     private XUnitOutputSuppressor? _errorSuppressor;

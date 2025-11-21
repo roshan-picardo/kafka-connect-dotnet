@@ -6,5 +6,12 @@
       "/mongo/sink/basic-insert.json",
       "/mongo/sink/basic-update.json"
     ]
+  },
+  {
+    "target": "Postgres",
+    "schema": "/schemas/user-event.avsc",
+    "files": [
+      "/postgres/sink/basic-insert.json"
+    ]
   }
 ]

@@ -1,0 +1,77 @@
+{
+  "title": "Insert record to postgres database",
+  "topic": "postgres-sink-data-topic",
+  "properties": {
+    "database": "kafka_connect_test",
+    "schema": "public",
+    "table": "sink_table"
+  },
+  "records": [
+    {
+      "operation": "publish",
+      "delay": 0,
+      "key": null,
+      "value": {
+        "userId": "user-001",
+        "userName": "John Doe",
+        "email": "john.doe@example.com",
+        "timestamp": "2024-01-15T10:30:00Z",
+        "action": "CREATE"
+      }
+    },
+    {
+      "operation": "publish",
+      "delay": 0,
+      "key": null,
+      "value": {
+        "userId": "user-002",
+        "userName": "Jane Smith",
+        "email": "jane.smith@example.com",
+        "timestamp": "2024-01-15T10:31:00Z",
+        "action": "CREATE"
+      }
+    },
+    {
+      "delay": 1000,
+      "operation": "search",
+      "key": {
+        "userId": "user-001"
+      },
+      "value": {
+        "userId": "user-001",
+        "userName": "John Doe",
+        "email": "john.doe@example.com",
+        "timestamp": "2024-01-15T10:30:00Z",
+        "action": "CREATE"
+      }
+    },
+    {
+      "operation": "search",
+      "delay": 0,
+      "key": {
+        "userId": "user-002"
+      },
+      "value": {
+        "userId": "user-002",
+        "userName": "Jane Smith",
+        "email": "jane.smith@example.com",
+        "timestamp": "2024-01-15T10:31:00Z",
+        "action": "CREATE"
+      }
+    },
+    {
+      "operation": "delete",
+      "delay": 0,
+      "key": {
+        "userId": "user-001"
+      }
+    },
+    {
+      "operation": "delete",
+      "delay": 0,
+      "key": {
+        "userId": "user-002"
+      }
+    }
+  ]
+}
