@@ -7,7 +7,7 @@
   },
   "records": [
     {
-      "operation": "Publish",
+      "operation": "publish",
       "key": null,
       "value": {
         "userId": "user-001",
@@ -18,7 +18,7 @@
       }
     },
     {
-      "operation": "Publish",
+      "operation": "publish",
       "key": null,
       "value": {
         "userId": "user-002",
@@ -30,7 +30,7 @@
     },
     {
       "delay": 1000,
-      "operation": "Search",
+      "operation": "search",
       "key": {
         "userId": "user-001"
       },
@@ -43,7 +43,7 @@
       }
     },
     {
-      "operation": "Search",
+      "operation": "search",
       "key": {
         "userId": "user-001"
       },
@@ -56,13 +56,13 @@
       }
     },
     {
-      "operation": "Delete",
+      "operation": "delete",
       "key": {
         "userId": "user-001"
       }
     },
     {
-      "operation": "Delete",
+      "operation": "delete",
       "key": {
         "userId": "user-001"
       }

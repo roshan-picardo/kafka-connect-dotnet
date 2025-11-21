@@ -13,28 +13,28 @@ public abstract class BaseTests<T>(TestFixture fixture, ITestOutputHelper output
             foreach (var record in testCase.Records)
             {
                 await Task.Delay(record.Delay);
-                switch (record.Operation)
+                switch (record.Operation?.ToLowerInvariant())
                 {
-                    case RecordOperation.Search:
+                    case "search":
                         await Search(properties, record);
                         break;
-                    case RecordOperation.Insert:
+                    case "insert":
                         await Insert(properties, record);
                         break;
-                    case RecordOperation.Update:
+                    case "update":
                         await Update(properties, record);
                         break;
-                    case RecordOperation.Delete:
+                    case "delete":
                         await Delete(properties, record);
                         break;
-                    case RecordOperation.Publish:
+                    case "publish":
                         await Publish(testCase.Topic, record);
                         break;
-                    case RecordOperation.Consume:
+                    case "consume":
                         await Consume(testCase.Topic, record);
                         break;
                     default:
-                        throw new InvalidOperationException();
+                        throw new InvalidOperationException($"Unknown operation: {record.Operation}");
                 }
             }
         }
@@ -68,18 +68,7 @@ public abstract class BaseTests<T>(TestFixture fixture, ITestOutputHelper output
 public record SchemaRecord(JsonNode? Key, JsonNode Value);
 public record TestCaseConfig(string Schema, string? Folder, string[]? Files, string? Target = null);
 public record TargetProperties;
-public record TestCaseRecord(RecordOperation Operation, int Delay, JsonNode? Key, JsonNode? Value);
+public record TestCaseRecord(string Operation, int Delay, JsonNode? Key, JsonNode? Value);
 
 public record TestCase<T>(string Title, string Topic, T Properties, TestCaseRecord[] Records);
-
-
-public enum RecordOperation
-{
-    Search,
-    Insert,
-    Update,
-    Delete,
-    Publish,
-    Consume
-}
 
