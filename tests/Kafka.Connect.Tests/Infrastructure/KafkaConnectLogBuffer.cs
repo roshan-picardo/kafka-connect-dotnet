@@ -3,23 +3,19 @@ using System.Text.Json;
 
 namespace IntegrationTests.Kafka.Connect.Infrastructure;
 
-/// <summary>
-/// Simple buffer for Kafka Connect logs that displays them at the end of test execution
-/// </summary>
 public class KafkaConnectLogBuffer : Stream
 {
     private readonly MemoryStream _buffer = new();
     private static readonly ConcurrentQueue<string> BufferedLogs = new();
     private static readonly object Lock = new();
-    private static bool _logsDisplayed = false;
-    private static bool _rawJsonMode = false;
-    private bool _disposed = false;
+    private static bool _logsDisplayed;
+    private static bool _rawJsonMode;
+    private bool _disposed;
     
     static KafkaConnectLogBuffer()
     {
-        // Register to display logs when the application domain is unloading
-        AppDomain.CurrentDomain.ProcessExit += (sender, e) => DisplayBufferedLogs();
-        AppDomain.CurrentDomain.DomainUnload += (sender, e) => DisplayBufferedLogs();
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => DisplayBufferedLogs();
+        AppDomain.CurrentDomain.DomainUnload += (_, _) => DisplayBufferedLogs();
     }
     
     public static void SetRawJsonMode(bool enabled)
@@ -78,7 +74,6 @@ public class KafkaConnectLogBuffer : Stream
 
     private static void BufferKafkaConnectLog(string logLine)
     {
-        // Format the log for better readability
         var formattedLog = FormatKafkaConnectLog(logLine);
         BufferedLogs.Enqueue(formattedLog);
     }
@@ -87,13 +82,11 @@ public class KafkaConnectLogBuffer : Stream
     {
         if (_rawJsonMode)
         {
-            // Return raw JSON as is
             return logLine;
         }
         
         try
         {
-            // Try to parse as JSON and extract the message
             var jsonDoc = JsonDocument.Parse(logLine);
             if (jsonDoc.RootElement.TryGetProperty("Properties", out var props) &&
                 props.TryGetProperty("Log", out var log) &&
@@ -108,44 +101,28 @@ public class KafkaConnectLogBuffer : Stream
         }
         catch
         {
-            // If not valid JSON, return as is with timestamp
             var timestamp = DateTime.Now.ToString("HH:mm:ss");
             return $"[{timestamp}] {logLine}";
         }
     }
 
-    /// <summary>
-    /// Display all buffered Kafka Connect logs at the end of test execution
-    /// </summary>
-    public static void DisplayBufferedLogs()
+    private static void DisplayBufferedLogs()
     {
         lock (Lock)
         {
-            // Prevent double logging
             if (_logsDisplayed || BufferedLogs.IsEmpty)
                 return;
 
             _logsDisplayed = true;
 
-            Console.WriteLine("------------------- KAFKA CONNECT -------------------");
+            Console.WriteLine(" ");
 
             while (BufferedLogs.TryDequeue(out var log))
             {
                 Console.WriteLine(log);
             }
 
-            Console.WriteLine("------------------- KAFKA CONNECT -------------------");
-        }
-    }
-
-    /// <summary>
-    /// Clear all buffered logs
-    /// </summary>
-    public static void ClearBuffer()
-    {
-        lock (Lock)
-        {
-            while (BufferedLogs.TryDequeue(out _)) { }
+            Console.WriteLine(" ");
         }
     }
 

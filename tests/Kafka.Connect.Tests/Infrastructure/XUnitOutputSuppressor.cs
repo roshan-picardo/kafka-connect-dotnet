@@ -3,25 +3,18 @@ using System.Text.RegularExpressions;
 
 namespace IntegrationTests.Kafka.Connect.Infrastructure;
 
-public class XUnitOutputSuppressor : TextWriter
+public class XUnitOutputSuppressor(TextWriter originalWriter) : TextWriter
 {
-    private readonly TextWriter _originalWriter;
     private readonly StringBuilder _lineBuffer = new();
     private static readonly Regex TestResultPattern = new(@"^\s*(Passed|Failed|Skipped)\s+.*\[\d+(\.\d+)?\s*(s|ms)\]", RegexOptions.Compiled);
     private static readonly Regex XUnitFrameworkPattern = new(@"^\s*\[xUnit\.net.*\]", RegexOptions.Compiled);
 
-    public XUnitOutputSuppressor(TextWriter originalWriter)
-    {
-        _originalWriter = originalWriter;
-    }
-
-    public override Encoding Encoding => _originalWriter.Encoding;
+    public override Encoding Encoding => originalWriter.Encoding;
 
     public override void Write(char value)
     {
         _lineBuffer.Append(value);
         
-        // Check if we have a complete line
         if (value == '\n')
         {
             ProcessLine();
@@ -34,7 +27,6 @@ public class XUnitOutputSuppressor : TextWriter
         {
             _lineBuffer.Append(value);
             
-            // Check if the string contains newlines
             if (value.Contains('\n'))
             {
                 ProcessLine();
@@ -59,32 +51,23 @@ public class XUnitOutputSuppressor : TextWriter
 
         if (string.IsNullOrWhiteSpace(line))
         {
-            _originalWriter.Write(line);
+            originalWriter.Write(line);
             return;
         }
 
         var trimmedLine = line.TrimEnd('\r', '\n');
 
-        // Check if this is a test result line
         if (TestResultPattern.IsMatch(trimmedLine))
         {
-            // Capture the test result and suppress output
-            TestResultCollector.ParseAndAddResult(trimmedLine);
-            // Debug: Log that we're suppressing this line
             System.Diagnostics.Debug.WriteLine($"SUPPRESSED TEST RESULT: {trimmedLine}");
-            return; // Don't write to original output
         }
 
-        // Check if this is an XUnit framework message
         if (XUnitFrameworkPattern.IsMatch(trimmedLine))
         {
-            // Debug: Log that we're suppressing this line
             System.Diagnostics.Debug.WriteLine($"SUPPRESSED XUNIT FRAMEWORK: {trimmedLine}");
-            return; // Suppress XUnit framework messages
         }
 
-        // Write all other content to original output
-        _originalWriter.Write(line);
+        originalWriter.Write(line);
     }
 
     public override void Flush()
@@ -93,7 +76,7 @@ public class XUnitOutputSuppressor : TextWriter
         {
             ProcessLine();
         }
-        _originalWriter.Flush();
+        originalWriter.Flush();
     }
 
     protected override void Dispose(bool disposing)

@@ -1,8 +1,13 @@
 {
-  "title": "Basic MongoDB Insert Test",
-  "schema": "/schemas/user-event.avsc",
+  "title": "Insert record to mongo database",
+  "topic": "mongodb-sink-data-topic",
+  "properties": {
+    "collection": "sink-collection",
+    "database": "sink-database"
+  },
   "records": [
     {
+      "operation": "publish",
       "key": null,
       "value": {
         "userId": "user-001",
@@ -13,6 +18,7 @@
       }
     },
     {
+      "operation": "publish",
       "key": null,
       "value": {
         "userId": "user-002",
@@ -21,38 +27,46 @@
         "timestamp": "2024-01-15T10:31:00Z",
         "action": "CREATE"
       }
-    }
-  ],
-  "sink": {
-    "type": "mongodb",
-    "topic": "mongodb-sink-data-topic",
-    "collection": "sink-collection",
-    "database": "sink-database",
-    "keyField": "userId",
-    "setup": [],
-    "expected": [
-      {
+    },
+    {
+      "delay": 1000,
+      "operation": "search",
+      "key": {
+        "userId": "user-001"
+      },
+      "value": {
         "userId": "user-001",
         "userName": "John Doe",
         "email": "john.doe@example.com",
         "timestamp": "2024-01-15T10:30:00Z",
         "action": "CREATE"
+      }
+    },
+    {
+      "operation": "search",
+      "key": {
+        "userId": "user-002"
       },
-      {
+      "value": {
         "userId": "user-002",
         "userName": "Jane Smith",
         "email": "jane.smith@example.com",
         "timestamp": "2024-01-15T10:31:00Z",
         "action": "CREATE"
       }
-    ],
-    "cleanup": [
-      {
+    },
+    {
+      "operation": "delete",
+      "key": {
         "userId": "user-001"
-      },
-      {
-        "userId": "user-002"
       }
-    ]
-  }
+    },
+    {
+      "operation": "delete",
+      "key": {
+        "userId": "user-001"
+      }
+    }
+  ]
 }
+
