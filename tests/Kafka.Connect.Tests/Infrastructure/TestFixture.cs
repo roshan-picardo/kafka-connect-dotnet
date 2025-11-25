@@ -183,7 +183,7 @@ public class TestFixture : IAsyncLifetime
     {
         LogMessage("Creating topics from connector configurations...");
         
-        var configFiles = Directory.GetFiles(Directory.GetCurrentDirectory(), "appsettings.*.json");
+        var configFiles = Directory.GetFiles(Path.Join(Directory.GetCurrentDirectory(), "Configurations"), "appsettings.*.json");
         
         if (configFiles.Length == 0)
         {
