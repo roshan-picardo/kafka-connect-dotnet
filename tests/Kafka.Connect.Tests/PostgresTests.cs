@@ -17,7 +17,7 @@ public class PostgresTests(TestFixture fixture, ITestOutputHelper output) : Base
 
     protected override async Task Insert(PostgresProperties properties, TestCaseRecord record)
     {
-        using var connection = _fixture.GetPostgresConnection(properties.Database);
+        await using var connection = _fixture.GetPostgresConnection(properties.Database);
         await connection.OpenAsync();
 
         var jsonValue = record.Value?.ToJsonString() ?? "{}";
