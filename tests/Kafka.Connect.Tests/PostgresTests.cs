@@ -144,11 +144,11 @@ public class PostgresTests(TestFixture fixture, ITestOutputHelper output) : Base
 
         foreach (var property in keyDoc.RootElement.EnumerateObject())
         {
-            whereConditions.Add($"\"{property.Name}\" = @{property.Name}");
+            whereConditions.Add($"{property.Name} = @{property.Name}");
             parameters.Add(($"@{property.Name}", GetParameterValue(property.Value)));
         }
 
-        var sql = $"SELECT * FROM {properties.Schema}.\"{properties.Table}\" WHERE {string.Join(" AND ", whereConditions)}";
+        var sql = $"SELECT * FROM {properties.Schema}.{properties.Table} WHERE {string.Join(" AND ", whereConditions)}";
 
         await using var command = new NpgsqlCommand(sql, connection);
         foreach (var (name, value) in parameters)
