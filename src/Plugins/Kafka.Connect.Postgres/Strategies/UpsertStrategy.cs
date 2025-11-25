@@ -37,6 +37,7 @@ public class UpsertStrategy(ILogger<UpsertStrategy> logger, IConfigurationProvid
                                   END
                                $do$;
                                """;
+            logger.Warning(upsertQuery);
             
             return Task.FromResult(new StrategyModel<string>
             {
