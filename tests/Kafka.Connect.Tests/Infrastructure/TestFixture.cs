@@ -19,12 +19,7 @@ public class TestFixture : IAsyncLifetime
     private readonly IContainerService _containerService;
     private INetwork? _network;
     
-    private IContainer? _zookeeperContainer;
-    private IContainer? _kafkaContainer;
-    private IContainer? _schemaRegistryContainer;
-    private IContainer? _mongoContainer;
-    private IContainer? _postgresContainer;
-    private IContainer? _kafkaConnectContainer;
+    private readonly Dictionary<string, IContainer> _containers = new();
     
     private IAdminClient? _adminClient;
     
@@ -117,39 +112,45 @@ public class TestFixture : IAsyncLifetime
 
     private async Task CreateContainersAsync()
     {
-        // Define container creation order to maintain dependencies
-        var containerOrder = new[] { "Zookeeper", "Broker", "SchemaRegistry", "Mongo", "Postgres" };
-        
-        foreach (var containerKey in containerOrder)
+        // Create containers in the order they appear in configuration (excluding Worker)
+        foreach (var (containerKey, config) in _config.TestContainers.Containers)
         {
-            if (_config.TestContainers.Containers.TryGetValue(containerKey, out var config))
+            if (containerKey == "Worker") continue; // Worker is handled separately
+            
+            if (config.Enabled)
             {
                 var container = await _containerService.CreateContainerAsync(config, _network!, _loggingService);
+                _containers[containerKey] = container;
                 
-                // Assign to appropriate field for backward compatibility
-                switch (containerKey)
-                {
-                    case "Zookeeper":
-                        _zookeeperContainer = container;
-                        break;
-                    case "Broker":
-                        _kafkaContainer = container;
-                        LogMessage($"Kafka container started: {config.Name} -> {config.Hostname}:{container.GetMappedPublicPort(9092)}");
-                        break;
-                    case "SchemaRegistry":
-                        _schemaRegistryContainer = container;
-                        LogMessage($"Schema Registry container started: {config.Name} -> {config.Hostname}:{container.GetMappedPublicPort(8081)}");
-                        break;
-                    case "Mongo":
-                        _mongoContainer = container;
-                        LogMessage($"MongoDB container started: {config.Name} -> {_config.Shakedown.Mongo}");
-                        break;
-                    case "Postgres":
-                        _postgresContainer = container;
-                        LogMessage($"PostgreSQL container started: {config.Name} -> {_config.Shakedown.Postgres}");
-                        break;
-                }
+                // Log specific port information for certain container types
+                LogContainerStarted(containerKey, config, container);
             }
+        }
+    }
+
+    private void LogContainerStarted(string containerKey, ContainerConfig config, IContainer container)
+    {
+        switch (containerKey.ToLower())
+        {
+            case "broker":
+            case "kafka":
+                LogMessage($"Kafka container started: {config.Name} -> {config.Hostname}:{container.GetMappedPublicPort(9092)}");
+                break;
+            case "schemaregistry":
+            case "schema":
+                LogMessage($"Schema Registry container started: {config.Name} -> {config.Hostname}:{container.GetMappedPublicPort(8081)}");
+                break;
+            case "mongo":
+            case "mongodb":
+                LogMessage($"MongoDB container started: {config.Name} -> {_config.Shakedown.Mongo}");
+                break;
+            case "postgres":
+            case "postgresql":
+                LogMessage($"PostgreSQL container started: {config.Name} -> {_config.Shakedown.Postgres}");
+                break;
+            default:
+                LogMessage($"Container started: {config.Name} -> {config.Hostname}");
+                break;
         }
     }
 
@@ -406,7 +407,8 @@ public class TestFixture : IAsyncLifetime
     {
         var config = _config.TestContainers.Containers["Worker"];
         LogMessage($"Creating Kafka Connect container: {config.Name}");
-        _kafkaConnectContainer = await _containerService.CreateContainerAsync(config, _network!, _loggingService);
+        var container = await _containerService.CreateContainerAsync(config, _network!, _loggingService);
+        _containers["Worker"] = container;
         LogMessage($"Kafka Connect container started: {config.Name} -> {_config.Shakedown.Worker}");
     }
 
@@ -454,15 +456,18 @@ public class TestFixture : IAsyncLifetime
 
             await Task.Delay(10000); 
             
-            await StopContainerAsync(_kafkaConnectContainer);
-            
             LogMessage("Tearing down test infrastructure...");
-            await DisposeContainerAsync(_kafkaConnectContainer);
-            await DisposeContainerAsync(_kafkaContainer);
-            await DisposeContainerAsync(_schemaRegistryContainer);
-            await DisposeContainerAsync(_zookeeperContainer);
-            await DisposeContainerAsync(_mongoContainer);
-            await DisposeContainerAsync(_postgresContainer);
+            
+            // Stop and dispose all containers in reverse order
+            var containerKeys = _containers.Keys.Reverse().ToList();
+            foreach (var containerKey in containerKeys)
+            {
+                if (_containers.TryGetValue(containerKey, out var container))
+                {
+                    await StopContainerAsync(container);
+                    await DisposeContainerAsync(container);
+                }
+            }
             if (_network != null)
             {
                 LogMessage($"Cleaning up test network: {_config.TestContainers.Network.Name}");
