@@ -18,7 +18,7 @@ public class UpsertStrategy(ILogger<UpsertStrategy> logger, IConfigurationProvid
             var deserialized = record.Deserialized.Value.ToDictionary();
             var lookupClause = $"WHERE {BuildCondition(config.Lookup ?? config.Filter, deserialized)}";
             var whereClause = $"WHERE {BuildCondition(config.Filter, deserialized)}";
-            var fields = string.Join(',', deserialized.Keys);
+            var fields = $"\"{string.Join("\",\"", deserialized.Keys)}\"";
 
             var upsertQuery = $"""
                                DO $do$
@@ -37,7 +37,6 @@ public class UpsertStrategy(ILogger<UpsertStrategy> logger, IConfigurationProvid
                                   END
                                $do$;
                                """;
-            logger.Warning(upsertQuery);
             
             return Task.FromResult(new StrategyModel<string>
             {

@@ -129,7 +129,7 @@ public class PostgresTests(TestFixture fixture, ITestOutputHelper output) : Base
         await using var command = new NpgsqlCommand(properties.Cleanup, connection);
         await command.ExecuteNonQueryAsync();
         await connection.CloseAsync();
-    }
+    }   
 
     protected override async Task Search(PostgresProperties properties, TestCaseRecord record)
     {
@@ -139,34 +139,21 @@ public class PostgresTests(TestFixture fixture, ITestOutputHelper output) : Base
         var keyJson = record.Key?.ToJsonString() ?? "{}";
         var keyDoc = JsonDocument.Parse(keyJson);
 
-        var whereConditions = new List<string>();
-        var parameters = new List<(string name, object value)>();
-
-        foreach (var property in keyDoc.RootElement.EnumerateObject())
-        {
-            whereConditions.Add($"{property.Name} = @{property.Name}");
-            parameters.Add(($"@{property.Name}", GetParameterValue(property.Value)));
-        }
+        var whereConditions = keyDoc.RootElement.EnumerateObject().Select(property => $"\"{property.Name}\" = '{GetParameterValue(property.Value)}'").ToList();
 
         var sql = $"SELECT * FROM {properties.Schema}.{properties.Table} WHERE {string.Join(" AND ", whereConditions)}";
 
         await using var command = new NpgsqlCommand(sql, connection);
-        foreach (var (name, value) in parameters)
-        {
-            command.Parameters.AddWithValue(name.TrimStart('@'), value);
-        }
 
         await using var reader = await command.ExecuteReaderAsync();
         
         if (record.Value != null)
         {
-            // Expecting a record to exist
             Assert.True(await reader.ReadAsync(), "Expected record not found in database");
             
             var expectedJson = record.Value.ToJsonString();
             var expectedDoc = JsonDocument.Parse(expectedJson);
             
-            // Verify each expected field
             foreach (var expectedProperty in expectedDoc.RootElement.EnumerateObject())
             {
                 var columnName = expectedProperty.Name;
@@ -180,7 +167,6 @@ public class PostgresTests(TestFixture fixture, ITestOutputHelper output) : Base
         }
         else
         {
-            // Expecting no record to exist
             Assert.False(await reader.ReadAsync(), "Expected no record but found one in database");
         }
     }
