@@ -16,6 +16,7 @@ public class TestContainersConfig
     public KafkaConfig Broker { get; set; } = new();
     public SchemaRegistryConfig SchemaRegistry { get; set; } = new();
     public MongoDbConfig Mongo { get; set; } = new();
+    public PostgresConfig Postgres { get; set; } = new();
     public KafkaConnectConfig Worker { get; set; } = new();
 }
 
@@ -78,6 +79,20 @@ public class MongoDbConfig : ContainerConfig
     }
 }
 
+public class PostgresConfig : ContainerConfig
+{
+    public string DatabaseName { get; set; } = "kafka_connect_test";
+    public string Username { get; set; } = "postgres";
+    public string Password { get; set; } = "postgres";
+    
+    public PostgresConfig()
+    {
+        Image = "postgres:16";
+        Name = "postgres";
+        Hostname = "postgres";
+    }
+}
+
 public class KafkaConnectConfig : ContainerConfig
 {
     public string DockerfilePath { get; set; } = string.Empty;
@@ -115,6 +130,7 @@ public class ShakedownConfig
     public string Kafka { get; set; } = string.Empty;
     public string SchemaRegistry { get; set; } = string.Empty;
     public string Mongo { get; set; } = string.Empty;
+    public string Postgres { get; set; } = string.Empty;
     public string Worker { get; set; } = string.Empty;
 }
 

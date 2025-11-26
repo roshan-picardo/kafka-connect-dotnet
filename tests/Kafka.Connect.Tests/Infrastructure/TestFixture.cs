@@ -8,6 +8,7 @@ using Microsoft.Extensions.Configuration;
 using Xunit;
 using Microsoft.Extensions.DependencyInjection;
 using System.Text.Json;
+using Npgsql;
 
 namespace IntegrationTests.Kafka.Connect.Infrastructure;
 
@@ -22,6 +23,7 @@ public class TestFixture : IAsyncLifetime
     private IContainer? _kafkaContainer;
     private IContainer? _schemaRegistryContainer;
     private IContainer? _mongoContainer;
+    private IContainer? _postgresContainer;
     private IContainer? _kafkaConnectContainer;
     
     private IAdminClient? _adminClient;
@@ -93,6 +95,7 @@ public class TestFixture : IAsyncLifetime
             await CreateKafkaContainerAsync();
             await CreateSchemaRegistryContainerAsync();
             await CreateMongoContainerAsync();
+            await CreatePostgresContainerAsync();
             
             await CreateConnectorTopicsAsync();
                 
@@ -155,11 +158,32 @@ public class TestFixture : IAsyncLifetime
         return _mongoClient.GetDatabase(databaseName);
     }
 
+    private async Task CreatePostgresContainerAsync()
+    {
+        LogMessage($"Creating PostgreSQL container: {_config.TestContainers.Postgres.Name}");
+        _postgresContainer = await _containerService.CreateContainerAsync(_config.TestContainers.Postgres, _network!, _loggingService);
+        LogMessage($"PostgreSQL container started: {_config.TestContainers.Postgres.Name} -> {_config.Shakedown.Postgres}");
+    }
+
+    public NpgsqlConnection GetPostgresConnection(string? databaseName = null)
+    {
+        var connectionString = _config.Shakedown.Postgres;
+        if (!string.IsNullOrEmpty(databaseName))
+        {
+            var builder = new NpgsqlConnectionStringBuilder(connectionString)
+            {
+                Database = databaseName
+            };
+            connectionString = builder.ConnectionString;
+        }
+        return new NpgsqlConnection(connectionString);
+    }
+
     private async Task CreateConnectorTopicsAsync()
     {
         LogMessage("Creating topics from connector configurations...");
         
-        var configFiles = Directory.GetFiles(Directory.GetCurrentDirectory(), "appsettings.*.json");
+        var configFiles = Directory.GetFiles(Path.Join(Directory.GetCurrentDirectory(), "Configurations"), "appsettings.*.json");
         
         if (configFiles.Length == 0)
         {
@@ -441,6 +465,7 @@ public class TestFixture : IAsyncLifetime
             await DisposeContainerAsync(_schemaRegistryContainer);
             await DisposeContainerAsync(_zookeeperContainer);
             await DisposeContainerAsync(_mongoContainer);
+            await DisposeContainerAsync(_postgresContainer);
             if (_network != null)
             {
                 LogMessage($"Cleaning up test network: {_config.TestContainers.Network.Name}");

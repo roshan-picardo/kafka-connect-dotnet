@@ -16,7 +16,7 @@ public class UpdateStrategy(ILogger<UpdateStrategy> logger, IConfigurationProvid
         {
             var config = configurationProvider.GetPluginConfig<PluginConfig>(connector);
             var deserialized = record.Deserialized.Value.ToDictionary();
-            var fields = string.Join(',', deserialized.Keys);
+            var fields = $"\"{string.Join("\",\"", deserialized.Keys)}\"";
             
             return Task.FromResult(new StrategyModel<string>
             {
