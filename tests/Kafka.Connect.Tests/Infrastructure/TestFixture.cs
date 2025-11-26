@@ -91,18 +91,9 @@ public class TestFixture : IAsyncLifetime
             LogMessage("Starting integration test infrastructure...");
 
             await CreateNetworkAsync();
-            await CreateZookeeperContainerAsync();
-            await CreateKafkaContainerAsync();
-            await CreateSchemaRegistryContainerAsync();
-            await CreateMongoContainerAsync();
-            await CreatePostgresContainerAsync();
-            
+            await CreateContainersAsync();
             await CreateConnectorTopicsAsync();
-                
-            if (_config.TestContainers.Worker.Enabled)
-            {
-                await DeployKafkaConnectAsync();
-            }
+            await DeployKafkaConnectAsync();
 
             LogMessage("Integration test infrastructure ready!");
         }
@@ -124,45 +115,48 @@ public class TestFixture : IAsyncLifetime
         await _network.CreateAsync();
     }
 
-    private async Task CreateZookeeperContainerAsync()
+    private async Task CreateContainersAsync()
     {
-        LogMessage($"Creating Zookeeper container: {_config.TestContainers.Zookeeper.Name}");
-        _zookeeperContainer = await _containerService.CreateContainerAsync(_config.TestContainers.Zookeeper, _network!, _loggingService);
-        LogMessage($"Zookeeper container started: {_config.TestContainers.Zookeeper.Name}");
-    }
-
-    private async Task CreateKafkaContainerAsync()
-    {
-        LogMessage($"Creating Kafka container: {_config.TestContainers.Broker.Name}");
-        _kafkaContainer = await _containerService.CreateContainerAsync(_config.TestContainers.Broker, _network!, _loggingService);
-        LogMessage($"Kafka container started: {_config.TestContainers.Broker.Name} -> {_config.TestContainers.Broker.Hostname}:{_kafkaContainer.GetMappedPublicPort(9092)}");
-    }
-
-    private async Task CreateSchemaRegistryContainerAsync()
-    {
-        LogMessage($"Creating Schema Registry container: {_config.TestContainers.SchemaRegistry.Name}");
-        _schemaRegistryContainer = await _containerService.CreateContainerAsync(_config.TestContainers.SchemaRegistry, _network!, _loggingService);
-        LogMessage($"Schema Registry container started: {_config.TestContainers.SchemaRegistry.Name} -> {_config.TestContainers.SchemaRegistry.Hostname}:{_schemaRegistryContainer.GetMappedPublicPort(8081)}");
-    }
-
-    private async Task CreateMongoContainerAsync()
-    {
-        LogMessage($"Creating MongoDB container: {_config.TestContainers.Mongo.Name}");
-        _mongoContainer = await _containerService.CreateContainerAsync(_config.TestContainers.Mongo, _network!, _loggingService);
-        LogMessage($"MongoDB container started: {_config.TestContainers.Mongo.Name} -> {_config.Shakedown.Mongo}");
+        // Define container creation order to maintain dependencies
+        var containerOrder = new[] { "Zookeeper", "Broker", "SchemaRegistry", "Mongo", "Postgres" };
+        
+        foreach (var containerKey in containerOrder)
+        {
+            if (_config.TestContainers.Containers.TryGetValue(containerKey, out var config))
+            {
+                var container = await _containerService.CreateContainerAsync(config, _network!, _loggingService);
+                
+                // Assign to appropriate field for backward compatibility
+                switch (containerKey)
+                {
+                    case "Zookeeper":
+                        _zookeeperContainer = container;
+                        break;
+                    case "Broker":
+                        _kafkaContainer = container;
+                        LogMessage($"Kafka container started: {config.Name} -> {config.Hostname}:{container.GetMappedPublicPort(9092)}");
+                        break;
+                    case "SchemaRegistry":
+                        _schemaRegistryContainer = container;
+                        LogMessage($"Schema Registry container started: {config.Name} -> {config.Hostname}:{container.GetMappedPublicPort(8081)}");
+                        break;
+                    case "Mongo":
+                        _mongoContainer = container;
+                        LogMessage($"MongoDB container started: {config.Name} -> {_config.Shakedown.Mongo}");
+                        break;
+                    case "Postgres":
+                        _postgresContainer = container;
+                        LogMessage($"PostgreSQL container started: {config.Name} -> {_config.Shakedown.Postgres}");
+                        break;
+                }
+            }
+        }
     }
 
     public IMongoDatabase GetMongoDatabase(string databaseName)
     {
         _mongoClient ??= new MongoClient(_config.Shakedown.Mongo);
         return _mongoClient.GetDatabase(databaseName);
-    }
-
-    private async Task CreatePostgresContainerAsync()
-    {
-        LogMessage($"Creating PostgreSQL container: {_config.TestContainers.Postgres.Name}");
-        _postgresContainer = await _containerService.CreateContainerAsync(_config.TestContainers.Postgres, _network!, _loggingService);
-        LogMessage($"PostgreSQL container started: {_config.TestContainers.Postgres.Name} -> {_config.Shakedown.Postgres}");
     }
 
     public NpgsqlConnection GetPostgresConnection(string? databaseName = null)
@@ -292,7 +286,7 @@ public class TestFixture : IAsyncLifetime
         var producerConfig = new ProducerConfig
         {
             BootstrapServers = _config.Shakedown.Kafka,
-            ClientId = _config.TestContainers.Broker.Producer.ClientId,
+            ClientId = _config.TestContainers.Producer.ClientId,
             SecurityProtocol = SecurityProtocol.Plaintext,
             MessageTimeoutMs = 30000,
             RequestTimeoutMs = 10000,
@@ -333,9 +327,9 @@ public class TestFixture : IAsyncLifetime
         var consumerConfig = new ConsumerConfig
         {
             BootstrapServers = _config.Shakedown.Kafka,
-            GroupId = _config.TestContainers.Broker.Consumer.GroupId,
-            AutoOffsetReset = Enum.Parse<AutoOffsetReset>(_config.TestContainers.Broker.Consumer.AutoOffsetReset),
-            EnableAutoCommit = _config.TestContainers.Broker.Consumer.EnableAutoCommit,
+            GroupId = _config.TestContainers.Consumer.GroupId,
+            AutoOffsetReset = Enum.Parse<AutoOffsetReset>(_config.TestContainers.Consumer.AutoOffsetReset),
+            EnableAutoCommit = _config.TestContainers.Consumer.EnableAutoCommit,
             SecurityProtocol = SecurityProtocol.Plaintext,
             SessionTimeoutMs = 30000,
             MaxPollIntervalMs = 30000,
@@ -392,14 +386,15 @@ public class TestFixture : IAsyncLifetime
 
     public async Task DeployKafkaConnectAsync()
     {
-        if (_kafkaConnectDeployed || !_config.TestContainers.Worker.Enabled)
+        if (!_config.TestContainers.Containers.TryGetValue("Worker", out var workerConfig) ||
+            _kafkaConnectDeployed || !workerConfig.Enabled)
             return;
 
         await CreateKafkaConnectContainerAsync();
 
         await Task.Delay(2000);
 
-        if (_config.TestContainers.Worker.WaitForHealthCheck)
+        if (workerConfig.WaitForHealthCheck)
         {
             await WaitForKafkaConnectHealthAsync();
         }
@@ -409,16 +404,18 @@ public class TestFixture : IAsyncLifetime
 
     private async Task CreateKafkaConnectContainerAsync()
     {
-        LogMessage($"Creating Kafka Connect container: {_config.TestContainers.Worker.Name}");
-        _kafkaConnectContainer = await _containerService.CreateKafkaConnectContainerAsync(_config.TestContainers.Worker, _network!, _loggingService);
-        LogMessage($"Kafka Connect container started: {_config.TestContainers.Worker.Name} -> {_config.Shakedown.Worker}");
+        var config = _config.TestContainers.Containers["Worker"];
+        LogMessage($"Creating Kafka Connect container: {config.Name}");
+        _kafkaConnectContainer = await _containerService.CreateContainerAsync(config, _network!, _loggingService);
+        LogMessage($"Kafka Connect container started: {config.Name} -> {_config.Shakedown.Worker}");
     }
 
     private async Task WaitForKafkaConnectHealthAsync()
     {
+        var workerConfig = _config.TestContainers.Containers["Worker"];
         using var httpClient = new HttpClient();
-        var healthUrl = $"{_config.Shakedown.Worker}{_config.TestContainers.Worker.HealthCheckEndpoint}";
-        var timeout = TimeSpan.FromSeconds(_config.TestContainers.Worker.StartupTimeoutSeconds);
+        var healthUrl = $"{_config.Shakedown.Worker}{workerConfig.HealthCheckEndpoint}";
+        var timeout = TimeSpan.FromSeconds(workerConfig.StartupTimeoutSeconds);
         var cancellationToken = new CancellationTokenSource(timeout).Token;
 
         while (!cancellationToken.IsCancellationRequested)
