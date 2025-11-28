@@ -97,8 +97,7 @@ public class ContainerService : IContainerService
 
         var container = containerBuilder.Build();
         
-        var containerType = !string.IsNullOrEmpty(config.DockerfilePath) ? "Dockerfile-based" : "Image-based";
-        TestLoggingService.LogMessage($"Creating {containerType} container: {config.Name} ({config.Image ?? config.DockerfilePath})");
+        TestLoggingService.LogMessage($"Creating container: {config.Name} ({config.Image})");
         await container.StartAsync();
         TestLoggingService.LogMessage($"Container started: {config.Name}");
         

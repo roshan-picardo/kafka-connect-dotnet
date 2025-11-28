@@ -1,7 +1,7 @@
 {
   "title": "Insert record to postgres database",
-  "topic": "postgres-sink-data-topic",
   "properties": {
+    "topic": "postgres-sink-data-topic",
     "database": "kafka_connect_test",
     "schema": "public",
     "table": "sink_table",

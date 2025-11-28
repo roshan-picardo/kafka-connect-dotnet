@@ -57,7 +57,7 @@ public class TestConsumerConfig
 
 public class ShakedownConfig
 {
-    public string Kafka { get; set; } = string.Empty;
+    public string Kafka { get; set; } = string.Empty; // expand this to have client-id
     public string SchemaRegistry { get; set; } = string.Empty;
     public string Mongo { get; set; } = string.Empty;
     public string Postgres { get; set; } = string.Empty;
