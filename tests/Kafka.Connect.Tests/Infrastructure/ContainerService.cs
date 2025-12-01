@@ -15,7 +15,6 @@ public class ContainerService : IContainerService
     {
         ContainerBuilder containerBuilder;
 
-        // Handle Dockerfile-based containers (like Kafka Connect)
         if (!string.IsNullOrEmpty(config.DockerfilePath))
         {
             var currentDir = Directory.GetCurrentDirectory();
@@ -49,24 +48,19 @@ public class ContainerService : IContainerService
         }
         else
         {
-            // Handle regular image-based containers
             containerBuilder = new ContainerBuilder()
                 .WithImage(config.Image);
         }
 
-        // Apply common configuration
         containerBuilder = containerBuilder
             .WithNetwork(network)
             .WithHostname(config.Hostname)
             .WithName(config.Name);
 
-        // Apply network aliases
         containerBuilder = config.NetworkAliases.Aggregate(containerBuilder, (current, alias) => current.WithNetworkAliases(alias));
 
-        // Apply environment variables
         containerBuilder = config.Environment.Aggregate(containerBuilder, (current, env) => current.WithEnvironment(env.Key, env.Value));
 
-        // Apply port bindings
         if (config.Ports.Count > 0)
         {
             foreach (var portMapping in config.Ports)
@@ -76,7 +70,6 @@ public class ContainerService : IContainerService
             }
         }
 
-        // Apply bind mounts (for Kafka Connect)
         if (config.BindMounts.Count > 0)
         {
             var testProjectDir = Path.GetDirectoryName(typeof(TestFixture).Assembly.Location);
@@ -89,7 +82,6 @@ public class ContainerService : IContainerService
             }
         }
 
-        // Apply command (for Kafka Connect)
         if (config.Command.Count > 0)
         {
             containerBuilder = containerBuilder.WithCommand(config.Command.ToArray());

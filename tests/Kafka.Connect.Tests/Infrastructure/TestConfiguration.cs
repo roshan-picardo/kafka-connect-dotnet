@@ -12,9 +12,7 @@ public class TestConfiguration
 public class TestContainersConfig
 {
     public NetworkConfig Network { get; set; } = new();
-    public Dictionary<string, ContainerConfig> Containers { get; set; } = new();
-    public TestProducerConfig Producer { get; set; } = new();
-    public TestConsumerConfig Consumer { get; set; } = new();
+    public List<ContainerConfig> Containers { get; set; } = new();
 }
 
 public class NetworkConfig
