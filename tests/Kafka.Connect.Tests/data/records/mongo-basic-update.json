@@ -1,9 +1,9 @@
 {
   "title": "Update record to mongo database",
-  "topic": "mongodb-sink-data-topic",
   "properties": {
+    "topic": "mongodb-sink-data-topic",
     "collection": "sink-collection",
-    "database": "sink-database"
+    "database": "kafka_connect_db"
   },
   "records": [
     {

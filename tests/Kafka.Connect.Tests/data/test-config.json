@@ -1,17 +1,26 @@
 [
   {
+    "target": "Health",
+    "schema": "/schemas/user-event.avsc",
+    "files": [
+      "/records/health-check-kafka.json", 
+      "/records/health-check-mongo.json",
+      "/records/health-check-postgres.json"
+    ]
+  },
+  {
     "target": "Mongo",
     "schema": "/schemas/user-event.avsc",
     "files": [
-      "/mongo/sink/basic-insert.json",
-      "/mongo/sink/basic-update.json"
+      "/records/mongo-basic-insert.json",
+      "/records/mongo-basic-update.json"
     ]
   },
   {
     "target": "Postgres",
     "schema": "/schemas/user-event.avsc",
     "files": [
-      "/postgres/sink/basic-insert.json"
+      "/records/postgres-basic-insert.json"
     ]
   }
 ]

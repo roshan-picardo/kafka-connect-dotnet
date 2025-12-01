@@ -12,12 +12,7 @@ public class TestConfiguration
 public class TestContainersConfig
 {
     public NetworkConfig Network { get; set; } = new();
-    public ZookeeperConfig Zookeeper { get; set; } = new();
-    public KafkaConfig Broker { get; set; } = new();
-    public SchemaRegistryConfig SchemaRegistry { get; set; } = new();
-    public MongoDbConfig Mongo { get; set; } = new();
-    public PostgresConfig Postgres { get; set; } = new();
-    public KafkaConnectConfig Worker { get; set; } = new();
+    public List<ContainerConfig> Containers { get; set; } = new();
 }
 
 public class NetworkConfig
@@ -25,92 +20,25 @@ public class NetworkConfig
     public string Name { get; set; } = "local";
 }
 
-public abstract class ContainerConfig
+public class ContainerConfig
 {
-    public string Image { get; protected init; } = string.Empty;
-    public string Name { get; protected init; } = string.Empty;
-    public string Hostname { get; protected init; } = string.Empty;
+    public string Image { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Hostname { get; set; } = string.Empty;
     public List<string> Ports { get; set; } = [];
     public Dictionary<string, string> Environment { get; set; } = [];
     public List<string> NetworkAliases { get; set; } = [];
-}
-
-public class ZookeeperConfig : ContainerConfig
-{
-    public ZookeeperConfig()
-    {
-        Image = "confluentinc/cp-zookeeper:7.6.0";
-        Name = "zookeeper";
-        Hostname = "zookeeper";
-    }
-}
-
-public class KafkaConfig : ContainerConfig
-{
-    public TestProducerConfig Producer { get; set; } = new();
-    public TestConsumerConfig Consumer { get; set; } = new();
-
-    public KafkaConfig()
-    {
-        Image = "confluentinc/cp-server:7.6.0";
-        Name = "broker";
-        Hostname = "broker";
-    }
-}
-
-public class SchemaRegistryConfig : ContainerConfig
-{
-    public SchemaRegistryConfig()
-    {
-        Image = "confluentinc/cp-schema-registry:7.6.0";
-        Name = "schema";
-        Hostname = "schema";
-    }
-}
-
-public class MongoDbConfig : ContainerConfig
-{
-    public string DatabaseName { get; set; } = "kafka_connect_test";
-    public MongoDbConfig()
-    {
-        Image = "mongo:7.0";
-        Name = "mongodb";
-        Hostname = "mongodb";
-    }
-}
-
-public class PostgresConfig : ContainerConfig
-{
-    public string DatabaseName { get; set; } = "kafka_connect_test";
-    public string Username { get; set; } = "postgres";
-    public string Password { get; set; } = "postgres";
     
-    public PostgresConfig()
-    {
-        Image = "postgres:16";
-        Name = "postgres";
-        Hostname = "postgres";
-    }
-}
-
-public class KafkaConnectConfig : ContainerConfig
-{
-    public string DockerfilePath { get; set; } = string.Empty;
-    public string ConfigurationsPath { get; set; } = string.Empty;
+    // Optional properties for special containers
+    public string? DockerfilePath { get; set; }
+    public string? ConfigurationsPath { get; set; }
+    public Dictionary<string, string> BindMounts { get; set; } = [];
+    public List<string> Command { get; set; } = [];
+    public bool CleanUpImage { get; set; } = true;
     public bool WaitForHealthCheck { get; set; }
     public string HealthCheckEndpoint { get; set; } = string.Empty;
     public int StartupTimeoutSeconds { get; set; }
     public bool Enabled { get; set; } = true;
-    public bool CleanUpImage { get; set; } = true;
-    public List<string> Command { get; set; } = [];
-    public Dictionary<string, string> BindMounts { get; set; } = new();
-
-    public KafkaConnectConfig()
-    {
-        Name = "worker";
-        Hostname = "worker";
-        NetworkAliases = new List<string> { "worker" };
-    }
 }
 
 public class TestProducerConfig
@@ -127,7 +55,7 @@ public class TestConsumerConfig
 
 public class ShakedownConfig
 {
-    public string Kafka { get; set; } = string.Empty;
+    public string Kafka { get; set; } = string.Empty; // expand this to have client-id
     public string SchemaRegistry { get; set; } = string.Empty;
     public string Mongo { get; set; } = string.Empty;
     public string Postgres { get; set; } = string.Empty;

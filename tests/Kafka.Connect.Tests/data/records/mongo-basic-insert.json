@@ -1,17 +1,13 @@
 {
-  "title": "Insert record to postgres database",
-  "topic": "postgres-sink-data-topic",
+  "title": "Insert record to mongo database",
   "properties": {
-    "database": "kafka_connect_test",
-    "schema": "public",
-    "table": "sink_table",
-    "setup": "CREATE TABLE IF NOT EXISTS public.\"sink_table\"(\"userId\" text, \"userName\" text, email text, timestamp text, action text);",
-    "cleanup": "DROP TABLE IF EXISTS public.sink_table;"
+    "topic": "mongodb-sink-data-topic",
+    "collection": "sink-collection",
+    "database": "kafka_connect_db"
   },
   "records": [
     {
       "operation": "publish",
-      "delay": 0,
       "key": null,
       "value": {
         "userId": "user-001",
@@ -23,7 +19,6 @@
     },
     {
       "operation": "publish",
-      "delay": 0,
       "key": null,
       "value": {
         "userId": "user-002",
@@ -49,7 +44,6 @@
     },
     {
       "operation": "search",
-      "delay": 0,
       "key": {
         "userId": "user-002"
       },
@@ -63,17 +57,16 @@
     },
     {
       "operation": "delete",
-      "delay": 0,
       "key": {
         "userId": "user-001"
       }
     },
     {
       "operation": "delete",
-      "delay": 0,
       "key": {
-        "userId": "user-002"
+        "userId": "user-001"
       }
     }
   ]
 }
+
