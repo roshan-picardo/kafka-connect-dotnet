@@ -3,7 +3,9 @@
     "target": "Health",
     "schema": "/schemas/user-event.avsc",
     "files": [
-      "/records/health-check-kafka.json"
+      "/records/health-check-kafka.json", 
+      "/records/health-check-mongo.json",
+      "/records/health-check-postgres.json"
     ]
   },
   {

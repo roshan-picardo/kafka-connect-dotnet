@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json.Nodes;
 using Confluent.Kafka;
+using Xunit;
 using Xunit.Abstractions;
 
 namespace IntegrationTests.Kafka.Connect.Infrastructure;
@@ -22,7 +23,8 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
                     switch (record.Operation?.ToLowerInvariant())
                     {
                         case "search":
-                            await Search(properties, record);
+                            var searched = await Search(properties, record);
+                            Validate(record.Value, searched);
                             break;
                         case "insert":
                             await Insert(properties, record);
@@ -37,7 +39,8 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
                             await Publish(properties, record);
                             break;
                         case "consume":
-                            await Consume(properties, record);
+                            var consumed = await Consume(properties, record);
+                            Validate(record.Value, consumed);
                             break;
                         default:
                             throw new InvalidOperationException($"Unknown operation: {record.Operation}");
@@ -53,10 +56,58 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
     
     protected abstract Task Setup(Dictionary<string, string> properties);
     protected abstract Task Cleanup(Dictionary<string, string> properties);
-    protected abstract Task Search(Dictionary<string, string> properties, TestCaseRecord record);
+    protected abstract Task<JsonNode?> Search(Dictionary<string, string> properties, TestCaseRecord record);
     protected abstract Task Insert(Dictionary<string, string> properties, TestCaseRecord record);
     protected abstract Task Update(Dictionary<string, string> properties, TestCaseRecord record);
     protected abstract Task Delete(Dictionary<string, string> properties, TestCaseRecord record);
+    private async Task<JsonNode?> Consume(Dictionary<string, string> properties, TestCaseRecord record)
+    {
+        var consumed = await ConsumeMessageAsync(properties["topic"]);
+        return JsonNode.Parse(consumed.Message.Value);
+    }
+
+    private static void Validate(JsonNode? expected, JsonNode? actual)
+    {
+        if (expected == null)
+        {
+            Assert.Null(actual);
+            return;
+        }
+        Validate(expected, actual, "");
+    }
+
+
+    private static void Validate(JsonNode? expected, JsonNode? actual, string path)
+    {
+        Assert.NotNull(actual);
+    
+        if (expected is JsonObject expectedObj && actual is JsonObject actualObj)
+        {
+            foreach (var expectedProperty in expectedObj)
+            {
+                var propertyPath = string.IsNullOrEmpty(path) ? expectedProperty.Key : $"{path}.{expectedProperty.Key}";
+            
+                Assert.True(actualObj.ContainsKey(expectedProperty.Key), 
+                    $"Property '{expectedProperty.Key}' not found at path '{propertyPath}'");
+            
+                Validate(expectedProperty.Value, actualObj[expectedProperty.Key], propertyPath);
+            }
+        }
+        else if (expected is JsonArray expectedArray && actual is JsonArray actualArray)
+        {
+            Assert.True(actualArray.Count >= expectedArray.Count, 
+                $"Expected array to have at least {expectedArray.Count} items but found {actualArray.Count} at path '{path}'");
+        
+            for (int i = 0; i < expectedArray.Count; i++)
+            {
+                Validate(expectedArray[i], actualArray[i], $"{path}[{i}]");
+            }
+        }
+        else
+        {
+            Assert.Equal(expected?.ToString(), actual.ToString());
+        }
+    }
 
     private async Task Publish(Dictionary<string, string> properties, TestCaseRecord record)
     {
@@ -152,11 +203,6 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
         });
     }
 
-    private async Task Consume(Dictionary<string, string> properties, TestCaseRecord record)
-    {
-        var consumed = await ConsumeMessageAsync(properties["topic"]);
-        await Task.Delay(1);
-    }
 
     public virtual void Dispose()
     {
@@ -168,7 +214,7 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
 
 public record SchemaRecord(JsonNode? Key, JsonNode Value);
 public record TestCaseConfig(string Schema, string? Folder, string[]? Files, string? Target = null);
-public record TargetProperties;
+
 public record TestCaseRecord(string Operation, int Delay, JsonNode? Key, JsonNode? Value);
 
 public record TestCase(string Title, Dictionary<string, string> Properties, TestCaseRecord[] Records)

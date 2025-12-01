@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Xunit;
 using Xunit.Abstractions;
 using IntegrationTests.Kafka.Connect.Infrastructure;
@@ -33,7 +34,7 @@ public class HealthTestRunner(TestFixture fixture, ITestOutputHelper output) : B
 
     protected override Task Cleanup(Dictionary<string, string> properties) => Task.CompletedTask;
 
-    protected override Task Search(Dictionary<string, string> properties, TestCaseRecord record) => Task.CompletedTask;
+    protected override Task<JsonNode?> Search(Dictionary<string, string> properties, TestCaseRecord record) => Task.FromResult<JsonNode?>(null);
 
     protected override Task Insert(Dictionary<string, string> properties, TestCaseRecord record) => Task.CompletedTask;
 

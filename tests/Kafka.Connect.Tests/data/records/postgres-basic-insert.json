@@ -2,7 +2,7 @@
   "title": "Insert record to postgres database",
   "properties": {
     "topic": "postgres-sink-data-topic",
-    "database": "kafka_connect_test",
+    "database": "kafka_connect_db",
     "schema": "public",
     "table": "sink_table",
     "setup": "CREATE TABLE IF NOT EXISTS public.\"sink_table\"(\"userId\" text, \"userName\" text, email text, timestamp text, action text);",

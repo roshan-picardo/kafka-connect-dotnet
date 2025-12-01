@@ -1,6 +1,7 @@
 using IntegrationTests.Kafka.Connect.Infrastructure;
 using Npgsql;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -146,7 +147,7 @@ public class PostgresTestRunner(TestFixture fixture, ITestOutputHelper output) :
         await connection.CloseAsync();
     }   
 
-    protected override async Task Search(Dictionary<string, string> properties, TestCaseRecord record)
+    protected override async Task<JsonNode?> Search(Dictionary<string, string> properties, TestCaseRecord record)
     {
         await using var connection = GetPostgresConnection(properties["database"]);
         await connection.OpenAsync();
@@ -161,29 +162,18 @@ public class PostgresTestRunner(TestFixture fixture, ITestOutputHelper output) :
         await using var command = new NpgsqlCommand(sql, connection);
 
         await using var reader = await command.ExecuteReaderAsync();
-        
-        if (record.Value != null)
+        if (await reader.ReadAsync())
         {
-            Assert.True(await reader.ReadAsync(), "Expected record not found in database");
-            
-            var expectedJson = record.Value.ToJsonString();
-            var expectedDoc = JsonDocument.Parse(expectedJson);
-            
-            foreach (var expectedProperty in expectedDoc.RootElement.EnumerateObject())
+            var recordData = new Dictionary<string, object?>();
+            for (var i = 0; i < reader.FieldCount; i++)
             {
-                var columnName = expectedProperty.Name;
-                Assert.True(HasColumn(reader, columnName), $"Column '{columnName}' not found in result");
-                
-                var actualValue = reader[columnName];
-                var expectedValue = GetParameterValue(expectedProperty.Value);
-                
-                Assert.Equal(expectedValue, actualValue);
+                var columnName = reader.GetName(i);
+                var value = reader.GetValue(i);
+                recordData[columnName] = value == DBNull.Value ? null : value;
             }
+            return JsonSerializer.SerializeToNode(recordData);
         }
-        else
-        {
-            Assert.False(await reader.ReadAsync(), "Expected no record but found one in database");
-        }
+        return null;
     }
 
     private static object GetParameterValue(JsonElement element)

@@ -1,6 +1,9 @@
+using System.Text.Json.Nodes;
 using IntegrationTests.Kafka.Connect.Infrastructure;
 using MongoDB.Bson;
+using MongoDB.Bson.IO;
 using MongoDB.Driver;
+using Newtonsoft.Json;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -34,7 +37,8 @@ public class MongoTestRunner(TestFixture fixture, ITestOutputHelper output) : Ba
     {
         var database = GetMongoDatabase(properties["database"]);
         var collection = database.GetCollection<BsonDocument>(properties["collection"]);
-        await collection.UpdateOneAsync(BsonDocument.Parse(record.Key?.ToJsonString()), BsonDocument.Parse(record.Value?.ToJsonString()));
+        await collection.UpdateOneAsync(BsonDocument.Parse(record.Key?.ToJsonString()),
+            new BsonDocument("$set", BsonDocument.Parse(record.Value?.ToJsonString())));
     }
 
     protected override async Task Delete(Dictionary<string, string> properties, TestCaseRecord record)
@@ -54,25 +58,12 @@ public class MongoTestRunner(TestFixture fixture, ITestOutputHelper output) : Ba
         return Task.CompletedTask;
     }
 
-    protected override async Task Search(Dictionary<string, string> properties, TestCaseRecord record)
+    protected override async Task<JsonNode?> Search(Dictionary<string, string> properties, TestCaseRecord record)
     {
         var database = GetMongoDatabase(properties["database"]);
         var collection = database.GetCollection<BsonDocument>(properties["collection"]);
         var actual = await collection.Find(BsonDocument.Parse(record.Key?.ToJsonString())).FirstOrDefaultAsync();
-        if (record.Value != null)
-        {
-            Assert.NotNull(actual);
-            var expected = BsonDocument.Parse(record.Value.ToJsonString());
-            foreach (var element in expected.Elements)
-            {
-                Assert.True(expected.Contains(element.Name),
-                    $"Field '{element.Name}' not found in actual document");
-                Assert.Equal(element.Value, actual[element.Name]);
-            }
-        }
-        else
-        {
-            Assert.Null(actual);
-        }
+        return actual == null ? null : JsonNode.Parse(
+            actual.ToJson(new JsonWriterSettings { OutputMode = JsonOutputMode.RelaxedExtendedJson }));
     }
 }
