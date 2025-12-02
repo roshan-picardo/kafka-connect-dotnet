@@ -31,5 +31,12 @@
     "files": [
       "/records/sqlserver-basic-insert.json"
     ]
+  },
+  {
+    "target": "MySql",
+    "schema": "/schemas/user-event.avsc",
+    "files": [
+      "/records/mysql-basic-insert.json"
+    ]
   }
 ]
