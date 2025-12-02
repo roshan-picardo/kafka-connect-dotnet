@@ -27,6 +27,9 @@ public class HealthTestRunner(TestFixture fixture, ITestOutputHelper output) : B
             case "SqlServer":
                 await new SqlServerTestRunner(_fixture, _output).Execute(testCase);
                 break;
+            case "MySql":
+                await new MySqlTestRunner(_fixture, _output).Execute(testCase);
+                break;
             default:
                 await Run(testCase, Target);
                 break;
