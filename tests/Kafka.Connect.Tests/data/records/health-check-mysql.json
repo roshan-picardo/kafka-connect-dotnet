@@ -5,8 +5,8 @@
     "topic": "-",
     "database": "kafka_connect_db",
     "table": "health_table",
-    "setup": "CREATE TABLE IF NOT EXISTS `health_table` (`userId` VARCHAR(255), `userName` VARCHAR(255), `email` VARCHAR(255), `timestamp` VARCHAR(255), `action` VARCHAR(255));",
-    "cleanup": "DROP TABLE IF EXISTS `health_table`;"
+    "setup": "CREATE TABLE IF NOT EXISTS `kafka_connect_db`.`health_table` (`userId` VARCHAR(255), `userName` VARCHAR(255), `email` VARCHAR(255), `timestamp` VARCHAR(255), `action` VARCHAR(255));",
+    "cleanup": "DROP TABLE IF EXISTS `kafka_connect_db`.`health_table`;"
   },
   "records": [
     {
