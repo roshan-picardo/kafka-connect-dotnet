@@ -4,8 +4,8 @@
     "topic": "mysql-sink-data-topic",
     "database": "kafka_connect_db",
     "table": "sink_table",
-    "setup": "CREATE TABLE IF NOT EXISTS `sink_table` (`userId` VARCHAR(255), `userName` VARCHAR(255), `email` VARCHAR(255), `timestamp` VARCHAR(255), `action` VARCHAR(255));",
-    "cleanup": "DROP TABLE IF EXISTS `sink_table`;"
+    "setup": "CREATE TABLE IF NOT EXISTS `kafka_connect_db`.`sink_table` (`userId` VARCHAR(255), `userName` VARCHAR(255), `email` VARCHAR(255), `timestamp` VARCHAR(255), `action` VARCHAR(255));",
+    "cleanup": "DROP TABLE IF EXISTS `kafka_connect_db`.`sink_table`;"
   },
   "records": [
     {

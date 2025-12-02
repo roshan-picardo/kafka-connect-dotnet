@@ -50,7 +50,7 @@ public class MySqlTestRunner(TestFixture fixture, ITestOutputHelper output) : Ba
             values.Add(GetParameterValue(property.Value));
         }
 
-        var sql = $"INSERT INTO `{properties["table"]}` ({string.Join(", ", columns)}) VALUES ({string.Join(", ", parameters)})";
+        var sql = $"INSERT INTO `{properties["database"]}`.`{properties["table"]}` ({string.Join(", ", columns)}) VALUES ({string.Join(", ", parameters)})";
 
         await using var command = new MySqlCommand(sql, connection);
         for (var i = 0; i < columns.Count; i++)
@@ -90,7 +90,7 @@ public class MySqlTestRunner(TestFixture fixture, ITestOutputHelper output) : Ba
             parameters.Add(($"@where_{property.Name}", GetParameterValue(property.Value)));
         }
 
-        var sql = $"UPDATE `{properties["table"]}` SET {string.Join(", ", setClauses)} WHERE {string.Join(" AND ", whereConditions)}";
+        var sql = $"UPDATE `{properties["database"]}`.`{properties["table"]}` SET {string.Join(", ", setClauses)} WHERE {string.Join(" AND ", whereConditions)}";
         
         using var command = new MySqlCommand(sql, connection);
         foreach (var (name, value) in parameters)
@@ -118,7 +118,7 @@ public class MySqlTestRunner(TestFixture fixture, ITestOutputHelper output) : Ba
             parameters.Add(($"@{property.Name}", GetParameterValue(property.Value)));
         }
 
-        var sql = $"DELETE FROM `{properties["table"]}` WHERE {string.Join(" AND ", whereConditions)}";
+        var sql = $"DELETE FROM `{properties["database"]}`.`{properties["table"]}` WHERE {string.Join(" AND ", whereConditions)}";
         
         using var command = new MySqlCommand(sql, connection);
         foreach (var (name, value) in parameters)
@@ -157,7 +157,7 @@ public class MySqlTestRunner(TestFixture fixture, ITestOutputHelper output) : Ba
 
         var whereConditions = keyDoc.RootElement.EnumerateObject().Select(property => $"`{property.Name}` = '{GetParameterValue(property.Value)}'").ToList();
 
-        var sql = $"SELECT * FROM `{properties["table"]}` WHERE {string.Join(" AND ", whereConditions)}";
+        var sql = $"SELECT * FROM `{properties["database"]}`.`{properties["table"]}` WHERE {string.Join(" AND ", whereConditions)}";
 
         await using var command = new MySqlCommand(sql, connection);
 
