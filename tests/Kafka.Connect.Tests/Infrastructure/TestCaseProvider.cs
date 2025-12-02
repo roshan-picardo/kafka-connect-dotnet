@@ -16,7 +16,7 @@ public static class TestCaseProvider
         foreach (var node in jsonNode.AsArray())
         {
             var config = node.Deserialize<TestCaseConfig>(options);
-            if (config == null) continue;
+            if (config == null || config.Skip) continue;
 
             if (!string.IsNullOrEmpty(target) &&
                 !string.IsNullOrEmpty(config.Target) &&

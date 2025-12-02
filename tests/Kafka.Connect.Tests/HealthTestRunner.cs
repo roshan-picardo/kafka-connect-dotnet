@@ -24,6 +24,9 @@ public class HealthTestRunner(TestFixture fixture, ITestOutputHelper output) : B
             case "Postgres":
                 await new PostgresTestRunner(_fixture, _output).Execute(testCase);
                 break;
+            case "SqlServer":
+                await new SqlServerTestRunner(_fixture, _output).Execute(testCase);
+                break;
             default:
                 await Run(testCase, Target);
                 break;

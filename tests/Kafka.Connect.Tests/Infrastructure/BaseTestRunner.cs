@@ -213,11 +213,11 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
 }
 
 public record SchemaRecord(JsonNode? Key, JsonNode Value);
-public record TestCaseConfig(string Schema, string? Folder, string[]? Files, string? Target = null);
+public record TestCaseConfig(string Schema, string? Folder, string[]? Files, string? Target = null, bool Skip = false);
 
 public record TestCaseRecord(string Operation, int Delay, JsonNode? Key, JsonNode? Value);
 
-public record TestCase(string Title, Dictionary<string, string> Properties, TestCaseRecord[] Records)
+public record TestCase(string Title, Dictionary<string, string> Properties, TestCaseRecord[] Records, bool Skip = false)
 {
     public override string ToString()
     {

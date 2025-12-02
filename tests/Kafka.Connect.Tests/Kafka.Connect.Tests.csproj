@@ -32,6 +32,7 @@
     <!-- Application Dependencies -->
     <PackageReference Include="MongoDB.Driver" />
     <PackageReference Include="Npgsql" />
+    <PackageReference Include="Microsoft.Data.SqlClient" />
     <PackageReference Include="Confluent.Kafka" />
     <PackageReference Include="Confluent.SchemaRegistry" />
     <PackageReference Include="Confluent.SchemaRegistry.Serdes.Avro" />
