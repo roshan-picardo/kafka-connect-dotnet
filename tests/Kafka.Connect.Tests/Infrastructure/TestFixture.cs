@@ -85,6 +85,7 @@ public class TestFixture : IAsyncLifetime
             await CreateNetworkAsync();
             await CreateContainersAsync();
             await CreateConnectorTopicsAsync();
+            await CreateSqlServerDatabasesAsync();
             await DeployKafkaConnectAsync();
 
             LogMessage("Integration test infrastructure ready!");
@@ -103,9 +104,16 @@ public class TestFixture : IAsyncLifetime
             .WithName(Configuration.TestContainers.Network.Name)
             .Build();
 
-        LogMessage($"Creating network: {Configuration.TestContainers.Network.Name}");
-        await _network.CreateAsync();
-        LogMessage($"Network created: {Configuration.TestContainers.Network.Name}");
+        try
+        {
+            LogMessage($"Creating network: {Configuration.TestContainers.Network.Name}");
+            await _network.CreateAsync();
+            LogMessage($"Network created: {Configuration.TestContainers.Network.Name}");
+        }
+        catch (Exception ex) when (ex.Message.Contains("already exists") || ex.Message.Contains("network with name") || ex.Message.Contains("duplicate"))
+        {
+            LogMessage($"Network already exists, skipping creation: {Configuration.TestContainers.Network.Name}");
+        }
     }
 
     private async Task CreateContainersAsync()
@@ -183,6 +191,94 @@ public class TestFixture : IAsyncLifetime
         }
         
         LogMessage($"Topic creation completed. Created {allTopics.Count} topics.");
+    }
+
+    private async Task CreateSqlServerDatabasesAsync()
+    {
+        LogMessage("Creating SQL Server databases from connector configurations...");
+        
+        var configFiles = Directory.GetFiles(Path.Join(Directory.GetCurrentDirectory(), "Configurations"), "appsettings.*.json");
+        
+        if (configFiles.Length == 0)
+        {
+            LogMessage("No connector configuration files found, skipping SQL Server database creation");
+            return;
+        }
+
+        var sqlServerDatabases = new HashSet<string>();
+
+        foreach (var configFile in configFiles)
+        {
+            try
+            {
+                var configContent = await File.ReadAllTextAsync(configFile);
+                var configJson = JsonDocument.Parse(configContent);
+                
+                if (configJson.RootElement.TryGetProperty("worker", out var worker) &&
+                    worker.TryGetProperty("connectors", out var connectors))
+                {
+                    foreach (var connector in connectors.EnumerateObject())
+                    {
+                        if (connector.Value.TryGetProperty("plugin", out var plugin) &&
+                            plugin.TryGetProperty("name", out var pluginName) &&
+                            pluginName.GetString() == "sqlserver" &&
+                            plugin.TryGetProperty("properties", out var properties) &&
+                            properties.TryGetProperty("database", out var database))
+                        {
+                            var databaseName = database.GetString();
+                            if (!string.IsNullOrEmpty(databaseName) && databaseName != "master")
+                            {
+                                sqlServerDatabases.Add(databaseName);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogMessage($"Failed to parse config file {Path.GetFileName(configFile)}: {ex.Message}");
+            }
+        }
+
+        foreach (var databaseName in sqlServerDatabases)
+        {
+            try
+            {
+                // Add a small delay to ensure SQL Server is fully ready
+                await Task.Delay(5000);
+                await CreateSqlServerDatabaseAsync(databaseName);
+                LogMessage($"Created SQL Server database: {databaseName}");
+            }
+            catch (Exception ex)
+            {
+                LogMessage($"Failed to create SQL Server database {databaseName}: {ex.Message}");
+            }
+        }
+        
+        LogMessage($"SQL Server database creation completed. Created {sqlServerDatabases.Count} databases.");
+    }
+
+    private async Task CreateSqlServerDatabaseAsync(string databaseName)
+    {
+        var connectionString = Configuration.Shakedown.SqlServer;
+        
+        // Connect to master database to create the target database
+        var builder = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(connectionString);
+        builder.InitialCatalog = "master";
+        
+        using var connection = new Microsoft.Data.SqlClient.SqlConnection(builder.ConnectionString);
+        await connection.OpenAsync();
+        
+        // Check if database exists
+        var checkCommand = new Microsoft.Data.SqlClient.SqlCommand("SELECT COUNT(*) FROM sys.databases WHERE name = @dbName", connection);
+        checkCommand.Parameters.AddWithValue("@dbName", databaseName);
+        var exists = (int)await checkCommand.ExecuteScalarAsync() > 0;
+        
+        if (!exists)
+        {
+            var createCommand = new Microsoft.Data.SqlClient.SqlCommand($"CREATE DATABASE [{databaseName}]", connection);
+            await createCommand.ExecuteNonQueryAsync();
+        }
     }
 
     private async Task CreateTopicAsync(string topicName, int partitions = 1, short replicationFactor = 1)

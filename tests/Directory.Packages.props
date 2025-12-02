@@ -1,28 +1,26 @@
 <Project>
-    <!-- Import the main package versions from src -->
-    <Import Project="../src/Directory.Packages.props" />
-
-    <ItemGroup>
-        <!-- Test Framework Packages (not in src) -->
-        <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
-        <PackageVersion Include="xunit" Version="2.6.2" />
-        <PackageVersion Include="xunit.runner.visualstudio" Version="2.5.3" />
-        <PackageVersion Include="coverlet.collector" Version="6.0.0" />
-        <PackageVersion Include="Moq" Version="4.20.70" />
-        <PackageVersion Include="NSubstitute" Version="5.1.0" />
-
-        <!-- Test Container Packages (not in src) -->
-        <PackageVersion Include="Testcontainers" Version="3.6.0" />
-        <PackageVersion Include="Testcontainers.MongoDb" Version="3.6.0" />
-        <PackageVersion Include="Testcontainers.PostgreSql" Version="3.6.0" />
-        <PackageVersion Include="Testcontainers.Kafka" Version="3.6.0" />
-
-        <!-- Additional test-specific packages -->
-        <PackageVersion Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
-        <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="8.0.0" />
-        <PackageVersion Include="Microsoft.Extensions.Logging" Version="8.0.0" />
-        <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="8.0.0" />
-        <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
-        <PackageVersion Include="System.Text.Json" Version="8.0.4" />
-    </ItemGroup>
+  <!-- Import the main package versions from src -->
+  <Import Project="../src/Directory.Packages.props" />
+  <ItemGroup>
+    <!-- Test Framework Packages (not in src) -->
+    <PackageVersion Include="Docker.DotNet" Version="3.125.15" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageVersion Include="xunit" Version="2.6.2" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="2.5.3" />
+    <PackageVersion Include="coverlet.collector" Version="6.0.0" />
+    <PackageVersion Include="Moq" Version="4.20.70" />
+    <PackageVersion Include="NSubstitute" Version="5.1.0" />
+    <!-- Test Container Packages (not in src) -->
+    <PackageVersion Include="Testcontainers" Version="3.6.0" />
+    <PackageVersion Include="Testcontainers.MongoDb" Version="3.6.0" />
+    <PackageVersion Include="Testcontainers.PostgreSql" Version="3.6.0" />
+    <PackageVersion Include="Testcontainers.Kafka" Version="3.6.0" />
+    <!-- Additional test-specific packages -->
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="8.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Logging" Version="8.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="8.0.0" />
+    <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageVersion Include="System.Text.Json" Version="8.0.4" />
+  </ItemGroup>
 </Project>

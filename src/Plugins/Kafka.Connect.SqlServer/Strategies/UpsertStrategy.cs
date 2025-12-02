@@ -19,22 +19,24 @@ public class UpsertStrategy(ILogger<UpsertStrategy> logger, IConfigurationProvid
             var value = record.Deserialized.Value.ToDictionary();
             var columns = string.Join(", ", value.Keys);
             var values = string.Join(", ", value.Keys.Select(k => $"@{k}"));
-            var updateClause = string.Join(", ", value.Keys.Select(k => $"t.{k} = s.{k}"));
-            var mergeCondition = BuildCondition(config.Lookup, value);
+            var setClause = string.Join(", ", value.Keys.Select(k => $"{k} = @{k}"));
+            var whereClause = BuildCondition(config.Lookup, value);
             var parameters = value.Select(kv => $"DECLARE @{kv.Key} NVARCHAR(MAX) = '{kv.Value}'").ToList();
-
+            
             var sql = $"""
                        {string.Join(";\n", parameters)};
-                       MERGE INTO [{config.Schema}].[{config.Table}] AS t
-                       USING (SELECT {values} AS {columns}) AS s
-                       ON {mergeCondition}
-                       WHEN MATCHED THEN
-                           UPDATE SET {updateClause}
-                       WHEN NOT MATCHED THEN
-                           INSERT ({columns})
-                           VALUES ({values});
+                       IF EXISTS (SELECT 1 FROM [{config.Schema}].[{config.Table}] WHERE {whereClause})
+                       BEGIN
+                           UPDATE [{config.Schema}].[{config.Table}]
+                           SET {setClause}
+                           WHERE {whereClause}
+                       END
+                       ELSE
+                       BEGIN
+                           INSERT INTO [{config.Schema}].[{config.Table}] ({columns})
+                           VALUES ({values})
+                       END;
                        """;
-
             return Task.FromResult(new StrategyModel<string>
             {
                 Status = Status.Updating,

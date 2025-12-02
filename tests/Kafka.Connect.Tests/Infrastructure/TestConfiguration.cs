@@ -41,33 +41,17 @@ public class ContainerConfig
     public bool Enabled { get; set; } = true;
 }
 
-public class TestProducerConfig
-{
-    public string ClientId { get; set; } = "testcontainers-producer";
-}
-
-public class TestConsumerConfig
-{
-    public string GroupId { get; set; } = "testcontainers-consumer-group";
-    public string AutoOffsetReset { get; set; } = "Earliest";
-    public bool EnableAutoCommit { get; set; } = false;
-}
-
 public class ShakedownConfig
 {
     public string Kafka { get; set; } = string.Empty; // expand this to have client-id
     public string SchemaRegistry { get; set; } = string.Empty;
     public string Mongo { get; set; } = string.Empty;
     public string Postgres { get; set; } = string.Empty;
+    public string SqlServer { get; set; } = string.Empty;
     public string Worker { get; set; } = string.Empty;
 }
 
-public class TestPriorityAttribute : Attribute
+public class TestPriorityAttribute(int priority) : Attribute
 {
-    public int Priority { get; }
-        
-    public TestPriorityAttribute(int priority)
-    {
-        Priority = priority;
-    }
+    public int Priority { get; } = priority;
 }
