@@ -6,7 +6,8 @@
       "/records/health-check-kafka.json", 
       "/records/health-check-mongo.json",
       "/records/health-check-postgres.json",
-      "/records/health-check-sqlserver.json"
+      "/records/health-check-sqlserver.json",
+      "/records/health-check-mysql.json"
     ]
   },
   {
