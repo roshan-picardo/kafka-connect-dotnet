@@ -49,6 +49,7 @@ public class ShakedownConfig
     public string Postgres { get; set; } = string.Empty;
     public string SqlServer { get; set; } = string.Empty;
     public string MySql { get; set; } = string.Empty;
+    public string Oracle { get; set; } = string.Empty;
     public string Worker { get; set; } = string.Empty;
 }
 

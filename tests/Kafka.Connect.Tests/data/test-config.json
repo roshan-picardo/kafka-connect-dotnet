@@ -3,11 +3,12 @@
     "target": "Health",
     "schema": "/schemas/user-event.avsc",
     "files": [
-      "/records/health-check-kafka.json", 
+      "/records/health-check-kafka.json",
       "/records/health-check-mongo.json",
       "/records/health-check-postgres.json",
       "/records/health-check-sqlserver.json",
-      "/records/health-check-mysql.json"
+      "/records/health-check-mysql.json",
+      "/records/health-check-oracle.json"
     ]
   },
   {
@@ -37,6 +38,13 @@
     "schema": "/schemas/user-event.avsc",
     "files": [
       "/records/mysql-basic-insert.json"
+    ]
+  },
+  {
+    "target": "Oracle",
+    "schema": "/schemas/user-event.avsc",
+    "files": [
+      "/records/oracle-basic-insert.json"
     ]
   }
 ]

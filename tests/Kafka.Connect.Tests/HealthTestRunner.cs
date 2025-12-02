@@ -30,6 +30,9 @@ public class HealthTestRunner(TestFixture fixture, ITestOutputHelper output) : B
             case "MySql":
                 await new MySqlTestRunner(_fixture, _output).Execute(testCase);
                 break;
+            case "Oracle":
+                await new OracleTestRunner(_fixture, _output).Execute(testCase);
+                break;
             default:
                 await Run(testCase, Target);
                 break;
