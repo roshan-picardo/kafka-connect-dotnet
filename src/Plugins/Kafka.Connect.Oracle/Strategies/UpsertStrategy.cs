@@ -19,8 +19,8 @@ public class UpsertStrategy(ILogger<UpsertStrategy> logger, IConfigurationProvid
             var lookupClause = $"{BuildCondition(config.Lookup ?? config.Filter, deserialized)}";
             var lookupParams = GetConditionParameters(config.Lookup ?? config.Filter);
             var updates = string.Join(", ",
-                deserialized.Where(d => !lookupParams.Contains(d.Key)).Select(d => $"{d.Key} = {GetValueByType(d.Value)}"));
-            var fields = string.Join(',', deserialized.Keys);
+                deserialized.Where(d => !lookupParams.Contains(d.Key)).Select(d => $"\"{d.Key}\" = {GetValueByType(d.Value)}"));
+            var fields = string.Join(',', deserialized.Keys.Select(k => $"\"{k}\""));
             var inserts = string.Join(", ",
                 deserialized.Select(d => GetValueByType(d.Value)));
 

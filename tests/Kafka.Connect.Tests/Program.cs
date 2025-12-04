@@ -1,4 +1,5 @@
 using System.Text.Json;
+using IntegrationTests.Kafka.Connect;
 using IntegrationTests.Kafka.Connect.Infrastructure;
 
 var fixture = new TestFixture();
@@ -145,24 +146,25 @@ async Task RunInteractiveMode()
             }
 
             fixture.LogMessage($"Test Case: {testCase.Title}, Records: {testCase.Records.Length}, Target: {target ?? "Unknown"}");
-
             for (var i = 0; i < testCase.Records.Length; i++)
             {
                 var record = testCase.Records[i];
                 fixture.LogMessage($"Executing: {testCase.Title} - {record.Operation}" ,$"Record: {i + 1}/{testCase.Records.Length}");
                 if (testCase.Records.Length > 1)
                 {
-                    if (i < testCase.Records.Length - 1)
-                    {
-                        testCase.Properties.TryAdd("skip", "cleanup");
-                    }
-
+                    var skip = new List<string>();
                     if (i > 0)
                     {
-                        testCase.Properties.TryAdd("skip", "setup");
+                        skip.Add("setup");
                     }
+
+                    if (i < testCase.Records.Length - 1)
+                    {
+                        skip.Add("cleanup");
+                    }
+                    testCase.Properties["skip"] = string.Join(",", skip);
                 }
-                
+
                 await ExecuteSingleRecord(testCase, record);
                 if (i < testCase.Records.Length - 1)
                 {
@@ -183,53 +185,11 @@ async Task RunInteractiveMode()
     {
         try
         {
-            var target = testCase.Properties.TryGetValue("target", out var targetValue) ? targetValue : "Unknown";
-            
-            var singleRecordTestCase = new TestCase(
-                $"{testCase.Title} - {record.Operation}",
-                testCase.Properties,
-                [record],
-                testCase.Skip
-            );
-
-            if (record.Delay > 0)
+            await new HealthTestRunner(fixture, new ConsoleTestOutputHelper()).Execute(testCase with
             {
-                await Task.Delay(record.Delay);
-            }
-
-            var testOutput = new ConsoleTestOutputHelper();
-            
-            switch (target.ToLowerInvariant())
-            {
-                case "mongo":
-                    var mongoRunner = new IntegrationTests.Kafka.Connect.MongoTestRunner(fixture, testOutput);
-                    await mongoRunner.Execute(singleRecordTestCase);
-                    break;
-                    
-                case "postgres":
-                    var postgresRunner = new IntegrationTests.Kafka.Connect.PostgresTestRunner(fixture, testOutput);
-                    await postgresRunner.Execute(singleRecordTestCase);
-                    break;
-                    
-                case "sqlserver":
-                    var sqlServerRunner = new IntegrationTests.Kafka.Connect.SqlServerTestRunner(fixture, testOutput);
-                    await sqlServerRunner.Execute(singleRecordTestCase);
-                    break;
-                    
-                case "mysql":
-                    var mySqlRunner = new IntegrationTests.Kafka.Connect.MySqlTestRunner(fixture, testOutput);
-                    await mySqlRunner.Execute(singleRecordTestCase);
-                    break;
-                    
-                case "health":
-                    var healthRunner = new IntegrationTests.Kafka.Connect.HealthTestRunner(fixture, testOutput);
-                    await healthRunner.Execute(singleRecordTestCase);
-                    break;
-                    
-                default:
-                    fixture.LogMessage($"Unknown target: {target}. Executing as publish operation.");
-                    break;
-            }
+                Title = $"{testCase.Title} - {record.Operation}", 
+                Records = [record],
+            });
         }
         catch (Exception ex)
         {

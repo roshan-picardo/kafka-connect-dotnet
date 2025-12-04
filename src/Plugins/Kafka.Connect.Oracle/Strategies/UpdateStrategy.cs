@@ -19,7 +19,7 @@ public class UpdateStrategy(ILogger<UpdateStrategy> logger, IConfigurationProvid
             var lookupClause = $"{BuildCondition(config.Lookup ?? config.Filter, deserialized)}";
             var lookupParams = GetConditionParameters(config.Lookup ?? config.Filter);
             var updates = string.Join(", ",
-                deserialized.Where(d => !lookupParams.Contains(d.Key)).Select(d => $"{d.Key} = {GetValueByType(d.Value)}"));
+                deserialized.Where(d => !lookupParams.Contains(d.Key)).Select(d => $"\"{d.Key}\" = {GetValueByType(d.Value)}"));
 
             var sql = $"""
                        UPDATE "{config.Schema}"."{config.Table}"
