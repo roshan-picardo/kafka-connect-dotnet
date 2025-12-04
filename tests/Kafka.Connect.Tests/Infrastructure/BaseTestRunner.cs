@@ -16,7 +16,7 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
             try
             {
                 properties.TryAdd("target", target);
-                if(properties.GetValueOrDefault("skip")  != "setup")
+                if(!(properties.TryGetValue("skip", out var skip) && skip.Contains("setup")))
                 {
                     await Setup(properties);
                 }
@@ -52,7 +52,7 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
             }
             finally
             {
-                if(properties.GetValueOrDefault("skip")  != "cleanup")
+                if(!(properties.TryGetValue("skip", out var skip) && skip.Contains("cleanup")))
                 {
                     await Cleanup(properties);
                 }

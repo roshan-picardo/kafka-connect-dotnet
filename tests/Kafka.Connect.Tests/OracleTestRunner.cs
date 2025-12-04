@@ -15,7 +15,7 @@ public class OracleTestRunner(TestFixture fixture, ITestOutputHelper output) : B
 
     private OracleConnection GetOracleConnection(string? serviceName = null)
     {
-        var connectionString = _fixture.Configuration.Shakedown.Oracle;
+        var connectionString = _fixture.Configuration.GetServiceEndpoint("Oracle");
         if (!string.IsNullOrEmpty(serviceName))
         {
             var builder = new OracleConnectionStringBuilder(connectionString)

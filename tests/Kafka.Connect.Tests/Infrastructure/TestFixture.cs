@@ -8,6 +8,7 @@ using Xunit;
 using Microsoft.Extensions.DependencyInjection;
 using System.Text.Json;
 using Docker.DotNet;
+using Xunit.Abstractions;
 
 namespace IntegrationTests.Kafka.Connect.Infrastructure;
 

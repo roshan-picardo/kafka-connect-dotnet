@@ -5,7 +5,7 @@
     "topic": "-",
     "schema": "SYSTEM",
     "table": "health_table",
-    "setup": "CREATE TABLE \"SYSTEM\".\"health_table\" (\"USERID\" VARCHAR2(255), \"USERNAME\" VARCHAR2(255), \"EMAIL\" VARCHAR2(255), \"TIMESTAMP\" VARCHAR2(255), \"ACTION\" VARCHAR2(255))",
+    "setup": "CREATE TABLE \"SYSTEM\".\"health_table\" (\"userId\" VARCHAR2(255), \"userName\" VARCHAR2(255), \"email\" VARCHAR2(255), \"timestamp\" VARCHAR2(255), \"action\" VARCHAR2(255))",
     "cleanup": "DROP TABLE \"SYSTEM\".\"health_table\""
   },
   "records": [

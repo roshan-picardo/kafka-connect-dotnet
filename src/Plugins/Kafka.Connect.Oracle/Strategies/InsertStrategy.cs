@@ -17,7 +17,7 @@ public class InsertStrategy(ILogger<InsertStrategy> logger, IConfigurationProvid
             
             var config = configurationProvider.GetPluginConfig<PluginConfig>(connector);
             var deserialized = record.Deserialized.Value.ToDictionary();
-            var fields = string.Join(',', deserialized.Keys);
+            var fields = string.Join(',', deserialized.Keys.Select(k=> $"\"{k}\""));
             var inserts = string.Join(", ",
                 deserialized.Select(d => GetValueByType(d.Value)));
 
