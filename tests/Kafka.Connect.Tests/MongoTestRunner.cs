@@ -18,7 +18,7 @@ public class MongoTestRunner(TestFixture fixture, ITestOutputHelper output) : Ba
 
     private IMongoDatabase GetMongoDatabase(string databaseName)
     {
-        _mongoClient ??= new MongoClient(_fixture.Configuration.Shakedown.Mongo);
+        _mongoClient ??= new MongoClient(_fixture.Configuration.GetServiceEndpoint("Mongo"));
         return _mongoClient.GetDatabase(databaseName);
     }
 

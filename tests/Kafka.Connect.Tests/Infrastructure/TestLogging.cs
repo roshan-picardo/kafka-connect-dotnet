@@ -10,7 +10,7 @@ public class TestLoggingService
     private static readonly Regex TestResultPattern = new(@"^\s*(Passed|Failed|Skipped)\s+.*\[\d+(\.\d+)?\s*(s|ms)\]", RegexOptions.Compiled);
     private static readonly Regex XUnitFrameworkPattern = new(@"^\s*\[xUnit\.net.*\]", RegexOptions.Compiled);
     
-    public static void LogMessage(string message)
+    public static void LogMessage(string message, string prefix = "")
     {
         if (IsGlobalDuplicate(message))
         {
@@ -22,7 +22,7 @@ public class TestLoggingService
             return;
         }
 
-        var timestamp = DateTime.Now.ToString("HH:mm:ss");
+        var timestamp = string.IsNullOrEmpty(prefix) ? DateTime.Now.ToString("HH:mm:ss") : prefix;
         if (_originalConsoleOut != null)
             _originalConsoleOut.WriteLine($"[{timestamp}] {message}");
     }

@@ -15,7 +15,7 @@ public class SqlServerTestRunner(TestFixture fixture, ITestOutputHelper output) 
 
     private SqlConnection GetSqlServerConnection(string? databaseName = null)
     {
-        var connectionString = _fixture.Configuration.Shakedown.SqlServer;
+        var connectionString = _fixture.Configuration.GetServiceEndpoint("SqlServer");
         if (!string.IsNullOrEmpty(databaseName))
         {
             var builder = new SqlConnectionStringBuilder(connectionString)

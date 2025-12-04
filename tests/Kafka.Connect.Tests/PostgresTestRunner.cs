@@ -15,7 +15,7 @@ public class PostgresTestRunner(TestFixture fixture, ITestOutputHelper output) :
     
     public NpgsqlConnection GetPostgresConnection(string? databaseName = null)
     {
-        var connectionString = _fixture.Configuration.Shakedown.Postgres;
+        var connectionString = _fixture.Configuration.GetServiceEndpoint("Postgres");
         if (!string.IsNullOrEmpty(databaseName))
         {
             var builder = new NpgsqlConnectionStringBuilder(connectionString)

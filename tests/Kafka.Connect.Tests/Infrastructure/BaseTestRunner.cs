@@ -16,7 +16,10 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
             try
             {
                 properties.TryAdd("target", target);
-                await Setup(properties);
+                if(properties.GetValueOrDefault("skip")  != "setup")
+                {
+                    await Setup(properties);
+                }
                 foreach (var record in testCase.Records)
                 {
                     await Task.Delay(record.Delay);
@@ -49,7 +52,10 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
             }
             finally
             {
-                await Cleanup(properties);
+                if(properties.GetValueOrDefault("skip")  != "cleanup")
+                {
+                    await Cleanup(properties);
+                }
             }
         }
     }
@@ -115,12 +121,12 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
             record.Value?.ToJsonString() ?? "");
         output.WriteLine($"Sent message to {result.Topic}:{result.Partition}:{result.Offset}");
     }
-    
-    protected async Task<DeliveryResult<string, string>> ProduceMessageAsync(string topic, string key, string value)
+
+    private async Task<DeliveryResult<string, string>> ProduceMessageAsync(string topic, string key, string value)
     {
         var producerConfig = new ProducerConfig
         {
-            BootstrapServers = fixture.Configuration.Shakedown.Kafka,
+            BootstrapServers = fixture.Configuration.GetServiceEndpoint("Kafka"),
             ClientId = "test-producer",
             SecurityProtocol = SecurityProtocol.Plaintext,
             MessageTimeoutMs = 30000,
@@ -161,7 +167,7 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
     {
         var consumerConfig = new ConsumerConfig
         {
-            BootstrapServers = fixture.Configuration.Shakedown.Kafka,
+            BootstrapServers = fixture.Configuration.GetServiceEndpoint("Kafka"),
             GroupId = "test-group-id",
             AutoOffsetReset = AutoOffsetReset.Earliest,
             EnableAutoCommit = true,

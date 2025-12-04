@@ -15,7 +15,7 @@ public class MySqlTestRunner(TestFixture fixture, ITestOutputHelper output) : Ba
 
     private MySqlConnection GetMySqlConnection(string? databaseName = null)
     {
-        var connectionString = _fixture.Configuration.Shakedown.MySql;
+        var connectionString = _fixture.Configuration.GetServiceEndpoint("MySql");
         if (!string.IsNullOrEmpty(databaseName))
         {
             var builder = new MySqlConnectionStringBuilder(connectionString)
