@@ -5,8 +5,11 @@ public class TestConfiguration
     public bool DetailedLog { get; set; } = true;
     public bool RawJsonLog { get; set; } = false;
     public bool SkipInfrastructure { get; set; } = false;
+    public bool DebugMode { get; set; } = false;
     public TestContainersConfig TestContainers { get; set; } = new();
-    public ShakedownConfig Shakedown { get; set; } = new();
+    public Dictionary<string, string> Services { get; set; } = new();
+    
+    public string? GetServiceEndpoint(string service) => Services.GetValueOrDefault(service);
 }
 
 public class TestContainersConfig

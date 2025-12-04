@@ -1,4 +1,3 @@
-using System.Collections;
 using Confluent.Kafka;
 using Confluent.Kafka.Admin;
 using DotNet.Testcontainers.Builders;
@@ -8,6 +7,7 @@ using Microsoft.Extensions.Configuration;
 using Xunit;
 using Microsoft.Extensions.DependencyInjection;
 using System.Text.Json;
+using Docker.DotNet;
 
 namespace IntegrationTests.Kafka.Connect.Infrastructure;
 
@@ -60,9 +60,9 @@ public class TestFixture : IAsyncLifetime
         KafkaConnectLogBuffer.SetRawJsonMode(Configuration.RawJsonLog);
     }
 
-    public void LogMessage(string message)
+    public void LogMessage(string message, string prefix = "")
     {
-        TestLoggingService.LogMessage(message);
+        TestLoggingService.LogMessage(message, prefix);
     }
 
     public async Task InitializeAsync()
@@ -260,7 +260,7 @@ public class TestFixture : IAsyncLifetime
 
     private async Task CreateSqlServerDatabaseAsync(string databaseName)
     {
-        var connectionString = Configuration.Shakedown.SqlServer;
+        var connectionString = Configuration.GetServiceEndpoint("SqlServer");
         
         // Connect to master database to create the target database
         var builder = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(connectionString);
@@ -283,7 +283,7 @@ public class TestFixture : IAsyncLifetime
 
     private async Task CreateTopicAsync(string topicName, int partitions = 1, short replicationFactor = 1)
     {
-        var bootstrapServers = Configuration.Shakedown.Kafka;
+        var bootstrapServers = Configuration.GetServiceEndpoint("Kafka");
             
         _adminClient ??= new AdminClientBuilder(new AdminClientConfig
             {
@@ -334,6 +334,15 @@ public class TestFixture : IAsyncLifetime
         if (_kafkaConnectDeployed || !workerConfig.Enabled)
             return;
 
+        if (Configuration.DebugMode)
+        {
+            LogMessage("=== DEBUG MODE ACTIVE ===");
+            LogMessage("Skipping Kafka Connect container deployment");
+            LogMessage("You can now start your Kafka Connect application manually in debug mode");
+            LogMessage("All supporting infrastructure (Kafka, databases, etc.) is ready");
+            return;
+        }
+
         await CreateKafkaConnectContainerAsync();
 
         await Task.Delay(2000);
@@ -352,14 +361,14 @@ public class TestFixture : IAsyncLifetime
         LogMessage($"Creating Kafka Connect container: {config.Name}");
         var container = await _containerService.CreateContainerAsync(config, _network!, _loggingService);
         _containers["Worker"] = container;
-        LogMessage($"Kafka Connect container started: {config.Name} -> {Configuration.Shakedown.Worker}");
+        LogMessage($"Kafka Connect container started: {config.Name} -> {Configuration.GetServiceEndpoint("Worker")}");
     }
 
     private async Task WaitForKafkaConnectHealthAsync()
     {
         var workerConfig = GetWorkerConfig();
         using var httpClient = new HttpClient();
-        var healthUrl = $"{Configuration.Shakedown.Worker}{workerConfig.HealthCheckEndpoint}";
+        var healthUrl = $"{Configuration.GetServiceEndpoint("Worker")}{workerConfig.HealthCheckEndpoint}";
         var timeout = TimeSpan.FromSeconds(workerConfig.StartupTimeoutSeconds);
         var cancellationToken = new CancellationTokenSource(timeout).Token;
 
@@ -403,7 +412,14 @@ public class TestFixture : IAsyncLifetime
                 return;
             }
 
-            await Task.Delay(10000); 
+            if (Configuration.DebugMode)
+            {
+                LogMessage("Manual teardown triggered. Proceeding with cleanup...");
+            }
+            else
+            {
+                await Task.Delay(10000);
+            }
             
             LogMessage("Tearing down test infrastructure...");
             
