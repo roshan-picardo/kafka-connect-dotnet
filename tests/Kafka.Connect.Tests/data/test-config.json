@@ -48,8 +48,15 @@
     "target": "MySql",
     "schema": "/schemas/user-event.avsc",
     "files": [
-      "/records/sink-tests-mysql.json"
-    ]
+      "/records/sink-tests-mysql.json",
+      "/records/source-tests-mysql.json"
+    ],
+    "setup": {
+      "database": "kafka_connect_db",
+      "scripts": [
+        "DROP TABLE IF EXISTS `source_table`; CREATE TABLE `source_table`(`userId` VARCHAR(255), `userName` VARCHAR(255), `email` VARCHAR(255), `timestamp` VARCHAR(255), `action` VARCHAR(255));"
+      ]
+    }
   },
   {
     "target": "Oracle",
