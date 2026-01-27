@@ -199,18 +199,40 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
             try
             {
                 var loop = 60;
+                ConsumeResult<string, string>? lastResult = null;
                 ConsumeResult<string, string>? result;
+                
+                // First, wait for at least one message
                 do
                 {
                     result = consumer.Consume(1000);
+                    if (result != null)
+                    {
+                        lastResult = result;
+                    }
                 } while (result == null && loop-- > 0);
 
-                if (result != null)
+                if (lastResult == null)
                 {
-                    consumer.Commit(result);
+                    throw new DataException("Consumer returned null after waiting for a minute...");
                 }
 
-                return result ?? throw new DataException("Consumer returned null after waiting for a minute...");
+                // Now consume all remaining available messages to get the last one
+                // Use a shorter timeout to quickly check for more messages
+                while (true)
+                {
+                    result = consumer.Consume(100); // Short timeout to check for more messages
+                    if (result == null)
+                    {
+                        break; // No more messages available
+                    }
+                    lastResult = result;
+                }
+
+                // Commit the last message offset
+                consumer.Commit(lastResult);
+
+                return lastResult;
             }
             finally
             {
