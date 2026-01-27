@@ -1,5 +1,5 @@
 using System;
-using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Linq;
 
@@ -14,7 +14,7 @@ public class WorkerContext
         Worker.IsPaused ? "Paused" :
         Worker.IsStopped ? "Stopped" : "Running";
     public TimeSpan Uptime => _stopwatch.Elapsed;
-    public IList<ConnectorContext> Connectors { get; } = new List<ConnectorContext>();
+    public ConcurrentBag<ConnectorContext> Connectors { get; } = new();
     public bool IsStopped => Worker == null || (Worker.IsStopped && (Connectors?.All(c => c.IsStopped) ?? true));
     public IWorker Worker { get; internal set; }
     public ILeader Leader { get; internal set; }

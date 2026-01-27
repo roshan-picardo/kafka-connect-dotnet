@@ -150,21 +150,6 @@ async Task RunInteractiveMode()
             {
                 var record = testCase.Records[i];
                 fixture.LogMessage($"Executing: {testCase.Title} - {record.Operation}" ,$"Record: {i + 1}/{testCase.Records.Length}");
-                if (testCase.Records.Length > 1)
-                {
-                    var skip = new List<string>();
-                    if (i > 0)
-                    {
-                        skip.Add("setup");
-                    }
-
-                    if (i < testCase.Records.Length - 1)
-                    {
-                        skip.Add("cleanup");
-                    }
-                    testCase.Properties["skip"] = string.Join(",", skip);
-                }
-
                 await ExecuteSingleRecord(testCase, record);
                 if (i < testCase.Records.Length - 1)
                 {

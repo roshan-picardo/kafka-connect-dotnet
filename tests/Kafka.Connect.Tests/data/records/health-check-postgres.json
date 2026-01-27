@@ -1,15 +1,17 @@
 {
-  "title": "Postgres health checks",
+  "title": "Postgres - health checks",
   "properties": {
     "target": "Postgres",
     "topic": "-",
     "database": "kafka_connect_db",
     "schema": "public",
-    "table": "health_table",
-    "setup": "CREATE TABLE IF NOT EXISTS public.\"health_table\"(\"userId\" text, \"userName\" text, email text, timestamp text, action text);",
-    "cleanup": "DROP TABLE IF EXISTS public.health_table;"
+    "table": "health_table"
   },
   "records": [
+    {
+      "operation": "setup",
+      "script": "CREATE TABLE IF NOT EXISTS public.\"health_table\"(\"userId\" text, \"userName\" text, email text, timestamp text, action text);"
+    },
     {
       "operation": "insert",
       "key": null,
@@ -73,6 +75,10 @@
         "userId": "user-001"
       },
       "value": null
+    },
+    {
+      "operation": "cleanup",
+      "script": "DROP TABLE IF EXISTS public.health_table;"
     }
   ]
 }

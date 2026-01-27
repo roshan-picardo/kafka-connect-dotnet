@@ -7,8 +7,6 @@ using Microsoft.Extensions.Configuration;
 using Xunit;
 using Microsoft.Extensions.DependencyInjection;
 using System.Text.Json;
-using Docker.DotNet;
-using Xunit.Abstractions;
 
 namespace IntegrationTests.Kafka.Connect.Infrastructure;
 
@@ -17,11 +15,11 @@ public class TestFixture : IAsyncLifetime
     private readonly TestLoggingService _loggingService;
     private readonly IContainerService _containerService;
     private INetwork? _network;
-    
+
     private readonly Dictionary<string, IContainer> _containers = new();
-    
+
     private IAdminClient? _adminClient;
-    
+
     private bool _kafkaConnectDeployed;
     private XUnitOutputSuppressor? _outputSuppressor;
     private XUnitOutputSuppressor? _errorSuppressor;
@@ -32,7 +30,7 @@ public class TestFixture : IAsyncLifetime
         var errorSuppressor = new XUnitOutputSuppressor(Console.Error);
         Console.SetOut(outputSuppressor);
         Console.SetError(errorSuppressor);
-        
+
         Environment.SetEnvironmentVariable("TESTCONTAINERS_RYUK_DISABLED", "false");
         Environment.SetEnvironmentVariable("TESTCONTAINERS_CHECKS_DISABLE", "false");
         Environment.SetEnvironmentVariable("TESTCONTAINERS_LOG_LEVEL", "INFO");
@@ -57,7 +55,7 @@ public class TestFixture : IAsyncLifetime
         _loggingService = new TestLoggingService();
 
         _loggingService.SetupTestcontainersLogging(Configuration.DetailedLog, Configuration.RawJsonLog);
-        
+
         KafkaConnectLogBuffer.SetRawJsonMode(Configuration.RawJsonLog);
     }
 
@@ -74,7 +72,7 @@ public class TestFixture : IAsyncLifetime
             _errorSuppressor = new XUnitOutputSuppressor(Console.Error);
             Console.SetOut(_outputSuppressor);
             Console.SetError(_errorSuppressor);
-            
+
             if (Configuration.SkipInfrastructure)
             {
                 LogMessage("Skipping infrastructure setup (SkipInfrastructure = true)");
@@ -87,6 +85,8 @@ public class TestFixture : IAsyncLifetime
             await CreateContainersAsync();
             await CreateConnectorTopicsAsync();
             await CreateSqlServerDatabasesAsync();
+            await RunTestConfigSetupAsync();
+            
             await DeployKafkaConnectAsync();
 
             LogMessage("Integration test infrastructure ready!");
@@ -111,7 +111,8 @@ public class TestFixture : IAsyncLifetime
             await _network.CreateAsync();
             LogMessage($"Network created: {Configuration.TestContainers.Network.Name}");
         }
-        catch (Exception ex) when (ex.Message.Contains("already exists") || ex.Message.Contains("network with name") || ex.Message.Contains("duplicate"))
+        catch (Exception ex) when (ex.Message.Contains("already exists") || ex.Message.Contains("network with name") ||
+                                   ex.Message.Contains("duplicate"))
         {
             LogMessage($"Network already exists, skipping creation: {Configuration.TestContainers.Network.Name}");
         }
@@ -130,21 +131,33 @@ public class TestFixture : IAsyncLifetime
             }
         }
     }
-    
+
     public TestConfiguration Configuration { get; }
 
     private async Task CreateConnectorTopicsAsync()
     {
         LogMessage("Creating topics from connector configurations...");
-        
-        var configFiles = Directory.GetFiles(Path.Join(Directory.GetCurrentDirectory(), "Configurations"), "appsettings.*.json");
-        
-        if (configFiles.Length == 0)
+
+        var configDirectory = Path.Join(Directory.GetCurrentDirectory(), "Configurations");
+        var configFiles = new List<string>();
+
+        var baseConfigFile = Path.Join(configDirectory, "appsettings.json");
+        if (File.Exists(baseConfigFile))
+        {
+            configFiles.Add(baseConfigFile);
+        }
+
+        var patternConfigFiles = Directory.GetFiles(configDirectory, "appsettings.*.json");
+        configFiles.AddRange(patternConfigFiles);
+
+        if (configFiles.Count == 0)
         {
             LogMessage("No connector configuration files found, skipping topic creation");
             return;
         }
+
         var allTopics = new HashSet<string>();
+        var systemTopics = new HashSet<string>();
 
         foreach (var configFile in configFiles)
         {
@@ -152,20 +165,53 @@ public class TestFixture : IAsyncLifetime
             {
                 var configContent = await File.ReadAllTextAsync(configFile);
                 var configJson = JsonDocument.Parse(configContent);
-                
-                if (configJson.RootElement.TryGetProperty("worker", out var worker) &&
-                    worker.TryGetProperty("connectors", out var connectors))
+
+                if (configJson.RootElement.TryGetProperty("worker", out var worker))
                 {
-                    foreach (var connector in connectors.EnumerateObject())
+                    if (worker.TryGetProperty("topics", out var workerTopics))
                     {
-                        if (connector.Value.TryGetProperty("topics", out var topics))
+                        foreach (var workerTopic in workerTopics.EnumerateObject())
                         {
-                            foreach (var topic in topics.EnumerateArray())
+                            var topicName = workerTopic.Name;
+                            if (!string.IsNullOrEmpty(topicName))
                             {
-                                var topicName = topic.GetString();
-                                if (!string.IsNullOrEmpty(topicName))
+                                systemTopics.Add(topicName);
+                            }
+                        }
+                    }
+
+                    // Handle connector-level topics
+                    if (worker.TryGetProperty("connectors", out var connectors))
+                    {
+                        foreach (var connector in connectors.EnumerateObject())
+                        {
+                            // Handle sink connector topics (from topics array)
+                            if (connector.Value.TryGetProperty("topics", out var topics))
+                            {
+                                foreach (var topic in topics.EnumerateArray())
                                 {
-                                    allTopics.Add(topicName);
+                                    var topicName = topic.GetString();
+                                    if (!string.IsNullOrEmpty(topicName))
+                                    {
+                                        allTopics.Add(topicName);
+                                    }
+                                }
+                            }
+
+                            if (connector.Value.TryGetProperty("plugin", out var plugin) &&
+                                plugin.TryGetProperty("properties", out var properties) &&
+                                properties.TryGetProperty("commands", out var commands))
+                            {
+                                foreach (var command in commands.EnumerateObject())
+                                {
+                                    if (command.Value.TryGetProperty("topic", out var commandTopic))
+                                    {
+                                        var topicName = commandTopic.GetString();
+                                        if (!string.IsNullOrEmpty(topicName))
+                                        {
+                                            allTopics.Add(topicName);
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -178,28 +224,43 @@ public class TestFixture : IAsyncLifetime
             }
         }
 
+        foreach (var topic in systemTopics)
+        {
+            try
+            {
+                await CreateTopicAsync(topic, partitions: 50);
+                LogMessage($"Created system topic: {topic} (50 partitions)");
+            }
+            catch (Exception ex)
+            {
+                LogMessage($"Failed to create system topic {topic}: {ex.Message}");
+            }
+        }
+
         foreach (var topic in allTopics)
         {
             try
             {
                 await CreateTopicAsync(topic);
-                LogMessage($"Created topic: {topic}");
+                LogMessage($"Created connector topic: {topic}");
             }
             catch (Exception ex)
             {
-                LogMessage($"Failed to create topic {topic}: {ex.Message}");
+                LogMessage($"Failed to create connector topic {topic}: {ex.Message}");
             }
         }
-        
-        LogMessage($"Topic creation completed. Created {allTopics.Count} topics.");
+
+        LogMessage(
+            $"Topic creation completed. Created {systemTopics.Count} system topics and {allTopics.Count} connector topics.");
     }
 
     private async Task CreateSqlServerDatabasesAsync()
     {
         LogMessage("Creating SQL Server databases from connector configurations...");
-        
-        var configFiles = Directory.GetFiles(Path.Join(Directory.GetCurrentDirectory(), "Configurations"), "appsettings.*.json");
-        
+
+        var configFiles = Directory.GetFiles(Path.Join(Directory.GetCurrentDirectory(), "Configurations"),
+            "appsettings.*.json");
+
         if (configFiles.Length == 0)
         {
             LogMessage("No connector configuration files found, skipping SQL Server database creation");
@@ -214,7 +275,7 @@ public class TestFixture : IAsyncLifetime
             {
                 var configContent = await File.ReadAllTextAsync(configFile);
                 var configJson = JsonDocument.Parse(configContent);
-                
+
                 if (configJson.RootElement.TryGetProperty("worker", out var worker) &&
                     worker.TryGetProperty("connectors", out var connectors))
                 {
@@ -245,8 +306,7 @@ public class TestFixture : IAsyncLifetime
         {
             try
             {
-                // Add a small delay to ensure SQL Server is fully ready
-                await Task.Delay(5000);
+                await WaitForSqlServerReadyAsync();
                 await CreateSqlServerDatabaseAsync(databaseName);
                 LogMessage($"Created SQL Server database: {databaseName}");
             }
@@ -255,37 +315,79 @@ public class TestFixture : IAsyncLifetime
                 LogMessage($"Failed to create SQL Server database {databaseName}: {ex.Message}");
             }
         }
-        
+
         LogMessage($"SQL Server database creation completed. Created {sqlServerDatabases.Count} databases.");
     }
 
     private async Task CreateSqlServerDatabaseAsync(string databaseName)
     {
         var connectionString = Configuration.GetServiceEndpoint("SqlServer");
-        
+
         // Connect to master database to create the target database
         var builder = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(connectionString);
         builder.InitialCatalog = "master";
-        
-        using var connection = new Microsoft.Data.SqlClient.SqlConnection(builder.ConnectionString);
+
+        await using var connection = new Microsoft.Data.SqlClient.SqlConnection(builder.ConnectionString);
         await connection.OpenAsync();
-        
+
         // Check if database exists
-        var checkCommand = new Microsoft.Data.SqlClient.SqlCommand("SELECT COUNT(*) FROM sys.databases WHERE name = @dbName", connection);
+        var checkCommand =
+            new Microsoft.Data.SqlClient.SqlCommand("SELECT COUNT(*) FROM sys.databases WHERE name = @dbName",
+                connection);
         checkCommand.Parameters.AddWithValue("@dbName", databaseName);
         var exists = (int)await checkCommand.ExecuteScalarAsync() > 0;
-        
+
         if (!exists)
         {
-            var createCommand = new Microsoft.Data.SqlClient.SqlCommand($"CREATE DATABASE [{databaseName}]", connection);
+            var createCommand =
+                new Microsoft.Data.SqlClient.SqlCommand($"CREATE DATABASE [{databaseName}]", connection);
             await createCommand.ExecuteNonQueryAsync();
         }
     }
 
+    private async Task WaitForSqlServerReadyAsync()
+{
+    LogMessage("Waiting for SQL Server to be ready...");
+    
+    var connectionString = Configuration.GetServiceEndpoint("SqlServer");
+    var builder = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(connectionString);
+    builder.InitialCatalog = "master";
+    builder.ConnectTimeout = 5;
+    
+    int maxAttempts = 60;  // 60 attempts = ~1 minute max wait
+    int delayMs = 1000;
+    
+    for (int attempt = 1; attempt <= maxAttempts; attempt++)
+    {
+        try
+        {
+            using var connection = new Microsoft.Data.SqlClient.SqlConnection(builder.ConnectionString);
+            await connection.OpenAsync();
+            
+            // Test query to ensure SQL Server is fully operational
+            var command = new Microsoft.Data.SqlClient.SqlCommand("SELECT @@VERSION", connection);
+            var version = await command.ExecuteScalarAsync();
+            
+            LogMessage($"✓ SQL Server is ready (attempt {attempt})");
+            return;
+        }
+        catch (Exception ex)
+        {
+            if (attempt == maxAttempts)
+            {
+                throw new TimeoutException($"SQL Server did not become ready after {maxAttempts} attempts", ex);
+            }
+            
+            LogMessage($"SQL Server not ready yet (attempt {attempt}/{maxAttempts}): {ex.Message}");
+            await Task.Delay(delayMs);
+        }
+    }
+}
+
     private async Task CreateTopicAsync(string topicName, int partitions = 1, short replicationFactor = 1)
     {
         var bootstrapServers = Configuration.GetServiceEndpoint("Kafka");
-            
+
         _adminClient ??= new AdminClientBuilder(new AdminClientConfig
             {
                 BootstrapServers = bootstrapServers
@@ -303,7 +405,7 @@ public class TestFixture : IAsyncLifetime
                 {
                     LogMessage($"Kafka Admin Client Error: {error.Reason}");
                 }
-            }) 
+            })
             .Build();
 
         var topicSpecification = new TopicSpecification
@@ -421,9 +523,8 @@ public class TestFixture : IAsyncLifetime
             {
                 await Task.Delay(10000);
             }
-            
+
             LogMessage("Tearing down test infrastructure...");
-            
             var containerKeys = _containers.Keys.Reverse().ToList();
             foreach (var containerKey in containerKeys)
             {
@@ -433,12 +534,13 @@ public class TestFixture : IAsyncLifetime
                     await DisposeContainerAsync(container);
                 }
             }
+
             if (_network != null)
             {
                 LogMessage($"Cleaning up test network: {Configuration.TestContainers.Network.Name}");
                 await _network.DisposeAsync();
             }
-                
+
             LogMessage("All containers stopped and cleaned up!");
         }
         finally
@@ -448,6 +550,7 @@ public class TestFixture : IAsyncLifetime
                 Console.SetOut(new StreamWriter(Console.OpenStandardOutput()) { AutoFlush = true });
                 await _outputSuppressor.DisposeAsync();
             }
+
             if (_errorSuppressor != null)
             {
                 Console.SetError(new StreamWriter(Console.OpenStandardError()) { AutoFlush = true });
@@ -470,6 +573,142 @@ public class TestFixture : IAsyncLifetime
         {
             LogMessage($"Stopping container: {container.Name}");
             await container.DisposeAsync();
+        }
+    }
+
+    private async Task RunTestConfigSetupAsync()
+    {
+        LogMessage("Running test configuration setup scripts...");
+
+        var configPath = Path.Join(Directory.GetCurrentDirectory(), "data", "test-config.json");
+        if (!File.Exists(configPath))
+        {
+            LogMessage("test-config.json not found, skipping setup");
+            return;
+        }
+
+        var configContent = await File.ReadAllTextAsync(configPath);
+        var configs = JsonSerializer.Deserialize<TestCaseConfig[]>(configContent,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        if (configs == null) return;
+
+        foreach (var config in configs.Where(c => c is { Skip: false, Setup: not null }))
+        {
+            try
+            {
+                LogMessage($"Running setup scripts for target: {config.Target}");
+
+                var setupScripts = config.Setup?.Scripts
+                    .Where(s => !string.IsNullOrWhiteSpace(s))
+                    .Select(s => s)
+                    .ToArray();
+
+                if (setupScripts is { Length: > 0 })
+                {
+                    await ExecuteScripts(config.Target, config.Setup?.Database, setupScripts);
+                }
+            }
+            catch (Exception ex)
+            {
+                LogMessage($"Failed to run setup for {config.Target}: {ex.Message}");
+            }
+        }
+
+        LogMessage("Test configuration setup completed.");
+    }
+
+    private async Task ExecuteScripts(string target, string database, string[] scripts)
+    {
+        switch (target.ToLowerInvariant())
+        {
+            case "postgres":
+                await ExecutePostgresScripts(database, scripts);
+                break;
+            case "mysql":
+                await ExecuteMySqlScripts(database, scripts);
+                break;
+            case "sqlserver":
+                await ExecuteSqlServerScripts(database, scripts);
+                break;
+            case "oracle":
+                await ExecuteOracleScripts(database, scripts);
+                break;
+            default:
+                LogMessage($"Unknown target for scripts: {target}");
+                break;
+        }
+    }
+
+    private async Task ExecutePostgresScripts(string database, string[] scripts)
+    {
+        var connectionString = Configuration.GetServiceEndpoint("Postgres");
+        var builder = new Npgsql.NpgsqlConnectionStringBuilder(connectionString)
+        {
+            Database = database 
+        };
+
+        await using var connection = new Npgsql.NpgsqlConnection(builder.ConnectionString);
+        await connection.OpenAsync();
+
+        foreach (var script in scripts)
+        {
+            await using var command = new Npgsql.NpgsqlCommand(script, connection);
+            await command.ExecuteNonQueryAsync();
+            LogMessage($"Executed PostgreSQL: {script.Substring(0, Math.Min(60, script.Length))}...");
+        }
+    }
+
+    private async Task ExecuteMySqlScripts(string database, string[] scripts)
+    {
+        var connectionString = Configuration.GetServiceEndpoint("MySql");
+        var builder = new MySql.Data.MySqlClient.MySqlConnectionStringBuilder(connectionString)
+        {
+            Database = database
+        };
+
+        await using var connection = new MySql.Data.MySqlClient.MySqlConnection(builder.ConnectionString);
+        await connection.OpenAsync();
+
+        foreach (var script in scripts)
+        {
+            await using var command = new MySql.Data.MySqlClient.MySqlCommand(script, connection);
+            await command.ExecuteNonQueryAsync();
+            LogMessage($"Executed MySQL: {script.Substring(0, Math.Min(60, script.Length))}...");
+        }
+    }
+
+    private async Task ExecuteSqlServerScripts(string database, string[] scripts)
+    {
+        var connectionString = Configuration.GetServiceEndpoint("SqlServer");
+        var builder = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(connectionString)
+        {
+            InitialCatalog = database
+        };
+
+        await using var connection = new Microsoft.Data.SqlClient.SqlConnection(builder.ConnectionString);
+        await connection.OpenAsync();
+
+        foreach (var script in scripts)
+        {
+            await using var command = new Microsoft.Data.SqlClient.SqlCommand(script, connection);
+            await command.ExecuteNonQueryAsync();
+            LogMessage($"Executed SQL Server: {script.Substring(0, Math.Min(60, script.Length))}...");
+        }
+    }
+
+    private async Task ExecuteOracleScripts(string database, string[] scripts)
+    {
+        var connectionString = Configuration.GetServiceEndpoint("Oracle");
+
+        await using var connection = new Oracle.ManagedDataAccess.Client.OracleConnection(connectionString);
+        await connection.OpenAsync();
+
+        foreach (var script in scripts)
+        {
+            await using var command = new Oracle.ManagedDataAccess.Client.OracleCommand(script, connection);
+            await command.ExecuteNonQueryAsync();
+            LogMessage($"Executed Oracle: {script.Substring(0, Math.Min(60, script.Length))}...");
         }
     }
 }

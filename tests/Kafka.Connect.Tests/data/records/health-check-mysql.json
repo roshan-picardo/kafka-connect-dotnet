@@ -1,14 +1,16 @@
 {
-  "title": "MySQL health checks",
+  "title": "MySql - health checks",
   "properties": {
     "target": "MySql",
     "topic": "-",
     "database": "kafka_connect_db",
-    "table": "health_table",
-    "setup": "CREATE TABLE IF NOT EXISTS `kafka_connect_db`.`health_table` (`userId` VARCHAR(255), `userName` VARCHAR(255), `email` VARCHAR(255), `timestamp` VARCHAR(255), `action` VARCHAR(255));",
-    "cleanup": "DROP TABLE IF EXISTS `kafka_connect_db`.`health_table`;"
+    "table": "health_table"
   },
   "records": [
+    {
+      "operation": "setup",
+      "script": "CREATE TABLE IF NOT EXISTS `kafka_connect_db`.`health_table` (`userId` VARCHAR(255), `userName` VARCHAR(255), `email` VARCHAR(255), `timestamp` VARCHAR(255), `action` VARCHAR(255));"
+    },
     {
       "operation": "insert",
       "key": null,
@@ -72,6 +74,10 @@
         "userId": "user-001"
       },
       "value": null
+    },
+    {
+      "operation": "cleanup",
+      "script": "DROP TABLE IF EXISTS `kafka_connect_db`.`health_table`;"
     }
   ]
 }

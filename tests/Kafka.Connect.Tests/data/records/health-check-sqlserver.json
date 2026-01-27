@@ -1,15 +1,17 @@
 {
-  "title": "SQL Server health checks",
+  "title": "SqlServer - health checks",
   "properties": {
     "target": "SqlServer",
     "topic": "-",
     "database": "kafka_connect_db",
     "schema": "dbo",
-    "table": "health_table",
-    "setup": "USE kafka_connect_db; IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='health_table' AND xtype='U') CREATE TABLE [dbo].[health_table]([userId] NVARCHAR(255), [userName] NVARCHAR(255), [email] NVARCHAR(255), [timestamp] NVARCHAR(255), [action] NVARCHAR(255));",
-    "cleanup": "IF EXISTS (SELECT * FROM sysobjects WHERE name='health_table' AND xtype='U') DROP TABLE [dbo].[health_table];"
+    "table": "health_table"
   },
   "records": [
+    {
+      "operation": "setup",
+      "script": "USE kafka_connect_db; IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='health_table' AND xtype='U') CREATE TABLE [dbo].[health_table]([userId] NVARCHAR(255), [userName] NVARCHAR(255), [email] NVARCHAR(255), [timestamp] NVARCHAR(255), [action] NVARCHAR(255));"
+    },
     {
       "operation": "insert",
       "key": null,
@@ -73,6 +75,10 @@
         "userId": "user-001"
       },
       "value": null
+    },
+    {
+      "operation": "cleanup",
+      "script": "IF EXISTS (SELECT * FROM sysobjects WHERE name='health_table' AND xtype='U') DROP TABLE [dbo].[health_table];"
     }
   ]
 }

@@ -1,13 +1,16 @@
 {
-  "title": "Insert record to MySQL database",
+  "title": "SqlServer - sink tests",
   "properties": {
-    "topic": "mysql-sink-data-topic",
+    "topic": "sqlserver-sink-data-topic",
     "database": "kafka_connect_db",
-    "table": "sink_table",
-    "setup": "CREATE TABLE IF NOT EXISTS `kafka_connect_db`.`sink_table` (`userId` VARCHAR(255), `userName` VARCHAR(255), `email` VARCHAR(255), `timestamp` VARCHAR(255), `action` VARCHAR(255));",
-    "cleanup": "DROP TABLE IF EXISTS `kafka_connect_db`.`sink_table`;"
+    "schema": "dbo",
+    "table": "sink_table"
   },
   "records": [
+    {
+      "operation": "setup",
+      "script": "USE kafka_connect_db; IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='sink_table' AND xtype='U') CREATE TABLE [dbo].[sink_table]([userId] NVARCHAR(255), [userName] NVARCHAR(255), [email] NVARCHAR(255), [timestamp] NVARCHAR(255), [action] NVARCHAR(255));"
+    },
     {
       "operation": "publish",
       "delay": 0,
@@ -73,6 +76,10 @@
       "key": {
         "userId": "user-002"
       }
+    },
+    {
+      "operation": "cleanup",
+      "script": "IF EXISTS (SELECT * FROM sysobjects WHERE name='sink_table' AND xtype='U') DROP TABLE [dbo].[sink_table];"
     }
   ]
 }
