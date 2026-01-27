@@ -34,8 +34,15 @@
     "target": "SqlServer",
     "schema": "/schemas/user-event.avsc",
     "files": [
-      "/records/sink-tests-sqlserver.json"
-    ]
+      "/records/sink-tests-sqlserver.json",
+      "/records/source-tests-sqlserver.json"
+    ],
+    "setup": {
+      "database": "kafka_connect_db",
+      "scripts": [
+        "IF OBJECT_ID('[dbo].[source_table]', 'U') IS NOT NULL DROP TABLE [dbo].[source_table]; CREATE TABLE [dbo].[source_table]([userId] NVARCHAR(255), [userName] NVARCHAR(255), [email] NVARCHAR(255), [timestamp] NVARCHAR(255), [action] NVARCHAR(255));"
+      ]
+    }
   },
   {
     "target": "MySql",
