@@ -15,36 +15,40 @@
     "target": "Mongo",
     "schema": "/schemas/user-event.avsc",
     "files": [
-      "/records/mongo-basic-insert.json",
-      "/records/mongo-basic-update.json"
+      "/records/sink-tests-mongo.json"
     ]
   },
   {
     "target": "Postgres",
     "schema": "/schemas/user-event.avsc",
     "files": [
-      "/records/postgres-basic-insert.json"
-    ]
+      "/records/sink-tests-postgres.json",
+      "/records/source-tests-postgres.json"
+    ],
+    "setup": {"database":  "kafka_connect_db",
+    "scripts": [
+      "CREATE TABLE IF NOT EXISTS public.\"source_table\"(\"userId\" text, \"userName\" text, email text, timestamp text, action text);"
+    ]}
   },
   {
     "target": "SqlServer",
     "schema": "/schemas/user-event.avsc",
     "files": [
-      "/records/sqlserver-basic-insert.json"
+      "/records/sink-tests-sqlserver.json"
     ]
   },
   {
     "target": "MySql",
     "schema": "/schemas/user-event.avsc",
     "files": [
-      "/records/mysql-basic-insert.json"
+      "/records/sink-tests-mysql.json"
     ]
   },
   {
     "target": "Oracle",
     "schema": "/schemas/user-event.avsc",
     "files": [
-      "/records/oracle-basic-insert.json"
+      "/records/sink-tests-oracle.json"
     ]
   }
 ]

@@ -1,14 +1,15 @@
 {
-  "title": "Insert record to postgres database",
+  "title": "Oracle - sink tests",
   "properties": {
-    "topic": "postgres-sink-data-topic",
-    "database": "kafka_connect_db",
-    "schema": "public",
-    "table": "sink_table",
-    "setup": "CREATE TABLE IF NOT EXISTS public.\"sink_table\"(\"userId\" text, \"userName\" text, email text, timestamp text, action text);",
-    "cleanup": "DROP TABLE IF EXISTS public.sink_table;"
+    "topic": "oracle-sink-data-topic",
+    "schema": "SYSTEM",
+    "table": "sink_table"
   },
   "records": [
+    {
+      "operation": "setup",
+      "script": "CREATE TABLE \"SYSTEM\".\"sink_table\" (\"userId\" VARCHAR2(255), \"userName\" VARCHAR2(255), \"email\" VARCHAR2(255), \"timestamp\" VARCHAR2(255), \"action\" VARCHAR2(255))"
+    },
     {
       "operation": "publish",
       "delay": 0,
@@ -74,6 +75,10 @@
       "key": {
         "userId": "user-002"
       }
+    },
+    {
+      "operation": "cleanup",
+      "script": "DROP TABLE \"SYSTEM\".\"sink_table\""
     }
   ]
 }

@@ -1,5 +1,5 @@
 {
-  "title": "Kafka health checks",
+  "title": "Kafka - health checks",
   "properties": {
     "target": "Kafka",
     "topic": "health-check-data-topic"

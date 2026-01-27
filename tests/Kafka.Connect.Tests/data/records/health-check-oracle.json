@@ -1,14 +1,16 @@
 {
-  "title": "Oracle health checks",
+  "title": "Oracle - health checks",
   "properties": {
     "target": "Oracle",
     "topic": "-",
     "schema": "SYSTEM",
-    "table": "health_table",
-    "setup": "CREATE TABLE \"SYSTEM\".\"health_table\" (\"userId\" VARCHAR2(255), \"userName\" VARCHAR2(255), \"email\" VARCHAR2(255), \"timestamp\" VARCHAR2(255), \"action\" VARCHAR2(255))",
-    "cleanup": "DROP TABLE \"SYSTEM\".\"health_table\""
+    "table": "health_table"
   },
   "records": [
+    {
+      "operation": "setup",
+      "script": "CREATE TABLE \"SYSTEM\".\"health_table\" (\"userId\" VARCHAR2(255), \"userName\" VARCHAR2(255), \"email\" VARCHAR2(255), \"timestamp\" VARCHAR2(255), \"action\" VARCHAR2(255))"
+    },
     {
       "operation": "insert",
       "key": null,
@@ -72,6 +74,10 @@
         "userId": "user-001"
       },
       "value": null
+    },
+    {
+      "operation": "cleanup",
+      "script": "DROP TABLE \"SYSTEM\".\"health_table\""
     }
   ]
 }

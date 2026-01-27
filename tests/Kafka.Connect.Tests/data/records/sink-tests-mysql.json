@@ -1,13 +1,18 @@
 {
-  "title": "Insert record to mongo database",
+  "title": "MySql - sink tests",
   "properties": {
-    "topic": "mongodb-sink-data-topic",
-    "collection": "sink-collection",
-    "database": "kafka_connect_db"
+    "topic": "mysql-sink-data-topic",
+    "database": "kafka_connect_db",
+    "table": "sink_table"
   },
   "records": [
     {
+      "operation": "setup",
+      "script": "CREATE TABLE IF NOT EXISTS `kafka_connect_db`.`sink_table` (`userId` VARCHAR(255), `userName` VARCHAR(255), `email` VARCHAR(255), `timestamp` VARCHAR(255), `action` VARCHAR(255));"
+    },
+    {
       "operation": "publish",
+      "delay": 0,
       "key": null,
       "value": {
         "userId": "user-001",
@@ -19,6 +24,7 @@
     },
     {
       "operation": "publish",
+      "delay": 0,
       "key": null,
       "value": {
         "userId": "user-002",
@@ -44,6 +50,7 @@
     },
     {
       "operation": "search",
+      "delay": 0,
       "key": {
         "userId": "user-002"
       },
@@ -57,16 +64,21 @@
     },
     {
       "operation": "delete",
+      "delay": 0,
       "key": {
         "userId": "user-001"
       }
     },
     {
       "operation": "delete",
+      "delay": 0,
       "key": {
-        "userId": "user-001"
+        "userId": "user-002"
       }
+    },
+    {
+      "operation": "cleanup",
+      "script": "DROP TABLE IF EXISTS `kafka_connect_db`.`sink_table`;"
     }
   ]
 }
-

@@ -1,3 +1,4 @@
+using System.Data;
 using System.Diagnostics;
 using System.Text.Json.Nodes;
 using Confluent.Kafka;
@@ -13,48 +14,42 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
         output.WriteLine($"Executing test: {testCase.Title}");
         if (testCase.Properties is { } properties)
         {
-            try
+            properties.TryAdd("target", target);
+            foreach (var record in testCase.Records)
             {
-                properties.TryAdd("target", target);
-                if(!(properties.TryGetValue("skip", out var skip) && skip.Contains("setup")))
+                await Task.Delay(record.Delay);
+                switch (record.Operation?.ToLowerInvariant())
                 {
-                    await Setup(properties);
-                }
-                foreach (var record in testCase.Records)
-                {
-                    await Task.Delay(record.Delay);
-                    switch (record.Operation?.ToLowerInvariant())
-                    {
-                        case "search":
-                            var searched = await Search(properties, record);
-                            Validate(record.Value, searched);
-                            break;
-                        case "insert":
-                            await Insert(properties, record);
-                            break;
-                        case "update":
-                            await Update(properties, record);
-                            break;
-                        case "delete":
-                            await Delete(properties, record);
-                            break;
-                        case "publish":
-                            await Publish(properties, record);
-                            break;
-                        case "consume":
-                            var consumed = await Consume(properties, record);
-                            Validate(record.Value, consumed);
-                            break;
-                        default:
-                            throw new InvalidOperationException($"Unknown operation: {record.Operation}");
-                    }
-                }
-            }
-            finally
-            {
-                if(!(properties.TryGetValue("skip", out var skip) && skip.Contains("cleanup")))
-                {
-                    await Cleanup(properties);
+                    case "setup":
+                        properties["setup"] = record.Script;
+                        await Setup(properties); 
+                        break;
+                    case "search":
+                        var searched = await Search(properties, record);
+                        Validate(record.Value, searched);
+                        break;
+                    case "insert":
+                        await Insert(properties, record);
+                        break;
+                    case "update":
+                        await Update(properties, record);
+                        break;
+                    case "delete":
+                        await Delete(properties, record);
+                        break;
+                    case "publish":
+                        await Publish(properties, record);
+                        break;
+                    case "consume":
+                        var consumed = await Consume(properties, record);
+                        Validate(record.Value, consumed);
+                        break;
+                    case "cleanup":
+                        properties["cleanup"] = record.Script;
+                        await Cleanup(properties); 
+                        break;
+                    default:
+                        throw new InvalidOperationException($"Unknown operation: {record.Operation}");
                 }
             }
         }
@@ -69,7 +64,7 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
     private async Task<JsonNode?> Consume(Dictionary<string, string> properties, TestCaseRecord record)
     {
         var consumed = await ConsumeMessageAsync(properties["topic"]);
-        return JsonNode.Parse(consumed.Message.Value);
+        return consumed == null ? null : JsonNode.Parse(consumed.Message.Value);
     }
 
     private static void Validate(JsonNode? expected, JsonNode? actual)
@@ -93,7 +88,7 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
             {
                 var propertyPath = string.IsNullOrEmpty(path) ? expectedProperty.Key : $"{path}.{expectedProperty.Key}";
             
-                Assert.True(actualObj.ContainsKey(expectedProperty.Key), 
+                Assert.True(actualObj.ContainsKey(expectedProperty.Key),
                     $"Property '{expectedProperty.Key}' not found at path '{propertyPath}'");
             
                 Validate(expectedProperty.Value, actualObj[expectedProperty.Key], propertyPath);
@@ -111,6 +106,10 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
         }
         else
         {
+            if (expected?.ToString() == "*")
+            {
+                return; 
+            }
             Assert.Equal(expected?.ToString(), actual.ToString());
         }
     }
@@ -162,15 +161,15 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
         var result = await producer.ProduceAsync(topic, message);
         return result;
     }
-    
-    public async Task<ConsumeResult<string, string>> ConsumeMessageAsync(string topic)
+
+    private async Task<ConsumeResult<string, string>?> ConsumeMessageAsync(string topic)
     {
         var consumerConfig = new ConsumerConfig
         {
             BootstrapServers = fixture.Configuration.GetServiceEndpoint("Kafka"),
             GroupId = "test-group-id",
             AutoOffsetReset = AutoOffsetReset.Earliest,
-            EnableAutoCommit = true,
+            EnableAutoCommit = false,
             SecurityProtocol = SecurityProtocol.Plaintext,
             SessionTimeoutMs = 30000,
             MaxPollIntervalMs = 30000,
@@ -199,8 +198,19 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
         {
             try
             {
-                var result = consumer.Consume();
-                return result;
+                var loop = 60;
+                ConsumeResult<string, string>? result;
+                do
+                {
+                    result = consumer.Consume(1000);
+                } while (result == null && loop-- > 0);
+
+                if (result != null)
+                {
+                    consumer.Commit(result);
+                }
+
+                return result ?? throw new DataException("Consumer returned null after waiting for a minute...");
             }
             finally
             {
@@ -208,7 +218,6 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
             }
         });
     }
-
 
     public virtual void Dispose()
     {
@@ -219,9 +228,9 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
 }
 
 public record SchemaRecord(JsonNode? Key, JsonNode Value);
-public record TestCaseConfig(string Schema, string? Folder, string[]? Files, string? Target = null, bool Skip = false);
+public record TestCaseConfig(string Schema, string? Folder, string[]? Files, string? Target = null, bool Skip = false, TestCaseInitScripts? Setup = null);
 
-public record TestCaseRecord(string Operation, int Delay, JsonNode? Key, JsonNode? Value);
+public record TestCaseRecord(string Operation, int Delay, string Script, JsonNode? Key, JsonNode? Value);
 
 public record TestCase(string Title, Dictionary<string, string> Properties, TestCaseRecord[] Records, bool Skip = false)
 {
@@ -230,3 +239,5 @@ public record TestCase(string Title, Dictionary<string, string> Properties, Test
         return $"Title: {Title}, Topic: {Properties["topic"]}, Records: {Records.Length}";
     }
 }
+
+public record TestCaseInitScripts(string Database, string[] Scripts);
