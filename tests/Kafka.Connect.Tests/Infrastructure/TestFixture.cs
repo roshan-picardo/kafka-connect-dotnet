@@ -84,9 +84,9 @@ public class TestFixture : IAsyncLifetime
             await CreateNetworkAsync();
             await CreateContainersAsync();
             await CreateConnectorTopicsAsync();
+            await WaitForAllDatabasesReadyAsync();
             await CreateSqlServerDatabasesAsync();
             await RunTestConfigSetupAsync();
-            
             await DeployKafkaConnectAsync();
 
             LogMessage("Integration test infrastructure ready!");
@@ -306,7 +306,6 @@ public class TestFixture : IAsyncLifetime
         {
             try
             {
-                await WaitForSqlServerReadyAsync();
                 await CreateSqlServerDatabaseAsync(databaseName);
                 LogMessage($"Created SQL Server database: {databaseName}");
             }
@@ -346,43 +345,166 @@ public class TestFixture : IAsyncLifetime
     }
 
     private async Task WaitForSqlServerReadyAsync()
-{
-    LogMessage("Waiting for SQL Server to be ready...");
-    
-    var connectionString = Configuration.GetServiceEndpoint("SqlServer");
-    var builder = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(connectionString);
-    builder.InitialCatalog = "master";
-    builder.ConnectTimeout = 5;
-    
-    int maxAttempts = 60;  // 60 attempts = ~1 minute max wait
-    int delayMs = 1000;
-    
-    for (int attempt = 1; attempt <= maxAttempts; attempt++)
     {
-        try
+        LogMessage("Waiting for SQL Server to be ready...");
+        
+        var connectionString = Configuration.GetServiceEndpoint("SqlServer");
+        var builder = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(connectionString);
+        builder.InitialCatalog = "master";
+        builder.ConnectTimeout = 5;
+        
+        int maxAttempts = 60;  // 60 attempts = ~1 minute max wait
+        int delayMs = 1000;
+        
+        for (int attempt = 1; attempt <= maxAttempts; attempt++)
         {
-            using var connection = new Microsoft.Data.SqlClient.SqlConnection(builder.ConnectionString);
-            await connection.OpenAsync();
-            
-            // Test query to ensure SQL Server is fully operational
-            var command = new Microsoft.Data.SqlClient.SqlCommand("SELECT @@VERSION", connection);
-            var version = await command.ExecuteScalarAsync();
-            
-            LogMessage($"✓ SQL Server is ready (attempt {attempt})");
-            return;
-        }
-        catch (Exception ex)
-        {
-            if (attempt == maxAttempts)
+            try
             {
-                throw new TimeoutException($"SQL Server did not become ready after {maxAttempts} attempts", ex);
+                using var connection = new Microsoft.Data.SqlClient.SqlConnection(builder.ConnectionString);
+                await connection.OpenAsync();
+                
+                // Test query to ensure SQL Server is fully operational
+                var command = new Microsoft.Data.SqlClient.SqlCommand("SELECT @@VERSION", connection);
+                var version = await command.ExecuteScalarAsync();
+                
+                LogMessage($"SQL Server is ready (attempt {attempt})");
+                return;
             }
-            
-            LogMessage($"SQL Server not ready yet (attempt {attempt}/{maxAttempts}): {ex.Message}");
-            await Task.Delay(delayMs);
+            catch (Exception ex)
+            {
+                if (attempt == maxAttempts)
+                {
+                    throw new TimeoutException($"SQL Server did not become ready after {maxAttempts} attempts", ex);
+                }
+                
+                LogMessage($"SQL Server not ready yet (attempt {attempt}/{maxAttempts}): {ex.Message}");
+                await Task.Delay(delayMs);
+            }
         }
     }
-}
+    
+        private async Task WaitForOracleReadyAsync()
+        {
+            LogMessage("Waiting for Oracle to be ready...");
+            
+            var connectionString = Configuration.GetServiceEndpoint("Oracle");
+            
+            int maxAttempts = 60;  // 60 attempts = ~1 minute max wait
+            int delayMs = 1000;
+            
+            for (int attempt = 1; attempt <= maxAttempts; attempt++)
+            {
+                try
+                {
+                    using var connection = new Oracle.ManagedDataAccess.Client.OracleConnection(connectionString);
+                    await connection.OpenAsync();
+                    
+                    // Test query to ensure Oracle is fully operational
+                    var command = new Oracle.ManagedDataAccess.Client.OracleCommand("SELECT * FROM DUAL", connection);
+                    var result = await command.ExecuteScalarAsync();
+                    
+                    LogMessage($"Oracle is ready (attempt {attempt})");
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    if (attempt == maxAttempts)
+                    {
+                        throw new TimeoutException($"Oracle did not become ready after {maxAttempts} attempts", ex);
+                    }
+                    
+                    LogMessage($"Oracle not ready yet (attempt {attempt}/{maxAttempts}): {ex.Message}");
+                    await Task.Delay(delayMs);
+                }
+            }
+        }
+    
+        private async Task WaitForPostgresReadyAsync()
+        {
+            LogMessage("Waiting for Postgres to be ready...");
+            
+            var connectionString = Configuration.GetServiceEndpoint("Postgres");
+            
+            int maxAttempts = 60;
+            int delayMs = 1000;
+            
+            for (int attempt = 1; attempt <= maxAttempts; attempt++)
+            {
+                try
+                {
+                    using var connection = new Npgsql.NpgsqlConnection(connectionString);
+                    await connection.OpenAsync();
+                    
+                    var command = new Npgsql.NpgsqlCommand("SELECT version()", connection);
+                    var version = await command.ExecuteScalarAsync();
+                    
+                    LogMessage($"Postgres is ready (attempt {attempt})");
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    if (attempt == maxAttempts)
+                    {
+                        throw new TimeoutException($"Postgres did not become ready after {maxAttempts} attempts", ex);
+                    }
+                    
+                    LogMessage($"Postgres not ready yet (attempt {attempt}/{maxAttempts}): {ex.Message}");
+                    await Task.Delay(delayMs);
+                }
+            }
+        }
+    
+        private async Task WaitForMySqlReadyAsync()
+        {
+            LogMessage("Waiting for MySQL to be ready...");
+            
+            var connectionString = Configuration.GetServiceEndpoint("MySql");
+            
+            int maxAttempts = 60;
+            int delayMs = 1000;
+            
+            for (int attempt = 1; attempt <= maxAttempts; attempt++)
+            {
+                try
+                {
+                    using var connection = new MySql.Data.MySqlClient.MySqlConnection(connectionString);
+                    await connection.OpenAsync();
+                    
+                    var command = new MySql.Data.MySqlClient.MySqlCommand("SELECT VERSION()", connection);
+                    var version = await command.ExecuteScalarAsync();
+                    
+                    LogMessage($"MySQL is ready (attempt {attempt})");
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    if (attempt == maxAttempts)
+                    {
+                        throw new TimeoutException($"MySQL did not become ready after {maxAttempts} attempts", ex);
+                    }
+                    
+                    LogMessage($"MySQL not ready yet (attempt {attempt}/{maxAttempts}): {ex.Message}");
+                    await Task.Delay(delayMs);
+                }
+            }
+        }
+    
+        private async Task WaitForAllDatabasesReadyAsync()
+        {
+            LogMessage("Waiting for all databases to be ready...");
+            
+            var tasks = new List<Task>
+            {
+                WaitForSqlServerReadyAsync(),
+                WaitForOracleReadyAsync(),
+                WaitForPostgresReadyAsync(),
+                WaitForMySqlReadyAsync()
+            };
+            
+            await Task.WhenAll(tasks);
+            
+            LogMessage("All databases are ready!");
+        }
 
     private async Task CreateTopicAsync(string topicName, int partitions = 1, short replicationFactor = 1)
     {

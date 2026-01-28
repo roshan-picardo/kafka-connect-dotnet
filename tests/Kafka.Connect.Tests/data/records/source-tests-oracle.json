@@ -3,8 +3,8 @@
   "properties": {
     "topic": "oracle-source-data-topic",
     "database": "XE",
-    "schema": "\"SYSTEM\"",
-    "table": "\"source_table\""
+    "schema": "SYSTEM",
+    "table": "source_table"
   },
   "records": [
     {

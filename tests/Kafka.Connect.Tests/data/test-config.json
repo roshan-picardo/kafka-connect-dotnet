@@ -69,7 +69,7 @@
       "database": "XE",
       "scripts": [
         "BEGIN EXECUTE IMMEDIATE 'DROP TABLE \"SYSTEM\".\"source_table\"'; EXCEPTION WHEN OTHERS THEN IF SQLCODE != -942 THEN RAISE; END IF; END;",
-        "CREATE TABLE \"SYSTEM\".\"source_table\"(\"userId\" VARCHAR2(255), \"userName\" VARCHAR2(255), \"email\" VARCHAR2(255), \"timestamp\" VARCHAR2(255), \"action\" VARCHAR2(255))"
+        "CREATE TABLE \"SYSTEM\".\"source_table\" (\"userId\" VARCHAR2(255), \"userName\" VARCHAR2(255), \"email\" VARCHAR2(255), \"timestamp\" VARCHAR2(255), \"action\" VARCHAR2(255))"
       ]
     }
   }
