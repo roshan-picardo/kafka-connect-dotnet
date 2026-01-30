@@ -42,7 +42,8 @@ public class OraclePluginHandler(
                     var record = new Dictionary<string, object>();
                     for (var i = 0; i < reader.FieldCount; i++)
                     {
-                        record.Add(reader.GetName(i).ToLower(), reader.GetValue(i));
+                        // Preserve column name case as-is (no ToLower)
+                        record.Add(reader.GetName(i), reader.GetValue(i));
                     }
 
                     records.Add(GetConnectRecord(record, command));
