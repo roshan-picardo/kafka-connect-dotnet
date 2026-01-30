@@ -202,7 +202,6 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
                 ConsumeResult<string, string>? lastResult = null;
                 ConsumeResult<string, string>? result;
                 
-                // First, wait for at least one message
                 do
                 {
                     result = consumer.Consume(1000);
@@ -217,19 +216,16 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
                     throw new DataException("Consumer returned null after waiting for a minute...");
                 }
 
-                // Now consume all remaining available messages to get the last one
-                // Use a shorter timeout to quickly check for more messages
                 while (true)
                 {
-                    result = consumer.Consume(100); // Short timeout to check for more messages
+                    result = consumer.Consume(100); 
                     if (result == null)
                     {
-                        break; // No more messages available
+                        break; 
                     }
                     lastResult = result;
                 }
 
-                // Commit the last message offset
                 consumer.Commit(lastResult);
 
                 return lastResult;

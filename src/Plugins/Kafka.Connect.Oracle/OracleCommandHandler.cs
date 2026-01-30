@@ -32,12 +32,15 @@ public class OracleCommandHandler(
                 var connection = oracleClientProvider.GetOracleClient(connector).GetConnection();
                 using (logger.Track("Making sure audit log table exists"))
                 {
+                    // Strip quotes from schema and table names for metadata lookup
+                    var changelogSchema = config.Changelog.Schema.Trim('"');
+                    var changelogTable = config.Changelog.Table.Trim('"');
                     var lookupLogTable = $"""
-                                          SELECT COUNT(*) 
+                                          SELECT COUNT(*)
                                           FROM ALL_TABLES
-                                          WHERE 
-                                              UPPER(OWNER) = UPPER('{config.Changelog.Schema}') AND 
-                                              UPPER(TABLE_NAME) = UPPER('{config.Changelog.Table}')
+                                          WHERE
+                                              OWNER = '{changelogSchema}' AND
+                                              TABLE_NAME = '{changelogTable}'
                                           """;
                     var cmd = new OracleCommand(lookupLogTable, connection);
                     var exists = Convert.ToInt32(await cmd.ExecuteScalarAsync()) > 0;
@@ -65,28 +68,33 @@ public class OracleCommandHandler(
                 {
                     using (logger.Track($"Making sure trigger is attached to {command.Schema}.{command.Table}"))
                     {
+                        // Strip quotes from schema and table names for metadata lookup
+                        var schemaName = command.Schema.Trim('"');
+                        var tableName = command.Table.Trim('"');
                         var lookupTrigger = $"""
                                              SELECT COUNT(*)
                                              FROM ALL_TRIGGERS
                                              WHERE
-                                                 UPPER(OWNER) = UPPER('{command.Schema}') AND
-                                                 UPPER(TABLE_NAME) = UPPER('{command.Table}') AND
-                                                 UPPER(TRIGGER_NAME) = UPPER('TRG_{command.Table}_AUDIT_LOG')
+                                                 OWNER = '{schemaName}' AND
+                                                 TABLE_NAME = '{tableName}' AND
+                                                 TRIGGER_NAME = 'TRG_{tableName.ToUpper()}_AUDIT_LOG'
                                              """;
                         var cmd = new OracleCommand(lookupTrigger, connection);
                         var exists = Convert.ToInt32(await cmd.ExecuteScalarAsync()) > 0;
                         if (exists) continue;
 
                         // Execute the LISTAGG query in C# to get column lists
+                        // Need to quote column names in trigger references to preserve case
+                        // Use column_name as-is to preserve camelCase in JSON keys
                         var columnsQuery = $"""
                                           SELECT
-                                              LISTAGG('''' || LOWER(column_name) || ''' VALUE :NEW.' || column_name, ', ')
+                                              LISTAGG('''' || column_name || ''' VALUE :NEW."' || column_name || '"', ', ')
                                               WITHIN GROUP (ORDER BY column_id) AS new_columns,
-                                              LISTAGG('''' || LOWER(column_name) || ''' VALUE :OLD.' || column_name, ', ')
+                                              LISTAGG('''' || column_name || ''' VALUE :OLD."' || column_name || '"', ', ')
                                               WITHIN GROUP (ORDER BY column_id) AS old_columns
                                           FROM ALL_TAB_COLUMNS
-                                          WHERE UPPER(TABLE_NAME) = UPPER('{command.Table}')
-                                          AND UPPER(OWNER) = UPPER('{command.Schema}')
+                                          WHERE TABLE_NAME = '{tableName}'
+                                          AND OWNER = '{schemaName}'
                                           """;
                         
                         var columnsCmd = new OracleCommand(columnsQuery, connection);
@@ -97,12 +105,20 @@ public class OracleCommandHandler(
                         {
                             if (await reader.ReadAsync())
                             {
-                                newColumns = reader.GetString(0); 
-                                oldColumns = reader.GetString(1); 
+                                newColumns = reader.IsDBNull(0) ? string.Empty : reader.GetString(0);
+                                oldColumns = reader.IsDBNull(1) ? string.Empty : reader.GetString(1);
                             }
                         }
+                        
+                        // Skip trigger creation if table doesn't exist or has no columns
+                        if (string.IsNullOrEmpty(newColumns) || string.IsNullOrEmpty(oldColumns))
+                        {
+                            logger.Warning($"Table {command.Schema}.{command.Table} does not exist or has no columns. Skipping trigger creation.");
+                            continue;
+                        }
+                        
                         var attachTrigger = $"""
-                                             CREATE OR REPLACE TRIGGER {command.Schema}.TRG_{command.Table.ToUpper()}_AUDIT_LOG
+                                             CREATE OR REPLACE TRIGGER {command.Schema}.TRG_{tableName.ToUpper()}_AUDIT_LOG
                                              AFTER INSERT OR UPDATE OR DELETE ON {command.Schema}.{command.Table}
                                              FOR EACH ROW
                                              DECLARE
@@ -127,7 +143,7 @@ public class OracleCommandHandler(
                                                  INSERT INTO {config.Changelog.Schema}.{config.Changelog.Table}
                                                      (LOG_SCHEMA, LOG_TABLE, LOG_OPERATION, LOG_BEFORE, LOG_AFTER)
                                                  VALUES
-                                                     ('{command.Schema}', '{command.Table}', v_operation, v_before, v_after);
+                                                     ('{schemaName}', '{tableName}', v_operation, v_before, v_after);
                                              END;
                                              """;
                         await new OracleCommand(attachTrigger, connection).ExecuteNonQueryAsync();

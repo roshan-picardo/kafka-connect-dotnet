@@ -31,15 +31,15 @@ public class ReadStrategy(ILogger<ReadStrategy> logger) : Strategy<string>
                 var orderBy = command.Filters == null ? "" : $" ORDER BY {string.Join(",", command.Filters.Keys.Select(k => $"\"{k}\""))}";
                 
                 model.Model = $"""
-                               SELECT 
-                                   ROWNUM AS id,
-                                   'CHANGE' AS operation,
+                               SELECT
+                                   ROWNUM AS "id",
+                                   'CHANGE' AS "operation",
                                    (EXTRACT(DAY FROM (SYSTIMESTAMP - TO_TIMESTAMP('1970-01-01', 'YYYY-MM-DD'))) * 86400000000 + 
                                     EXTRACT(HOUR FROM SYSTIMESTAMP) * 3600000000 + 
                                     EXTRACT(MINUTE FROM SYSTIMESTAMP) * 60000000 + 
-                                    EXTRACT(SECOND FROM SYSTIMESTAMP) * 1000000) AS timestamp,
-                                   NULL AS before,
-                                   JSON_OBJECT(*) AS after
+                                    EXTRACT(SECOND FROM SYSTIMESTAMP) * 1000000) AS "timestamp",
+                                   NULL AS "before",
+                                   JSON_OBJECT(*) AS "after"
                                FROM {command.Schema}.{command.Table}
                                {where}
                                {orderBy} 
@@ -65,33 +65,33 @@ public class ReadStrategy(ILogger<ReadStrategy> logger) : Strategy<string>
                 {
                     model.Model = string.IsNullOrWhiteSpace(command.Snapshot.Key)
                         ? $"""
-                           SELECT 
-                               id, 
-                               'IMPORT' AS operation,
+                           SELECT
+                               "id",
+                               'IMPORT' AS "operation",
                                (EXTRACT(DAY FROM (SYSTIMESTAMP - TO_TIMESTAMP('1970-01-01', 'YYYY-MM-DD'))) * 86400000000 + 
                                 EXTRACT(HOUR FROM SYSTIMESTAMP) * 3600000000 + 
                                 EXTRACT(MINUTE FROM SYSTIMESTAMP) * 60000000 + 
-                                EXTRACT(SECOND FROM SYSTIMESTAMP) * 1000000) AS timestamp,
-                               NULL as before,
-                               after
+                                EXTRACT(SECOND FROM SYSTIMESTAMP) * 1000000) AS "timestamp",
+                               NULL as "before",
+                               "after"
                            FROM (
                               SELECT  
-                                  ROWNUM AS id, 
-                                  JSON_OBJECT(*) as after
+                                  ROWNUM AS "id",
+                                  JSON_OBJECT(*) as "after"
                               FROM {command.Schema}.{command.Table}
                            ) batch 
-                           WHERE id BETWEEN {command.Snapshot.Id + 1} AND {command.Snapshot.Id + record.BatchSize}
+                           WHERE "id" BETWEEN {command.Snapshot.Id + 1} AND {command.Snapshot.Id + record.BatchSize}
                            """
                         : $"""
-                           SELECT 
-                               {command.Snapshot.Key} AS id, 
-                               'IMPORT' AS operation,
+                           SELECT
+                               {command.Snapshot.Key} AS "id",
+                               'IMPORT' AS "operation",
                                (EXTRACT(DAY FROM (SYSTIMESTAMP - TO_TIMESTAMP('1970-01-01', 'YYYY-MM-DD'))) * 86400000000 + 
                                 EXTRACT(HOUR FROM SYSTIMESTAMP) * 3600000000 + 
                                 EXTRACT(MINUTE FROM SYSTIMESTAMP) * 60000000 + 
-                                EXTRACT(SECOND FROM SYSTIMESTAMP) * 1000000) AS timestamp,
-                               NULL AS before,
-                               JSON_OBJECT(*) AS after
+                                EXTRACT(SECOND FROM SYSTIMESTAMP) * 1000000) AS "timestamp",
+                               NULL AS "before",
+                               JSON_OBJECT(*) AS "after"
                            FROM {command.Schema}.{command.Table} 
                            WHERE {command.Snapshot.Key} BETWEEN {command.Snapshot.Id + 1} AND {command.Snapshot.Id + record.BatchSize}
                            """;
@@ -100,26 +100,29 @@ public class ReadStrategy(ILogger<ReadStrategy> logger) : Strategy<string>
             else
             {
                 var changelog = record.GetChangelog<ChangelogConfig>();
+                // Strip quotes from schema and table names for comparison with audit log values
+                var schemaName = command.Schema.Trim('"');
+                var tableName = command.Table.Trim('"');
                 model.Model = $"""
-                               SELECT 
-                                   LOG_ID AS id, 
-                                   LOG_OPERATION AS operation,
-                                   (EXTRACT(DAY FROM (LOG_TIMESTAMP - TO_TIMESTAMP('1970-01-01', 'YYYY-MM-DD'))) * 86400000000 + 
-                                    EXTRACT(HOUR FROM LOG_TIMESTAMP) * 3600000000 + 
-                                    EXTRACT(MINUTE FROM LOG_TIMESTAMP) * 60000000 + 
-                                    EXTRACT(SECOND FROM LOG_TIMESTAMP) * 1000000) AS timestamp,
-                                   LOG_BEFORE AS before, 
-                                   LOG_AFTER AS after
+                               SELECT
+                                   LOG_ID AS "id",
+                                   LOG_OPERATION AS "operation",
+                                   (EXTRACT(DAY FROM (LOG_TIMESTAMP - TO_TIMESTAMP('1970-01-01', 'YYYY-MM-DD'))) * 86400000000 +
+                                    EXTRACT(HOUR FROM LOG_TIMESTAMP) * 3600000000 +
+                                    EXTRACT(MINUTE FROM LOG_TIMESTAMP) * 60000000 +
+                                    EXTRACT(SECOND FROM LOG_TIMESTAMP) * 1000000) AS "timestamp",
+                                   LOG_BEFORE AS "before",
+                                   LOG_AFTER AS "after"
                                FROM {changelog.Schema}.{changelog.Table}
-                               WHERE 
-                                   LOG_SCHEMA='{command.Schema}' AND 
-                                   LOG_TABLE='{command.Table}' AND 
-                                   (EXTRACT(DAY FROM (LOG_TIMESTAMP - TO_TIMESTAMP('1970-01-01', 'YYYY-MM-DD'))) * 86400000000 + 
-                                    EXTRACT(HOUR FROM LOG_TIMESTAMP) * 3600000000 + 
-                                    EXTRACT(MINUTE FROM LOG_TIMESTAMP) * 60000000 + 
-                                    EXTRACT(SECOND FROM LOG_TIMESTAMP) * 1000000) >= {command.Snapshot.Timestamp} AND 
+                               WHERE
+                                   LOG_SCHEMA='{schemaName}' AND
+                                   LOG_TABLE='{tableName}' AND
+                                   (EXTRACT(DAY FROM (LOG_TIMESTAMP - TO_TIMESTAMP('1970-01-01', 'YYYY-MM-DD'))) * 86400000000 +
+                                    EXTRACT(HOUR FROM LOG_TIMESTAMP) * 3600000000 +
+                                    EXTRACT(MINUTE FROM LOG_TIMESTAMP) * 60000000 +
+                                    EXTRACT(SECOND FROM LOG_TIMESTAMP) * 1000000) >= {command.Snapshot.Timestamp} AND
                                    LOG_ID > {command.Snapshot.Id}
-                               ORDER BY LOG_TIMESTAMP ASC 
+                               ORDER BY LOG_TIMESTAMP ASC
                                FETCH FIRST {record.BatchSize} ROWS ONLY
                                """;
             }
