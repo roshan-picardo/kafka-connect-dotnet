@@ -22,7 +22,6 @@
     },
     {
       "operation": "consume",
-      "delay": 2000,
       "key": {
         "userId": "user-001"
       },
@@ -55,7 +54,6 @@
     },
     {
       "operation": "consume",
-      "delay": 2000,
       "key": {
         "userId": "user-001"
       },
@@ -87,7 +85,6 @@
     },
     {
       "operation": "consume",
-      "delay": 2000,
       "key": {
         "userId": "user-001"
       },

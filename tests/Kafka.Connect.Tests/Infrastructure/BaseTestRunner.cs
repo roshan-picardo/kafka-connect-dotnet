@@ -171,9 +171,9 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
             AutoOffsetReset = AutoOffsetReset.Earliest,
             EnableAutoCommit = false,
             SecurityProtocol = SecurityProtocol.Plaintext,
-            SessionTimeoutMs = 30000,
-            MaxPollIntervalMs = 30000,
-            FetchWaitMaxMs = 500
+            SessionTimeoutMs = 6000,
+            MaxPollIntervalMs = 10000,
+            FetchWaitMaxMs = 100
         };
 
         using var consumer = new ConsumerBuilder<string, string>(consumerConfig)
@@ -198,13 +198,13 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
         {
             try
             {
-                var loop = 60;
+                var loop = 120;
                 ConsumeResult<string, string>? lastResult = null;
                 ConsumeResult<string, string>? result;
                 
                 do
                 {
-                    result = consumer.Consume(1000);
+                    result = consumer.Consume(100);
                     if (result != null)
                     {
                         lastResult = result;
