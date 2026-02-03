@@ -48,14 +48,53 @@ public class MongoTestRunner(TestFixture fixture, ITestOutputHelper output) : Ba
         await collection.DeleteOneAsync(BsonDocument.Parse(record.Key?.ToJsonString()));
     }
 
-    protected override Task Setup(Dictionary<string, string> properties)
+    protected override async Task Setup(Dictionary<string, string> properties)
     {
-        return Task.CompletedTask;
+        if (properties.TryGetValue("setup", out var script) && !string.IsNullOrEmpty(script))
+        {
+            var database = GetMongoDatabase(properties["database"]);
+            // Execute MongoDB shell commands directly
+            await ExecuteMongoScript(database, script);
+        }
     }
 
-    protected override Task Cleanup(Dictionary<string, string> properties)
+    protected override async Task Cleanup(Dictionary<string, string> properties)
     {
-        return Task.CompletedTask;
+        if (properties.TryGetValue("cleanup", out var script) && !string.IsNullOrEmpty(script))
+        {
+            var database = GetMongoDatabase(properties["database"]);
+            // Execute MongoDB shell commands directly
+            await ExecuteMongoScript(database, script);
+        }
+    }
+
+    private static async Task ExecuteMongoScript(IMongoDatabase database, string script)
+    {
+        // Parse and execute MongoDB commands
+        // Common patterns: db.collection.drop(), db.collection.deleteMany({}), etc.
+        
+        if (script.Contains(".drop()"))
+        {
+            // Extract collection name from pattern: db.collectionName.drop()
+            var match = System.Text.RegularExpressions.Regex.Match(script, @"db\.(\w+)\.drop\(\)");
+            if (match.Success)
+            {
+                var collectionName = match.Groups[1].Value;
+                await database.DropCollectionAsync(collectionName);
+            }
+        }
+        else if (script.Contains(".deleteMany"))
+        {
+            // Extract collection name from pattern: db.collectionName.deleteMany({})
+            var match = System.Text.RegularExpressions.Regex.Match(script, @"db\.(\w+)\.deleteMany");
+            if (match.Success)
+            {
+                var collectionName = match.Groups[1].Value;
+                var collection = database.GetCollection<BsonDocument>(collectionName);
+                await collection.DeleteManyAsync(FilterDefinition<BsonDocument>.Empty);
+            }
+        }
+        // Add more command patterns as needed
     }
 
     protected override async Task<JsonNode?> Search(Dictionary<string, string> properties, TestCaseRecord record)
