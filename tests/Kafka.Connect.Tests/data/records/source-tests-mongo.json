@@ -99,30 +99,6 @@
       }
     },
     {
-      "operation": "delete",
-      "key": {
-        "userId": "user-001"
-      }
-    },
-    {
-      "operation": "consume",
-      "key": {
-        "userId": "user-001"
-      },
-      "value": {
-        "id": "*",
-        "operation": "CHANGE",
-        "timestamp": "*",
-        "after": {
-          "userId": "user-001",
-          "userName": "John Smith",
-          "email": "john.smith@example.com",
-          "timestamp": "2024-01-15T10:32:00Z",
-          "action": "UPDATE"
-        }
-      }
-    },
-    {
       "operation": "cleanup",
       "script": "db.source_collection.drop();"
     }
