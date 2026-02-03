@@ -57,6 +57,7 @@ public class TestFixture : IAsyncLifetime
         _loggingService.SetupTestcontainersLogging(Configuration.DetailedLog, Configuration.RawJsonLog);
 
         KafkaConnectLogBuffer.SetRawJsonMode(Configuration.RawJsonLog);
+        KafkaConnectLogBuffer.SetSkipLogFlush(Configuration.SkipKafkaConnectLogFlush);
     }
 
     public void LogMessage(string message, string prefix = "")

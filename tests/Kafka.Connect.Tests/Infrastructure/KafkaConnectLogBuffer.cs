@@ -10,6 +10,7 @@ public class KafkaConnectLogBuffer : Stream
     private static readonly object Lock = new();
     private static bool _logsDisplayed;
     private static bool _rawJsonMode;
+    private static bool _skipLogFlush;
     private bool _disposed;
     
     static KafkaConnectLogBuffer()
@@ -21,6 +22,11 @@ public class KafkaConnectLogBuffer : Stream
     public static void SetRawJsonMode(bool enabled)
     {
         _rawJsonMode = enabled;
+    }
+    
+    public static void SetSkipLogFlush(bool skip)
+    {
+        _skipLogFlush = skip;
     }
 
     public override bool CanRead => false;
@@ -110,7 +116,7 @@ public class KafkaConnectLogBuffer : Stream
     {
         lock (Lock)
         {
-            if (_logsDisplayed || BufferedLogs.IsEmpty)
+            if (_skipLogFlush || _logsDisplayed || BufferedLogs.IsEmpty)
                 return;
 
             _logsDisplayed = true;
