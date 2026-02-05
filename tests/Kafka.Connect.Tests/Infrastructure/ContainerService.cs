@@ -108,7 +108,10 @@ public class ContainerService : IContainerService
                 TestLoggingService.LogMessage("MongoDB replica set initialized successfully");
                 await Task.Delay(5000); 
             }
-            throw new Exception($"MongoDB replica set initialization failed: {initResult.ExitCode}");
+            else
+            {
+                throw new Exception($"MongoDB replica set initialization failed: {initResult.ExitCode}");
+            }
         }
         
         return container;
