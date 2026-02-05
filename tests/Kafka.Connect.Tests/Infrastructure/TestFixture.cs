@@ -778,7 +778,6 @@ public class TestFixture : IAsyncLifetime
         {
             await using var command = new Npgsql.NpgsqlCommand(script, connection);
             await command.ExecuteNonQueryAsync();
-            LogMessage($"Executed PostgreSQL: {script.Substring(0, Math.Min(60, script.Length))}...");
         }
     }
 
@@ -797,7 +796,6 @@ public class TestFixture : IAsyncLifetime
         {
             await using var command = new MySql.Data.MySqlClient.MySqlCommand(script, connection);
             await command.ExecuteNonQueryAsync();
-            LogMessage($"Executed MySQL: {script.Substring(0, Math.Min(60, script.Length))}...");
         }
     }
 
@@ -816,7 +814,6 @@ public class TestFixture : IAsyncLifetime
         {
             await using var command = new Microsoft.Data.SqlClient.SqlCommand(script, connection);
             await command.ExecuteNonQueryAsync();
-            LogMessage($"Executed SQL Server: {script.Substring(0, Math.Min(60, script.Length))}...");
         }
     }
 
@@ -831,7 +828,6 @@ public class TestFixture : IAsyncLifetime
         {
             await using var command = new Oracle.ManagedDataAccess.Client.OracleCommand(script, connection);
             await command.ExecuteNonQueryAsync();
-            LogMessage($"Executed Oracle: {script.Substring(0, Math.Min(60, script.Length))}...");
         }
     }
 }
