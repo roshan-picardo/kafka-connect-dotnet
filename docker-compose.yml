@@ -26,7 +26,8 @@ services:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:9092,PLAINTEXT_HOST://localhost:9093
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:9092,PLAINTEXT_HOST://127.0.0.1:9093
       KAFKA_METRIC_REPORTERS: io.confluent.metrics.reporter.ConfluentMetricsReporter
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
@@ -36,7 +37,6 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_JMX_PORT: 9101
       KAFKA_JMX_HOSTNAME: localhost
-      KAFKA_CONFLUENT_SCHEMA_REGISTRY_URL: http://schema-registry:8081
       CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS: broker:9092
       CONFLUENT_METRICS_REPORTER_TOPIC_REPLICAS: 1
       CONFLUENT_METRICS_ENABLE: 'true'
@@ -44,71 +44,134 @@ services:
     networks:
       - local
 
-  schema-registry:
+  schema:
     image: confluentinc/cp-schema-registry:7.6.0
-    hostname: schema-registry
-    container_name: schema-registry
+    hostname: schema
+    container_name: schema
     depends_on:
       - broker
     ports:
       - "8081:8081"
     environment:
-      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_HOST_NAME: schema
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: 'broker:9092'
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
     networks:
       - local
-  
-  kafka-connect:
+
+  # MongoDB Single-Node Replica Set
+  mongodb:
+    image: mongo:7.0
+    hostname: mongodb
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - local
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval \"try { rs.status(); } catch (err) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'mongodb:27017' }] }); }\""]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
+
+  postgres:
+    image: postgres:16
+    hostname: postgres
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: kafka_connect_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - local
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    hostname: sqlserver
+    container_name: sqlserver
+    ports:
+      - "1433:1433"
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "YourStrong@Passw0rd"
+      MSSQL_PID: "Express"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+    networks:
+      - local
+
+  mysql:
+    image: mysql:8.0
+    hostname: mysql
+    container_name: mysql
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: kafka_connect_db
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - local
+
+  oracle:
+    image: gvenzl/oracle-xe:21-slim
+    hostname: oracle
+    container_name: oracle
+    ports:
+      - "1521:1521"
+    environment:
+      ORACLE_PASSWORD: oracle123
+      APP_USER: kafka_user
+      APP_USER_PASSWORD: kafka_password
+    volumes:
+      - oracle_data:/opt/oracle/oradata
+    networks:
+      - local
+
+  worker:
     build:
       context: .
       dockerfile: local.Dockerfile
       target: runtime
-    hostname: kafka-connect
-    container_name: kafka-connect
+    hostname: worker
+    container_name: worker
     depends_on:
       - broker
-      - schema-registry
+      - schema
+      - mongodb
+      - postgres
+      - sqlserver
+      - mysql
+      - oracle
     ports:
       - "6000:6000"
     volumes:
-      - ./tests/Kafka.Connect.Tests/Configurations/appsettings.json:/app/appsettings.json:ro
-      - ./tests/Kafka.Connect.Tests/Configurations/appsettings.mongodb.json:/app/appsettings.mongodb.json:ro
-    command: ["dotnet", "Kafka.Connect.dll", "--config", "appsettings.json", "--config", "appsettings.mongodb.json"]
-    networks:
-      - local
-
-  kafka-ui:
-    image: provectuslabs/kafka-ui:latest
-    container_name: kafka-ui
-    depends_on:
-      - broker
-      - schema-registry
-    ports:
-      - "8080:8080"
-    environment:
-      KAFKA_CLUSTERS_0_NAME: local
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: broker:9092
-      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
-      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://schema-registry:8081
-    networks:
-      - local
-
-  mongodb:
-    image: mongo:7.0
-    container_name: mongodb
-    ports:
-      - "27017:27017"
-    restart: always
-    environment:
-      - MONGO_INITDB_ROOT_USERNAME=admin
-      - MONGO_INITDB_ROOT_PASSWORD=admin
-    volumes:
-      - mongodb_data:/data/db
+      - ./tests/Kafka.Connect.Tests/Configurations:/app/config:ro
+    command:
+      - "--config=/app/config/appsettings.json"
+      - "--config=/app/config/appsettings.mongodb.json"
+      - "--config=/app/config/appsettings.postgres.json"
+      - "--config=/app/config/appsettings.sqlserver.json"
+      - "--config=/app/config/appsettings.mysql.json"
+      - "--config=/app/config/appsettings.oracle.json"
     networks:
       - local
 
 volumes:
   mongodb_data:
+  postgres_data:
+  sqlserver_data:
+  mysql_data:
+  oracle_data:
 
 networks:
   local:
