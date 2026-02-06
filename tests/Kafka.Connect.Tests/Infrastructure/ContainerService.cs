@@ -93,6 +93,27 @@ public class ContainerService : IContainerService
         await container.StartAsync();
         TestLoggingService.LogMessage($"Container started: {config.Name}");
         
+        if (config.Name == "mongodb" && config.Command.Contains("--replSet"))
+        {
+            TestLoggingService.LogMessage($"Initializing MongoDB replica set for {config.Name}...");
+            await Task.Delay(5000); 
+            
+            var initResult = await container.ExecAsync([
+                "mongosh", "--quiet", "--eval",
+                "try { rs.status(); print('Replica set already initialized'); } catch (err) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'mongodb:27017' }] }); print('Replica set initialized'); }"
+            ]);
+            
+            if (initResult.ExitCode == 0)
+            {
+                TestLoggingService.LogMessage("MongoDB replica set initialized successfully");
+                await Task.Delay(5000); 
+            }
+            else
+            {
+                throw new Exception($"MongoDB replica set initialization failed: {initResult.ExitCode}");
+            }
+        }
+        
         return container;
     }
 
