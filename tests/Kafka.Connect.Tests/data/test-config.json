@@ -15,7 +15,8 @@
     "target": "Mongo",
     "schema": "/schemas/user-event.avsc",
     "files": [
-      "/records/sink-tests-mongo.json"
+      "/records/sink-tests-mongo.json",
+      "/records/source-tests-mongo.json"
     ]
   },
   {

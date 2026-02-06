@@ -32,6 +32,11 @@ public class PluginConfig
     public bool IsWriteOrdered { get; set; } = true;
     public string Filter { get; set; }
     
+    public bool UseChangeStreams { get; set; } = false;
+    public int ChangeStreamMaxAwaitTimeMs { get; set; } = 1000;
+    public string ChangeStreamStartMode { get; set; } = "latest"; // "latest", "earliest", "timestamp"
+    public long? ChangeStreamStartTimestamp { get; set; }
+    
     public IDictionary<string, CommandConfig> Commands { get; set; }
 }
 
@@ -44,6 +49,7 @@ public class CommandConfig : Command
     public string Collection { get; set; }
     public string TimestampColumn { get; set; }
     public string[] Keys { get; set; }
+    public string ResumeToken { get; set; }  // For Change Streams resume capability
         
     public override JsonNode ToJson() => JsonSerializer.SerializeToNode(this);
 }

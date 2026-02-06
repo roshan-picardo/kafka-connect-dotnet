@@ -17,5 +17,12 @@ namespace Kafka.Connect.MongoDb.Collections
             string connector,
             int taskId,
             string collection);
+
+        Task<(IList<ChangeStreamDocument<BsonDocument>> Documents, string ResumeToken)> ReadChangeStream(
+            StrategyModel<ChangeStreamModel<BsonDocument>> model,
+            string connector,
+            int taskId,
+            string collection,
+            int batchSize);
     }
 }
