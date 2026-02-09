@@ -27,6 +27,7 @@ public class DefaultPluginInitializer : IPluginInitializer
             .AddScoped<IStrategy, InsertStrategy>()
             .AddScoped<IStrategy, UpdateStrategy>()
             .AddScoped<IStrategy, UpsertStrategy>()
+            .AddScoped<IStrategy, StreamsReadStrategy>()
             .AddScoped<IMongoQueryRunner, MongoQueryRunner>();
         AddMongoClients(collection, connectors);
     }

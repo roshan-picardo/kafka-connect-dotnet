@@ -32,13 +32,24 @@ public class MongoPluginHandler(
     {
         using (logger.Track("Getting batch of records"))
         {
-            var model = await connectPluginFactory.GetStrategy(connector, command)
-                .Build<FindModel<BsonDocument>>(connector, command);
+            var strategy = connectPluginFactory.GetStrategy(connector, command);
             var commandConfig = command.GetCommand<CommandConfig>();
-
-            var records = await mongoQueryRunner.ReadMany(model, connector, taskId, commandConfig.Collection);
-
-            return records.Select(doc => GetConnectRecord(doc, command, model.Model.Operation)).ToList();
+            
+            // Check if this is a streams-based strategy
+            if (strategy is Strategies.StreamsReadStrategy)
+            {
+                var watchModel = await strategy.Build<WatchModel>(connector, command);
+                var changes = await mongoQueryRunner.WatchMany(watchModel, connector, taskId, commandConfig.Collection);
+                
+                return changes.Select(change => GetConnectRecordFromChange(change, command)).ToList();
+            }
+            else
+            {
+                var model = await strategy.Build<FindModel<BsonDocument>>(connector, command);
+                var records = await mongoQueryRunner.ReadMany(model, connector, taskId, commandConfig.Collection);
+                
+                return records.Select(doc => GetConnectRecord(doc, command, model.Model.Operation)).ToList();
+            }
         }
     }
 
@@ -99,7 +110,57 @@ public class MongoPluginHandler(
             Deserialized = new ConnectMessage<JsonNode>
             {
                 Key = config.Keys != null
-                    ? (value["after"]?.ToDictionary("after", true) ?? 
+                    ? (value["after"]?.ToDictionary("after", true) ??
+                       value["before"]?.ToDictionary("before", true))?
+                            .Where(r => config.Keys.Contains(r.Key))
+                            .ToDictionary(k => k.Key, v => v.Value)
+                            .ToJson()
+                    : null,
+                Value = value
+            }
+        };
+    }
+
+    private static ConnectRecord GetConnectRecordFromChange(ChangeStreamDocument<BsonDocument> change, CommandRecord command)
+    {
+        var config = command.GetCommand<CommandConfig>();
+        
+        var operation = change.OperationType.ToString().ToUpperInvariant() switch
+        {
+            "INSERT" => "INSERT",
+            "UPDATE" => "UPDATE",
+            "REPLACE" => "UPDATE",
+            "DELETE" => "DELETE",
+            _ => "CHANGE"
+        };
+
+        JsonNode before = change.FullDocumentBeforeChange != null
+            ? JsonNode.Parse(JsonSerializer.Serialize(BsonTypeMapper.MapToDotNetValue(change.FullDocumentBeforeChange)))
+            : null;
+
+        JsonNode after = change.FullDocument != null
+            ? JsonNode.Parse(JsonSerializer.Serialize(BsonTypeMapper.MapToDotNetValue(change.FullDocument)))
+            : null;
+
+        var timestamp = change.ClusterTime?.Timestamp ?? (int)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        
+        var value = new JsonObject
+        {
+            { "id", change.DocumentKey["_id"]?.ToString() ?? ""},
+            { "operation", operation },
+            { "timestamp", (long)timestamp * 1000000 }, 
+            { "before", before },
+            { "after", after },
+            { "_resumeToken", JsonNode.Parse(change.ResumeToken.ToJson()) }
+        };
+
+        return new ConnectRecord(config.Topic, -1, -1)
+        {
+            Status = Status.Selected,
+            Deserialized = new ConnectMessage<JsonNode>
+            {
+                Key = config.Keys != null
+                    ? (value["after"]?.ToDictionary("after", true) ??
                        value["before"]?.ToDictionary("before", true))?
                             .Where(r => config.Keys.Contains(r.Key))
                             .ToDictionary(k => k.Key, v => v.Value)

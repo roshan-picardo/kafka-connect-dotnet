@@ -757,6 +757,10 @@ public class TestFixture : IAsyncLifetime
             case "oracle":
                 await ExecuteOracleScripts(database, scripts);
                 break;
+            case "mongo":
+            case "mongodb":
+                await ExecuteMongoScripts(database, scripts);
+                break;
             default:
                 LogMessage($"Unknown target for scripts: {target}");
                 break;
@@ -828,6 +832,29 @@ public class TestFixture : IAsyncLifetime
         {
             await using var command = new Oracle.ManagedDataAccess.Client.OracleCommand(script, connection);
             await command.ExecuteNonQueryAsync();
+        }
+    }
+
+    private async Task ExecuteMongoScripts(string database, string[] scripts)
+    {
+        var connectionString = Configuration.GetServiceEndpoint("Mongo");
+        var client = new MongoDB.Driver.MongoClient(connectionString);
+        var db = client.GetDatabase(database);
+
+        foreach (var script in scripts)
+        {
+            try
+            {
+                // Parse the script as a MongoDB command JSON document
+                var commandDoc = MongoDB.Bson.BsonDocument.Parse(script);
+                await db.RunCommandAsync<MongoDB.Bson.BsonDocument>(commandDoc);
+            }
+            catch (Exception ex)
+            {
+                LogMessage($"✗ Failed to execute MongoDB command: {script}");
+                LogMessage($"  Error: {ex.Message}");
+                throw;
+            }
         }
     }
 }

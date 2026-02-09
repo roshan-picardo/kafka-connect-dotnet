@@ -17,5 +17,11 @@ namespace Kafka.Connect.MongoDb.Collections
             string connector,
             int taskId,
             string collection);
+
+        Task<IList<ChangeStreamDocument<BsonDocument>>> WatchMany(
+            StrategyModel<WatchModel> model,
+            string connector,
+            int taskId,
+            string collection);
     }
 }
