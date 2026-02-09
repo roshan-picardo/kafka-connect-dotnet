@@ -1,5 +1,5 @@
 {
-  "title": "MongoDB - source tests",
+  "title": "Mongo - source tests",
   "properties": {
     "topic": "mongodb-source-data-topic",
     "database": "kafka_connect_db",

@@ -848,7 +848,6 @@ public class TestFixture : IAsyncLifetime
                 // Parse the script as a MongoDB command JSON document
                 var commandDoc = MongoDB.Bson.BsonDocument.Parse(script);
                 await db.RunCommandAsync<MongoDB.Bson.BsonDocument>(commandDoc);
-                LogMessage($"✓ Executed MongoDB command: {script}");
             }
             catch (Exception ex)
             {
