@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Kafka.Connect.MongoDb.Models;
 using Kafka.Connect.Plugin.Exceptions;
@@ -75,6 +77,44 @@ namespace Kafka.Connect.MongoDb.Collections
                 .GetCollection<BsonDocument>(collection);
 
             return await (await dbCollection.FindAsync(model.Model.Filter, model.Model.Options)).ToListAsync();
+        }
+
+        public async Task<IList<ChangeStreamDocument<BsonDocument>>> WatchMany(
+            StrategyModel<WatchModel> model,
+            string connector,
+            int taskId,
+            string collection)
+        {
+            using (logger.Track("Watching collection for changes"))
+            {
+                var sourceConfig = configurationProvider.GetPluginConfig<PluginConfig>(connector);
+                var dbCollection = mongoClientProvider.GetMongoClient(connector, taskId)
+                    .GetDatabase(sourceConfig.Database)
+                    .GetCollection<BsonDocument>(collection);
+
+                using (ConnectLog.Mongo(sourceConfig.Database, collection))
+                {
+                    var changes = new List<ChangeStreamDocument<BsonDocument>>();
+                    var batchSize = model.Model.Options.BatchSize ?? 100;
+                    
+                    using var cursor = await dbCollection.WatchAsync(model.Model.Options);
+                    
+                    if (await cursor.MoveNextAsync())
+                    {
+                        foreach (var change in cursor.Current)
+                        {
+                            changes.Add(change);
+                            if (changes.Count >= batchSize)
+                            {
+                                break;
+                            }
+                        }
+                    }
+
+                    logger.Debug("Change stream documents retrieved", new { Count = changes.Count });
+                    return changes;
+                }
+            }
         }
     }
 }

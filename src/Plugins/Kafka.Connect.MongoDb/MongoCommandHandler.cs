@@ -31,13 +31,26 @@ public class MongoCommandHandler(IConfigurationProvider configurationProvider)
         {
             if (records.Count > 0)
             {
-                var sorted = records.Select(r => r.Value["after"].ToDictionary("after", true)).OrderBy(_ => 1);
-                foreach (var key in config.Filters.Keys)
+                // Check if this is a change stream (has _resumeToken)
+                var lastRecord = records.LastOrDefault();
+                if (lastRecord?.Value?["_resumeToken"] != null)
                 {
-                    sorted = sorted.ThenBy(d => d[key]);
+                    // For change streams, store the resume token
+                    config.Filters ??= new Dictionary<string, object>();
+                    config.Filters["_resumeToken"] = lastRecord.Value["_resumeToken"].ToJsonString();
+                    config.Timestamp = lastRecord.Timestamp;
                 }
-                config.Filters = sorted.LastOrDefault()?.Where(x => config.Filters.ContainsKey(x.Key))
-                    .ToDictionary();
+                else
+                {
+                    // For regular queries, update filters
+                    var sorted = records.Select(r => r.Value["after"].ToDictionary("after", true)).OrderBy(_ => 1);
+                    foreach (var key in config.Filters.Keys)
+                    {
+                        sorted = sorted.ThenBy(d => d[key]);
+                    }
+                    config.Filters = sorted.LastOrDefault()?.Where(x => config.Filters.ContainsKey(x.Key))
+                        .ToDictionary();
+                }
             }
         }
         else if (records.Any())
