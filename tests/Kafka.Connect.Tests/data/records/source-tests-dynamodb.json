@@ -1,0 +1,87 @@
+{
+  "title": "DynamoDB - source tests",
+  "properties": {
+    "topic": "dynamodb-source-data-topic",
+    "tableName": "kafka-connect-source-table"
+  },
+  "records": [
+    {
+      "operation": "insert",
+      "key": null,
+      "value": {
+        "userId": "source-user-001",
+        "userName": "Source User One",
+        "email": "source1@example.com",
+        "timestamp": "2024-01-15T10:00:00Z",
+        "status": "active"
+      }
+    },
+    {
+      "operation": "insert",
+      "key": null,
+      "value": {
+        "userId": "source-user-002",
+        "userName": "Source User Two",
+        "email": "source2@example.com",
+        "timestamp": "2024-01-15T10:05:00Z",
+        "status": "active"
+      }
+    },
+    {
+      "operation": "insert",
+      "key": null,
+      "value": {
+        "userId": "source-user-003",
+        "userName": "Source User Three",
+        "email": "source3@example.com",
+        "timestamp": "2024-01-15T10:10:00Z",
+        "status": "active"
+      }
+    },
+    {
+      "delay": 2000,
+      "operation": "consume",
+      "count": 3
+    },
+    {
+      "operation": "insert",
+      "key": null,
+      "value": {
+        "userId": "source-user-004",
+        "userName": "Source User Four",
+        "email": "source4@example.com",
+        "timestamp": "2024-01-15T10:15:00Z",
+        "status": "pending"
+      }
+    },
+    {
+      "delay": 2000,
+      "operation": "consume",
+      "count": 1
+    },
+    {
+      "operation": "delete",
+      "key": {
+        "userId": "source-user-001"
+      }
+    },
+    {
+      "operation": "delete",
+      "key": {
+        "userId": "source-user-002"
+      }
+    },
+    {
+      "operation": "delete",
+      "key": {
+        "userId": "source-user-003"
+      }
+    },
+    {
+      "operation": "delete",
+      "key": {
+        "userId": "source-user-004"
+      }
+    }
+  ]
+}
