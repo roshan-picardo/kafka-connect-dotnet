@@ -1,0 +1,36 @@
+{
+  "title": "DynamoDB - health check",
+  "properties": {
+    "topic": "dynamodb-health-check-topic",
+    "tableName": "kafka-connect-health-table"
+  },
+  "records": [
+    {
+      "operation": "insert",
+      "key": null,
+      "value": {
+        "id": "health-001",
+        "status": "healthy",
+        "timestamp": "2024-01-15T10:00:00Z"
+      }
+    },
+    {
+      "delay": 500,
+      "operation": "search",
+      "key": {
+        "id": "health-001"
+      },
+      "value": {
+        "id": "health-001",
+        "status": "healthy",
+        "timestamp": "2024-01-15T10:00:00Z"
+      }
+    },
+    {
+      "operation": "delete",
+      "key": {
+        "id": "health-001"
+      }
+    }
+  ]
+}

@@ -1,9 +1,30 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
     <PropertyGroup>
         <TargetFramework>net8.0</TargetFramework>
-        <ImplicitUsings>enable</ImplicitUsings>
-        <Nullable>enable</Nullable>
+        <LangVersion>12</LangVersion>
+        <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     </PropertyGroup>
-
+    <ItemGroup>
+        <PackageReference Include="AWSSDK.DynamoDBv2" />
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" ExcludeAssets="runtime" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" ExcludeAssets="runtime" />
+    </ItemGroup>
+    <Choose>
+        <When Condition="'$(Configuration)'=='Debug'">
+            <ItemGroup>
+                <ProjectReference Include="..\..\Kafka.Connect.Plugin\Kafka.Connect.Plugin.csproj">
+                    <Private>false</Private>
+                    <ExcludeAssets>runtime</ExcludeAssets>
+                </ProjectReference>
+            </ItemGroup>
+        </When>
+        <Otherwise>
+            <ItemGroup>
+                <PackageReference Include="Kafka.Connect.Plugin">
+                    <Private>false</Private>
+                    <ExcludeAssets>runtime</ExcludeAssets>
+                </PackageReference>
+            </ItemGroup>
+        </Otherwise>
+    </Choose>
 </Project>
