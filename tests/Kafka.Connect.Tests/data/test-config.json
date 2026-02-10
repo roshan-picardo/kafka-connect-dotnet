@@ -80,5 +80,23 @@
         "CREATE TABLE \"SYSTEM\".\"source_table\" (\"userId\" VARCHAR2(255), \"userName\" VARCHAR2(255), \"email\" VARCHAR2(255), \"timestamp\" VARCHAR2(255), \"action\" VARCHAR2(255))"
       ]
     }
+  },
+  {
+    "target": "DynamoDb",
+    "schema": "/schemas/user-event.avsc",
+    "files": [
+      "/records/health-check-dynamodb.json",
+      "/records/sink-tests-dynamodb.json",
+      "/records/source-tests-dynamodb.json"
+    ],
+    "setup": {
+      "serviceUrl": "http://localhost:8000",
+      "region": "us-east-1",
+      "tables": [
+        "kafka-connect-sink-table",
+        "kafka-connect-source-table",
+        "kafka-connect-health-table"
+      ]
+    }
   }
 ]

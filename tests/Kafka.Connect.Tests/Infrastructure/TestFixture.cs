@@ -490,6 +490,42 @@ public class TestFixture : IAsyncLifetime
             }
         }
     
+        private async Task WaitForDynamoDbReadyAsync()
+        {
+            LogMessage("Waiting for DynamoDB to be ready...");
+            
+            var serviceUrl = Configuration.GetServiceEndpoint("DynamoDb");
+            var config = new Amazon.DynamoDBv2.AmazonDynamoDBConfig
+            {
+                ServiceURL = serviceUrl
+            };
+            
+            int maxAttempts = 60;
+            int delayMs = 1000;
+            
+            for (int attempt = 1; attempt <= maxAttempts; attempt++)
+            {
+                try
+                {
+                    using var client = new Amazon.DynamoDBv2.AmazonDynamoDBClient(config);
+                    var response = await client.ListTablesAsync();
+                    
+                    LogMessage($"DynamoDB is ready (attempt {attempt})");
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    if (attempt == maxAttempts)
+                    {
+                        throw new TimeoutException($"DynamoDB did not become ready after {maxAttempts} attempts", ex);
+                    }
+                    
+                    LogMessage($"DynamoDB not ready yet (attempt {attempt}/{maxAttempts}): {ex.Message}");
+                    await Task.Delay(delayMs);
+                }
+            }
+        }
+    
         private async Task WaitForAllDatabasesReadyAsync()
         {
             LogMessage("Waiting for all databases to be ready...");
@@ -499,7 +535,8 @@ public class TestFixture : IAsyncLifetime
                 WaitForSqlServerReadyAsync(),
                 WaitForOracleReadyAsync(),
                 WaitForPostgresReadyAsync(),
-                WaitForMySqlReadyAsync()
+                WaitForMySqlReadyAsync(),
+                WaitForDynamoDbReadyAsync()
             };
             
             await Task.WhenAll(tasks);
@@ -761,6 +798,9 @@ public class TestFixture : IAsyncLifetime
             case "mongodb":
                 await ExecuteMongoScripts(database, scripts);
                 break;
+            case "dynamodb":
+                await ExecuteDynamoDbScripts(scripts);
+                break;
             default:
                 LogMessage($"Unknown target for scripts: {target}");
                 break;
@@ -852,6 +892,79 @@ public class TestFixture : IAsyncLifetime
             catch (Exception ex)
             {
                 LogMessage($"✗ Failed to execute MongoDB command: {script}");
+                LogMessage($"  Error: {ex.Message}");
+                throw;
+            }
+        }
+    }
+
+    private async Task ExecuteDynamoDbScripts(string[] tableNames)
+    {
+        var serviceUrl = Configuration.GetServiceEndpoint("DynamoDb");
+        var config = new Amazon.DynamoDBv2.AmazonDynamoDBConfig
+        {
+            ServiceURL = serviceUrl
+        };
+        
+        using var client = new Amazon.DynamoDBv2.AmazonDynamoDBClient(config);
+
+        foreach (var tableName in tableNames)
+        {
+            try
+            {
+                // Check if table already exists
+                try
+                {
+                    await client.DescribeTableAsync(tableName);
+                    LogMessage($"✓ DynamoDB table already exists: {tableName}");
+                    continue;
+                }
+                catch (Amazon.DynamoDBv2.Model.ResourceNotFoundException)
+                {
+                    // Table doesn't exist, create it
+                }
+
+                // Create table with a simple key schema (userId as hash key)
+                var request = new Amazon.DynamoDBv2.Model.CreateTableRequest
+                {
+                    TableName = tableName,
+                    KeySchema = new List<Amazon.DynamoDBv2.Model.KeySchemaElement>
+                    {
+                        new Amazon.DynamoDBv2.Model.KeySchemaElement
+                        {
+                            AttributeName = tableName.Contains("health") ? "id" : "userId",
+                            KeyType = Amazon.DynamoDBv2.KeyType.HASH
+                        }
+                    },
+                    AttributeDefinitions = new List<Amazon.DynamoDBv2.Model.AttributeDefinition>
+                    {
+                        new Amazon.DynamoDBv2.Model.AttributeDefinition
+                        {
+                            AttributeName = tableName.Contains("health") ? "id" : "userId",
+                            AttributeType = Amazon.DynamoDBv2.ScalarAttributeType.S
+                        }
+                    },
+                    BillingMode = Amazon.DynamoDBv2.BillingMode.PAY_PER_REQUEST
+                };
+
+                await client.CreateTableAsync(request);
+                
+                // Wait for table to be active
+                var maxAttempts = 30;
+                for (int i = 0; i < maxAttempts; i++)
+                {
+                    var describeResponse = await client.DescribeTableAsync(tableName);
+                    if (describeResponse.Table.TableStatus == Amazon.DynamoDBv2.TableStatus.ACTIVE)
+                    {
+                        LogMessage($"✓ Created DynamoDB table: {tableName}");
+                        break;
+                    }
+                    await Task.Delay(1000);
+                }
+            }
+            catch (Exception ex)
+            {
+                LogMessage($"✗ Failed to create DynamoDB table: {tableName}");
                 LogMessage($"  Error: {ex.Message}");
                 throw;
             }
