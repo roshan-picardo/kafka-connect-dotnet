@@ -22,9 +22,14 @@ public class DynamoDbTestRunner(TestFixture fixture, ITestOutputHelper output) :
         var serviceUrl = _fixture.Configuration.GetServiceEndpoint(Target);
         var config = new AmazonDynamoDBConfig
         {
-            ServiceURL = serviceUrl
+            ServiceURL = serviceUrl,
+            AuthenticationRegion = "us-east-1",
+            UseHttp = true
         };
-        _dynamoDbClient = new AmazonDynamoDBClient(config);
+        
+        // Use dummy credentials for DynamoDB Local
+        var credentials = new Amazon.Runtime.BasicAWSCredentials("dummy", "dummy");
+        _dynamoDbClient = new AmazonDynamoDBClient(credentials, config);
         return _dynamoDbClient;
     }
 
@@ -35,7 +40,7 @@ public class DynamoDbTestRunner(TestFixture fixture, ITestOutputHelper output) :
     protected override async Task Insert(Dictionary<string, string> properties, TestCaseRecord record)
     {
         var client = GetDynamoDbClient();
-        var tableName = properties["tableName"];
+        var tableName = properties["table"];
         var item = ConvertJsonToAttributeValues(record.Value?.ToJsonString() ?? "{}");
         
         await client.PutItemAsync(new PutItemRequest
@@ -48,7 +53,7 @@ public class DynamoDbTestRunner(TestFixture fixture, ITestOutputHelper output) :
     protected override async Task Update(Dictionary<string, string> properties, TestCaseRecord record)
     {
         var client = GetDynamoDbClient();
-        var tableName = properties["tableName"];
+        var tableName = properties["table"];
         var item = ConvertJsonToAttributeValues(record.Value?.ToJsonString() ?? "{}");
         
         await client.PutItemAsync(new PutItemRequest
@@ -61,7 +66,7 @@ public class DynamoDbTestRunner(TestFixture fixture, ITestOutputHelper output) :
     protected override async Task Delete(Dictionary<string, string> properties, TestCaseRecord record)
     {
         var client = GetDynamoDbClient();
-        var tableName = properties["tableName"];
+        var tableName = properties["table"];
         var key = ConvertJsonToAttributeValues(record.Key?.ToJsonString() ?? "{}");
         
         await client.DeleteItemAsync(new DeleteItemRequest
@@ -88,7 +93,7 @@ public class DynamoDbTestRunner(TestFixture fixture, ITestOutputHelper output) :
     protected override async Task<JsonNode?> Search(Dictionary<string, string> properties, TestCaseRecord record)
     {
         var client = GetDynamoDbClient();
-        var tableName = properties["tableName"];
+        var tableName = properties["table"];
         var key = ConvertJsonToAttributeValues(record.Key?.ToJsonString() ?? "{}");
         
         var response = await client.GetItemAsync(new GetItemRequest

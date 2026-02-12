@@ -8,7 +8,8 @@
       "/records/health-check-postgres.json",
       "/records/health-check-sqlserver.json",
       "/records/health-check-mysql.json",
-      "/records/health-check-oracle.json"
+      "/records/health-check-oracle.json",
+      "/records/health-check-dynamodb.json"
     ]
   },
   {
@@ -90,12 +91,11 @@
       "/records/source-tests-dynamodb.json"
     ],
     "setup": {
-      "serviceUrl": "http://localhost:8000",
-      "region": "us-east-1",
-      "tables": [
-        "kafka-connect-sink-table",
-        "kafka-connect-source-table",
-        "kafka-connect-health-table"
+      "database": "",
+      "scripts": [
+        "{ \"TableName\": \"kafka-connect-sink-table\", \"KeySchema\": [{ \"AttributeName\": \"userId\", \"KeyType\": \"HASH\" }], \"AttributeDefinitions\": [{ \"AttributeName\": \"userId\", \"AttributeType\": \"S\" }] }",
+        "{ \"TableName\": \"kafka-connect-source-table\", \"KeySchema\": [{ \"AttributeName\": \"userId\", \"KeyType\": \"HASH\" }], \"AttributeDefinitions\": [{ \"AttributeName\": \"userId\", \"AttributeType\": \"S\" }], \"StreamSpecification\": { \"StreamEnabled\": true, \"StreamViewType\": \"NEW_AND_OLD_IMAGES\" } }",
+        "{ \"TableName\": \"kafka-connect-health-table\", \"KeySchema\": [{ \"AttributeName\": \"id\", \"KeyType\": \"HASH\" }], \"AttributeDefinitions\": [{ \"AttributeName\": \"id\", \"AttributeType\": \"S\" }] }"
       ]
     }
   }
