@@ -16,22 +16,25 @@ public class HealthTestRunner(TestFixture fixture, ITestOutputHelper output) : B
     [MemberData(nameof(TestCases), Target)]
     public async Task Execute(TestCase testCase)
     {
-        switch (testCase.Properties["target"])
+        switch (testCase.Properties["target"]?.ToLower())
         {
-            case "Mongo":
+            case "mongo":
                 await new MongoTestRunner(_fixture, _output).Execute(testCase);
                 break;
-            case "Postgres":
+            case "postgres":
                 await new PostgresTestRunner(_fixture, _output).Execute(testCase);
                 break;
-            case "SqlServer":
+            case "sqlserver":
                 await new SqlServerTestRunner(_fixture, _output).Execute(testCase);
                 break;
-            case "MySql":
+            case "mysql":
                 await new MySqlTestRunner(_fixture, _output).Execute(testCase);
                 break;
-            case "Oracle":
+            case "oracle":
                 await new OracleTestRunner(_fixture, _output).Execute(testCase);
+                break;
+            case "dynamodb":
+                await new DynamoDbTestRunner(_fixture, _output).Execute(testCase);
                 break;
             default:
                 await Run(testCase, Target);

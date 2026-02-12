@@ -25,6 +25,7 @@ public class DefaultPluginInitializer : IPluginInitializer
             .AddScoped<IPluginInitializer, DefaultPluginInitializer>()
             .AddScoped<IDynamoDbClientProvider, DynamoDbClientProvider>()
             .AddScoped<IStrategy, ReadStrategy>()
+            .AddScoped<IStrategy, StreamReadStrategy>()
             .AddScoped<IStrategy, DeleteStrategy>()
             .AddScoped<IStrategy, InsertStrategy>()
             .AddScoped<IStrategy, UpdateStrategy>()
@@ -66,11 +67,11 @@ public class DefaultPluginInitializer : IPluginInitializer
 
                     IAmazonDynamoDB client;
                     
-                    if (!string.IsNullOrEmpty(pluginConfig.AccessKeyId) && 
+                    if (!string.IsNullOrEmpty(pluginConfig.AccessKeyId) &&
                         !string.IsNullOrEmpty(pluginConfig.SecretAccessKey))
                     {
                         var credentials = new BasicAWSCredentials(
-                            pluginConfig.AccessKeyId, 
+                            pluginConfig.AccessKeyId,
                             pluginConfig.SecretAccessKey);
                         client = new AmazonDynamoDBClient(credentials, config);
                     }
@@ -78,6 +79,49 @@ public class DefaultPluginInitializer : IPluginInitializer
                     {
                         // Use default credentials (IAM role, environment variables, etc.)
                         client = new AmazonDynamoDBClient(config);
+                    }
+
+                    return client;
+                });
+                
+                // Register DynamoDB Streams client
+                collection.AddSingleton<AmazonDynamoDBStreamsClient>(provider =>
+                {
+                    var configurationProvider = provider.GetService<Plugin.Providers.IConfigurationProvider>() ??
+                                                throw new InvalidOperationException(
+                                                    $@"Unable to resolve service for type 'IConfigurationProvider' for {connector}.");
+                    
+                    var pluginConfig = configurationProvider.GetPluginConfig<PluginConfig>(connector.Name);
+                    if (pluginConfig == null)
+                        throw new InvalidOperationException(
+                            $"Unable to find the configuration matching {connector.Name}.");
+
+                    var config = new AmazonDynamoDBStreamsConfig();
+                    
+                    if (!string.IsNullOrEmpty(pluginConfig.Region))
+                    {
+                        config.RegionEndpoint = RegionEndpoint.GetBySystemName(pluginConfig.Region);
+                    }
+                    
+                    if (!string.IsNullOrEmpty(pluginConfig.ServiceUrl))
+                    {
+                        config.ServiceURL = pluginConfig.ServiceUrl;
+                    }
+
+                    AmazonDynamoDBStreamsClient client;
+                    
+                    if (!string.IsNullOrEmpty(pluginConfig.AccessKeyId) &&
+                        !string.IsNullOrEmpty(pluginConfig.SecretAccessKey))
+                    {
+                        var credentials = new BasicAWSCredentials(
+                            pluginConfig.AccessKeyId,
+                            pluginConfig.SecretAccessKey);
+                        client = new AmazonDynamoDBStreamsClient(credentials, config);
+                    }
+                    else
+                    {
+                        // Use default credentials (IAM role, environment variables, etc.)
+                        client = new AmazonDynamoDBStreamsClient(config);
                     }
 
                     return client;

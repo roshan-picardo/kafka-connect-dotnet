@@ -8,7 +8,8 @@
       "/records/health-check-postgres.json",
       "/records/health-check-sqlserver.json",
       "/records/health-check-mysql.json",
-      "/records/health-check-oracle.json"
+      "/records/health-check-oracle.json",
+      "/records/health-check-dynamodb.json"
     ]
   },
   {
@@ -78,6 +79,23 @@
       "scripts": [
         "BEGIN EXECUTE IMMEDIATE 'DROP TABLE \"SYSTEM\".\"source_table\"'; EXCEPTION WHEN OTHERS THEN IF SQLCODE != -942 THEN RAISE; END IF; END;",
         "CREATE TABLE \"SYSTEM\".\"source_table\" (\"userId\" VARCHAR2(255), \"userName\" VARCHAR2(255), \"email\" VARCHAR2(255), \"timestamp\" VARCHAR2(255), \"action\" VARCHAR2(255))"
+      ]
+    }
+  },
+  {
+    "target": "DynamoDb",
+    "schema": "/schemas/user-event.avsc",
+    "files": [
+      "/records/health-check-dynamodb.json",
+      "/records/sink-tests-dynamodb.json",
+      "/records/source-tests-dynamodb.json"
+    ],
+    "setup": {
+      "database": "",
+      "scripts": [
+        "{ \"TableName\": \"kafka-connect-sink-table\", \"KeySchema\": [{ \"AttributeName\": \"userId\", \"KeyType\": \"HASH\" }], \"AttributeDefinitions\": [{ \"AttributeName\": \"userId\", \"AttributeType\": \"S\" }] }",
+        "{ \"TableName\": \"kafka-connect-source-table\", \"KeySchema\": [{ \"AttributeName\": \"userId\", \"KeyType\": \"HASH\" }], \"AttributeDefinitions\": [{ \"AttributeName\": \"userId\", \"AttributeType\": \"S\" }], \"StreamSpecification\": { \"StreamEnabled\": true, \"StreamViewType\": \"NEW_AND_OLD_IMAGES\" } }",
+        "{ \"TableName\": \"kafka-connect-health-table\", \"KeySchema\": [{ \"AttributeName\": \"id\", \"KeyType\": \"HASH\" }], \"AttributeDefinitions\": [{ \"AttributeName\": \"id\", \"AttributeType\": \"S\" }] }"
       ]
     }
   }

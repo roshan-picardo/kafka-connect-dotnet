@@ -35,10 +35,24 @@ public class DynamoDbPluginHandler(
             var strategy = connectPluginFactory.GetStrategy(connector, command);
             var commandConfig = command.GetCommand<CommandConfig>();
             
-            var model = await strategy.Build<ScanModel>(connector, command);
-            var items = await dynamoDbQueryRunner.ScanMany(model, connector, taskId, commandConfig.TableName);
-            
-            return items.Select(item => GetConnectRecord(item, command, model.Model.Operation)).ToList();
+            // Check if this is a streams-based strategy
+            if (strategy is Strategies.StreamReadStrategy)
+            {
+                var streamModel = await strategy.Build<StreamModel>(connector, command);
+                var (records, nextShardIterator) = await dynamoDbQueryRunner.ReadStream(streamModel, connector, taskId);
+                
+                // Store the next shard iterator for the next poll
+                streamModel.Model.ShardIterator = nextShardIterator;
+                
+                return records.Select(record => GetConnectRecordFromStreamRecord(record, command)).ToList();
+            }
+            else
+            {
+                var model = await strategy.Build<ScanModel>(connector, command);
+                var items = await dynamoDbQueryRunner.ScanMany(model, connector, taskId, commandConfig.TableName);
+                
+                return items.Select(item => GetConnectRecord(item, command, model.Model.Operation)).ToList();
+            }
         }
     }
 
@@ -109,6 +123,55 @@ public class DynamoDbPluginHandler(
                         .Where(r => config.Keys.Contains(r.Key))
                         .ToDictionary(k => k.Key, v => v.Value)
                         .ToJson()
+                    : null,
+                Value = value
+            }
+        };
+    }
+
+    private static ConnectRecord GetConnectRecordFromStreamRecord(Record streamRecord, CommandRecord command)
+    {
+        var config = command.GetCommand<CommandConfig>();
+        
+        var operation = streamRecord.EventName?.ToString() switch
+        {
+            "INSERT" => "INSERT",
+            "MODIFY" => "UPDATE",
+            "REMOVE" => "DELETE",
+            _ => "CHANGE"
+        };
+
+        JsonNode before = streamRecord.Dynamodb?.OldImage != null
+            ? ConvertAttributeValuesToJson(streamRecord.Dynamodb.OldImage)
+            : null;
+
+        JsonNode after = streamRecord.Dynamodb?.NewImage != null
+            ? ConvertAttributeValuesToJson(streamRecord.Dynamodb.NewImage)
+            : null;
+
+        var timestamp = streamRecord.Dynamodb?.ApproximateCreationDateTime ?? DateTime.UtcNow;
+        
+        var value = new JsonObject
+        {
+            { "id", streamRecord.EventID },
+            { "operation", operation },
+            { "timestamp", new DateTimeOffset(timestamp).ToUnixTimeMilliseconds() },
+            { "before", before },
+            { "after", after },
+            { "_sequenceNumber", streamRecord.Dynamodb?.SequenceNumber }
+        };
+
+        return new ConnectRecord(config.Topic, -1, -1)
+        {
+            Status = Status.Selected,
+            Deserialized = new ConnectMessage<JsonNode>
+            {
+                Key = config.Keys != null
+                    ? (value["after"]?.ToDictionary("after", true) ??
+                       value["before"]?.ToDictionary("before", true))?
+                            .Where(r => config.Keys.Contains(r.Key))
+                            .ToDictionary(k => k.Key, v => v.Value)
+                            .ToJson()
                     : null,
                 Value = value
             }

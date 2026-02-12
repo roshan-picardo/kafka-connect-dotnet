@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using Kafka.Connect.DynamoDb.Models;
 using Kafka.Connect.Plugin.Exceptions;
@@ -125,6 +126,102 @@ public class DynamoDbQueryRunner(
 
                 logger.Debug("Query completed", new { Count = items.Count });
                 return items;
+            }
+        }
+    }
+
+    public async Task<(IList<Record> Records, string NextShardIterator)> ReadStream(
+        StrategyModel<StreamModel> model,
+        string connector,
+        int taskId)
+    {
+        using (logger.Track("Reading DynamoDB stream"))
+        {
+            var client = dynamoDbClientProvider.GetStreamsClient(connector, taskId);
+            
+            if (client == null)
+            {
+                throw new InvalidOperationException("DynamoDB Streams client is not available");
+            }
+            
+            var streamModel = model.Model;
+
+            // Get stream ARN if not provided
+            if (string.IsNullOrEmpty(streamModel.StreamArn) && !string.IsNullOrEmpty(streamModel.TableName))
+            {
+                using (logger.Track($"Fetching stream ARN for table: {streamModel.TableName}"))
+                {
+                    var dynamoDbClient = dynamoDbClientProvider.GetDynamoDbClient(connector, taskId);
+                    var describeTableResponse = await dynamoDbClient.DescribeTableAsync(streamModel.TableName);
+                    streamModel.StreamArn = describeTableResponse.Table.LatestStreamArn;
+                    
+                    if (string.IsNullOrEmpty(streamModel.StreamArn))
+                    {
+                        throw new InvalidOperationException(
+                            $"DynamoDB Streams is not enabled on table '{streamModel.TableName}'. " +
+                            "Please enable streams with StreamViewType set to NEW_AND_OLD_IMAGES.");
+                    }
+                    
+                    logger.Debug("Retrieved stream ARN", new { StreamArn = streamModel.StreamArn, TableName = streamModel.TableName });
+                }
+            }
+
+            // Get shard iterator if not already set
+            if (string.IsNullOrEmpty(streamModel.ShardIterator))
+            {
+                using (logger.Track($"Getting shard iterator for stream: {streamModel.StreamArn}"))
+                {
+                    // First, describe the stream to get shard information
+                    var describeStreamRequest = new DescribeStreamRequest
+                    {
+                        StreamArn = streamModel.StreamArn
+                    };
+                    
+                    var describeResponse = await client.DescribeStreamAsync(describeStreamRequest);
+                    
+                    // Get the first active shard (in production, you'd want to handle multiple shards)
+                    var shard = describeResponse.StreamDescription.Shards
+                        .FirstOrDefault(s => s.SequenceNumberRange.EndingSequenceNumber == null);
+                    
+                    if (shard == null)
+                    {
+                        logger.Debug("No active shards found in stream");
+                        return (new List<Record>(), null);
+                    }
+
+                    streamModel.ShardId = shard.ShardId;
+
+                    // Get shard iterator
+                    var getShardIteratorRequest = new GetShardIteratorRequest
+                    {
+                        StreamArn = streamModel.StreamArn,
+                        ShardId = shard.ShardId,
+                        ShardIteratorType = streamModel.ShardIteratorType
+                    };
+
+                    // Add sequence number if resuming
+                    if (streamModel.ShardIteratorType == "AFTER_SEQUENCE_NUMBER" &&
+                        !string.IsNullOrEmpty(streamModel.SequenceNumber))
+                    {
+                        getShardIteratorRequest.SequenceNumber = streamModel.SequenceNumber;
+                    }
+
+                    var shardIteratorResponse = await client.GetShardIteratorAsync(getShardIteratorRequest);
+                    streamModel.ShardIterator = shardIteratorResponse.ShardIterator;
+                    
+                    logger.Debug("Got shard iterator", new { ShardId = shard.ShardId, ShardIteratorType = streamModel.ShardIteratorType });
+                }
+            }
+
+            // Read records from the stream
+            using (logger.Track("Getting records from stream"))
+            {
+                streamModel.Request.ShardIterator = streamModel.ShardIterator;
+                var response = await client.GetRecordsAsync(streamModel.Request);
+
+                logger.Debug("Stream records retrieved", new { Count = response.Records.Count });
+                
+                return (response.Records, response.NextShardIterator);
             }
         }
     }

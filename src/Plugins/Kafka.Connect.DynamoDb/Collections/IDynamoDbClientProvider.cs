@@ -5,4 +5,5 @@ namespace Kafka.Connect.DynamoDb.Collections;
 public interface IDynamoDbClientProvider
 {
     IAmazonDynamoDB GetDynamoDbClient(string connector, int taskId);
+    AmazonDynamoDBStreamsClient GetStreamsClient(string connector, int taskId);
 }
