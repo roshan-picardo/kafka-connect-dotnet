@@ -717,7 +717,7 @@ public class TestFixture : IAsyncLifetime
             return;
         }
         await CreateKafkaConnectContainerAsync();
-        await Task.Delay(30000);
+        await Task.Delay(10000);
         if (workerConfig.WaitForHealthCheck)
         {
             await WaitForWorkerReadyAsync();
