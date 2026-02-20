@@ -536,16 +536,10 @@ public class TestFixture : IAsyncLifetime
             var workerEndpoint = Configuration.GetServiceEndpoint("Worker");
             var statusUrl = $"{workerEndpoint}/workers/status";
             
-            // Use SocketsHttpHandler for better connection management
-            var handler = new SocketsHttpHandler
+            using var httpClient = new HttpClient
             {
-                PooledConnectionLifetime = TimeSpan.FromMinutes(2),
-                PooledConnectionIdleTimeout = TimeSpan.FromMinutes(1),
-                MaxConnectionsPerServer = 10
+                Timeout = TimeSpan.FromSeconds(15)
             };
-            
-            using var httpClient = new HttpClient(handler);
-            httpClient.Timeout = TimeSpan.FromSeconds(10);
 
             for (var attempt = 1; attempt <= DatabaseReadyMaxAttempts; attempt++)
             {
