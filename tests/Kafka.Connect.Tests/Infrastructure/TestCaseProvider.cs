@@ -73,7 +73,10 @@ public static class TestCaseProvider
                 var testData = JsonSerializer.Deserialize<TestCase>(File.ReadAllText(testFile), options);
                 if (testData == null) continue;
 
-                yield return [testData];
+                // Create a new TestCase with the order from config
+                var testCaseWithOrder = testData with { Order = config.Order };
+                
+                yield return [testCaseWithOrder];
             }
         }
     }
