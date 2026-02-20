@@ -353,8 +353,6 @@ public class TestFixture : IAsyncLifetime
 
     private async Task WaitForSqlServerReadyAsync()
     {
-        LogMessage("Waiting for SQL Server to be ready...");
-        
         var connectionString = Configuration.GetServiceEndpoint("SqlServer");
         var builder = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(connectionString)
         {
@@ -390,8 +388,6 @@ public class TestFixture : IAsyncLifetime
     
         private async Task WaitForOracleReadyAsync()
         {
-            LogMessage("Waiting for Oracle to be ready...");
-            
             var connectionString = Configuration.GetServiceEndpoint("Oracle");
             
             for (var attempt = 1; attempt <= DatabaseReadyMaxAttempts; attempt++)
@@ -422,8 +418,6 @@ public class TestFixture : IAsyncLifetime
     
         private async Task WaitForPostgresReadyAsync()
         {
-            LogMessage("Waiting for Postgres to be ready...");
-            
             var connectionString = Configuration.GetServiceEndpoint("Postgres");
             
             for (var attempt = 1; attempt <= DatabaseReadyMaxAttempts; attempt++)
@@ -454,8 +448,6 @@ public class TestFixture : IAsyncLifetime
     
         private async Task WaitForMySqlReadyAsync()
         {
-            LogMessage("Waiting for MySQL to be ready...");
-            
             var connectionString = Configuration.GetServiceEndpoint("MySql");
             
             for (var attempt = 1; attempt <= DatabaseReadyMaxAttempts; attempt++)
@@ -486,8 +478,6 @@ public class TestFixture : IAsyncLifetime
     
         private async Task WaitForDynamoDbReadyAsync()
         {
-            LogMessage("Waiting for DynamoDB to be ready...");
-            
             var serviceUrl = Configuration.GetServiceEndpoint("DynamoDb");
             
             for (var attempt = 1; attempt <= DatabaseReadyMaxAttempts; attempt++)
@@ -531,8 +521,6 @@ public class TestFixture : IAsyncLifetime
         
         private async Task WaitForWorkerReadyAsync()
         {
-            LogMessage("Waiting for Worker to be ready...");
-            
             var workerEndpoint = Configuration.GetServiceEndpoint("Worker");
             var statusUrl = $"{workerEndpoint}/workers/status";
             
