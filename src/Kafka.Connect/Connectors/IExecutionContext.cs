@@ -13,6 +13,7 @@ public interface IExecutionContext
     void RevokePartitions(string connector, int task, IEnumerable<TopicPartition> partitions);
     IDictionary<string, List<int>> GetAssignedPartitions(string connector, int task);
     dynamic GetStatus(string connector = null, int task = 0);
+    dynamic GetSimpleStatus();
     void AddToCount(int records);
     dynamic GetFullDetails();
     void Shutdown();

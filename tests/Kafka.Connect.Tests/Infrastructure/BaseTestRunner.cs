@@ -22,7 +22,7 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
                 {
                     case "setup":
                         properties["setup"] = record.Script;
-                        await Setup(properties); 
+                        await Setup(properties);
                         break;
                     case "search":
                         var searched = await Search(properties, record);
@@ -46,7 +46,7 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
                         break;
                     case "cleanup":
                         properties["cleanup"] = record.Script;
-                        await Cleanup(properties); 
+                        await Cleanup(properties);
                         break;
                     default:
                         throw new InvalidOperationException($"Unknown operation: {record.Operation}");

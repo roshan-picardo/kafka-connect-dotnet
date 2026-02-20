@@ -2,6 +2,7 @@
   {
     "target": "Health",
     "schema": "/schemas/user-event.avsc",
+    "skip": false,
     "files": [
       "/records/health-check-kafka.json",
       "/records/health-check-mongo.json",
@@ -15,6 +16,7 @@
   {
     "target": "Mongo",
     "schema": "/schemas/user-event.avsc",
+    "skip": false,
     "files": [
       "/records/sink-tests-mongo.json",
       "/records/source-tests-mongo.json"
@@ -30,6 +32,7 @@
   {
     "target": "Postgres",
     "schema": "/schemas/user-event.avsc",
+    "skip": false,
     "files": [
       "/records/sink-tests-postgres.json",
       "/records/source-tests-postgres.json"
@@ -42,6 +45,7 @@
   {
     "target": "SqlServer",
     "schema": "/schemas/user-event.avsc",
+    "skip": false,
     "files": [
       "/records/sink-tests-sqlserver.json",
       "/records/source-tests-sqlserver.json"
@@ -56,6 +60,7 @@
   {
     "target": "MySql",
     "schema": "/schemas/user-event.avsc",
+    "skip": false,
     "files": [
       "/records/sink-tests-mysql.json",
       "/records/source-tests-mysql.json"
@@ -70,6 +75,7 @@
   {
     "target": "Oracle",
     "schema": "/schemas/user-event.avsc",
+    "skip": false,
     "files": [
       "/records/sink-tests-oracle.json",
       "/records/source-tests-oracle.json"
@@ -86,7 +92,6 @@
     "target": "DynamoDb",
     "schema": "/schemas/user-event.avsc",
     "files": [
-      "/records/health-check-dynamodb.json",
       "/records/sink-tests-dynamodb.json",
       "/records/source-tests-dynamodb.json"
     ],

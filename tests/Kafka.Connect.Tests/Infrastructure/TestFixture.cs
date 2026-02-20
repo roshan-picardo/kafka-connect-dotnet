@@ -528,6 +528,120 @@ public class TestFixture : IAsyncLifetime
                 }
             }
         }
+        
+        private async Task WaitForWorkerReadyAsync()
+        {
+            LogMessage("Waiting for Worker to be ready...");
+            
+            var workerEndpoint = Configuration.GetServiceEndpoint("Worker");
+            var statusUrl = $"{workerEndpoint}/workers/status";
+            
+            // Use SocketsHttpHandler for better connection management
+            var handler = new SocketsHttpHandler
+            {
+                PooledConnectionLifetime = TimeSpan.FromMinutes(2),
+                PooledConnectionIdleTimeout = TimeSpan.FromMinutes(1),
+                MaxConnectionsPerServer = 10
+            };
+            
+            using var httpClient = new HttpClient(handler);
+            httpClient.Timeout = TimeSpan.FromSeconds(10);
+
+            for (var attempt = 1; attempt <= DatabaseReadyMaxAttempts; attempt++)
+            {
+                try
+                {
+                    var response = await httpClient.GetAsync(statusUrl);
+                    
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var content = await response.Content.ReadAsStringAsync();
+                        
+                        // Parse the JSON response to check connector statuses
+                        try
+                        {
+                            var statusDoc = JsonDocument.Parse(content);
+                            
+                            if (statusDoc.RootElement.TryGetProperty("status", out var status))
+                            {
+                                // Check worker status
+                                var workerRunning = false;
+                                if (status.TryGetProperty("worker", out var worker) &&
+                                    worker.TryGetProperty("status", out var workerStatus))
+                                {
+                                    workerRunning = workerStatus.GetString() == "Running";
+                                }
+                                
+                                // Check all connectors are running
+                                var allConnectorsRunning = true;
+                                var connectorStatuses = new List<string>();
+                                
+                                if (status.TryGetProperty("connectors", out var connectors))
+                                {
+                                    foreach (var connector in connectors.EnumerateArray())
+                                    {
+                                        if (connector.TryGetProperty("name", out var name) &&
+                                            connector.TryGetProperty("status", out var connectorStatus))
+                                        {
+                                            var connectorName = name.GetString();
+                                            var connectorStatusValue = connectorStatus.GetString();
+                                            connectorStatuses.Add($"{connectorName}={connectorStatusValue}");
+                                            
+                                            if (connectorStatusValue != "Running")
+                                            {
+                                                allConnectorsRunning = false;
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                if (workerRunning && allConnectorsRunning && connectorStatuses.Count > 0)
+                                {
+                                    LogMessage($"Worker and connectors are ready (attempt {attempt}): Worker=Running, Connectors=[{string.Join(", ", connectorStatuses)}]");
+                                    return;
+                                }
+                                
+                                LogMessage($"Worker or connectors not ready yet (attempt {attempt}/{DatabaseReadyMaxAttempts}): Worker={workerRunning}, Connectors=[{string.Join(", ", connectorStatuses)}]");
+                            }
+                            else
+                            {
+                                LogMessage($"Worker response missing 'status' property (attempt {attempt}/{DatabaseReadyMaxAttempts}): {content}");
+                            }
+                        }
+                        catch (JsonException ex)
+                        {
+                            LogMessage($"Failed to parse worker status JSON (attempt {attempt}/{DatabaseReadyMaxAttempts}): {ex.Message}");
+                        }
+                    }
+                    else
+                    {
+                        LogMessage($"Worker not ready yet (attempt {attempt}/{DatabaseReadyMaxAttempts}): HTTP {(int)response.StatusCode}");
+                    }
+                }
+                catch (HttpRequestException ex)
+                {
+                    var errorType = ex.InnerException?.GetType().Name ?? ex.GetType().Name;
+                    LogMessage($"Worker endpoint not available yet (attempt {attempt}/{DatabaseReadyMaxAttempts}): {errorType}");
+                }
+                catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
+                {
+                    LogMessage($"Worker health check timeout (attempt {attempt}/{DatabaseReadyMaxAttempts})");
+                }
+                catch (Exception ex)
+                {
+                    if (attempt == DatabaseReadyMaxAttempts)
+                    {
+                        throw new TimeoutException($"Worker did not become ready after {DatabaseReadyMaxAttempts} attempts", ex);
+                    }
+                    
+                    LogMessage($"Worker not ready yet (attempt {attempt}/{DatabaseReadyMaxAttempts}): {ex.GetType().Name} - {ex.Message}");
+                }
+                
+                await Task.Delay(DatabaseReadyDelayMs);
+            }
+            
+            throw new TimeoutException($"Worker and connectors did not reach 'Running' status after {DatabaseReadyMaxAttempts} attempts");
+        }
     
         private async Task WaitForAllDatabasesReadyAsync()
         {
@@ -608,14 +722,11 @@ public class TestFixture : IAsyncLifetime
             LogMessage("All supporting infrastructure (Kafka, databases, etc.) is ready");
             return;
         }
-
         await CreateKafkaConnectContainerAsync();
-
-        await Task.Delay(2000);
-
+        await Task.Delay(30000);
         if (workerConfig.WaitForHealthCheck)
         {
-            await WaitForKafkaConnectHealthAsync();
+            await WaitForWorkerReadyAsync();
         }
 
         _kafkaConnectDeployed = true;
@@ -628,38 +739,6 @@ public class TestFixture : IAsyncLifetime
         var container = await _containerService.CreateContainerAsync(config, _network!, _loggingService);
         _containers["Worker"] = container;
         LogMessage($"Kafka Connect container started: {config.Name} -> {Configuration.GetServiceEndpoint("Worker")}");
-    }
-
-    private async Task WaitForKafkaConnectHealthAsync()
-    {
-        var workerConfig = GetWorkerConfig();
-        using var httpClient = new HttpClient();
-        var healthUrl = $"{Configuration.GetServiceEndpoint("Worker")}{workerConfig.HealthCheckEndpoint}";
-        var timeout = TimeSpan.FromSeconds(workerConfig.StartupTimeoutSeconds);
-        var cancellationToken = new CancellationTokenSource(timeout).Token;
-
-        while (!cancellationToken.IsCancellationRequested)
-        {
-            try
-            {
-                var response = await httpClient.GetAsync(healthUrl, cancellationToken);
-                if (response.IsSuccessStatusCode)
-                {
-                    return;
-                }
-            }
-            catch (HttpRequestException)
-            {
-            }
-            catch (TaskCanceledException)
-            {
-                break;
-            }
-
-            await Task.Delay(1000, cancellationToken);
-        }
-
-        throw new TimeoutException($"Kafka Connect health check failed after {timeout.TotalSeconds} seconds");
     }
 
     private ContainerConfig GetWorkerConfig()

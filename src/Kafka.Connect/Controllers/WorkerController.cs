@@ -13,21 +13,13 @@ namespace Kafka.Connect.Controllers;
 
 [ApiController]
 [Route("workers")]
-public class WorkerController : ControllerBase
+public class WorkerController(IHostedService hostedService, IExecutionContext executionContext)
+    : ControllerBase
 {
-    private readonly IHostedService _hostedService;
-    private readonly IExecutionContext _executionContext;
-
-    public WorkerController(IHostedService hostedService, IExecutionContext executionContext)
-    {
-        _hostedService = hostedService;
-        _executionContext = executionContext;
-    }
-
     [HttpGet("status")]
     public IActionResult Status()
     {
-        return Ok(new {status = _executionContext.GetStatus()});
+        return Ok(new {status = executionContext.GetSimpleStatus()});
     }
         
     [HttpGet("version")]
@@ -45,35 +37,35 @@ public class WorkerController : ControllerBase
     [HttpPost("pause")] 
     public IActionResult Pause()
     {
-        _executionContext.Pause();
-        return Ok(new {pausing = _executionContext.GetStatus()});
+        executionContext.Pause();
+        return Ok(new {pausing = executionContext.GetStatus()});
     }
         
     [HttpPost("resume")] 
     public IActionResult Resume()
     {
-        _executionContext.Resume();
-        return Ok(new {resuming = _executionContext.GetStatus()});
+        executionContext.Resume();
+        return Ok(new {resuming = executionContext.GetStatus()});
     }
         
     [HttpPost("stop")] 
     public async Task<IActionResult> Stop()
     {
-        await _hostedService.StopAsync(default);
-        return Ok(new {stopping = _executionContext.GetStatus()});
+        await hostedService.StopAsync(default);
+        return Ok(new {stopping = executionContext.GetStatus()});
     }
         
     [HttpPost("start")] 
     public async Task<IActionResult> Start()
     {
-        await _hostedService.StartAsync(new CancellationToken());
-        return Ok(new {starting = _executionContext.GetStatus()});
+        await hostedService.StartAsync(new CancellationToken());
+        return Ok(new {starting = executionContext.GetStatus()});
     }
         
     [HttpPost("restart")] 
     public async Task<IActionResult> Restart(ApiPayload input)
     {
-        await _executionContext.Restart(0);
-        return Ok(new {restarting = _executionContext.GetStatus()});
+        await executionContext.Restart(0);
+        return Ok(new {restarting = executionContext.GetStatus()});
     }
 }
