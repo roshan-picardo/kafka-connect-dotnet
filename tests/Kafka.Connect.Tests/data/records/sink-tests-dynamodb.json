@@ -1,0 +1,112 @@
+{
+  "title": "DynamoDB - sink tests",
+  "properties": {
+    "topic": "dynamodb-sink-data-topic",
+    "table": "kafka-connect-sink-table"
+  },
+  "records": [
+    {
+      "operation": "publish",
+      "key": null,
+      "value": {
+        "userId": "user-001",
+        "userName": "John Doe",
+        "email": "john.doe@example.com",
+        "timestamp": "2024-01-15T10:30:00Z",
+        "action": "CREATE"
+      }
+    },
+    {
+      "operation": "publish",
+      "key": null,
+      "value": {
+        "userId": "user-002",
+        "userName": "Jane Smith",
+        "email": "jane.smith@example.com",
+        "timestamp": "2024-01-15T10:31:00Z",
+        "action": "CREATE"
+      }
+    },
+    {
+      "delay": 1000,
+      "operation": "search",
+      "key": {
+        "userId": "user-001"
+      },
+      "value": {
+        "userId": "user-001",
+        "userName": "John Doe",
+        "email": "john.doe@example.com",
+        "timestamp": "2024-01-15T10:30:00Z",
+        "action": "CREATE"
+      }
+    },
+    {
+      "operation": "search",
+      "key": {
+        "userId": "user-002"
+      },
+      "value": {
+        "userId": "user-002",
+        "userName": "Jane Smith",
+        "email": "jane.smith@example.com",
+        "timestamp": "2024-01-15T10:31:00Z",
+        "action": "CREATE"
+      }
+    },
+    {
+      "operation": "insert",
+      "key": null,
+      "value": {
+        "userId": "user-003",
+        "userName": "Alice J",
+        "email": "alice.j@example.com",
+        "timestamp": "2024-01-15T10:00:00Z",
+        "action": "CREATE"
+      }
+    },
+    {
+      "operation": "publish",
+      "key": null,
+      "value": {
+        "userId": "user-003",
+        "userName": "Alice Johnson",
+        "email": "alice.johnson@example.com",
+        "timestamp": "2024-01-15T11:00:00Z",
+        "action": "UPDATE"
+      }
+    },
+    {
+      "delay": 1000,
+      "operation": "search",
+      "key": {
+        "userId": "user-003"
+      },
+      "value": {
+        "userId": "user-003",
+        "userName": "Alice Johnson",
+        "email": "alice.johnson@example.com",
+        "timestamp": "2024-01-15T11:00:00Z",
+        "action": "UPDATE"
+      }
+    },
+    {
+      "operation": "delete",
+      "key": {
+        "userId": "user-001"
+      }
+    },
+    {
+      "operation": "delete",
+      "key": {
+        "userId": "user-002"
+      }
+    },
+    {
+      "operation": "delete",
+      "key": {
+        "userId": "user-003"
+      }
+    }
+  ]
+}

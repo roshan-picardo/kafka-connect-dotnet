@@ -22,4 +22,9 @@ public interface IDynamoDbQueryRunner
         string connector,
         int taskId,
         string tableName);
+    
+    Task<(IList<Record> Records, string NextShardIterator)> ReadStream(
+        StrategyModel<StreamModel> model,
+        string connector,
+        int taskId);
 }

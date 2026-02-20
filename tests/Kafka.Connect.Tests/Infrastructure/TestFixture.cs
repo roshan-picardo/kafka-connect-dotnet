@@ -7,6 +7,9 @@ using Microsoft.Extensions.Configuration;
 using Xunit;
 using Microsoft.Extensions.DependencyInjection;
 using System.Text.Json;
+using Amazon.DynamoDBv2;
+using Amazon.DynamoDBv2.Model;
+using Amazon.Runtime;
 
 namespace IntegrationTests.Kafka.Connect.Infrastructure;
 
@@ -23,6 +26,9 @@ public class TestFixture : IAsyncLifetime
     private bool _kafkaConnectDeployed;
     private XUnitOutputSuppressor? _outputSuppressor;
     private XUnitOutputSuppressor? _errorSuppressor;
+
+    private const int DatabaseReadyMaxAttempts = 60;
+    private const int DatabaseReadyDelayMs = 1000;
 
     static TestFixture()
     {
@@ -347,147 +353,276 @@ public class TestFixture : IAsyncLifetime
 
     private async Task WaitForSqlServerReadyAsync()
     {
-        LogMessage("Waiting for SQL Server to be ready...");
-        
         var connectionString = Configuration.GetServiceEndpoint("SqlServer");
-        var builder = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(connectionString);
-        builder.InitialCatalog = "master";
-        builder.ConnectTimeout = 5;
+        var builder = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(connectionString)
+        {
+            InitialCatalog = "master",
+            ConnectTimeout = 5
+        };
         
-        int maxAttempts = 60;  // 60 attempts = ~1 minute max wait
-        int delayMs = 1000;
-        
-        for (int attempt = 1; attempt <= maxAttempts; attempt++)
+        for (var attempt = 1; attempt <= DatabaseReadyMaxAttempts; attempt++)
         {
             try
             {
-                using var connection = new Microsoft.Data.SqlClient.SqlConnection(builder.ConnectionString);
+                await using var connection = new Microsoft.Data.SqlClient.SqlConnection(builder.ConnectionString);
                 await connection.OpenAsync();
                 
-                // Test query to ensure SQL Server is fully operational
                 var command = new Microsoft.Data.SqlClient.SqlCommand("SELECT @@VERSION", connection);
-                var version = await command.ExecuteScalarAsync();
+                await command.ExecuteScalarAsync();
                 
                 LogMessage($"SQL Server is ready (attempt {attempt})");
                 return;
             }
             catch (Exception ex)
             {
-                if (attempt == maxAttempts)
+                if (attempt == DatabaseReadyMaxAttempts)
                 {
-                    throw new TimeoutException($"SQL Server did not become ready after {maxAttempts} attempts", ex);
+                    throw new TimeoutException($"SQL Server did not become ready after {DatabaseReadyMaxAttempts} attempts", ex);
                 }
                 
-                LogMessage($"SQL Server not ready yet (attempt {attempt}/{maxAttempts}): {ex.Message}");
-                await Task.Delay(delayMs);
+                LogMessage($"SQL Server not ready yet (attempt {attempt}/{DatabaseReadyMaxAttempts}): {ex.Message}");
+                await Task.Delay(DatabaseReadyDelayMs);
             }
         }
     }
     
         private async Task WaitForOracleReadyAsync()
         {
-            LogMessage("Waiting for Oracle to be ready...");
-            
             var connectionString = Configuration.GetServiceEndpoint("Oracle");
             
-            int maxAttempts = 60;  // 60 attempts = ~1 minute max wait
-            int delayMs = 1000;
-            
-            for (int attempt = 1; attempt <= maxAttempts; attempt++)
+            for (var attempt = 1; attempt <= DatabaseReadyMaxAttempts; attempt++)
             {
                 try
                 {
-                    using var connection = new Oracle.ManagedDataAccess.Client.OracleConnection(connectionString);
+                    await using var connection = new Oracle.ManagedDataAccess.Client.OracleConnection(connectionString);
                     await connection.OpenAsync();
                     
-                    // Test query to ensure Oracle is fully operational
                     var command = new Oracle.ManagedDataAccess.Client.OracleCommand("SELECT * FROM DUAL", connection);
-                    var result = await command.ExecuteScalarAsync();
+                    await command.ExecuteScalarAsync();
                     
                     LogMessage($"Oracle is ready (attempt {attempt})");
                     return;
                 }
                 catch (Exception ex)
                 {
-                    if (attempt == maxAttempts)
+                    if (attempt == DatabaseReadyMaxAttempts)
                     {
-                        throw new TimeoutException($"Oracle did not become ready after {maxAttempts} attempts", ex);
+                        throw new TimeoutException($"Oracle did not become ready after {DatabaseReadyMaxAttempts} attempts", ex);
                     }
                     
-                    LogMessage($"Oracle not ready yet (attempt {attempt}/{maxAttempts}): {ex.Message}");
-                    await Task.Delay(delayMs);
+                    LogMessage($"Oracle not ready yet (attempt {attempt}/{DatabaseReadyMaxAttempts}): {ex.Message}");
+                    await Task.Delay(DatabaseReadyDelayMs);
                 }
             }
         }
     
         private async Task WaitForPostgresReadyAsync()
         {
-            LogMessage("Waiting for Postgres to be ready...");
-            
             var connectionString = Configuration.GetServiceEndpoint("Postgres");
             
-            int maxAttempts = 60;
-            int delayMs = 1000;
-            
-            for (int attempt = 1; attempt <= maxAttempts; attempt++)
+            for (var attempt = 1; attempt <= DatabaseReadyMaxAttempts; attempt++)
             {
                 try
                 {
-                    using var connection = new Npgsql.NpgsqlConnection(connectionString);
+                    await using var connection = new Npgsql.NpgsqlConnection(connectionString);
                     await connection.OpenAsync();
                     
                     var command = new Npgsql.NpgsqlCommand("SELECT version()", connection);
-                    var version = await command.ExecuteScalarAsync();
+                    await command.ExecuteScalarAsync();
                     
                     LogMessage($"Postgres is ready (attempt {attempt})");
                     return;
                 }
                 catch (Exception ex)
                 {
-                    if (attempt == maxAttempts)
+                    if (attempt == DatabaseReadyMaxAttempts)
                     {
-                        throw new TimeoutException($"Postgres did not become ready after {maxAttempts} attempts", ex);
+                        throw new TimeoutException($"Postgres did not become ready after {DatabaseReadyMaxAttempts} attempts", ex);
                     }
                     
-                    LogMessage($"Postgres not ready yet (attempt {attempt}/{maxAttempts}): {ex.Message}");
-                    await Task.Delay(delayMs);
+                    LogMessage($"Postgres not ready yet (attempt {attempt}/{DatabaseReadyMaxAttempts}): {ex.Message}");
+                    await Task.Delay(DatabaseReadyDelayMs);
                 }
             }
         }
     
         private async Task WaitForMySqlReadyAsync()
         {
-            LogMessage("Waiting for MySQL to be ready...");
-            
             var connectionString = Configuration.GetServiceEndpoint("MySql");
             
-            int maxAttempts = 60;
-            int delayMs = 1000;
-            
-            for (int attempt = 1; attempt <= maxAttempts; attempt++)
+            for (var attempt = 1; attempt <= DatabaseReadyMaxAttempts; attempt++)
             {
                 try
                 {
-                    using var connection = new MySql.Data.MySqlClient.MySqlConnection(connectionString);
+                    await using var connection = new MySql.Data.MySqlClient.MySqlConnection(connectionString);
                     await connection.OpenAsync();
                     
                     var command = new MySql.Data.MySqlClient.MySqlCommand("SELECT VERSION()", connection);
-                    var version = await command.ExecuteScalarAsync();
+                    await command.ExecuteScalarAsync();
                     
                     LogMessage($"MySQL is ready (attempt {attempt})");
                     return;
                 }
                 catch (Exception ex)
                 {
-                    if (attempt == maxAttempts)
+                    if (attempt == DatabaseReadyMaxAttempts)
                     {
-                        throw new TimeoutException($"MySQL did not become ready after {maxAttempts} attempts", ex);
+                        throw new TimeoutException($"MySQL did not become ready after {DatabaseReadyMaxAttempts} attempts", ex);
                     }
                     
-                    LogMessage($"MySQL not ready yet (attempt {attempt}/{maxAttempts}): {ex.Message}");
-                    await Task.Delay(delayMs);
+                    LogMessage($"MySQL not ready yet (attempt {attempt}/{DatabaseReadyMaxAttempts}): {ex.Message}");
+                    await Task.Delay(DatabaseReadyDelayMs);
                 }
             }
+        }
+    
+        private async Task WaitForDynamoDbReadyAsync()
+        {
+            var serviceUrl = Configuration.GetServiceEndpoint("DynamoDb");
+            
+            for (var attempt = 1; attempt <= DatabaseReadyMaxAttempts; attempt++)
+            {
+                Amazon.DynamoDBv2.AmazonDynamoDBClient? client = null;
+                try
+                {
+                    var config = new Amazon.DynamoDBv2.AmazonDynamoDBConfig
+                    {
+                        ServiceURL = serviceUrl,
+                        AuthenticationRegion = "us-east-1",
+                        UseHttp = true,
+                        MaxErrorRetry = 0,
+                        Timeout = TimeSpan.FromSeconds(5)
+                    };
+                    
+                    var credentials = new Amazon.Runtime.BasicAWSCredentials("dummy", "dummy");
+                    client = new Amazon.DynamoDBv2.AmazonDynamoDBClient(credentials, config);
+                    
+                    await client.ListTablesAsync();
+                    
+                    LogMessage($"DynamoDB is ready (attempt {attempt})");
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    if (attempt == DatabaseReadyMaxAttempts)
+                    {
+                        throw new TimeoutException($"DynamoDB did not become ready after {DatabaseReadyMaxAttempts} attempts", ex);
+                    }
+                    
+                    LogMessage($"DynamoDB not ready yet (attempt {attempt}/{DatabaseReadyMaxAttempts}): {ex.Message}");
+                    await Task.Delay(DatabaseReadyDelayMs);
+                }
+                finally
+                {
+                    client?.Dispose();
+                }
+            }
+        }
+        
+        private async Task WaitForWorkerReadyAsync()
+        {
+            var workerEndpoint = Configuration.GetServiceEndpoint("Worker");
+            var statusUrl = $"{workerEndpoint}/workers/status";
+            
+            using var httpClient = new HttpClient
+            {
+                Timeout = TimeSpan.FromSeconds(15)
+            };
+
+            for (var attempt = 1; attempt <= DatabaseReadyMaxAttempts; attempt++)
+            {
+                try
+                {
+                    var response = await httpClient.GetAsync(statusUrl);
+                    
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var content = await response.Content.ReadAsStringAsync();
+                        
+                        // Parse the JSON response to check connector statuses
+                        try
+                        {
+                            var statusDoc = JsonDocument.Parse(content);
+                            
+                            if (statusDoc.RootElement.TryGetProperty("status", out var status))
+                            {
+                                // Check worker status
+                                var workerRunning = false;
+                                if (status.TryGetProperty("worker", out var worker) &&
+                                    worker.TryGetProperty("status", out var workerStatus))
+                                {
+                                    workerRunning = workerStatus.GetString() == "Running";
+                                }
+                                
+                                // Check all connectors are running
+                                var allConnectorsRunning = true;
+                                var connectorStatuses = new List<string>();
+                                
+                                if (status.TryGetProperty("connectors", out var connectors))
+                                {
+                                    foreach (var connector in connectors.EnumerateArray())
+                                    {
+                                        if (connector.TryGetProperty("name", out var name) &&
+                                            connector.TryGetProperty("status", out var connectorStatus))
+                                        {
+                                            var connectorName = name.GetString();
+                                            var connectorStatusValue = connectorStatus.GetString();
+                                            connectorStatuses.Add($"{connectorName}={connectorStatusValue}");
+                                            
+                                            if (connectorStatusValue != "Running")
+                                            {
+                                                allConnectorsRunning = false;
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                if (workerRunning && allConnectorsRunning && connectorStatuses.Count > 0)
+                                {
+                                    LogMessage($"Worker and connectors are ready (attempt {attempt}): Worker=Running, Connectors=[{string.Join(", ", connectorStatuses)}]");
+                                    return;
+                                }
+                                
+                                LogMessage($"Worker or connectors not ready yet (attempt {attempt}/{DatabaseReadyMaxAttempts}): Worker={workerRunning}, Connectors=[{string.Join(", ", connectorStatuses)}]");
+                            }
+                            else
+                            {
+                                LogMessage($"Worker response missing 'status' property (attempt {attempt}/{DatabaseReadyMaxAttempts}): {content}");
+                            }
+                        }
+                        catch (JsonException ex)
+                        {
+                            LogMessage($"Failed to parse worker status JSON (attempt {attempt}/{DatabaseReadyMaxAttempts}): {ex.Message}");
+                        }
+                    }
+                    else
+                    {
+                        LogMessage($"Worker not ready yet (attempt {attempt}/{DatabaseReadyMaxAttempts}): HTTP {(int)response.StatusCode}");
+                    }
+                }
+                catch (HttpRequestException ex)
+                {
+                    var errorType = ex.InnerException?.GetType().Name ?? ex.GetType().Name;
+                    LogMessage($"Worker endpoint not available yet (attempt {attempt}/{DatabaseReadyMaxAttempts}): {errorType}");
+                }
+                catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
+                {
+                    LogMessage($"Worker health check timeout (attempt {attempt}/{DatabaseReadyMaxAttempts})");
+                }
+                catch (Exception ex)
+                {
+                    if (attempt == DatabaseReadyMaxAttempts)
+                    {
+                        throw new TimeoutException($"Worker did not become ready after {DatabaseReadyMaxAttempts} attempts", ex);
+                    }
+                    
+                    LogMessage($"Worker not ready yet (attempt {attempt}/{DatabaseReadyMaxAttempts}): {ex.GetType().Name} - {ex.Message}");
+                }
+                
+                await Task.Delay(DatabaseReadyDelayMs);
+            }
+            
+            throw new TimeoutException($"Worker and connectors did not reach 'Running' status after {DatabaseReadyMaxAttempts} attempts");
         }
     
         private async Task WaitForAllDatabasesReadyAsync()
@@ -499,7 +634,8 @@ public class TestFixture : IAsyncLifetime
                 WaitForSqlServerReadyAsync(),
                 WaitForOracleReadyAsync(),
                 WaitForPostgresReadyAsync(),
-                WaitForMySqlReadyAsync()
+                WaitForMySqlReadyAsync(),
+                WaitForDynamoDbReadyAsync()
             };
             
             await Task.WhenAll(tasks);
@@ -568,14 +704,11 @@ public class TestFixture : IAsyncLifetime
             LogMessage("All supporting infrastructure (Kafka, databases, etc.) is ready");
             return;
         }
-
         await CreateKafkaConnectContainerAsync();
-
-        await Task.Delay(2000);
-
+        await Task.Delay(10000);
         if (workerConfig.WaitForHealthCheck)
         {
-            await WaitForKafkaConnectHealthAsync();
+            await WaitForWorkerReadyAsync();
         }
 
         _kafkaConnectDeployed = true;
@@ -588,38 +721,6 @@ public class TestFixture : IAsyncLifetime
         var container = await _containerService.CreateContainerAsync(config, _network!, _loggingService);
         _containers["Worker"] = container;
         LogMessage($"Kafka Connect container started: {config.Name} -> {Configuration.GetServiceEndpoint("Worker")}");
-    }
-
-    private async Task WaitForKafkaConnectHealthAsync()
-    {
-        var workerConfig = GetWorkerConfig();
-        using var httpClient = new HttpClient();
-        var healthUrl = $"{Configuration.GetServiceEndpoint("Worker")}{workerConfig.HealthCheckEndpoint}";
-        var timeout = TimeSpan.FromSeconds(workerConfig.StartupTimeoutSeconds);
-        var cancellationToken = new CancellationTokenSource(timeout).Token;
-
-        while (!cancellationToken.IsCancellationRequested)
-        {
-            try
-            {
-                var response = await httpClient.GetAsync(healthUrl, cancellationToken);
-                if (response.IsSuccessStatusCode)
-                {
-                    return;
-                }
-            }
-            catch (HttpRequestException)
-            {
-            }
-            catch (TaskCanceledException)
-            {
-                break;
-            }
-
-            await Task.Delay(1000, cancellationToken);
-        }
-
-        throw new TimeoutException($"Kafka Connect health check failed after {timeout.TotalSeconds} seconds");
     }
 
     private ContainerConfig GetWorkerConfig()
@@ -722,7 +823,7 @@ public class TestFixture : IAsyncLifetime
             {
                 LogMessage($"Running setup scripts for target: {config.Target}");
 
-                var setupScripts = config.Setup?.Scripts
+                var setupScripts = config.Setup?.Scripts?
                     .Where(s => !string.IsNullOrWhiteSpace(s))
                     .Select(s => s)
                     .ToArray();
@@ -760,6 +861,9 @@ public class TestFixture : IAsyncLifetime
             case "mongo":
             case "mongodb":
                 await ExecuteMongoScripts(database, scripts);
+                break;
+            case "dynamodb":
+                await ExecuteDynamoDbScripts(scripts);
                 break;
             default:
                 LogMessage($"Unknown target for scripts: {target}");
@@ -851,8 +955,150 @@ public class TestFixture : IAsyncLifetime
             }
             catch (Exception ex)
             {
-                LogMessage($"✗ Failed to execute MongoDB command: {script}");
-                LogMessage($"  Error: {ex.Message}");
+                LogMessage($"Failed to execute MongoDB command: {script} - {ex.Message}");
+                throw;
+            }
+        }
+    }
+
+    private async Task ExecuteDynamoDbScripts(string[] scripts)
+    {
+        var serviceUrl = Configuration.GetServiceEndpoint("DynamoDb");
+        var config = new AmazonDynamoDBConfig
+        {
+            ServiceURL = serviceUrl,
+            AuthenticationRegion = "us-east-1",
+            UseHttp = true
+        };
+        
+        var credentials = new BasicAWSCredentials("dummy", "dummy");
+        using var client = new AmazonDynamoDBClient(credentials, config);
+
+        foreach (var script in scripts)
+        {
+            try
+            {
+                var tableConfig = JsonDocument.Parse(script);
+                var root = tableConfig.RootElement;
+                
+                if (!root.TryGetProperty("TableName", out var tableNameElement))
+                {
+                    LogMessage("Missing 'TableName' property in DynamoDB script");
+                    continue;
+                }
+                
+                var tableName = tableNameElement.GetString();
+                if (string.IsNullOrEmpty(tableName))
+                {
+                    LogMessage("Invalid table name in DynamoDB script");
+                    continue;
+                }
+
+                try
+                {
+                    await client.DescribeTableAsync(tableName);
+                    LogMessage($"DynamoDB table already exists: {tableName}");
+                    continue;
+                }
+                catch (ResourceNotFoundException)
+                {
+                }
+
+                var keySchema = new List<KeySchemaElement>();
+                var attributeDefinitions = new List<AttributeDefinition>();
+                
+                if (root.TryGetProperty("KeySchema", out var keySchemaElement))
+                {
+                    foreach (var key in keySchemaElement.EnumerateArray())
+                    {
+                        if (key.TryGetProperty("AttributeName", out var attrName) &&
+                            key.TryGetProperty("KeyType", out var keyType))
+                        {
+                            keySchema.Add(new KeySchemaElement
+                            {
+                                AttributeName = attrName.GetString(),
+                                KeyType = keyType.GetString()?.ToUpperInvariant() == "RANGE"
+                                    ? KeyType.RANGE
+                                    : KeyType.HASH
+                            });
+                        }
+                    }
+                }
+                
+                if (root.TryGetProperty("AttributeDefinitions", out var attrDefsElement))
+                {
+                    foreach (var attr in attrDefsElement.EnumerateArray())
+                    {
+                        if (attr.TryGetProperty("AttributeName", out var attrName) &&
+                            attr.TryGetProperty("AttributeType", out var attrType))
+                        {
+                            var typeString = attrType.GetString()?.ToUpperInvariant();
+                            var scalarType = typeString switch
+                            {
+                                "N" => ScalarAttributeType.N,
+                                "B" => ScalarAttributeType.B,
+                                _ => ScalarAttributeType.S
+                            };
+                            
+                            attributeDefinitions.Add(new AttributeDefinition
+                            {
+                                AttributeName = attrName.GetString(),
+                                AttributeType = scalarType
+                            });
+                        }
+                    }
+                }
+
+                var request = new CreateTableRequest
+                {
+                    TableName = tableName,
+                    KeySchema = keySchema,
+                    AttributeDefinitions = attributeDefinitions,
+                    BillingMode = BillingMode.PAY_PER_REQUEST
+                };
+                
+                // Handle StreamSpecification if present
+                if (root.TryGetProperty("StreamSpecification", out var streamSpecElement))
+                {
+                    var streamSpec = new StreamSpecification();
+                    
+                    if (streamSpecElement.TryGetProperty("StreamEnabled", out var streamEnabled))
+                    {
+                        streamSpec.StreamEnabled = streamEnabled.GetBoolean();
+                    }
+                    
+                    if (streamSpecElement.TryGetProperty("StreamViewType", out var streamViewType))
+                    {
+                        var viewTypeString = streamViewType.GetString()?.ToUpperInvariant();
+                        streamSpec.StreamViewType = viewTypeString switch
+                        {
+                            "KEYS_ONLY" => StreamViewType.KEYS_ONLY,
+                            "NEW_IMAGE" => StreamViewType.NEW_IMAGE,
+                            "OLD_IMAGE" => StreamViewType.OLD_IMAGE,
+                            "NEW_AND_OLD_IMAGES" => StreamViewType.NEW_AND_OLD_IMAGES,
+                            _ => StreamViewType.NEW_AND_OLD_IMAGES
+                        };
+                    }
+                    
+                    request.StreamSpecification = streamSpec;
+                }
+
+                await client.CreateTableAsync(request);
+                
+                const int maxAttempts = 30;
+                for (var i = 0; i < maxAttempts; i++)
+                {
+                    var describeResponse = await client.DescribeTableAsync(tableName);
+                    if (describeResponse.Table.TableStatus == TableStatus.ACTIVE)
+                    {
+                        break;
+                    }
+                    await Task.Delay(1000);
+                }
+            }
+            catch (Exception ex)
+            {
+                LogMessage($"Failed to execute DynamoDB script: {script} - {ex.Message}");
                 throw;
             }
         }

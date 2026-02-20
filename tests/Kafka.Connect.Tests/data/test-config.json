@@ -1,19 +1,24 @@
 [
   {
+    "order": 1,
     "target": "Health",
     "schema": "/schemas/user-event.avsc",
+    "skip": false,
     "files": [
       "/records/health-check-kafka.json",
       "/records/health-check-mongo.json",
       "/records/health-check-postgres.json",
       "/records/health-check-sqlserver.json",
       "/records/health-check-mysql.json",
-      "/records/health-check-oracle.json"
+      "/records/health-check-oracle.json",
+      "/records/health-check-dynamodb.json"
     ]
   },
   {
+    "order": 2,
     "target": "Mongo",
     "schema": "/schemas/user-event.avsc",
+    "skip": false,
     "files": [
       "/records/sink-tests-mongo.json",
       "/records/source-tests-mongo.json"
@@ -27,8 +32,10 @@
     }
   },
   {
+    "order": 3,
     "target": "Postgres",
     "schema": "/schemas/user-event.avsc",
+    "skip": false,
     "files": [
       "/records/sink-tests-postgres.json",
       "/records/source-tests-postgres.json"
@@ -39,8 +46,10 @@
     ]}
   },
   {
+    "order": 4,
     "target": "SqlServer",
     "schema": "/schemas/user-event.avsc",
+    "skip": false,
     "files": [
       "/records/sink-tests-sqlserver.json",
       "/records/source-tests-sqlserver.json"
@@ -53,8 +62,10 @@
     }
   },
   {
+    "order": 5,
     "target": "MySql",
     "schema": "/schemas/user-event.avsc",
+    "skip": false,
     "files": [
       "/records/sink-tests-mysql.json",
       "/records/source-tests-mysql.json"
@@ -67,8 +78,10 @@
     }
   },
   {
+    "order": 6,
     "target": "Oracle",
     "schema": "/schemas/user-event.avsc",
+    "skip": false,
     "files": [
       "/records/sink-tests-oracle.json",
       "/records/source-tests-oracle.json"
@@ -78,6 +91,23 @@
       "scripts": [
         "BEGIN EXECUTE IMMEDIATE 'DROP TABLE \"SYSTEM\".\"source_table\"'; EXCEPTION WHEN OTHERS THEN IF SQLCODE != -942 THEN RAISE; END IF; END;",
         "CREATE TABLE \"SYSTEM\".\"source_table\" (\"userId\" VARCHAR2(255), \"userName\" VARCHAR2(255), \"email\" VARCHAR2(255), \"timestamp\" VARCHAR2(255), \"action\" VARCHAR2(255))"
+      ]
+    }
+  },
+  {
+    "order": 7,
+    "target": "DynamoDb",
+    "schema": "/schemas/user-event.avsc",
+    "files": [
+      "/records/sink-tests-dynamodb.json",
+      "/records/source-tests-dynamodb.json"
+    ],
+    "setup": {
+      "database": "",
+      "scripts": [
+        "{ \"TableName\": \"kafka-connect-sink-table\", \"KeySchema\": [{ \"AttributeName\": \"userId\", \"KeyType\": \"HASH\" }], \"AttributeDefinitions\": [{ \"AttributeName\": \"userId\", \"AttributeType\": \"S\" }] }",
+        "{ \"TableName\": \"kafka-connect-source-table\", \"KeySchema\": [{ \"AttributeName\": \"userId\", \"KeyType\": \"HASH\" }], \"AttributeDefinitions\": [{ \"AttributeName\": \"userId\", \"AttributeType\": \"S\" }], \"StreamSpecification\": { \"StreamEnabled\": true, \"StreamViewType\": \"NEW_AND_OLD_IMAGES\" } }",
+        "{ \"TableName\": \"kafka-connect-health-table\", \"KeySchema\": [{ \"AttributeName\": \"id\", \"KeyType\": \"HASH\" }], \"AttributeDefinitions\": [{ \"AttributeName\": \"id\", \"AttributeType\": \"S\" }] }"
       ]
     }
   }

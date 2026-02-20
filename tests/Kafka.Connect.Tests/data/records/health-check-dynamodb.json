@@ -1,8 +1,9 @@
 {
   "title": "DynamoDB - health check",
   "properties": {
-    "topic": "dynamodb-health-check-topic",
-    "tableName": "kafka-connect-health-table"
+    "target": "DynamoDb",
+    "topic": "-",
+    "table": "kafka-connect-health-table"
   },
   "records": [
     {
@@ -27,10 +28,43 @@
       }
     },
     {
+      "delay": 500,
+      "operation": "update",
+      "key": {
+        "id": "health-001"
+      },
+      "value": {
+        "id": "health-001",
+        "status": "updated",
+        "timestamp": "2024-01-15T11:00:00Z"
+      }
+    },
+    {
+      "delay": 500,
+      "operation": "search",
+      "key": {
+        "id": "health-001"
+      },
+      "value": {
+        "id": "health-001",
+        "status": "updated",
+        "timestamp": "2024-01-15T11:00:00Z"
+      }
+    },
+    {
+      "delay": 500,
       "operation": "delete",
       "key": {
         "id": "health-001"
       }
+    },
+    {
+      "delay": 500,
+      "operation": "search",
+      "key": {
+        "id": "health-001"
+      },
+      "value": null
     }
   ]
 }

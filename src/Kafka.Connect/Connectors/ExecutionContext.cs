@@ -122,6 +122,15 @@ public class ExecutionContext(
         return taskContext != null ? GetTaskStatus(taskContext) : GetConnectorStatus(connectorContext);
     }
 
+    public dynamic GetSimpleStatus()
+    {
+        return new
+        {
+            Worker = new { _workerContext.Name, _workerContext.Status },
+            Connectors = _workerContext.Connectors.Select(c => new { c.Name, c.Status }),
+        };
+    }
+
     public dynamic GetFullDetails()
     {
         return new

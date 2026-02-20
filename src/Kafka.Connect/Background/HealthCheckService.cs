@@ -20,7 +20,7 @@ public class HealthCheckService(
     {
         var config = configurationProvider.GetHealthCheckConfig();
         await Task.Delay(config.Timeout, stoppingToken);
-        // _logger.Health(_executionContext.GetFullDetails() as object);
+        logger.Health(executionContext.GetSimpleStatus());
         try
         {
             if (!config.Disabled)
