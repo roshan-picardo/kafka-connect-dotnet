@@ -1,0 +1,38 @@
+{
+  "title": "MariaDb - health check",
+  "properties": {
+    "topic": "mariadb-health-check-topic",
+    "database": "kafka_connect_db",
+    "table": "health_check_table"
+  },
+  "records": [
+    {
+      "operation": "setup",
+      "script": "CREATE TABLE IF NOT EXISTS `kafka_connect_db`.`health_check_table` (`id` INT AUTO_INCREMENT PRIMARY KEY, `status` VARCHAR(50), `timestamp` TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
+    },
+    {
+      "operation": "publish",
+      "delay": 0,
+      "key": null,
+      "value": {
+        "status": "healthy",
+        "timestamp": "2024-01-15T10:30:00Z"
+      }
+    },
+    {
+      "delay": 1000,
+      "operation": "search",
+      "key": {
+        "status": "healthy"
+      },
+      "value": {
+        "status": "healthy",
+        "timestamp": "2024-01-15T10:30:00Z"
+      }
+    },
+    {
+      "operation": "cleanup",
+      "script": "DROP TABLE IF EXISTS `kafka_connect_db`.`health_check_table`;"
+    }
+  ]
+}

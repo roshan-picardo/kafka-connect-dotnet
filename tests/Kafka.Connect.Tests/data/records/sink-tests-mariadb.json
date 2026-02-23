@@ -1,0 +1,84 @@
+{
+  "title": "MariaDb - sink tests",
+  "properties": {
+    "topic": "mariadb-sink-data-topic",
+    "database": "kafka_connect_db",
+    "table": "sink_table"
+  },
+  "records": [
+    {
+      "operation": "setup",
+      "script": "CREATE TABLE IF NOT EXISTS `kafka_connect_db`.`sink_table` (`userId` VARCHAR(255), `userName` VARCHAR(255), `email` VARCHAR(255), `timestamp` VARCHAR(255), `action` VARCHAR(255));"
+    },
+    {
+      "operation": "publish",
+      "delay": 0,
+      "key": null,
+      "value": {
+        "userId": "user-001",
+        "userName": "John Doe",
+        "email": "john.doe@example.com",
+        "timestamp": "2024-01-15T10:30:00Z",
+        "action": "CREATE"
+      }
+    },
+    {
+      "operation": "publish",
+      "delay": 0,
+      "key": null,
+      "value": {
+        "userId": "user-002",
+        "userName": "Jane Smith",
+        "email": "jane.smith@example.com",
+        "timestamp": "2024-01-15T10:31:00Z",
+        "action": "CREATE"
+      }
+    },
+    {
+      "delay": 1000,
+      "operation": "search",
+      "key": {
+        "userId": "user-001"
+      },
+      "value": {
+        "userId": "user-001",
+        "userName": "John Doe",
+        "email": "john.doe@example.com",
+        "timestamp": "2024-01-15T10:30:00Z",
+        "action": "CREATE"
+      }
+    },
+    {
+      "operation": "search",
+      "delay": 0,
+      "key": {
+        "userId": "user-002"
+      },
+      "value": {
+        "userId": "user-002",
+        "userName": "Jane Smith",
+        "email": "jane.smith@example.com",
+        "timestamp": "2024-01-15T10:31:00Z",
+        "action": "CREATE"
+      }
+    },
+    {
+      "operation": "delete",
+      "delay": 0,
+      "key": {
+        "userId": "user-001"
+      }
+    },
+    {
+      "operation": "delete",
+      "delay": 0,
+      "key": {
+        "userId": "user-002"
+      }
+    },
+    {
+      "operation": "cleanup",
+      "script": "DROP TABLE IF EXISTS `kafka_connect_db`.`sink_table`;"
+    }
+  ]
+}

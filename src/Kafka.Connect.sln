@@ -23,6 +23,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kafka.Connect.Replicator", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kafka.Connect.MongoDb", "Plugins\Kafka.Connect.MongoDb\Kafka.Connect.MongoDb.csproj", "{1B347E89-49F2-4885-9B9A-CC7F19212A77}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kafka.Connect.MariaDb", "Plugins\Kafka.Connect.MariaDb\Kafka.Connect.MariaDb.csproj", "{8C4F2A1D-5E3B-4F9C-A2D1-7B8E9F0C1A2B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -141,6 +143,18 @@ Global
 		{1B347E89-49F2-4885-9B9A-CC7F19212A77}.Release|x64.Build.0 = Release|Any CPU
 		{1B347E89-49F2-4885-9B9A-CC7F19212A77}.Release|x86.ActiveCfg = Release|Any CPU
 		{1B347E89-49F2-4885-9B9A-CC7F19212A77}.Release|x86.Build.0 = Release|Any CPU
+		{8C4F2A1D-5E3B-4F9C-A2D1-7B8E9F0C1A2B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8C4F2A1D-5E3B-4F9C-A2D1-7B8E9F0C1A2B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8C4F2A1D-5E3B-4F9C-A2D1-7B8E9F0C1A2B}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{8C4F2A1D-5E3B-4F9C-A2D1-7B8E9F0C1A2B}.Debug|x64.Build.0 = Debug|Any CPU
+		{8C4F2A1D-5E3B-4F9C-A2D1-7B8E9F0C1A2B}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{8C4F2A1D-5E3B-4F9C-A2D1-7B8E9F0C1A2B}.Debug|x86.Build.0 = Debug|Any CPU
+		{8C4F2A1D-5E3B-4F9C-A2D1-7B8E9F0C1A2B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8C4F2A1D-5E3B-4F9C-A2D1-7B8E9F0C1A2B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8C4F2A1D-5E3B-4F9C-A2D1-7B8E9F0C1A2B}.Release|x64.ActiveCfg = Release|Any CPU
+		{8C4F2A1D-5E3B-4F9C-A2D1-7B8E9F0C1A2B}.Release|x64.Build.0 = Release|Any CPU
+		{8C4F2A1D-5E3B-4F9C-A2D1-7B8E9F0C1A2B}.Release|x86.ActiveCfg = Release|Any CPU
+		{8C4F2A1D-5E3B-4F9C-A2D1-7B8E9F0C1A2B}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -153,5 +167,6 @@ Global
 		{63EAA0FD-9F08-4A50-8A4D-FBE7279C0921} = {07D57EEB-2F50-60C4-C011-FE4FA775C9A8}
 		{327D750A-4A70-49B9-8640-8AA6F1CCAE9E} = {07D57EEB-2F50-60C4-C011-FE4FA775C9A8}
 		{1B347E89-49F2-4885-9B9A-CC7F19212A77} = {07D57EEB-2F50-60C4-C011-FE4FA775C9A8}
+		{8C4F2A1D-5E3B-4F9C-A2D1-7B8E9F0C1A2B} = {07D57EEB-2F50-60C4-C011-FE4FA775C9A8}
 	EndGlobalSection
 EndGlobal
