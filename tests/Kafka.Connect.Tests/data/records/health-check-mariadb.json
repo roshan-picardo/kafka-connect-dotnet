@@ -1,39 +1,83 @@
 {
-  "title": "MariaDb - health check",
+  "title": "MariaDb - health checks",
   "properties": {
     "target": "MariaDb",
     "topic": "-",
     "database": "kafka_connect_db",
-    "table": "health_check_table"
+    "table": "health_table"
   },
   "records": [
     {
       "operation": "setup",
-      "script": "CREATE TABLE IF NOT EXISTS `kafka_connect_db`.`health_check_table` (`id` INT AUTO_INCREMENT PRIMARY KEY, `status` VARCHAR(50), `timestamp` TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
+      "script": "CREATE TABLE IF NOT EXISTS `kafka_connect_db`.`health_table` (`userId` VARCHAR(255), `userName` VARCHAR(255), `email` VARCHAR(255), `timestamp` VARCHAR(255), `action` VARCHAR(255));"
     },
     {
-      "operation": "publish",
-      "delay": 0,
+      "operation": "insert",
       "key": null,
       "value": {
-        "status": "healthy",
-        "timestamp": "2024-01-15T10:30:00Z"
+        "userId": "user-001",
+        "userName": "John Doe",
+        "email": "john.doe@example.com",
+        "timestamp": "2024-01-15T10:30:00Z",
+        "action": "CREATE"
       }
     },
     {
-      "delay": 1000,
       "operation": "search",
       "key": {
-        "status": "healthy"
+        "userId": "user-001"
       },
       "value": {
-        "status": "healthy",
-        "timestamp": "2024-01-15T10:30:00Z"
+        "userId": "user-001",
+        "userName": "John Doe",
+        "email": "john.doe@example.com",
+        "timestamp": "2024-01-15T10:30:00Z",
+        "action": "CREATE"
       }
+    },
+    {
+      "operation": "update",
+      "key": {
+        "userId": "user-001"
+      },
+      "value": {
+        "userId": "user-001",
+        "userName": "John Does",
+        "email": "john.does@example.com",
+        "timestamp": "2025-01-15T10:30:00Z",
+        "action": "UPDATE"
+      }
+    },
+    {
+      "operation": "search",
+      "key": {
+        "userId": "user-001"
+      },
+      "value": {
+        "userId": "user-001",
+        "userName": "John Does",
+        "email": "john.does@example.com",
+        "timestamp": "2025-01-15T10:30:00Z",
+        "action": "UPDATE"
+      }
+    },
+    {
+      "operation": "delete",
+      "key": {
+        "userId": "user-001"
+      },
+      "value": null
+    },
+    {
+      "operation": "search",
+      "key": {
+        "userId": "user-001"
+      },
+      "value": null
     },
     {
       "operation": "cleanup",
-      "script": "DROP TABLE IF EXISTS `kafka_connect_db`.`health_check_table`;"
+      "script": "DROP TABLE IF EXISTS `kafka_connect_db`.`health_table`;"
     }
   ]
 }

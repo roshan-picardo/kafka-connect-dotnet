@@ -6,6 +6,7 @@ using IntegrationTests.Kafka.Connect.Infrastructure;
 namespace IntegrationTests.Kafka.Connect;
 
 [Collection("Integration Tests")]
+[TestCaseOrderer("IntegrationTests.Kafka.Connect.Infrastructure.PriorityOrderer", "Kafka.Connect.Tests")]
 public class HealthTestRunner(TestFixture fixture, ITestOutputHelper output) : BaseTestRunner(fixture, output)
 {
     private readonly TestFixture _fixture = fixture;

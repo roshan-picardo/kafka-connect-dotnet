@@ -9,6 +9,7 @@ using Xunit.Abstractions;
 namespace IntegrationTests.Kafka.Connect;
 
 [Collection("Integration Tests")]
+[TestCaseOrderer("IntegrationTests.Kafka.Connect.Infrastructure.PriorityOrderer", "Kafka.Connect.Tests")]
 public class DynamoDbTestRunner(TestFixture fixture, ITestOutputHelper output) : BaseTestRunner(fixture, output)
 {
     private readonly TestFixture _fixture = fixture;
