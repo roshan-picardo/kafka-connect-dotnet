@@ -476,6 +476,36 @@ public class TestFixture : IAsyncLifetime
             }
         }
     
+        private async Task WaitForMariaDbReadyAsync()
+        {
+            var connectionString = Configuration.GetServiceEndpoint("MariaDb");
+            
+            for (var attempt = 1; attempt <= DatabaseReadyMaxAttempts; attempt++)
+            {
+                try
+                {
+                    await using var connection = new MySqlConnector.MySqlConnection(connectionString);
+                    await connection.OpenAsync();
+                    
+                    var command = new MySqlConnector.MySqlCommand("SELECT VERSION()", connection);
+                    await command.ExecuteScalarAsync();
+                    
+                    LogMessage($"MariaDB is ready (attempt {attempt})");
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    if (attempt == DatabaseReadyMaxAttempts)
+                    {
+                        throw new TimeoutException($"MariaDB did not become ready after {DatabaseReadyMaxAttempts} attempts", ex);
+                    }
+                    
+                    LogMessage($"MariaDB not ready yet (attempt {attempt}/{DatabaseReadyMaxAttempts}): {ex.Message}");
+                    await Task.Delay(DatabaseReadyDelayMs);
+                }
+            }
+        }
+    
         private async Task WaitForDynamoDbReadyAsync()
         {
             var serviceUrl = Configuration.GetServiceEndpoint("DynamoDb");
@@ -635,6 +665,7 @@ public class TestFixture : IAsyncLifetime
                 WaitForOracleReadyAsync(),
                 WaitForPostgresReadyAsync(),
                 WaitForMySqlReadyAsync(),
+                WaitForMariaDbReadyAsync(),
                 WaitForDynamoDbReadyAsync()
             };
             
@@ -852,6 +883,9 @@ public class TestFixture : IAsyncLifetime
             case "mysql":
                 await ExecuteMySqlScripts(database, scripts);
                 break;
+            case "mariadb":
+                await ExecuteMariaDbScripts(database, scripts);
+                break;
             case "sqlserver":
                 await ExecuteSqlServerScripts(database, scripts);
                 break;
@@ -903,6 +937,24 @@ public class TestFixture : IAsyncLifetime
         foreach (var script in scripts)
         {
             await using var command = new MySql.Data.MySqlClient.MySqlCommand(script, connection);
+            await command.ExecuteNonQueryAsync();
+        }
+    }
+
+    private async Task ExecuteMariaDbScripts(string database, string[] scripts)
+    {
+        var connectionString = Configuration.GetServiceEndpoint("MariaDb");
+        var builder = new MySqlConnector.MySqlConnectionStringBuilder(connectionString)
+        {
+            Database = database
+        };
+
+        await using var connection = new MySqlConnector.MySqlConnection(builder.ConnectionString);
+        await connection.OpenAsync();
+
+        foreach (var script in scripts)
+        {
+            await using var command = new MySqlConnector.MySqlCommand(script, connection);
             await command.ExecuteNonQueryAsync();
         }
     }
@@ -1106,4 +1158,5 @@ public class TestFixture : IAsyncLifetime
 }
 
 [CollectionDefinition("Integration Tests")]
+[TestCaseOrderer("IntegrationTests.Kafka.Connect.Infrastructure.PriorityOrderer", "Kafka.Connect.Tests")]
 public class TestCollection : ICollectionFixture<TestFixture>;
