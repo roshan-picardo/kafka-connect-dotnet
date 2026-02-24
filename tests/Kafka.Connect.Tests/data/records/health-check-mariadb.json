@@ -1,7 +1,8 @@
 {
   "title": "MariaDb - health check",
   "properties": {
-    "topic": "mariadb-health-check-topic",
+    "target": "MariaDb",
+    "topic": "-",
     "database": "kafka_connect_db",
     "table": "health_check_table"
   },
