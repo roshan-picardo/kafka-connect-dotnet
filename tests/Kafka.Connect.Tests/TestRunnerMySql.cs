@@ -1,5 +1,5 @@
 using IntegrationTests.Kafka.Connect.Infrastructure;
-using MySqlConnector;
+using MySql.Data.MySqlClient;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Xunit;
@@ -8,15 +8,14 @@ using Xunit.Abstractions;
 namespace IntegrationTests.Kafka.Connect;
 
 [Collection("Integration Tests")]
-[TestCaseOrderer("IntegrationTests.Kafka.Connect.Infrastructure.PriorityOrderer", "Kafka.Connect.Tests")]
-public class MariaDbTestRunner(TestFixture fixture, ITestOutputHelper output) : BaseTestRunner(fixture, output)
+public class TestRunnerMySql(TestFixture fixture, ITestOutputHelper output) : BaseTestRunner(fixture, output)
 {
     private readonly TestFixture _fixture = fixture;
-    private const string Target = "MariaDb";
+    private const string Target = "MySql";
 
-    private MySqlConnection GetMariaDbConnection(string? databaseName = null)
+    private MySqlConnection GetMySqlConnection(string? databaseName = null)
     {
-        var connectionString = _fixture.Configuration.GetServiceEndpoint("MariaDb");
+        var connectionString = _fixture.Configuration.GetServiceEndpoint("MySql");
         if (!string.IsNullOrEmpty(databaseName))
         {
             var builder = new MySqlConnectionStringBuilder(connectionString)
@@ -34,7 +33,7 @@ public class MariaDbTestRunner(TestFixture fixture, ITestOutputHelper output) : 
 
     protected override async Task Insert(Dictionary<string, string> properties, TestCaseRecord record)
     {
-        await using var connection = GetMariaDbConnection(properties["database"]);
+        await using var connection = GetMySqlConnection(properties["database"]);
         await connection.OpenAsync();
 
         var jsonValue = record.Value?.ToJsonString() ?? "{}";
@@ -64,7 +63,7 @@ public class MariaDbTestRunner(TestFixture fixture, ITestOutputHelper output) : 
 
     protected override async Task Update(Dictionary<string, string> properties, TestCaseRecord record)
     {
-        await using var connection = GetMariaDbConnection(properties["database"]);
+        await using var connection = GetMySqlConnection(properties["database"]);
         await connection.OpenAsync();
 
         var keyJson = record.Key?.ToJsonString() ?? "{}";
@@ -104,7 +103,7 @@ public class MariaDbTestRunner(TestFixture fixture, ITestOutputHelper output) : 
 
     protected override async Task Delete(Dictionary<string, string> properties, TestCaseRecord record)
     {
-        await using var connection = GetMariaDbConnection(properties["database"]);
+        await using var connection = GetMySqlConnection(properties["database"]);
         await connection.OpenAsync();
 
         var keyJson = record.Key?.ToJsonString() ?? "{}";
@@ -132,7 +131,7 @@ public class MariaDbTestRunner(TestFixture fixture, ITestOutputHelper output) : 
 
     protected override async Task Setup(Dictionary<string, string> properties)
     {
-        await using var connection = GetMariaDbConnection(properties["database"]);
+        await using var connection = GetMySqlConnection(properties["database"]);
         await connection.OpenAsync();
         await using var command = new MySqlCommand(properties["setup"], connection);
         await command.ExecuteNonQueryAsync();
@@ -141,7 +140,7 @@ public class MariaDbTestRunner(TestFixture fixture, ITestOutputHelper output) : 
 
     protected override async Task Cleanup(Dictionary<string, string> properties)
     {
-        await using var connection = GetMariaDbConnection(properties["database"]);
+        await using var connection = GetMySqlConnection(properties["database"]);
         await connection.OpenAsync();
         await using var command = new MySqlCommand(properties["cleanup"], connection);
         await command.ExecuteNonQueryAsync();
@@ -150,7 +149,7 @@ public class MariaDbTestRunner(TestFixture fixture, ITestOutputHelper output) : 
 
     protected override async Task<JsonNode?> Search(Dictionary<string, string> properties, TestCaseRecord record)
     {
-        await using var connection = GetMariaDbConnection(properties["database"]);
+        await using var connection = GetMySqlConnection(properties["database"]);
         await connection.OpenAsync();
 
         var keyJson = record.Key?.ToJsonString() ?? "{}";

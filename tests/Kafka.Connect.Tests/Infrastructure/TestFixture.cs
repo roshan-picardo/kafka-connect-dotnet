@@ -1158,5 +1158,4 @@ public class TestFixture : IAsyncLifetime
 }
 
 [CollectionDefinition("Integration Tests")]
-[TestCaseOrderer("IntegrationTests.Kafka.Connect.Infrastructure.PriorityOrderer", "Kafka.Connect.Tests")]
 public class TestCollection : ICollectionFixture<TestFixture>;

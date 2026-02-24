@@ -1,5 +1,5 @@
 using IntegrationTests.Kafka.Connect.Infrastructure;
-using Oracle.ManagedDataAccess.Client;
+using Microsoft.Data.SqlClient;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Xunit;
@@ -8,24 +8,23 @@ using Xunit.Abstractions;
 namespace IntegrationTests.Kafka.Connect;
 
 [Collection("Integration Tests")]
-[TestCaseOrderer("IntegrationTests.Kafka.Connect.Infrastructure.PriorityOrderer", "Kafka.Connect.Tests")]
-public class OracleTestRunner(TestFixture fixture, ITestOutputHelper output) : BaseTestRunner(fixture, output)
+public class TestRunnerSqlServer(TestFixture fixture, ITestOutputHelper output) : BaseTestRunner(fixture, output)
 {
     private readonly TestFixture _fixture = fixture;
-    private const string Target = "Oracle";
+    private const string Target = "SqlServer";
 
-    private OracleConnection GetOracleConnection(string? serviceName = null)
+    private SqlConnection GetSqlServerConnection(string? databaseName = null)
     {
-        var connectionString = _fixture.Configuration.GetServiceEndpoint("Oracle");
-        if (!string.IsNullOrEmpty(serviceName))
+        var connectionString = _fixture.Configuration.GetServiceEndpoint("SqlServer");
+        if (!string.IsNullOrEmpty(databaseName))
         {
-            var builder = new OracleConnectionStringBuilder(connectionString)
+            var builder = new SqlConnectionStringBuilder(connectionString)
             {
-                DataSource = $"(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=127.0.0.1)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME={serviceName})))"
+                InitialCatalog = databaseName
             };
             connectionString = builder.ConnectionString;
         }
-        return new OracleConnection(connectionString);
+        return new SqlConnection(connectionString);
     }
     
     [Theory, TestPriority(2)]
@@ -34,7 +33,7 @@ public class OracleTestRunner(TestFixture fixture, ITestOutputHelper output) : B
 
     protected override async Task Insert(Dictionary<string, string> properties, TestCaseRecord record)
     {
-        await using var connection = GetOracleConnection();
+        await using var connection = GetSqlServerConnection(properties["database"]);
         await connection.OpenAsync();
 
         var jsonValue = record.Value?.ToJsonString() ?? "{}";
@@ -46,17 +45,17 @@ public class OracleTestRunner(TestFixture fixture, ITestOutputHelper output) : B
 
         foreach (var property in jsonDoc.RootElement.EnumerateObject())
         {
-            columns.Add($"\"{property.Name}\"");
-            parameters.Add($":{property.Name}");
+            columns.Add($"[{property.Name}]");
+            parameters.Add($"@{property.Name}");
             values.Add(GetParameterValue(property.Value));
         }
 
-        var sql = $"INSERT INTO \"{properties["schema"]}\".\"{properties["table"]}\" ({string.Join(", ", columns)}) VALUES ({string.Join(", ", parameters)})";
+        var sql = $"INSERT INTO [{properties["schema"]}].[{properties["table"]}] ({string.Join(", ", columns)}) VALUES ({string.Join(", ", parameters)})";
 
-        await using var command = new OracleCommand(sql, connection);
+        await using var command = new SqlCommand(sql, connection);
         for (var i = 0; i < columns.Count; i++)
         {
-            command.Parameters.Add(parameters[i].TrimStart(':'), values[i]);
+            command.Parameters.AddWithValue(parameters[i].TrimStart('@'), values[i]);
         }
 
         await command.ExecuteNonQueryAsync();
@@ -64,7 +63,7 @@ public class OracleTestRunner(TestFixture fixture, ITestOutputHelper output) : B
 
     protected override async Task Update(Dictionary<string, string> properties, TestCaseRecord record)
     {
-        await using var connection = GetOracleConnection();
+        await using var connection = GetSqlServerConnection(properties["database"]);
         await connection.OpenAsync();
 
         var keyJson = record.Key?.ToJsonString() ?? "{}";
@@ -80,23 +79,23 @@ public class OracleTestRunner(TestFixture fixture, ITestOutputHelper output) : B
         // Build SET clause from value
         foreach (var property in valueDoc.RootElement.EnumerateObject())
         {
-            setClauses.Add($"\"{property.Name}\" = :set_{property.Name}");
-            parameters.Add(($":set_{property.Name}", GetParameterValue(property.Value)));
+            setClauses.Add($"[{property.Name}] = @set_{property.Name}");
+            parameters.Add(($"@set_{property.Name}", GetParameterValue(property.Value)));
         }
 
         // Build WHERE clause from key
         foreach (var property in keyDoc.RootElement.EnumerateObject())
         {
-            whereConditions.Add($"\"{property.Name}\" = :where_{property.Name}");
-            parameters.Add(($":where_{property.Name}", GetParameterValue(property.Value)));
+            whereConditions.Add($"[{property.Name}] = @where_{property.Name}");
+            parameters.Add(($"@where_{property.Name}", GetParameterValue(property.Value)));
         }
 
-        var sql = $"UPDATE \"{properties["schema"]}\".\"{properties["table"]}\" SET {string.Join(", ", setClauses)} WHERE {string.Join(" AND ", whereConditions)}";
+        var sql = $"UPDATE [{properties["schema"]}].[{properties["table"]}] SET {string.Join(", ", setClauses)} WHERE {string.Join(" AND ", whereConditions)}";
         
-        using var command = new OracleCommand(sql, connection);
+        using var command = new SqlCommand(sql, connection);
         foreach (var (name, value) in parameters)
         {
-            command.Parameters.Add(name.TrimStart(':'), value);
+            command.Parameters.AddWithValue(name.TrimStart('@'), value);
         }
 
         await command.ExecuteNonQueryAsync();
@@ -104,7 +103,7 @@ public class OracleTestRunner(TestFixture fixture, ITestOutputHelper output) : B
 
     protected override async Task Delete(Dictionary<string, string> properties, TestCaseRecord record)
     {
-        await using var connection = GetOracleConnection();
+        await using var connection = GetSqlServerConnection(properties["database"]);
         await connection.OpenAsync();
 
         var keyJson = record.Key?.ToJsonString() ?? "{}";
@@ -115,16 +114,16 @@ public class OracleTestRunner(TestFixture fixture, ITestOutputHelper output) : B
 
         foreach (var property in keyDoc.RootElement.EnumerateObject())
         {
-            whereConditions.Add($"\"{property.Name}\" = :{property.Name}");
-            parameters.Add(($":{property.Name}", GetParameterValue(property.Value)));
+            whereConditions.Add($"[{property.Name}] = @{property.Name}");
+            parameters.Add(($"@{property.Name}", GetParameterValue(property.Value)));
         }
 
-        var sql = $"DELETE FROM \"{properties["schema"]}\".\"{properties["table"]}\" WHERE {string.Join(" AND ", whereConditions)}";
+        var sql = $"DELETE FROM [{properties["schema"]}].[{properties["table"]}] WHERE {string.Join(" AND ", whereConditions)}";
         
-        using var command = new OracleCommand(sql, connection);
+        using var command = new SqlCommand(sql, connection);
         foreach (var (name, value) in parameters)
         {
-            command.Parameters.Add(name.TrimStart(':'), value);
+            command.Parameters.AddWithValue(name.TrimStart('@'), value);
         }
 
         await command.ExecuteNonQueryAsync();
@@ -132,35 +131,35 @@ public class OracleTestRunner(TestFixture fixture, ITestOutputHelper output) : B
 
     protected override async Task Setup(Dictionary<string, string> properties)
     {
-        await using var connection = GetOracleConnection();
+        await using var connection = GetSqlServerConnection(properties["database"]);
         await connection.OpenAsync();
-        await using var command = new OracleCommand(properties["setup"], connection);
+        await using var command = new SqlCommand(properties["setup"], connection);
         await command.ExecuteNonQueryAsync();
         await connection.CloseAsync();
     }
 
     protected override async Task Cleanup(Dictionary<string, string> properties)
     {
-        await using var connection = GetOracleConnection();
+        await using var connection = GetSqlServerConnection(properties["database"]);
         await connection.OpenAsync();
-        await using var command = new OracleCommand(properties["cleanup"], connection);
+        await using var command = new SqlCommand(properties["cleanup"], connection);
         await command.ExecuteNonQueryAsync();
         await connection.CloseAsync();
     }   
 
     protected override async Task<JsonNode?> Search(Dictionary<string, string> properties, TestCaseRecord record)
     {
-        await using var connection = GetOracleConnection();
+        await using var connection = GetSqlServerConnection(properties["database"]);
         await connection.OpenAsync();
 
         var keyJson = record.Key?.ToJsonString() ?? "{}";
         var keyDoc = JsonDocument.Parse(keyJson);
 
-        var whereConditions = keyDoc.RootElement.EnumerateObject().Select(property => $"\"{property.Name}\" = '{GetParameterValue(property.Value)}'").ToList();
+        var whereConditions = keyDoc.RootElement.EnumerateObject().Select(property => $"[{property.Name}] = '{GetParameterValue(property.Value)}'").ToList();
 
-        var sql = $"SELECT * FROM \"{properties["schema"]}\".\"{properties["table"]}\" WHERE {string.Join(" AND ", whereConditions)}";
+        var sql = $"SELECT * FROM [{properties["schema"]}].[{properties["table"]}] WHERE {string.Join(" AND ", whereConditions)}";
 
-        await using var command = new OracleCommand(sql, connection);
+        await using var command = new SqlCommand(sql, connection);
 
         await using var reader = await command.ExecuteReaderAsync();
         if (await reader.ReadAsync())
@@ -190,7 +189,7 @@ public class OracleTestRunner(TestFixture fixture, ITestOutputHelper output) : B
         };
     }
 
-    private static bool HasColumn(OracleDataReader reader, string columnName)
+    private static bool HasColumn(SqlDataReader reader, string columnName)
     {
         for (var i = 0; i < reader.FieldCount; i++)
         {

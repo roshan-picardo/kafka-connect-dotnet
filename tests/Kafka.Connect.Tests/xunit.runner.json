@@ -10,7 +10,7 @@
   "longRunningTestSeconds": 60,
   "maxParallelThreads": -1,
   "parallelizeAssembly": false,
-  "parallelizeTestCollections": false,
+  "parallelizeTestCollections": true,
   "reporters": {
     "console": {
       "enabled": false

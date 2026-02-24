@@ -8,8 +8,7 @@ using Xunit.Abstractions;
 namespace IntegrationTests.Kafka.Connect;
 
 [Collection("Integration Tests")]
-[TestCaseOrderer("IntegrationTests.Kafka.Connect.Infrastructure.PriorityOrderer", "Kafka.Connect.Tests")]
-public class PostgresTestRunner(TestFixture fixture, ITestOutputHelper output) : BaseTestRunner(fixture, output)
+public class TestRunnerPostgres(TestFixture fixture, ITestOutputHelper output) : BaseTestRunner(fixture, output)
 {
     private readonly TestFixture _fixture = fixture;
     private const string Target = "Postgres";
