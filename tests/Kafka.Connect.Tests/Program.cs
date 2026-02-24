@@ -170,7 +170,7 @@ async Task RunInteractiveMode()
     {
         try
         {
-            await new HealthTestRunner(fixture, new ConsoleTestOutputHelper()).Execute(testCase with
+            await new TestRunnerBaseHealthChecks(fixture, new ConsoleTestOutputHelper()).Execute(testCase with
             {
                 Title = $"{testCase.Title} - {record.Operation}", 
                 Records = [record],

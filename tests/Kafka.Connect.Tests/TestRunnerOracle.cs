@@ -8,7 +8,7 @@ using Xunit.Abstractions;
 namespace IntegrationTests.Kafka.Connect;
 
 [Collection("Integration Tests")]
-public class OracleTestRunner(TestFixture fixture, ITestOutputHelper output) : BaseTestRunner(fixture, output)
+public class TestRunnerOracle(TestFixture fixture, ITestOutputHelper output) : BaseTestRunner(fixture, output)
 {
     private readonly TestFixture _fixture = fixture;
     private const string Target = "Oracle";

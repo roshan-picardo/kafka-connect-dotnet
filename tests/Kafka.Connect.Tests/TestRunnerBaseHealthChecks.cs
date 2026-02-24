@@ -6,7 +6,7 @@ using IntegrationTests.Kafka.Connect.Infrastructure;
 namespace IntegrationTests.Kafka.Connect;
 
 [Collection("Integration Tests")]
-public class HealthTestRunner(TestFixture fixture, ITestOutputHelper output) : BaseTestRunner(fixture, output)
+public class TestRunnerBaseHealthChecks(TestFixture fixture, ITestOutputHelper output) : BaseTestRunner(fixture, output)
 {
     private readonly TestFixture _fixture = fixture;
     private readonly ITestOutputHelper _output = output;
@@ -19,22 +19,25 @@ public class HealthTestRunner(TestFixture fixture, ITestOutputHelper output) : B
         switch (testCase.Properties["target"]?.ToLower())
         {
             case "mongo":
-                await new MongoTestRunner(_fixture, _output).Execute(testCase);
+                await new TestRunnerMongoDb(_fixture, _output).Execute(testCase);
                 break;
             case "postgres":
-                await new PostgresTestRunner(_fixture, _output).Execute(testCase);
+                await new TestRunnerPostgres(_fixture, _output).Execute(testCase);
                 break;
             case "sqlserver":
-                await new SqlServerTestRunner(_fixture, _output).Execute(testCase);
+                await new TestRunnerSqlServer(_fixture, _output).Execute(testCase);
                 break;
             case "mysql":
-                await new MySqlTestRunner(_fixture, _output).Execute(testCase);
+                await new TestRunnerMySql(_fixture, _output).Execute(testCase);
+                break;
+            case "mariadb":
+                await new TestRunnerMariaDb(_fixture, _output).Execute(testCase);
                 break;
             case "oracle":
-                await new OracleTestRunner(_fixture, _output).Execute(testCase);
+                await new TestRunnerOracle(_fixture, _output).Execute(testCase);
                 break;
             case "dynamodb":
-                await new DynamoDbTestRunner(_fixture, _output).Execute(testCase);
+                await new TestRunnerDynamoDb(_fixture, _output).Execute(testCase);
                 break;
             default:
                 await Run(testCase, Target);

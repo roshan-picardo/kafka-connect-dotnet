@@ -1,5 +1,5 @@
 using IntegrationTests.Kafka.Connect.Infrastructure;
-using MySql.Data.MySqlClient;
+using Npgsql;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Xunit;
@@ -8,23 +8,23 @@ using Xunit.Abstractions;
 namespace IntegrationTests.Kafka.Connect;
 
 [Collection("Integration Tests")]
-public class MySqlTestRunner(TestFixture fixture, ITestOutputHelper output) : BaseTestRunner(fixture, output)
+public class TestRunnerPostgres(TestFixture fixture, ITestOutputHelper output) : BaseTestRunner(fixture, output)
 {
     private readonly TestFixture _fixture = fixture;
-    private const string Target = "MySql";
-
-    private MySqlConnection GetMySqlConnection(string? databaseName = null)
+    private const string Target = "Postgres";
+    
+    public NpgsqlConnection GetPostgresConnection(string? databaseName = null)
     {
-        var connectionString = _fixture.Configuration.GetServiceEndpoint("MySql");
+        var connectionString = _fixture.Configuration.GetServiceEndpoint("Postgres");
         if (!string.IsNullOrEmpty(databaseName))
         {
-            var builder = new MySqlConnectionStringBuilder(connectionString)
+            var builder = new NpgsqlConnectionStringBuilder(connectionString)
             {
                 Database = databaseName
             };
             connectionString = builder.ConnectionString;
         }
-        return new MySqlConnection(connectionString);
+        return new NpgsqlConnection(connectionString);
     }
     
     [Theory, TestPriority(2)]
@@ -33,7 +33,7 @@ public class MySqlTestRunner(TestFixture fixture, ITestOutputHelper output) : Ba
 
     protected override async Task Insert(Dictionary<string, string> properties, TestCaseRecord record)
     {
-        await using var connection = GetMySqlConnection(properties["database"]);
+        await using var connection = GetPostgresConnection(properties["database"]);
         await connection.OpenAsync();
 
         var jsonValue = record.Value?.ToJsonString() ?? "{}";
@@ -45,14 +45,14 @@ public class MySqlTestRunner(TestFixture fixture, ITestOutputHelper output) : Ba
 
         foreach (var property in jsonDoc.RootElement.EnumerateObject())
         {
-            columns.Add($"`{property.Name}`");
+            columns.Add($"\"{property.Name}\"");
             parameters.Add($"@{property.Name}");
             values.Add(GetParameterValue(property.Value));
         }
 
-        var sql = $"INSERT INTO `{properties["database"]}`.`{properties["table"]}` ({string.Join(", ", columns)}) VALUES ({string.Join(", ", parameters)})";
+        var sql = $"INSERT INTO {properties["schema"]}.\"{properties["table"]}\" ({string.Join(", ", columns)}) VALUES ({string.Join(", ", parameters)})";
 
-        await using var command = new MySqlCommand(sql, connection);
+        await using var command = new NpgsqlCommand(sql, connection);
         for (var i = 0; i < columns.Count; i++)
         {
             command.Parameters.AddWithValue(parameters[i].TrimStart('@'), values[i]);
@@ -63,7 +63,7 @@ public class MySqlTestRunner(TestFixture fixture, ITestOutputHelper output) : Ba
 
     protected override async Task Update(Dictionary<string, string> properties, TestCaseRecord record)
     {
-        await using var connection = GetMySqlConnection(properties["database"]);
+        await using var connection = GetPostgresConnection(properties["database"]);
         await connection.OpenAsync();
 
         var keyJson = record.Key?.ToJsonString() ?? "{}";
@@ -79,20 +79,20 @@ public class MySqlTestRunner(TestFixture fixture, ITestOutputHelper output) : Ba
         // Build SET clause from value
         foreach (var property in valueDoc.RootElement.EnumerateObject())
         {
-            setClauses.Add($"`{property.Name}` = @set_{property.Name}");
+            setClauses.Add($"\"{property.Name}\" = @set_{property.Name}");
             parameters.Add(($"@set_{property.Name}", GetParameterValue(property.Value)));
         }
 
         // Build WHERE clause from key
         foreach (var property in keyDoc.RootElement.EnumerateObject())
         {
-            whereConditions.Add($"`{property.Name}` = @where_{property.Name}");
+            whereConditions.Add($"\"{property.Name}\" = @where_{property.Name}");
             parameters.Add(($"@where_{property.Name}", GetParameterValue(property.Value)));
         }
 
-        var sql = $"UPDATE `{properties["database"]}`.`{properties["table"]}` SET {string.Join(", ", setClauses)} WHERE {string.Join(" AND ", whereConditions)}";
+        var sql = $"UPDATE {properties["schema"]}.\"{properties["table"]}\" SET {string.Join(", ", setClauses)} WHERE {string.Join(" AND ", whereConditions)}";
         
-        using var command = new MySqlCommand(sql, connection);
+        using var command = new NpgsqlCommand(sql, connection);
         foreach (var (name, value) in parameters)
         {
             command.Parameters.AddWithValue(name.TrimStart('@'), value);
@@ -103,7 +103,7 @@ public class MySqlTestRunner(TestFixture fixture, ITestOutputHelper output) : Ba
 
     protected override async Task Delete(Dictionary<string, string> properties, TestCaseRecord record)
     {
-        await using var connection = GetMySqlConnection(properties["database"]);
+        await using var connection = GetPostgresConnection(properties["database"]);
         await connection.OpenAsync();
 
         var keyJson = record.Key?.ToJsonString() ?? "{}";
@@ -114,13 +114,13 @@ public class MySqlTestRunner(TestFixture fixture, ITestOutputHelper output) : Ba
 
         foreach (var property in keyDoc.RootElement.EnumerateObject())
         {
-            whereConditions.Add($"`{property.Name}` = @{property.Name}");
+            whereConditions.Add($"\"{property.Name}\" = @{property.Name}");
             parameters.Add(($"@{property.Name}", GetParameterValue(property.Value)));
         }
 
-        var sql = $"DELETE FROM `{properties["database"]}`.`{properties["table"]}` WHERE {string.Join(" AND ", whereConditions)}";
+        var sql = $"DELETE FROM {properties["schema"]}.\"{properties["table"]}\" WHERE {string.Join(" AND ", whereConditions)}";
         
-        using var command = new MySqlCommand(sql, connection);
+        using var command = new NpgsqlCommand(sql, connection);
         foreach (var (name, value) in parameters)
         {
             command.Parameters.AddWithValue(name.TrimStart('@'), value);
@@ -131,35 +131,35 @@ public class MySqlTestRunner(TestFixture fixture, ITestOutputHelper output) : Ba
 
     protected override async Task Setup(Dictionary<string, string> properties)
     {
-        await using var connection = GetMySqlConnection(properties["database"]);
+        await using var connection = GetPostgresConnection(properties["database"]);
         await connection.OpenAsync();
-        await using var command = new MySqlCommand(properties["setup"], connection);
+        await using var command = new NpgsqlCommand(properties["setup"], connection);
         await command.ExecuteNonQueryAsync();
         await connection.CloseAsync();
     }
 
     protected override async Task Cleanup(Dictionary<string, string> properties)
     {
-        await using var connection = GetMySqlConnection(properties["database"]);
+        await using var connection = GetPostgresConnection(properties["database"]);
         await connection.OpenAsync();
-        await using var command = new MySqlCommand(properties["cleanup"], connection);
+        await using var command = new NpgsqlCommand(properties["cleanup"], connection);
         await command.ExecuteNonQueryAsync();
         await connection.CloseAsync();
     }   
 
     protected override async Task<JsonNode?> Search(Dictionary<string, string> properties, TestCaseRecord record)
     {
-        await using var connection = GetMySqlConnection(properties["database"]);
+        await using var connection = GetPostgresConnection(properties["database"]);
         await connection.OpenAsync();
 
         var keyJson = record.Key?.ToJsonString() ?? "{}";
         var keyDoc = JsonDocument.Parse(keyJson);
 
-        var whereConditions = keyDoc.RootElement.EnumerateObject().Select(property => $"`{property.Name}` = '{GetParameterValue(property.Value)}'").ToList();
+        var whereConditions = keyDoc.RootElement.EnumerateObject().Select(property => $"\"{property.Name}\" = '{GetParameterValue(property.Value)}'").ToList();
 
-        var sql = $"SELECT * FROM `{properties["database"]}`.`{properties["table"]}` WHERE {string.Join(" AND ", whereConditions)}";
+        var sql = $"SELECT * FROM {properties["schema"]}.{properties["table"]} WHERE {string.Join(" AND ", whereConditions)}";
 
-        await using var command = new MySqlCommand(sql, connection);
+        await using var command = new NpgsqlCommand(sql, connection);
 
         await using var reader = await command.ExecuteReaderAsync();
         if (await reader.ReadAsync())
@@ -189,7 +189,7 @@ public class MySqlTestRunner(TestFixture fixture, ITestOutputHelper output) : Ba
         };
     }
 
-    private static bool HasColumn(MySqlDataReader reader, string columnName)
+    private static bool HasColumn(NpgsqlDataReader reader, string columnName)
     {
         for (var i = 0; i < reader.FieldCount; i++)
         {

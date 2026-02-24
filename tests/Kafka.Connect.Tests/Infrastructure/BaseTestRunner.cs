@@ -246,16 +246,15 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
 }
 
 public record SchemaRecord(JsonNode? Key, JsonNode Value);
-public record TestCaseConfig(string Schema, string? Folder, string[]? Files, string? Target = null, bool Skip = false, TestCaseInitScripts? Setup = null, int Order = 0);
+public record TestCaseConfig(string Schema, string? Folder, string[]? Files, string? Target = null, bool Skip = false, TestCaseInitScripts? Setup = null);
 
 public record TestCaseRecord(string Operation, int Delay, string Script, JsonNode? Key, JsonNode? Value);
 
-public record TestCase(string Title, Dictionary<string, string> Properties, TestCaseRecord[] Records, bool Skip = false, int Order = 0)
+public record TestCase(string Title, Dictionary<string, string> Properties, TestCaseRecord[] Records, bool Skip = false)
 {
     public override string ToString()
     {
-        var prefix = Order > 0 ? $"#{Order:D2} " : "";
-        return $"{prefix}title: {Title}, topic: {Properties["topic"]}, records: {Records.Length}";
+        return $"title: {Title}, topic: {Properties["topic"]}, records: {Records.Length}";
     }
 }
 

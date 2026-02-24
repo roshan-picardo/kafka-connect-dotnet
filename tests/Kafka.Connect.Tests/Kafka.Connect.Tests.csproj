@@ -37,6 +37,7 @@
     <PackageReference Include="Npgsql" />
     <PackageReference Include="Microsoft.Data.SqlClient" />
     <PackageReference Include="MySql.Data" />
+    <PackageReference Include="MySqlConnector" />
     <PackageReference Include="Oracle.ManagedDataAccess.Core" />
     <PackageReference Include="AWSSDK.DynamoDBv2" />
     <PackageReference Include="Confluent.Kafka" />
