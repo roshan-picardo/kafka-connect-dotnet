@@ -1,36 +1,36 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kafka.Connect", "Kafka.Connect\Kafka.Connect.csproj", "{2BC20CF1-E2B1-4517-8FD6-0DBF4E8CFE80}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kafka.Connect", "src\Kafka.Connect\Kafka.Connect.csproj", "{2BC20CF1-E2B1-4517-8FD6-0DBF4E8CFE80}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kafka.Connect.Plugin", "Kafka.Connect.Plugin\Kafka.Connect.Plugin.csproj", "{46EC5AA6-347F-4D21-AE13-C64DCF724648}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kafka.Connect.Plugin", "src\Kafka.Connect.Plugin\Kafka.Connect.Plugin.csproj", "{46EC5AA6-347F-4D21-AE13-C64DCF724648}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{3AD1B61F-9477-4DFB-BCEA-7B105D0A531A}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Plugins", "Plugins", "{AF124F39-E61F-480A-B25F-CD2EA23F785A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kafka.Connect.MongoDb", "Plugins\Kafka.Connect.MongoDb\Kafka.Connect.MongoDb.csproj", "{B5A27DEB-2151-478B-8288-0D86821CD9B5}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kafka.Connect.MongoDb", "src\Plugins\Kafka.Connect.MongoDb\Kafka.Connect.MongoDb.csproj", "{B5A27DEB-2151-478B-8288-0D86821CD9B5}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kafka.Connect.Replicator", "Plugins\Kafka.Connect.Replicator\Kafka.Connect.Replicator.csproj", "{A2156C14-E8BE-42AA-9D1E-0BCE02756462}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kafka.Connect.Replicator", "src\Plugins\Kafka.Connect.Replicator\Kafka.Connect.Replicator.csproj", "{A2156C14-E8BE-42AA-9D1E-0BCE02756462}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kafka.Connect.Postgres", "Plugins\Kafka.Connect.Postgres\Kafka.Connect.Postgres.csproj", "{61556092-043C-4B0B-AC56-8F9D802D2541}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kafka.Connect.Postgres", "src\Plugins\Kafka.Connect.Postgres\Kafka.Connect.Postgres.csproj", "{61556092-043C-4B0B-AC56-8F9D802D2541}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{EFB33DD7-4967-4A71-B96C-9B4C27C4CA28}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kafka.Connect.FunctionalTests", "..\tests\Kafka.Connect.FunctionalTests\Kafka.Connect.FunctionalTests.csproj", "{1F9A66BA-FC5E-470B-9693-4DAB92E63736}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kafka.Connect.FunctionalTests", "tests\Kafka.Connect.FunctionalTests\Kafka.Connect.FunctionalTests.csproj", "{1F9A66BA-FC5E-470B-9693-4DAB92E63736}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kafka.Connect.UnitTests", "..\tests\Kafka.Connect.UnitTests\Kafka.Connect.UnitTests.csproj", "{CE4EE5A1-B769-4870-82F7-3D463A6C5FF2}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kafka.Connect.UnitTests", "tests\Kafka.Connect.UnitTests\Kafka.Connect.UnitTests.csproj", "{CE4EE5A1-B769-4870-82F7-3D463A6C5FF2}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kafka.Connect.Tests", "..\tests\Kafka.Connect.Tests\Kafka.Connect.Tests.csproj", "{D4E8F2A3-1B5C-4D7E-9A8F-3C2E1F6B9D4A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kafka.Connect.Tests", "tests\Kafka.Connect.Tests\Kafka.Connect.Tests.csproj", "{D4E8F2A3-1B5C-4D7E-9A8F-3C2E1F6B9D4A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kafka.Connect.SqlServer", "Plugins\Kafka.Connect.SqlServer\Kafka.Connect.SqlServer.csproj", "{19182A88-FE04-4226-BCD9-DB8D52C0AAD4}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kafka.Connect.SqlServer", "src\Plugins\Kafka.Connect.SqlServer\Kafka.Connect.SqlServer.csproj", "{19182A88-FE04-4226-BCD9-DB8D52C0AAD4}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kafka.Connect.Oracle", "Plugins\Kafka.Connect.Oracle\Kafka.Connect.Oracle.csproj", "{AF536B5E-724A-458E-BB46-9E9DCE12EFF6}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kafka.Connect.Oracle", "src\Plugins\Kafka.Connect.Oracle\Kafka.Connect.Oracle.csproj", "{AF536B5E-724A-458E-BB46-9E9DCE12EFF6}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kafka.Connect.MySql", "Plugins\Kafka.Connect.MySql\Kafka.Connect.MySql.csproj", "{403D556A-A973-48B1-88F6-C029456D7143}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kafka.Connect.MySql", "src\Plugins\Kafka.Connect.MySql\Kafka.Connect.MySql.csproj", "{403D556A-A973-48B1-88F6-C029456D7143}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kafka.Connect.DynamoDb", "Plugins\Kafka.Connect.DynamoDb\Kafka.Connect.DynamoDb.csproj", "{EED876CE-E19D-423A-9BD5-194A3EF1285F}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kafka.Connect.DynamoDb", "src\Plugins\Kafka.Connect.DynamoDb\Kafka.Connect.DynamoDb.csproj", "{EED876CE-E19D-423A-9BD5-194A3EF1285F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kafka.Connect.MariaDb", "Plugins\Kafka.Connect.MariaDb\Kafka.Connect.MariaDb.csproj", "{7A9C3E2F-6D4B-4C8A-B1E5-9F2D8A3C4E5F}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kafka.Connect.MariaDb", "src\Plugins\Kafka.Connect.MariaDb\Kafka.Connect.MariaDb.csproj", "{7A9C3E2F-6D4B-4C8A-B1E5-9F2D8A3C4E5F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
