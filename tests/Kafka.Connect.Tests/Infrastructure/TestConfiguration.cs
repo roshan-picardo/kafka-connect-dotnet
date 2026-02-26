@@ -43,6 +43,9 @@ public class ContainerConfig
     public string HealthCheckEndpoint { get; set; } = string.Empty;
     public int StartupTimeoutSeconds { get; set; }
     public bool Enabled { get; set; } = true;
+    
+    // Target infrastructure component (e.g., "kafka", "postgres", "mongodb", etc.)
+    public string? Target { get; set; }
 }
 
 public class ShakedownConfig
