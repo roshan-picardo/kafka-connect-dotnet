@@ -15,7 +15,7 @@
     ]
   },
   {
-    "target": "Mongo",
+    "target": "MongoDB",
     "schema": "/schemas/user-event.avsc",
     "skip": false,
     "files": [
@@ -107,6 +107,7 @@
   {
     "target": "DynamoDb",
     "schema": "/schemas/user-event.avsc",
+    "skip" : false,
     "files": [
       "/records/sink-tests-dynamodb.json",
       "/records/source-tests-dynamodb.json"

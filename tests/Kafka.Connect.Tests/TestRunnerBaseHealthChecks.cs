@@ -18,7 +18,7 @@ public class TestRunnerBaseHealthChecks(TestFixture fixture, ITestOutputHelper o
     {
         switch (testCase.Properties["target"]?.ToLower())
         {
-            case "mongo":
+            case "mongodb":
                 await new TestRunnerMongoDb(_fixture, _output).Execute(testCase);
                 break;
             case "postgres":
