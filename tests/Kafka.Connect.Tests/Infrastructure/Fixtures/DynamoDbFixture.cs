@@ -6,21 +6,17 @@ using System.Text.Json;
 
 namespace IntegrationTests.Kafka.Connect.Infrastructure.Fixtures;
 
-public class DynamoDbFixture : DatabaseFixture
+public class DynamoDbFixture(
+    TestConfiguration configuration,
+    Action<string, string> logMessage,
+    IContainerService containerService,
+    INetwork network,
+    TestCaseConfig[]? testConfigs)
+    : DatabaseFixture(configuration, logMessage, containerService, network, testConfigs)
 {
-    public DynamoDbFixture(
-        TestConfiguration configuration,
-        Action<string, string> logMessage,
-        IContainerService containerService,
-        INetwork network,
-        TestCaseConfig[]? testConfigs)
-        : base(configuration, logMessage, containerService, network, testConfigs)
-    {
-    }
-
     protected override string GetTargetName() => "dynamodb";
 
-    public override async Task WaitForReadyAsync()
+    protected override async Task WaitForReadyAsync()
     {
         var serviceUrl = Configuration.GetServiceEndpoint("DynamoDb");
 
@@ -64,7 +60,7 @@ public class DynamoDbFixture : DatabaseFixture
         }
     }
 
-    public override async Task ExecuteScriptsAsync(string database, string[] scripts)
+    protected override async Task ExecuteScriptsAsync(string database, string[] scripts)
     {
         var serviceUrl = Configuration.GetServiceEndpoint("DynamoDb");
         var config = new AmazonDynamoDBConfig

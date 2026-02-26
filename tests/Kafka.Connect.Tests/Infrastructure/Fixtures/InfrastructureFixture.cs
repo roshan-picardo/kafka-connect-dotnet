@@ -3,59 +3,40 @@ using DotNet.Testcontainers.Networks;
 
 namespace IntegrationTests.Kafka.Connect.Infrastructure.Fixtures;
 
-public abstract class InfrastructureFixture : IAsyncDisposable
+public abstract class InfrastructureFixture(
+    TestConfiguration configuration,
+    Action<string, string> logMessage,
+    IContainerService containerService,
+    INetwork network)
+    : IAsyncDisposable
 {
-    protected readonly TestConfiguration Configuration;
-    protected readonly Action<string, string> LogMessage;
-    protected readonly IContainerService ContainerService;
-    protected readonly INetwork Network;
-    protected readonly List<IContainer> Containers = new();
+    protected readonly TestConfiguration Configuration = configuration;
+    protected readonly Action<string, string> LogMessage = logMessage;
+    private readonly List<IContainer> _containers = new();
 
-    protected InfrastructureFixture(
-        TestConfiguration configuration,
-        Action<string, string> logMessage,
-        IContainerService containerService,
-        INetwork network)
-    {
-        Configuration = configuration;
-        LogMessage = logMessage;
-        ContainerService = containerService;
-        Network = network;
-    }
-
-    /// <summary>
-    /// Initialize the infrastructure component (create containers, wait for readiness, etc.)
-    /// </summary>
     public abstract Task InitializeAsync();
 
-    /// <summary>
-    /// Get the target name for this infrastructure component (e.g., "kafka", "postgres", "mongodb")
-    /// </summary>
     protected abstract string GetTargetName();
 
-    /// <summary>
-    /// Create containers for this infrastructure component based on Target property
-    /// </summary>
     protected async Task CreateContainersAsync()
     {
         var targetName = GetTargetName();
         var allContainers = Configuration.TestContainers.Containers;
 
-        // Find containers that match this target
         var targetContainers = allContainers
             .Where(c => c.Target?.Equals(targetName, StringComparison.OrdinalIgnoreCase) == true && c.Enabled)
             .ToList();
 
         foreach (var config in targetContainers)
         {
-            var container = await ContainerService.CreateContainerAsync(config, Network, new TestLoggingService());
-            Containers.Add(container);
+            var container = await containerService.CreateContainerAsync(config, network, new TestLoggingService());
+            _containers.Add(container);
         }
     }
 
     public virtual async ValueTask DisposeAsync()
     {
-        foreach (var container in Containers.AsEnumerable().Reverse())
+        foreach (var container in _containers.AsEnumerable().Reverse())
         {
             try
             {
@@ -69,7 +50,7 @@ public abstract class InfrastructureFixture : IAsyncDisposable
             }
         }
 
-        Containers.Clear();
+        _containers.Clear();
         GC.SuppressFinalize(this);
     }
 }

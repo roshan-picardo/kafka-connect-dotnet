@@ -1,5 +1,5 @@
 {
-  "title": "Mongo - sink tests",
+  "title": "MongoDB - sink tests",
   "properties": {
     "topic": "mongodb-sink-data-topic",
     "collection": "sink-collection",

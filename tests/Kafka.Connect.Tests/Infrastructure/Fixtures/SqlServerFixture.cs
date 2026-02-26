@@ -4,18 +4,14 @@ using System.Text.Json;
 
 namespace IntegrationTests.Kafka.Connect.Infrastructure.Fixtures;
 
-public class SqlServerFixture : DatabaseFixture
+public class SqlServerFixture(
+    TestConfiguration configuration,
+    Action<string, string> logMessage,
+    IContainerService containerService,
+    INetwork network,
+    TestCaseConfig[]? testConfigs)
+    : DatabaseFixture(configuration, logMessage, containerService, network, testConfigs)
 {
-    public SqlServerFixture(
-        TestConfiguration configuration,
-        Action<string, string> logMessage,
-        IContainerService containerService,
-        INetwork network,
-        TestCaseConfig[]? testConfigs)
-        : base(configuration, logMessage, containerService, network, testConfigs)
-    {
-    }
-
     protected override string GetTargetName() => "sqlserver";
 
     public override async Task InitializeAsync()
@@ -23,33 +19,26 @@ public class SqlServerFixture : DatabaseFixture
         var targetName = GetTargetName();
         LogMessage($"Initializing {targetName} infrastructure...", "");
         
-        // Create database container
         await CreateContainersAsync();
         
-        // Wait for database to be ready
         await WaitForReadyAsync();
         
-        // Create databases from connector configurations BEFORE executing scripts
         await CreateDatabasesFromConfigurationsAsync();
-        
-        // Execute setup scripts if test configurations are available
-        if (TestConfigs != null)
-        {
-            var testConfig = TestConfigs.FirstOrDefault(tc =>
-                tc.Target?.Equals(targetName, StringComparison.OrdinalIgnoreCase) == true);
+
+        var testConfig = TestConfigs?.FirstOrDefault(tc =>
+            tc.Target?.Equals(targetName, StringComparison.OrdinalIgnoreCase) == true);
             
-            if (testConfig?.Setup?.Scripts != null && testConfig.Setup.Scripts.Length > 0)
-            {
-                LogMessage($"Executing setup scripts for {targetName}...", "");
-                await ExecuteScriptsAsync(testConfig.Setup.Database ?? string.Empty, testConfig.Setup.Scripts);
-                LogMessage($"Setup scripts executed for {targetName}!", "");
-            }
+        if (testConfig?.Setup?.Scripts != null && testConfig.Setup.Scripts.Length > 0)
+        {
+            LogMessage($"Executing setup scripts for {targetName}...", "");
+            await ExecuteScriptsAsync(testConfig.Setup.Database ?? string.Empty, testConfig.Setup.Scripts);
+            LogMessage($"Setup scripts executed for {targetName}!", "");
         }
-        
+
         LogMessage($"{targetName} infrastructure initialized!", "");
     }
 
-    public override async Task WaitForReadyAsync()
+    protected override async Task WaitForReadyAsync()
     {
         var connectionString = Configuration.GetServiceEndpoint("SqlServer");
         var builder = new SqlConnectionStringBuilder(connectionString)
@@ -86,7 +75,7 @@ public class SqlServerFixture : DatabaseFixture
         }
     }
 
-    public override async Task ExecuteScriptsAsync(string database, string[] scripts)
+    protected override async Task ExecuteScriptsAsync(string database, string[] scripts)
     {
         var connectionString = Configuration.GetServiceEndpoint("SqlServer");
         var builder = new SqlConnectionStringBuilder(connectionString)

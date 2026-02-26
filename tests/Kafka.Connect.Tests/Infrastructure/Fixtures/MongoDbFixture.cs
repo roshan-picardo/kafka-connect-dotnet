@@ -4,21 +4,17 @@ using MongoDB.Driver;
 
 namespace IntegrationTests.Kafka.Connect.Infrastructure.Fixtures;
 
-public class MongoDbFixture : DatabaseFixture
+public class MongoDbFixture(
+    TestConfiguration configuration,
+    Action<string, string> logMessage,
+    IContainerService containerService,
+    INetwork network,
+    TestCaseConfig[]? testConfigs)
+    : DatabaseFixture(configuration, logMessage, containerService, network, testConfigs)
 {
-    public MongoDbFixture(
-        TestConfiguration configuration,
-        Action<string, string> logMessage,
-        IContainerService containerService,
-        INetwork network,
-        TestCaseConfig[]? testConfigs)
-        : base(configuration, logMessage, containerService, network, testConfigs)
-    {
-    }
-
     protected override string GetTargetName() => "mongodb";
 
-    public override async Task WaitForReadyAsync()
+    protected override async Task WaitForReadyAsync()
     {
         var connectionString = Configuration.GetServiceEndpoint("Mongo");
 
@@ -46,12 +42,12 @@ public class MongoDbFixture : DatabaseFixture
         }
     }
 
-    public override async Task ExecuteScriptsAsync(string database, string[] scripts)
+    protected override async Task ExecuteScriptsAsync(string database, string[] scripts)
     {
         var connectionString = Configuration.GetServiceEndpoint("Mongo");
         var client = new MongoClient(connectionString);
         var db = client.GetDatabase(database);
-
+        
         foreach (var script in scripts)
         {
             try

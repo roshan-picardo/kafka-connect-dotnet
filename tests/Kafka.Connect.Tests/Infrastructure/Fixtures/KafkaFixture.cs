@@ -5,38 +5,26 @@ using System.Text.Json;
 
 namespace IntegrationTests.Kafka.Connect.Infrastructure.Fixtures;
 
-public class KafkaFixture : InfrastructureFixture
+public class KafkaFixture(
+    TestConfiguration configuration,
+    Action<string, string> logMessage,
+    IContainerService containerService,
+    INetwork network)
+    : InfrastructureFixture(configuration, logMessage, containerService, network)
 {
     private IAdminClient? _adminClient;
-
-    public KafkaFixture(
-        TestConfiguration configuration,
-        Action<string, string> logMessage,
-        IContainerService containerService,
-        INetwork network)
-        : base(configuration, logMessage, containerService, network)
-    {
-    }
 
     protected override string GetTargetName() => "kafka";
 
     public override async Task InitializeAsync()
     {
-        LogMessage("Initializing Kafka infrastructure...", "");
-        
-        // Create Kafka containers (zookeeper, broker, schema-registry)
         await CreateContainersAsync();
-        
-        // Wait a bit for Kafka to be ready
         await Task.Delay(5000);
-        
-        // Create topics
         await CreateConnectorTopicsAsync();
-        
         LogMessage("Kafka infrastructure initialized!", "");
     }
 
-    public async Task CreateConnectorTopicsAsync()
+    private async Task CreateConnectorTopicsAsync()
     {
         LogMessage("Creating topics from connector configurations...", "");
 
@@ -156,7 +144,7 @@ public class KafkaFixture : InfrastructureFixture
             $"Topic creation completed. Created {systemTopics.Count} system topics and {allTopics.Count} connector topics.", "");
     }
 
-    public async Task CreateTopicAsync(string topicName, int partitions = 1, short replicationFactor = 1)
+    private async Task CreateTopicAsync(string topicName, int partitions = 1, short replicationFactor = 1)
     {
         var bootstrapServers = Configuration.GetServiceEndpoint("Kafka");
 

@@ -3,21 +3,17 @@ using Oracle.ManagedDataAccess.Client;
 
 namespace IntegrationTests.Kafka.Connect.Infrastructure.Fixtures;
 
-public class OracleFixture : DatabaseFixture
+public class OracleFixture(
+    TestConfiguration configuration,
+    Action<string, string> logMessage,
+    IContainerService containerService,
+    INetwork network,
+    TestCaseConfig[]? testConfigs)
+    : DatabaseFixture(configuration, logMessage, containerService, network, testConfigs)
 {
-    public OracleFixture(
-        TestConfiguration configuration,
-        Action<string, string> logMessage,
-        IContainerService containerService,
-        INetwork network,
-        TestCaseConfig[]? testConfigs)
-        : base(configuration, logMessage, containerService, network, testConfigs)
-    {
-    }
-
     protected override string GetTargetName() => "oracle";
 
-    public override async Task WaitForReadyAsync()
+    protected override async Task WaitForReadyAsync()
     {
         var connectionString = Configuration.GetServiceEndpoint("Oracle");
 
@@ -48,7 +44,7 @@ public class OracleFixture : DatabaseFixture
         }
     }
 
-    public override async Task ExecuteScriptsAsync(string database, string[] scripts)
+    protected override async Task ExecuteScriptsAsync(string database, string[] scripts)
     {
         var connectionString = Configuration.GetServiceEndpoint("Oracle");
 

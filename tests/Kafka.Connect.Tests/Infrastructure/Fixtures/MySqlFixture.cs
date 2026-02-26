@@ -3,21 +3,17 @@ using MySql.Data.MySqlClient;
 
 namespace IntegrationTests.Kafka.Connect.Infrastructure.Fixtures;
 
-public class MySqlFixture : DatabaseFixture
+public class MySqlFixture(
+    TestConfiguration configuration,
+    Action<string, string> logMessage,
+    IContainerService containerService,
+    INetwork network,
+    TestCaseConfig[]? testConfigs)
+    : DatabaseFixture(configuration, logMessage, containerService, network, testConfigs)
 {
-    public MySqlFixture(
-        TestConfiguration configuration,
-        Action<string, string> logMessage,
-        IContainerService containerService,
-        INetwork network,
-        TestCaseConfig[]? testConfigs)
-        : base(configuration, logMessage, containerService, network, testConfigs)
-    {
-    }
-
     protected override string GetTargetName() => "mysql";
 
-    public override async Task WaitForReadyAsync()
+    protected override async Task WaitForReadyAsync()
     {
         var connectionString = Configuration.GetServiceEndpoint("MySql");
 
@@ -48,7 +44,7 @@ public class MySqlFixture : DatabaseFixture
         }
     }
 
-    public override async Task ExecuteScriptsAsync(string database, string[] scripts)
+    protected override async Task ExecuteScriptsAsync(string database, string[] scripts)
     {
         var connectionString = Configuration.GetServiceEndpoint("MySql");
         var builder = new MySqlConnectionStringBuilder(connectionString)

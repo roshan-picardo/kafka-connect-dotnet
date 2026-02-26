@@ -14,7 +14,7 @@ public class TestRunnerMongoDb(TestFixture fixture, ITestOutputHelper output) : 
 {
     private readonly TestFixture _fixture = fixture;
     private MongoClient? _mongoClient;
-    private const string Target = "Mongo";
+    private const string Target = "MongoDB";
 
     private IMongoDatabase GetMongoDatabase(string databaseName)
     {

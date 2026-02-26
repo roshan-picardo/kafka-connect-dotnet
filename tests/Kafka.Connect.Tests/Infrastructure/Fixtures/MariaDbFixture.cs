@@ -3,21 +3,17 @@ using MySqlConnector;
 
 namespace IntegrationTests.Kafka.Connect.Infrastructure.Fixtures;
 
-public class MariaDbFixture : DatabaseFixture
+public class MariaDbFixture(
+    TestConfiguration configuration,
+    Action<string, string> logMessage,
+    IContainerService containerService,
+    INetwork network,
+    TestCaseConfig[]? testConfigs)
+    : DatabaseFixture(configuration, logMessage, containerService, network, testConfigs)
 {
-    public MariaDbFixture(
-        TestConfiguration configuration,
-        Action<string, string> logMessage,
-        IContainerService containerService,
-        INetwork network,
-        TestCaseConfig[]? testConfigs)
-        : base(configuration, logMessage, containerService, network, testConfigs)
-    {
-    }
-
     protected override string GetTargetName() => "mariadb";
 
-    public override async Task WaitForReadyAsync()
+    protected override async Task WaitForReadyAsync()
     {
         var connectionString = Configuration.GetServiceEndpoint("MariaDb");
 
@@ -48,7 +44,7 @@ public class MariaDbFixture : DatabaseFixture
         }
     }
 
-    public override async Task ExecuteScriptsAsync(string database, string[] scripts)
+    protected override async Task ExecuteScriptsAsync(string database, string[] scripts)
     {
         var connectionString = Configuration.GetServiceEndpoint("MariaDb");
         var builder = new MySqlConnectionStringBuilder(connectionString)
