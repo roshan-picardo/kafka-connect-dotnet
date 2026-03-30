@@ -29,5 +29,19 @@ public class WorkerConfig : NodeConfig
         init => _connectors = value;
     }
     
+    public ConnectorConfig Connector => new()
+    {
+        Name = Name,
+        Topics = Topics.TryGetValue(TopicType.Config, out var value) ? [value] : null,
+        Tasks = 1,
+        GroupId = GroupId,
+        Plugin = new PluginConfig
+        {
+            Type = ConnectorType.Worker
+        }
+    };
+
+    public bool Standalone { get; set; } = true;
+    
     public IDictionary<int, ProcessorConfig> Processors { get; init; }
 }

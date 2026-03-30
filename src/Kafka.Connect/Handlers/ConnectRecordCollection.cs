@@ -140,10 +140,14 @@ public class ConnectRecordCollection(
         connectClient.Commit(offsets.ToList());
     }
 
-    public async Task Configure(string batchId, bool refresh)
+    public async Task Store(bool refresh = false) => await configurationChangeHandler.Store(_sinkConnectRecords, refresh);
+    
+    public void Configure(string connector,  (string Connector, JsonObject Settings) configuration)
     {
-        var batch = await configurationChangeHandler.Refresh(_sinkConnectRecords, refresh);
-        _sourceConnectRecords.AddOrUpdate(batchId, batch, (_, _) => batch);
+        var record = configurationChangeHandler.Configure(configuration.Connector, configuration.Settings);
+        var batch = _sourceConnectRecords.AddOrUpdate(connector, new BlockingCollection<ConnectRecord>(),
+            (_, _) => new BlockingCollection<ConnectRecord>());
+        batch.Add(record.Clone<SourceRecord>());
     }
 
     public void UpdateTo(Status status, string batchId = null)
@@ -369,10 +373,10 @@ public class ConnectRecordCollection(
             }
         }
     }
-
+    
     public void StartTiming() => _stopWatch.Restart();
     public void EndTiming() => _stopWatch.Stop();
-
+    
     private List<(string Topic, int Partition, IEnumerable<ConnectRecord> Batch)> GetByTopicPartition(string batchId = null)
     {
         return (from record in GetConnectRecords(batchId)

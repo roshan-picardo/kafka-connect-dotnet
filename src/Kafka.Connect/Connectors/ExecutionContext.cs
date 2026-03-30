@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json.Nodes;
+using System.Threading.Channels;
 using System.Threading;
 using System.Threading.Tasks;
 using Confluent.Kafka;
@@ -200,6 +202,9 @@ public class ExecutionContext(
             // TODO: Resume the Task
         }
     }
+    
+    public Task Start(string connector = null) => _workerContext.Worker.Add(connector);
+    public Task Stop(string connector = null) => _workerContext.Worker.Remove(connector);
 
     public async Task Restart(int delay, string connector = null, int task = 0)
     {
@@ -270,6 +275,9 @@ public class ExecutionContext(
             assignment.Topic = command.Topic;
         }
     }
+
+    public Channel<(string Connector, JsonObject Settings)> ConfigurationChannel { get; } =
+        Channel.CreateUnbounded<(string Connector, JsonObject Settings)>();
 
     private static dynamic GetTaskStatus(TaskContext taskContext) => new
     {

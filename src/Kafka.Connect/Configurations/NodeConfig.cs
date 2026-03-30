@@ -14,7 +14,7 @@ public class NodeConfig : ConsumerConfig
         init => _name = value;
     }
         
-    public IDictionary<string, TopicConfig> Topics { get; init; }
+    public IDictionary<TopicType, string> Topics { get; init; }
     public PluginAssemblyConfig Plugins { get; init; }
     public HealthCheckConfig HealthCheck { get; init; }
     public FailOverConfig FailOver { get; init; }

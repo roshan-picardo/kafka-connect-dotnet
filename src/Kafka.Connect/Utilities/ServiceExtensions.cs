@@ -40,6 +40,7 @@ namespace Kafka.Connect.Utilities
                 .AddScoped<ISinkTask, SinkTask>()
                 .AddScoped<ISourceTask, SourceTask>()
                 .AddScoped<ILeaderTask, LeaderTask>()
+                .AddScoped<IWorkerTask, WorkerTask>()
                 .AddScoped<IKafkaClientBuilder, KafkaClientBuilder>()
                 .AddScoped<IKafkaClientEventHandler, KafkaClientEventHandler>()
                 

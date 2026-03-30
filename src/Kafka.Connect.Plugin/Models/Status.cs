@@ -37,6 +37,9 @@ public enum Status
         
     Selecting,
     Selected,
+    
+    Saving,
+    Saved,
         
     Reviewed,
 

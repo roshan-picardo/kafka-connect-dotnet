@@ -11,7 +11,7 @@ public class ConnectorConfig
 
     public ConverterConfig Converters { get; init; }
     
-    public string[] Topics { get; init; }
+    public string[] Topics { get; set; }
 
     public Dictionary<string, TopicConfig> Overrides
     {

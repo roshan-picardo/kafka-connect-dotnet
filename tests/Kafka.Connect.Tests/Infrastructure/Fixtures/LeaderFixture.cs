@@ -3,46 +3,46 @@ using System.Text.Json;
 
 namespace IntegrationTests.Kafka.Connect.Infrastructure.Fixtures;
 
-public class WorkerFixture(
+public class LeaderFixture(
     TestConfiguration configuration,
     Action<string, string> logMessage,
     IContainerService containerService,
     INetwork network)
     : InfrastructureFixture(configuration, logMessage, containerService, network)
 {
-    private const int WorkerReadyMaxAttempts = 60;
-    private const int WorkerReadyDelayMs = 1000;
+    private const int LeaderReadyMaxAttempts = 60;
+    private const int LeaderReadyDelayMs = 1000;
 
-    protected override string GetTargetName() => "worker";
+    protected override string GetTargetName() => "leader";
 
     public override async Task InitializeAsync()
     {
-        LogMessage("Initializing Kafka Connect worker...", "");
+        LogMessage("Initializing Kafka Connect leader...", "");
         
         await CreateContainersAsync();
         
         await Task.Delay(10000);
         
-        var workerConfig = Configuration.TestContainers.Containers.FirstOrDefault(c => c.Target == "worker");
-        if (workerConfig?.WaitForHealthCheck == true)
+        var leaderConfig = Configuration.TestContainers.Containers.FirstOrDefault(c => c.Target == "leader");
+        if (leaderConfig?.WaitForHealthCheck == true)
         {
             await WaitForReadyAsync();
         }
         
-        LogMessage("Kafka Connect worker initialized!", "");
+        LogMessage("Kafka Connect leader initialized!", "");
     }
 
     private async Task WaitForReadyAsync()
     {
-        var workerEndpoint = Configuration.GetServiceEndpoint("Worker");
-        var statusUrl = $"{workerEndpoint}/workers/status";
+        var leaderEndpoint = Configuration.GetServiceEndpoint("Leader");
+        var statusUrl = $"{leaderEndpoint}/workers/status";
 
         using var httpClient = new HttpClient
         {
             Timeout = TimeSpan.FromSeconds(15)
         };
 
-        for (var attempt = 1; attempt <= WorkerReadyMaxAttempts; attempt++)
+        for (var attempt = 1; attempt <= LeaderReadyMaxAttempts; attempt++)
         {
             try
             {
@@ -58,12 +58,12 @@ public class WorkerFixture(
 
                         if (statusDoc.RootElement.TryGetProperty("status", out var status))
                         {
-                            // Check worker status
-                            var workerRunning = false;
+                            // Check leader status
+                            var leaderRunning = false;
                             if (status.TryGetProperty("worker", out var worker) &&
-                                worker.TryGetProperty("status", out var workerStatus))
+                                worker.TryGetProperty("status", out var leaderStatus))
                             {
-                                workerRunning = workerStatus.GetString() == "Running";
+                                leaderRunning = leaderStatus.GetString() == "Running";
                             }
 
                             // Check all connectors are running
@@ -89,36 +89,36 @@ public class WorkerFixture(
                                 }
                             }
 
-                            if (workerRunning && allConnectorsRunning && connectorStatuses.Count > 0)
+                            if (leaderRunning && allConnectorsRunning && connectorStatuses.Count > 0)
                             {
                                 LogMessage(
-                                    $"Worker and connectors are ready (attempt {attempt}): Worker=Running, Connectors=[{string.Join(", ", connectorStatuses)}]",
+                                    $"Leader and connectors are ready (attempt {attempt}): Leader=Running, Connectors=[{string.Join(", ", connectorStatuses)}]",
                                     "");
                                 return;
                             }
 
                             LogMessage(
-                                $"Worker or connectors not ready yet (attempt {attempt}/{WorkerReadyMaxAttempts}): Worker={workerRunning}, Connectors=[{string.Join(", ", connectorStatuses)}]",
+                                $"Leader or connectors not ready yet (attempt {attempt}/{LeaderReadyMaxAttempts}): Leader={leaderRunning}, Connectors=[{string.Join(", ", connectorStatuses)}]",
                                 "");
                         }
                         else
                         {
                             LogMessage(
-                                $"Worker response missing 'status' property (attempt {attempt}/{WorkerReadyMaxAttempts}): {content}",
+                                $"Leader response missing 'status' property (attempt {attempt}/{LeaderReadyMaxAttempts}): {content}",
                                 "");
                         }
                     }
                     catch (JsonException ex)
                     {
                         LogMessage(
-                            $"Failed to parse worker status JSON (attempt {attempt}/{WorkerReadyMaxAttempts}): {ex.Message}",
+                            $"Failed to parse leader status JSON (attempt {attempt}/{LeaderReadyMaxAttempts}): {ex.Message}",
                             "");
                     }
                 }
                 else
                 {
                     LogMessage(
-                        $"Worker not ready yet (attempt {attempt}/{WorkerReadyMaxAttempts}): HTTP {(int)response.StatusCode}",
+                        $"Leader not ready yet (attempt {attempt}/{LeaderReadyMaxAttempts}): HTTP {(int)response.StatusCode}",
                         "");
                 }
             }
@@ -126,29 +126,29 @@ public class WorkerFixture(
             {
                 var errorType = ex.InnerException?.GetType().Name ?? ex.GetType().Name;
                 LogMessage(
-                    $"Worker endpoint not available yet (attempt {attempt}/{WorkerReadyMaxAttempts}): {errorType}", "");
+                    $"Leader endpoint not available yet (attempt {attempt}/{LeaderReadyMaxAttempts}): {errorType}", "");
             }
             catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
             {
-                LogMessage($"Worker health check timeout (attempt {attempt}/{WorkerReadyMaxAttempts})", "");
+                LogMessage($"Leader health check timeout (attempt {attempt}/{LeaderReadyMaxAttempts})", "");
             }
             catch (Exception ex)
             {
-                if (attempt == WorkerReadyMaxAttempts)
+                if (attempt == LeaderReadyMaxAttempts)
                 {
                     throw new TimeoutException(
-                        $"Worker did not become ready after {WorkerReadyMaxAttempts} attempts", ex);
+                        $"Leader did not become ready after {LeaderReadyMaxAttempts} attempts", ex);
                 }
 
                 LogMessage(
-                    $"Worker not ready yet (attempt {attempt}/{WorkerReadyMaxAttempts}): {ex.GetType().Name} - {ex.Message}",
+                    $"Leader not ready yet (attempt {attempt}/{LeaderReadyMaxAttempts}): {ex.GetType().Name} - {ex.Message}",
                     "");
             }
 
-            await Task.Delay(WorkerReadyDelayMs);
+            await Task.Delay(LeaderReadyDelayMs);
         }
 
         throw new TimeoutException(
-            $"Worker and connectors did not reach 'Running' status after {WorkerReadyMaxAttempts} attempts");
+            $"Leader and connectors did not reach 'Running' status after {LeaderReadyMaxAttempts} attempts");
     }
 }

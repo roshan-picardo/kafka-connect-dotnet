@@ -28,13 +28,14 @@ using Serilog.Formatting.Json;
                  .ConfigureLogging(logging => logging.ClearProviders())
                  .ConfigureWebHostDefaults(webBuilder => { webBuilder.UseStartup<ApiStartup>(); })
                  .ConfigureServices(collection =>
-                 {
-                     collection
-                         .AddHostedService<LeaderService>()
-                         .AddHostedService<WorkerService>()
-                         .AddHostedService<HealthCheckService>();
-                         //.AddHostedService<FailOverMonitorService>();
-                 });
+                  {
+                      collection
+                          .AddHostedService<LeaderService>()
+                          .AddHostedService<WorkerService>()
+                          .AddHostedService<ConfigMonitorService>()
+                          .AddHostedService<HealthCheckService>();
+                          //.AddHostedService<FailOverMonitorService>();
+                  });
 
 
          private static IConfiguration LoadConfiguration(Arguments args)
