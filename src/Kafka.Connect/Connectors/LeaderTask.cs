@@ -1,14 +1,10 @@
 using System;
-using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Handlers;
 using Kafka.Connect.Plugin.Logging;
-using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Providers;
-using Kafka.Connect.Tokens;
-using Timer = System.Timers.Timer;
 
 namespace Kafka.Connect.Connectors;
 
@@ -19,28 +15,35 @@ public class LeaderTask(
     ILogger<LeaderTask> logger)
     : ILeaderTask
 {
-    private FileSystemWatcher _fileSystemWatcher;
-    private Timer _timer;
-    private readonly PauseTokenSource _pauseTokenSource = new();
-
     public async Task Execute(string connector, int taskId, CancellationTokenSource cts)
     {
         executionContext.Initialize(connector, taskId, this);
         await leaderRecordCollection.Setup(ConnectorType.Leader, connector, taskId);
+        
         if (!(leaderRecordCollection.TrySubscribe() && leaderRecordCollection.TryPublisher()))
         {
             IsStopped = true;
             return;
         }
 
-        Trigger();
+        var consumerTask = Consume(connector, taskId, cts);
+        var publisherTask = Publish(connector, cts);
+
+        await Task.WhenAll(consumerTask, publisherTask);
+
+        leaderRecordCollection.Cleanup();
+        IsStopped = true;
+    }
+
+    private async Task Consume(string connector, int taskId, CancellationTokenSource cts)
+    {
         var parallelOptions = configurationProvider.GetParallelRetryOptions(connector);
         var attempts = parallelOptions.Attempts;
+        var refresh = true;
 
         while (!cts.IsCancellationRequested)
         {
             leaderRecordCollection.ClearAll();
-            await _pauseTokenSource.WaitWhilePaused(cts.Token);
             if (cts.IsCancellationRequested) break;
 
             leaderRecordCollection.Clear();
@@ -48,27 +51,12 @@ public class LeaderTask(
             {
                 try
                 {
-                    _timer.Interval = configurationProvider.GetLeaderConfig().MaxPollIntervalMs.GetValueOrDefault() - 100;
-
                     await leaderRecordCollection.Consume(cts.Token);
                     await leaderRecordCollection.Process();
-
-                    await leaderRecordCollection.Configure(connector, _fileSystemWatcher.EnableRaisingEvents);
-
-                    await leaderRecordCollection.Process(connector);
-                    await leaderRecordCollection.Produce(connector);
-                    leaderRecordCollection.UpdateTo(Status.Reviewed, connector);
-
-                    leaderRecordCollection.Commit();
-                    _pauseTokenSource.Pause();
-                    if (!_fileSystemWatcher.EnableRaisingEvents)
+                    await leaderRecordCollection.Store(refresh);
+                    if (refresh)
                     {
-                        _fileSystemWatcher.EnableRaisingEvents = true;
-                    }
-
-                    if (!_timer.Enabled)
-                    {
-                        _timer.Enabled = true;
+                        refresh = false;
                     }
 
                     attempts = parallelOptions.Attempts;
@@ -76,7 +64,7 @@ public class LeaderTask(
                 catch (Exception ex)
                 {
                     --attempts;
-                    logger.Critical($"Unhandled exception has occured. Attempts remaining: {attempts}", ex);
+                    logger.Critical($"Consumer loop exception. Attempts remaining: {attempts}", ex);
                     if (attempts == 0)
                     {
                         await cts.CancelAsync();
@@ -85,29 +73,39 @@ public class LeaderTask(
                 finally
                 {
                     leaderRecordCollection.Record();
-                    leaderRecordCollection.Record(connector);
                 }
             }
         }
+    }
 
-        leaderRecordCollection.Cleanup();
-
-        IsStopped = true;
+    private async Task Publish(string connector, CancellationTokenSource cts)
+    {
+        var reader = executionContext.ConfigurationChannel.Reader;
+        
+        while (!cts.IsCancellationRequested)
+        {
+            try
+            {
+                var configuration = await reader.ReadAsync(cts.Token);
+                leaderRecordCollection.Configure(connector, configuration);
+                await leaderRecordCollection.Process(connector);
+                await leaderRecordCollection.Produce(connector);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                logger.Error("Publisher loop exception", ex);
+            }
+            finally
+            {
+                leaderRecordCollection.Record(connector);
+            }
+        }
     }
 
     public bool IsPaused => false;
     public bool IsStopped { get; private set; }
-
-    private void Trigger()
-    {
-        var leaderConfig = configurationProvider.GetLeaderConfig();
-        _fileSystemWatcher = new FileSystemWatcher(leaderConfig.Settings, "*.json");
-        _fileSystemWatcher.Changed += (_, _) => _pauseTokenSource.Resume();
-        _fileSystemWatcher.Created += (_, _) => _pauseTokenSource.Resume();
-        _fileSystemWatcher.Deleted += (_, _) => _pauseTokenSource.Resume();
-        _fileSystemWatcher.Renamed += (_, _) => _pauseTokenSource.Resume();
-
-        _timer = new Timer { Enabled = false };
-        _timer.Elapsed += (_, _) => _pauseTokenSource.Resume();
-    }
 }

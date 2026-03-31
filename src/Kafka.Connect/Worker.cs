@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -19,7 +20,8 @@ public class Worker(
     : IWorker
 {
     private PauseTokenSource _pauseTokenSource;
-    private readonly IList<Task> _tasks = new List<Task>();
+    private readonly ConcurrentDictionary<string, (Task Task, CancellationTokenSource Cts)> _tasks = new();
+    private CancellationTokenSource _waitCancellation = new();
 
     public bool IsPaused => _pauseTokenSource.IsPaused;
     public bool IsStopped { get; private set; }
@@ -41,23 +43,32 @@ public class Worker(
             }
             try
             {
-                logger.Debug("Starting connectors.");
-                foreach (var connector in configurationProvider.GetAllConnectorConfigs())
-                {
-                    AddConnectorTask(connector.Name, cts.Token);
-                }
+                // Load and sync connectors based on current configuration
+                await SyncConnectors(cts.Token);
 
                 do
                 {
-                    await Task.WhenAll(_tasks).ContinueWith(t =>
+                    var currentTasks = _tasks.Values.Select(v => v.Task).ToArray();
+                    
+                    if (currentTasks.Length == 0)
                     {
-                        if (t is { IsFaulted: true, IsCanceled: false })
-                        {
-                            logger.Error("Worker is faulted, and is terminated.", t.Exception?.InnerException);
-                        }
-
-                    }, CancellationToken.None);
-                } while (!_tasks.Any(t => t.IsCompleted));
+                        await Task.Delay(100, cts.Token);
+                        continue;
+                    }
+                    
+                    try
+                    {
+                        await Task.WhenAll(currentTasks).WaitAsync(_waitCancellation.Token);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        _waitCancellation = new CancellationTokenSource();
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.Error("Worker is faulted, and is terminated.", ex);
+                    }
+                } while (_tasks.Values.Any(v => !v.Task.IsCompleted));
             }
             catch (Exception ex)
             {
@@ -71,6 +82,46 @@ public class Worker(
 
         IsStopped = true;
         logger.Debug("Shutting down the worker.");
+    }
+
+    private async Task SyncConnectors(CancellationToken token)
+    {
+        logger.Debug("Syncing connectors with current configuration.");
+        
+        // Reload worker configuration from files (updated by ConfigMonitorService)
+        configurationProvider.ReloadWorkerConfig();
+        
+        // Get all configured connectors (excluding disabled ones)
+        var configuredConnectors = configurationProvider.GetAllConnectorConfigs()
+            .Select(c => c.Name)
+            .ToHashSet();
+        
+        var runningConnectors = _tasks.Keys.ToHashSet();
+
+        // Start new connectors
+        foreach (var connector in configuredConnectors.Except(runningConnectors))
+        {
+            logger.Info($"Starting new connector: {connector}");
+            AddConnectorTask(connector, token);
+        }
+
+        // Stop removed connectors
+        foreach (var connector in runningConnectors.Except(configuredConnectors))
+        {
+            logger.Info($"Stopping removed connector: {connector}");
+            await Remove(connector);
+        }
+
+        // Restart connectors that are in both (configuration might have changed)
+        foreach (var connector in runningConnectors.Intersect(configuredConnectors))
+        {
+            logger.Debug($"Connector '{connector}' configuration may have changed. Restarting.");
+            await Remove(connector);
+            await Task.Delay(500, token); // Brief delay before restart
+            AddConnectorTask(connector, token);
+        }
+        
+        logger.Info($"Connector sync complete. Running connectors: {_tasks.Count}");
     }
 
     private void AddConnectorTask(string name, CancellationToken token)
@@ -87,6 +138,7 @@ public class Worker(
 
             var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(token);
             _pauseTokenSource.AddLinkedTokenSource(linkedTokenSource);
+            
             var connectorTask = connector.Execute(name, linkedTokenSource).ContinueWith(
                 t =>
                 {
@@ -96,9 +148,41 @@ public class Worker(
                     }
 
                     logger.Debug("Connector Stopped.");
+                    
+                    _tasks.TryRemove(name, out _);
                 }, CancellationToken.None);
-            _tasks.Add(connectorTask);
+            
+            _tasks.TryAdd(name, (connectorTask, linkedTokenSource));
         }
+    }
+
+    public Task Add(string connector)
+    {
+        if (_tasks.ContainsKey(connector))
+        {
+            logger.Warning($"Connector '{connector}' is already running.");
+            return Task.CompletedTask;
+        }
+        
+        AddConnectorTask(connector, CancellationToken.None);
+        _waitCancellation.Cancel();
+        return Task.CompletedTask;
+    }
+
+    public Task Remove(string connector)
+    {
+        if (_tasks.TryRemove(connector, out var taskInfo))
+        {
+            logger.Info($"Stopping connector '{connector}'.");
+            taskInfo.Cts.Cancel();
+            _waitCancellation.Cancel();
+        }
+        else
+        {
+            logger.Warning($"Connector '{connector}' not found.");
+        }
+        
+        return Task.CompletedTask;
     }
 
     public Task Pause()

@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System.Text.Json.Nodes;
+using System.Threading.Channels;
 using System.Threading;
 using System.Threading.Tasks;
 using Confluent.Kafka;
@@ -32,4 +34,6 @@ public interface IExecutionContext
     void SetPartitionEof(string connector, int task, string topic, int partition, bool eof);
     bool AllPartitionEof(string connector, int task);
     void UpdateCommands(string connector, int task, IEnumerable<CommandRecord> tasks);
+    
+    Channel<(string Connector, JsonObject Settings)> ConfigurationChannel { get; }
 }

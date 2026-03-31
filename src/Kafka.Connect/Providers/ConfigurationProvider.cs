@@ -13,7 +13,7 @@ namespace Kafka.Connect.Providers;
 
 public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugin.Providers.IConfigurationProvider
 {
-    private readonly WorkerConfig _workerConfig;
+    private WorkerConfig _workerConfig;
     private LeaderConfig _leaderConfig;
     private readonly IConfiguration _configuration;
     private const string DefaultConverter = "Kafka.Connect.Converters.AvroConverter";
@@ -21,8 +21,7 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
     public ConfigurationProvider(IConfiguration configuration)
     {
         _configuration = configuration;
-        _workerConfig = configuration.GetSection("worker").Get<WorkerConfig>();
-        
+        SetWorkerConfig(configuration);
         SetLeaderConfig(configuration);
     }
 
@@ -37,9 +36,17 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
         }
 
         return _leaderConfig;
-    } 
+    }
 
     public void ReloadLeaderConfig() => SetLeaderConfig(_configuration.ReloadConfigs(_leaderConfig.Settings));
+    
+    public void ReloadWorkerConfig()
+    {
+        if (IsLeader && _leaderConfig?.Settings != null)
+        {
+            SetWorkerConfig(_configuration.ReloadConfigs(_leaderConfig.Settings));
+        }
+    }
     
     private void SetLeaderConfig(IConfiguration config)
     {
@@ -47,11 +54,18 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
         if (IsLeader)
         {
             _leaderConfig.Connectors.Clear();
+            _leaderConfig.Connector.Topics =
+                [_leaderConfig.Topics.TryGetValue(TopicType.Config, out var value) ? value : string.Empty];
             foreach (var section in config.GetSection("leader:connectors").GetChildren())
             {
                 _leaderConfig.Connectors.Add(section.Key, section.ToJson());
             }
         }
+    }
+
+    private void SetWorkerConfig(IConfiguration config)
+    {
+        _workerConfig = config.GetSection("worker").Get<WorkerConfig>();
     }
 
     public FailOverConfig GetFailOverConfig()
@@ -71,6 +85,11 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
         if(IsLeader)
         {
             return _leaderConfig.Connector;
+        }
+
+        if (!_workerConfig.Standalone)
+        {
+            return _workerConfig.Connector;
         }
         return _workerConfig.Connectors?.Values.SingleOrDefault(c => c.Name == connector) ??
                throw new ArgumentException($"{connector} isn't configured.");
@@ -99,6 +118,10 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
 
     public IList<ConnectorConfig> GetAllConnectorConfigs(bool includeDisabled = false)
     {
+        if (!_workerConfig.Standalone)
+        {
+            return [_workerConfig.Connector];
+        }
         return _workerConfig.Connectors?.Values.Where(c => includeDisabled || !c.Disabled).ToList() ??
                throw new ArgumentException("Connectors aren't configured.");
     }
@@ -148,14 +171,15 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
         return GetConnectorConfig(connector).Log?.Provider;
     }
 
-    public string GetTopic(TopicType purpose) => (IsLeader ? _leaderConfig.Topics : _workerConfig.Topics)
-        ?.SingleOrDefault(t => t.Value.Purpose == TopicType.Command).Key;
-    
+    public string GetTopic(TopicType purpose)
+    {
+        var topics = IsLeader ? _leaderConfig.Topics : _workerConfig.Topics;
+        return topics.TryGetValue(purpose, out var value) ? value : string.Empty;
+    }
+
     public ConverterConfig GetMessageConverters(string connector, string topic)
     {
-        var topicConfig = GetConnectorConfig(connector).Overrides?.SingleOrDefault(t => t.Key == topic).Value?.Converters ??
-                          (IsLeader ? _leaderConfig.Topics : _workerConfig.Topics).SingleOrDefault(t => t.Key == topic)
-                          .Value?.Converters;
+        var topicConfig = GetConnectorConfig(connector).Overrides?.SingleOrDefault(t => t.Key == topic).Value?.Converters;
         var connectorConfig = GetConnectorConfig(connector).Converters;
         var workerConfig = IsLeader ? _leaderConfig.Converters : _workerConfig.Converters;
 
@@ -172,18 +196,18 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
     {
         if (IsLeader)
         {
-            return [_leaderConfig.Topics.SingleOrDefault(t => t.Value.Purpose == TopicType.Config).Key];
+            return [_leaderConfig.Topics.TryGetValue(TopicType.Config, out var config) ? config : string.Empty];
         }
 
         var connectorConfig = GetConnectorConfig(connector);
         return connectorConfig?.Plugin.Type == ConnectorType.Source
-            ? [_workerConfig.Topics.SingleOrDefault(t => t.Value.Purpose == TopicType.Command).Key]
+            ? [_workerConfig.Topics.TryGetValue(TopicType.Command, out var command) ? command : string.Empty]
             : GetConnectorConfig(connector).Topics;
     }
 
     public IList<ProcessorConfig> GetMessageProcessors(string connector, string topic)  
     {
-        var workerConfigs = _workerConfig.Processors;
+        var workerConfigs = _workerConfig?.Processors ?? _leaderConfig?.Processors;
         var connectorConfigs = GetConnectorConfig(connector).Processors;
         var topicConfigs = GetConnectorConfig(connector).Overrides?.SingleOrDefault(t => t.Key == topic).Value?.Processors;
 

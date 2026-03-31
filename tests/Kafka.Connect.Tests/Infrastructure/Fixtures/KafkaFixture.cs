@@ -47,7 +47,6 @@ public class KafkaFixture(
         }
 
         var allTopics = new HashSet<string>();
-        var systemTopics = new HashSet<string>();
 
         foreach (var configFile in configFiles)
         {
@@ -62,10 +61,19 @@ public class KafkaFixture(
                     {
                         foreach (var workerTopic in workerTopics.EnumerateObject())
                         {
-                            var topicName = workerTopic.Name;
+                            var topicName = workerTopic.Value.GetString();
                             if (!string.IsNullOrEmpty(topicName))
                             {
-                                systemTopics.Add(topicName);
+                                var partitions = workerTopic.Name.Equals("config", StringComparison.OrdinalIgnoreCase) ? 1 : 50;
+                                try
+                                {
+                                    await CreateTopicAsync(topicName, partitions: partitions);
+                                    LogMessage($"Created {workerTopic.Name} topic: {topicName} ({partitions} partition{(partitions > 1 ? "s" : "")})", "");
+                                }
+                                catch (Exception ex)
+                                {
+                                    LogMessage($"Failed to create {workerTopic.Name} topic {topicName}: {ex.Message}", "");
+                                }
                             }
                         }
                     }
@@ -114,19 +122,6 @@ public class KafkaFixture(
             }
         }
 
-        foreach (var topic in systemTopics)
-        {
-            try
-            {
-                await CreateTopicAsync(topic, partitions: 50);
-                LogMessage($"Created system topic: {topic} (50 partitions)", "");
-            }
-            catch (Exception ex)
-            {
-                LogMessage($"Failed to create system topic {topic}: {ex.Message}", "");
-            }
-        }
-
         foreach (var topic in allTopics)
         {
             try
@@ -140,8 +135,7 @@ public class KafkaFixture(
             }
         }
 
-        LogMessage(
-            $"Topic creation completed. Created {systemTopics.Count} system topics and {allTopics.Count} connector topics.", "");
+        LogMessage($"Topic creation completed. Created {allTopics.Count} connector topics.", "");
     }
 
     private async Task CreateTopicAsync(string topicName, int partitions = 1, short replicationFactor = 1)

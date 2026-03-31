@@ -10,6 +10,7 @@ public interface IConfigurationProvider
 {
     LeaderConfig GetLeaderConfig(bool reload = false);
     void ReloadLeaderConfig();
+    void ReloadWorkerConfig();
     FailOverConfig GetFailOverConfig();
     HealthCheckConfig GetHealthCheckConfig();
     ConsumerConfig GetConsumerConfig(string connector = null);

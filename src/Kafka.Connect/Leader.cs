@@ -90,25 +90,40 @@ public class Leader(
         }
     }
 
-    private async Task CreateInternalTopics(IDictionary<string, TopicConfig> topics)
+    private async Task CreateInternalTopics(IDictionary<TopicType, string> topics)
     {
         var adminClient = kafkaClientBuilder.GetAdminClient();
         var metadata = adminClient.GetMetadata(TimeSpan.FromSeconds(20));
         var replication = (short)(metadata.Brokers.Count > 3 ? 3 : metadata.Brokers.Count);
         var topicSpecs = new List<TopicSpecification>();
-        foreach (var (name, config) in topics)
+        foreach (var (type, topic) in topics)
         {
-            var partitions = config.Purpose switch
+            if (!metadata.Topics.Exists(t => t.Topic == topic))
             {
-                TopicType.Command => 50,
-                TopicType.Config => 1,
-                _ => 1
-            };
-            // In production like environment we should have these topics created manually.
-            if (!metadata.Topics.Exists(t => t.Topic == name))
-            {
-                topicSpecs.Add(new()
-                    { Name = name, NumPartitions = partitions, ReplicationFactor = replication });
+                var topicSpecification = type switch
+                {
+                    TopicType.Config => new TopicSpecification
+                    {
+                        Name = topic, 
+                        NumPartitions = 1, 
+                        ReplicationFactor = replication,
+                        Configs = new Dictionary<string, string>
+                        {
+                            { "cleanup.policy", "compact" },
+                            { "min.compaction.lag.ms", "0" },
+                            { "segment.ms", "100" }
+                        }
+                    },
+                    TopicType.Command => new TopicSpecification
+                    {
+                        Name = topic, 
+                        NumPartitions = 50, 
+                        ReplicationFactor = replication
+                    },
+                    _ => null
+                };
+
+                topicSpecs.Add(topicSpecification);
             }
         }
 

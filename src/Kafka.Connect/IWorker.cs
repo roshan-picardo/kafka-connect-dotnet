@@ -5,6 +5,8 @@ namespace Kafka.Connect
 {
     public interface IWorker
     {
+        public Task Add(string connector);
+        public Task Remove(string connector);
         Task Pause();
         Task Resume();
         Task Execute(CancellationTokenSource cts);

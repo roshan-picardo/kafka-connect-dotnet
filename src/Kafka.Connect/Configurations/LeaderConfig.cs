@@ -30,8 +30,8 @@ public class LeaderConfig : NodeConfig
     public ConnectorConfig Connector => new()
     {
         Name = Name,
-        Topics = Topics.Where(t => t.Value.Purpose == TopicType.Config).Select(t => t.Key).ToArray(),
-        Overrides = Topics.Where(t => t.Value.Purpose == TopicType.Config).ToDictionary(t => t.Key, t => t.Value),
+        //Topics = Topics.Where(t => t.Value.Purpose == TopicType.Config).Select(t => t.Key).ToArray(),
+        //Overrides = Topics.Where(t => t.Value.Purpose == TopicType.Config).ToDictionary(t => t.Key, t => t.Value),
         Tasks = 1,
         GroupId = GroupId,
         Plugin = new PluginConfig
@@ -41,4 +41,8 @@ public class LeaderConfig : NodeConfig
     };
     
     public string Settings { get; init; }
+    
+    public IDictionary<int, ProcessorConfig> Processors { get; init; }
+
+    public string GetConfigurationTopic() => Topics.TryGetValue(TopicType.Config, out var value) ? value : string.Empty;
 }

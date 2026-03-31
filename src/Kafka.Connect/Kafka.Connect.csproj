@@ -20,6 +20,10 @@
         <PackageReference Include="Serilog.Settings.Configuration" />
         <PackageReference Include="Serilog.Sinks.Console" />
     </ItemGroup>
+    <ItemGroup>
+      <_ContentIncludedByDefault Remove="Settings\mongodb-sink-connector-aha.json" />
+      <_ContentIncludedByDefault Remove="Settings\mongodb-sink-connector.json" />
+    </ItemGroup>
     <Choose>
         <When Condition="'$(Configuration)'=='Debug'">
             <ItemGroup>

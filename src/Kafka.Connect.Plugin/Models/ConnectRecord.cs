@@ -70,6 +70,7 @@ public class ConnectRecord : IConnectRecord
             Status.Excluding => failed ? Status.Failed : Status.Excluded,
             Status.Sourcing => failed ? Status.Failed : Status.Sourced,
             Status.Selecting => failed ? Status.Failed : Status.Selected,
+            Status.Saving => failed ? Status.Failed : Status.Saved,
             _ => Status
         };
     }
