@@ -4,6 +4,7 @@ using System.Threading.Channels;
 using System.Threading;
 using System.Threading.Tasks;
 using Confluent.Kafka;
+using Kafka.Connect.Configurations;
 using Kafka.Connect.Models;
 using Kafka.Connect.Plugin.Models;
 
@@ -34,6 +35,7 @@ public interface IExecutionContext
     void SetPartitionEof(string connector, int task, string topic, int partition, bool eof);
     bool AllPartitionEof(string connector, int task);
     void UpdateCommands(string connector, int task, IEnumerable<CommandRecord> tasks);
+    void UpdateLeaderAssignments(string connector, int task, TopicType topicType);
     
     Channel<(string Connector, JsonObject Settings)> ConfigurationChannel { get; }
 }

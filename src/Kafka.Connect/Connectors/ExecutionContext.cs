@@ -276,6 +276,20 @@ public class ExecutionContext(
         }
     }
 
+    public void UpdateLeaderAssignments(string connector, int task, TopicType topicType)
+    {
+        var taskContext = _workerContext.Connectors.SingleOrDefault(c => c.Name == connector)?.Tasks
+            .SingleOrDefault(t => t.Id == task);
+        if(taskContext == null) return;
+        
+        var topic = configurationProvider.GetTopic(topicType);
+        if (string.IsNullOrWhiteSpace(topic)) return;
+        
+        taskContext.Assignments.Clear();
+        var assignment = new AssignmentContext { Topic = topic, Partition = 0 };
+        taskContext.Assignments.Add(assignment);
+    }
+
     public Channel<(string Connector, JsonObject Settings)> ConfigurationChannel { get; } =
         Channel.CreateUnbounded<(string Connector, JsonObject Settings)>();
 
@@ -288,6 +302,7 @@ public class ExecutionContext(
         {
             ISinkTask => taskContext.Assignments.Select(a => new { a.Topic, a.Partition }) as dynamic,
             ISourceTask => taskContext.Assignments.Select(a => new { a.Name, a.Topic, a.Partition }),
+            ILeaderTask => taskContext.Assignments.Select(a => new { a.Topic, a.Partition }),
             _ => null
         }
     };

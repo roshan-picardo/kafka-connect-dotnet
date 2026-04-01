@@ -16,4 +16,6 @@ public interface ISourceTask : ITask;
 
 public interface ILeaderTask : ITask;
 
+public interface ILeaderSubTask : ILeaderTask;
+
 public interface IWorkerTask : ITask;
