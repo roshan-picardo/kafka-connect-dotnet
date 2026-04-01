@@ -82,10 +82,17 @@ public static class ConfigurationExtensions
         var builder = new ConfigurationBuilder()
             .AddConfiguration(configuration);
 
-        foreach (var file in Directory.EnumerateFiles(folder ?? Directory.GetCurrentDirectory(), "*.json"))
+        var targetFolder = folder ?? Directory.GetCurrentDirectory();
+        
+        // Skip reload if the directory doesn't exist
+        if (Directory.Exists(targetFolder))
         {
-            builder.AddJsonFile(file, true, true);
-        }    
+            foreach (var file in Directory.EnumerateFiles(targetFolder, "*.json"))
+            {
+                builder.AddJsonFile(file, true, true);
+            }
+        }
+        
         var configurationRoot = builder.Build();
         configurationRoot.Reload();
         return configurationRoot;

@@ -24,6 +24,13 @@ public class ConfigurationChangeHandler(IConfigurationProvider configurationProv
         {
             var leaderConfig = configurationProvider.GetLeaderConfig(true);
 
+            // Ensure the Settings directory exists
+            if (!Directory.Exists(leaderConfig.Settings))
+            {
+                Directory.CreateDirectory(leaderConfig.Settings);
+                logger.Debug($"Created settings directory: {leaderConfig.Settings}");
+            }
+
             var existingFiles = Directory.Exists(leaderConfig.Settings)
                 ? Directory.EnumerateFiles(leaderConfig.Settings, "*.json").ToList()
                 : [];
