@@ -163,7 +163,7 @@ public class ConfigurationChangeHandler(
                 await File.WriteAllTextAsync(filePath,
                     workerConfigJson.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
                 
-                logger.Info($"Saved configuration for connector '{connectorKey}' to worker-settings/{connectorKey}.json");
+                logger.Info($"Saved configuration for connector '{connectorKey}' to {filePath}");
 
                 record.UpdateStatus();
             }

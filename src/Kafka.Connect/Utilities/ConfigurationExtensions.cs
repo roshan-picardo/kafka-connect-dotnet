@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Plugin;
 using Microsoft.Extensions.Configuration;
@@ -84,7 +85,7 @@ public static class ConfigurationExtensions
         {
             foreach (var file in Directory.EnumerateFiles(targetFolder, "*.json", SearchOption.AllDirectories))
             {
-                builder.AddJsonFile(file, optional: false, reloadOnChange: true);
+                builder.AddJsonFile(file, optional: true, reloadOnChange: true);
             }
         }
 
