@@ -23,6 +23,10 @@
     <ItemGroup>
       <_ContentIncludedByDefault Remove="Settings\mongodb-sink-connector-aha.json" />
       <_ContentIncludedByDefault Remove="Settings\mongodb-sink-connector.json" />
+      <_ContentIncludedByDefault Remove="leader-settings\mongodb-sink-connector.json" />
+    </ItemGroup>
+    <ItemGroup>
+      <Folder Include="settings-worker\" />
     </ItemGroup>
     <Choose>
         <When Condition="'$(Configuration)'=='Debug'">

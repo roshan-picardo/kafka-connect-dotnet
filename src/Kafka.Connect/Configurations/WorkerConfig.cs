@@ -5,7 +5,7 @@ namespace Kafka.Connect.Configurations;
 
 public class WorkerConfig : NodeConfig
 {
-    private readonly IDictionary<string, ConnectorConfig> _connectors;
+    private readonly IDictionary<string, ConnectorConfig> _connectors = new Dictionary<string, ConnectorConfig>();
 
     public IDictionary<string, ConnectorConfig> Connectors
     {
@@ -26,7 +26,7 @@ public class WorkerConfig : NodeConfig
             }
             return _connectors;
         }
-        init => _connectors = value;
+        init => _connectors = value ?? new  Dictionary<string, ConnectorConfig>();
     }
     
     public ConnectorConfig Connector => new()
@@ -42,6 +42,8 @@ public class WorkerConfig : NodeConfig
     };
 
     public bool Standalone { get; set; } = true;
+    
+    public string Settings { get; init; }
     
     public IDictionary<int, ProcessorConfig> Processors { get; init; }
 }

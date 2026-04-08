@@ -79,22 +79,18 @@ public static class ConfigurationExtensions
 
     public static IConfiguration ReloadConfigs(this IConfiguration configuration, string folder = null)
     {
-        var builder = new ConfigurationBuilder()
-            .AddConfiguration(configuration);
-
+        var builder = new ConfigurationBuilder();
+        builder.AddConfiguration(configuration);
         var targetFolder = folder ?? Directory.GetCurrentDirectory();
-        
-        // Skip reload if the directory doesn't exist
         if (Directory.Exists(targetFolder))
         {
-            foreach (var file in Directory.EnumerateFiles(targetFolder, "*.json"))
+            foreach (var file in Directory.EnumerateFiles(targetFolder, "*.json", SearchOption.AllDirectories))
             {
-                builder.AddJsonFile(file, true, true);
+                builder.AddJsonFile(file, optional: true, reloadOnChange: true);
             }
         }
-        
+
         var configurationRoot = builder.Build();
-        configurationRoot.Reload();
         return configurationRoot;
     }
 }

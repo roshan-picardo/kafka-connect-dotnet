@@ -37,6 +37,10 @@ public class LeaderConfig : NodeConfig
         Plugin = new PluginConfig
         {
             Type = ConnectorType.Leader
+        },
+        Log = new LogConfig<string[]>
+        {
+            Attributes = ["_key", "workers[*]"]
         }
     };
     

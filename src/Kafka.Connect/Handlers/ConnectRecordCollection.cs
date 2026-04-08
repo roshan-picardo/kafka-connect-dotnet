@@ -142,6 +142,51 @@ public class ConnectRecordCollection(
 
     public async Task Store(bool refresh = false) => await configurationChangeHandler.Store(_sinkConnectRecords, refresh);
     
+    public async Task Store(string workerName) => await configurationChangeHandler.Store(_sinkConnectRecords, workerName);
+    
+    public async Task Refresh(string workerName)
+    {
+        using (logger.Track("Refreshing connectors based on configuration changes."))
+        {
+            // Filter to keep only the latest message per key (max offset)
+            var latestRecords = _sinkConnectRecords
+                .GroupBy(r => r.GetKey<string>())
+                .Select(g => g.OrderByDescending(r => r.Offset).First())
+                .ToList();
+
+            logger.Debug($"Processing {latestRecords.Count} configuration change(s).");
+
+            foreach (var record in latestRecords)
+            {
+                var connectorKey = record.GetKey<string>();
+                var value = record.GetValue<JsonNode>();
+
+                // Determine if this is a delete operation (null or empty value)
+                var isDelete = value == null || value.ToJsonString() == "{}";
+
+                if (isDelete)
+                {
+                    logger.Info($"Detected delete operation for connector '{connectorKey}'.");
+                    await executionContext.Refresh(connectorKey, isDelete: true);
+                }
+                else
+                {
+                    // Check if this worker is in the workers array
+                    var workersArray = value["workers"]?.AsArray();
+                    if (workersArray != null && workersArray.Any(w => w?.GetValue<string>() == workerName))
+                    {
+                        logger.Info($"Detected configuration change for connector '{connectorKey}'.");
+                        await executionContext.Refresh(connectorKey, isDelete: false);
+                    }
+                    else
+                    {
+                        logger.Debug($"Connector '{connectorKey}' not assigned to worker '{workerName}', skipping.");
+                    }
+                }
+            }
+        }
+    }
+    
     public void Configure(string connector,  (string Connector, JsonObject Settings) configuration)
     {
         var record = configurationChangeHandler.Configure(configuration.Connector, configuration.Settings);

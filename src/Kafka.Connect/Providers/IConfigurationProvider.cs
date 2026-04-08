@@ -9,6 +9,7 @@ namespace Kafka.Connect.Providers;
 public interface IConfigurationProvider
 {
     LeaderConfig GetLeaderConfig(bool reload = false);
+    WorkerConfig GetWorkerConfig();
     void ReloadLeaderConfig();
     void ReloadWorkerConfig();
     FailOverConfig GetFailOverConfig();

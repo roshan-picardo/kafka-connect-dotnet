@@ -204,14 +204,40 @@ public class ExecutionContext(
     }
     
     public Task Start(string connector = null) => _workerContext.Worker.Add(connector);
+    
     public Task Stop(string connector = null) => _workerContext.Worker.Remove(connector);
 
     public async Task Restart(int delay, string connector = null, int task = 0)
     {
-        //TODO: this method needs to cancel the token and call Execute method 
-        Pause(connector, task);
-        await Task.Delay(delay);
-        Resume(connector, task);
+        if (string.IsNullOrWhiteSpace(connector))
+        {
+            // Restart worker level
+            Pause(connector, task);
+            await Task.Delay(delay);
+            Resume(connector, task);
+        }
+        else if (task <= 0)
+        {
+            // Restart connector level - use Refresh to reload config and restart
+            await Refresh(connector, isDelete: false);
+        }
+        else
+        {
+            // Restart task level
+            Pause(connector, task);
+            await Task.Delay(delay);
+            Resume(connector, task);
+        }
+    }
+
+    public async Task Refresh(string connector, bool isDelete = false)
+    {
+        if (_workerContext.Worker == null)
+        {
+            return;
+        }
+        
+        await _workerContext.Worker.Refresh(connector, isDelete);
     }
 
     public IConnector GetConnector(string connector) =>

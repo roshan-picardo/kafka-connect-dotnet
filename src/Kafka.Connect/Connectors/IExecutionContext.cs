@@ -28,7 +28,10 @@ public interface IExecutionContext
     void Initialize(string connector, int taskId, ITask task);
     void Pause(string connector = null, int task = 0);
     void Resume(string connector = null, int task = 0);
+    Task Start(string connector = null);
+    Task Stop(string connector = null);
     Task Restart(int delay, string connector = null, int task = 0);
+    Task Refresh(string connector, bool isDelete = false);
     IConnector GetConnector(string connector);
     ITask GetSinkTask(string connector, int task);
     Task<bool> Retry(string connector = null, int task = 0);
