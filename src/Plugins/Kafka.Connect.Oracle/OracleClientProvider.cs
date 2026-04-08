@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Concurrent;
 using Kafka.Connect.Oracle.Models;
 using Oracle.ManagedDataAccess.Client;
@@ -10,15 +9,10 @@ public interface IOracleClientProvider
     IOracleClient GetOracleClient(string connector, int taskId = -1);
 }
 
-public class OracleClientProvider : IOracleClientProvider
+public class OracleClientProvider(Plugin.Providers.IConfigurationProvider configurationProvider)
+    : IOracleClientProvider
 {
-    private readonly Plugin.Providers.IConfigurationProvider _configurationProvider;
     private readonly ConcurrentDictionary<string, IOracleClient> _clientCache = new();
-
-    public OracleClientProvider(Plugin.Providers.IConfigurationProvider configurationProvider)
-    {
-        _configurationProvider = configurationProvider;
-    }
 
     public IOracleClient GetOracleClient(string connector, int taskId = -1)
     {
@@ -28,7 +22,7 @@ public class OracleClientProvider : IOracleClientProvider
         
         return _clientCache.GetOrAdd(key, _ =>
         {
-            var pluginConfig = _configurationProvider.GetPluginConfig<PluginConfig>(connector);
+            var pluginConfig = configurationProvider.GetPluginConfig<PluginConfig>(connector);
             if (pluginConfig == null)
                 throw new InvalidOperationException($"Unable to find the configuration matching {connector}.");
             

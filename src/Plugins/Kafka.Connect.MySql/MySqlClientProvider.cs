@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Concurrent;
 using Kafka.Connect.MySql.Models;
 using MySql.Data.MySqlClient;
@@ -10,15 +9,10 @@ public interface IMySqlClientProvider
     IMySqlClient GetMySqlClient(string connector, int taskId = -1);
 }
 
-public class MySqlClientProvider : IMySqlClientProvider
+public class MySqlClientProvider(Plugin.Providers.IConfigurationProvider configurationProvider)
+    : IMySqlClientProvider
 {
-    private readonly Plugin.Providers.IConfigurationProvider _configurationProvider;
     private readonly ConcurrentDictionary<string, IMySqlClient> _clientCache = new();
-
-    public MySqlClientProvider(Plugin.Providers.IConfigurationProvider configurationProvider)
-    {
-        _configurationProvider = configurationProvider;
-    }
 
     public IMySqlClient GetMySqlClient(string connector, int taskId = -1)
     {
@@ -28,7 +22,7 @@ public class MySqlClientProvider : IMySqlClientProvider
         
         return _clientCache.GetOrAdd(key, _ =>
         {
-            var pluginConfig = _configurationProvider.GetPluginConfig<PluginConfig>(connector);
+            var pluginConfig = configurationProvider.GetPluginConfig<PluginConfig>(connector);
             if (pluginConfig == null)
                 throw new InvalidOperationException($"Unable to find the configuration matching {connector}.");
             

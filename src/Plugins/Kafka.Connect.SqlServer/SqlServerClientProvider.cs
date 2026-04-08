@@ -1,6 +1,4 @@
-using System;
 using System.Collections.Concurrent;
-using System.Data.SqlClient;
 using Kafka.Connect.SqlServer.Models;
 using Microsoft.Data.SqlClient;
 
