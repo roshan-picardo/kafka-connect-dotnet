@@ -84,8 +84,9 @@ namespace Kafka.Connect.Utilities
                 .Configure<WorkerConfig>(configuration.GetSection("worker"), options => options.BindNonPublicProperties = true)
                 .Configure<LeaderConfig>(configuration.GetSection("leader"), options => options.BindNonPublicProperties = true)
                 
-                .AddSingleton<Providers.IConfigurationProvider, Providers.ConfigurationProvider>()
-                .AddSingleton<Plugin.Providers.IConfigurationProvider, Providers.ConfigurationProvider>()
+                .AddSingleton<Providers.ConfigurationProvider>()
+                .AddSingleton<Providers.IConfigurationProvider>(sp => sp.GetRequiredService<Providers.ConfigurationProvider>())
+                .AddSingleton<Plugin.Providers.IConfigurationProvider>(sp => sp.GetRequiredService<Providers.ConfigurationProvider>())
                 .AddSingleton<IExecutionContext, ExecutionContext>()
                 .AddSingleton<IWorker, Worker>()
                 .AddSingleton<ILeader, Leader>()

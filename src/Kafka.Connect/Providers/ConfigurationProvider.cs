@@ -38,11 +38,17 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
         return _leaderConfig;
     }
 
+    public WorkerConfig GetWorkerConfig() => _workerConfig;
+
     public void ReloadLeaderConfig() => SetLeaderConfig(_configuration.ReloadConfigs(_leaderConfig.Settings));
     
     public void ReloadWorkerConfig()
     {
-        if (IsLeader && _leaderConfig?.Settings != null)
+        if (_workerConfig?.Settings != null)
+        {
+            SetWorkerConfig(_configuration.ReloadConfigs(_workerConfig.Settings));
+        }
+        else if (IsLeader && _leaderConfig?.Settings != null)
         {
             SetWorkerConfig(_configuration.ReloadConfigs(_leaderConfig.Settings));
         }
@@ -66,6 +72,21 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
     private void SetWorkerConfig(IConfiguration config)
     {
         _workerConfig = config.GetSection("worker").Get<WorkerConfig>();
+        if (IsWorker && !_workerConfig.Standalone)
+        {
+            _workerConfig.Connectors.Clear();
+            _workerConfig.Connector.Topics =
+                [_workerConfig.Topics.TryGetValue(TopicType.Config, out var value) ? value : string.Empty];
+            foreach (var section in config.GetSection("worker:connectors").GetChildren())
+            {
+                var connectorConfig = section.Get<ConnectorConfig>();
+                if (connectorConfig != null)
+                {
+                    connectorConfig.Name = section.Key;
+                    _workerConfig.Connectors.Add(section.Key, connectorConfig);
+                }
+            }
+        }
     }
 
     public FailOverConfig GetFailOverConfig()
@@ -87,7 +108,7 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
             return _leaderConfig.Connector;
         }
 
-        if (!_workerConfig.Standalone)
+        if (!_workerConfig.Standalone && _workerConfig.Connector.Name == connector)
         {
             return _workerConfig.Connector;
         }
@@ -258,6 +279,10 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
 
     public  T GetLogAttributes<T>(string connector)
     {
+        if (IsLeader)
+        {
+            return _leaderConfig.Connector.Log != null ? ((LogConfig<T>)_leaderConfig.Connector.Log).Attributes  : default;
+        }
         var connectors = _configuration.GetSection("worker:connectors").Get<IDictionary<string, ConnectorLogConfig<T>>>();
         var config = connectors?.SingleOrDefault(c => (c.Value.Name ?? c.Key) == connector).Value?.Log;
         return config == null ? default : config.Attributes;
@@ -302,35 +327,41 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
         {
             throw new ArgumentException("Bootstrap Servers isn't configured for worker.");
         }
-        if (!(_workerConfig.Connectors?.Any() ?? false))
-        {
-            throw new ArgumentException("At least one connector is required for the worker to start.");
-        }
-            
-        var hash = new HashSet<string>();
-        hash.Clear();
-        if (!_workerConfig.Connectors.Values.All(c => c!= null && hash.Add(c.Name) && !string.IsNullOrEmpty(c.Name)))
-        {
-            throw new ArgumentException("Connector Name configuration property must be specified and must be unique.");
-        }
-            
-        if (!(_workerConfig.Plugins?.Initializers?.Any() ?? false))
-        {
-            throw new ArgumentException("At least one plugin is required for the worker to start.");
-        }
-            
-        hash.Clear();
-        if (!_workerConfig.Plugins.Initializers.All(p => hash.Add(p.Key) && !string.IsNullOrEmpty(p.Key)))
-        {
-            throw new ArgumentException("Plugin Name configuration property must be specified and must be unique.");
-        }
 
-        foreach (var connector in _workerConfig.Connectors?.Values ?? new List<ConnectorConfig>())
+        if (_workerConfig.Standalone)
         {
-            if (!_workerConfig.Plugins.Initializers.Select(p => p.Key).Contains(connector.Plugin.Name))
+            if (!(_workerConfig.Connectors?.Any() ?? false))
+            {
+                throw new ArgumentException("At least one connector is required for the worker to start.");
+            }
+
+            var hash = new HashSet<string>();
+            hash.Clear();
+            if (!_workerConfig.Connectors.Values.All(c =>
+                    c != null && hash.Add(c.Name) && !string.IsNullOrEmpty(c.Name)))
             {
                 throw new ArgumentException(
-                    $"Connector: {connector.Name} is not associated to any of the available Plugins: [ {string.Join(", ", _workerConfig.Plugins.Initializers.Select(p => p.Key))} ].");
+                    "Connector Name configuration property must be specified and must be unique.");
+            }
+
+            if (!(_workerConfig.Plugins?.Initializers?.Any() ?? false))
+            {
+                throw new ArgumentException("At least one plugin is required for the worker to start.");
+            }
+
+            hash.Clear();
+            if (!_workerConfig.Plugins.Initializers.All(p => hash.Add(p.Key) && !string.IsNullOrEmpty(p.Key)))
+            {
+                throw new ArgumentException("Plugin Name configuration property must be specified and must be unique.");
+            }
+
+            foreach (var connector in _workerConfig.Connectors?.Values ?? new List<ConnectorConfig>())
+            {
+                if (!_workerConfig.Plugins.Initializers.Select(p => p.Key).Contains(connector.Plugin.Name))
+                {
+                    throw new ArgumentException(
+                        $"Connector: {connector.Name} is not associated to any of the available Plugins: [ {string.Join(", ", _workerConfig.Plugins.Initializers.Select(p => p.Key))} ].");
+                }
             }
         }
     }

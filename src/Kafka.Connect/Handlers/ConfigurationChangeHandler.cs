@@ -13,10 +13,14 @@ namespace Kafka.Connect.Handlers;
 public interface IConfigurationChangeHandler
 {
     Task Store(IEnumerable<ConnectRecord> records, bool refresh);
+    Task Store(IEnumerable<ConnectRecord> records, string workerName);
     ConnectRecord Configure(string connector, JsonObject settings);
 }
 
-public class ConfigurationChangeHandler(IConfigurationProvider configurationProvider, ILogger<ConfigurationChangeHandler> logger) : IConfigurationChangeHandler
+public class ConfigurationChangeHandler(
+    IConfigurationProvider configurationProvider,
+    ILogger<ConfigurationChangeHandler> logger)
+    : IConfigurationChangeHandler
 {
     public async Task Store(IEnumerable<ConnectRecord> records, bool refresh)
     {
@@ -68,6 +72,100 @@ public class ConfigurationChangeHandler(IConfigurationProvider configurationProv
                 {
                     File.Delete(file);
                 }
+            }
+        }
+    }
+
+    public async Task Store(IEnumerable<ConnectRecord> records, string workerName)
+    {
+        using (logger.Track("Storing worker configurations."))
+        {
+            var workerConfig = configurationProvider.GetWorkerConfig();
+            var settingsPath = workerConfig?.Settings ?? Path.Combine(Directory.GetCurrentDirectory(), "worker-settings");
+
+            // Ensure the settings directory exists
+            if (!Directory.Exists(settingsPath))
+            {
+                Directory.CreateDirectory(settingsPath);
+                logger.Debug($"Created worker settings directory: {settingsPath}");
+            }
+
+            // Filter to keep only the latest message per key (max offset)
+            var latestRecords = records
+                .GroupBy(r => r.GetKey<string>())
+                .Select(g => g.OrderByDescending(r => r.Offset).First())
+                .ToList();
+
+            logger.Debug($"Filtered {records.Count()} records to {latestRecords.Count} latest records by key.");
+
+            foreach (var record in latestRecords.Select(record =>
+                     {
+                         record.Status = Status.Saving;
+                         return record;
+                     }))
+            {
+                var connectorKey = record.GetKey<string>();
+                var value = record.GetValue<JsonNode>();
+
+                var filePath = Path.Combine(settingsPath, $"{connectorKey}.json");
+
+                // Delete if value is null or empty
+                if (value == null || value.ToJsonString() == "{}")
+                {
+                    record.Status = Status.Deleting;
+                    if (File.Exists(filePath))
+                    {
+                        File.Delete(filePath);
+                        logger.Info($"Deleted configuration file: {connectorKey}.json (null/empty value)");
+                    }
+                    record.UpdateStatus();
+                    continue;
+                }
+
+                // Check if this worker is in the workers array
+                var workersArray = value["workers"]?.AsArray();
+                if (workersArray == null || !workersArray.Any(w => w?.GetValue<string>() == workerName))
+                {
+                    // Worker not in list - delete the file if it exists
+                    record.Status = Status.Deleting;
+                    if (File.Exists(filePath))
+                    {
+                        File.Delete(filePath);
+                        logger.Info($"Deleted configuration file: {connectorKey}.json (worker '{workerName}' not in workers list)");
+                    }
+                    record.UpdateStatus();
+                    continue;
+                }
+
+                // Extract connector configuration (everything except 'workers' field)
+                var connectorConfig = new JsonObject();
+                foreach (var property in value.AsObject())
+                {
+                    if (property.Key != "workers")
+                    {
+                        connectorConfig[property.Key] = property.Value?.DeepClone();
+                    }
+                }
+
+                // Wrap in worker.connectors.<connectorKey> structure
+                var workerConfigJson = new JsonObject
+                {
+                    {
+                        "worker", new JsonObject
+                        {
+                            {
+                                "connectors", connectorConfig
+                            }
+                        }
+                    }
+                };
+
+                await File.WriteAllTextAsync(filePath,
+                    workerConfigJson.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+                
+                logger.Info($"Saved configuration for connector '{connectorKey}' to {filePath}");
+
+                record.UpdateStatus();
             }
         }
     }

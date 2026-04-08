@@ -43,9 +43,7 @@ public class Worker(
             }
             try
             {
-                // Load and sync connectors based on current configuration
                 await SyncConnectors(cts.Token);
-
                 do
                 {
                     var currentTasks = _tasks.Values.Select(v => v.Task).ToArray();
@@ -88,31 +86,26 @@ public class Worker(
     {
         logger.Debug("Syncing connectors with current configuration.");
         
-        // Reload worker configuration from files (updated by ConfigMonitorService)
         configurationProvider.ReloadWorkerConfig();
         
-        // Get all configured connectors (excluding disabled ones)
         var configuredConnectors = configurationProvider.GetAllConnectorConfigs()
             .Select(c => c.Name)
             .ToHashSet();
         
         var runningConnectors = _tasks.Keys.ToHashSet();
 
-        // Start new connectors
         foreach (var connector in configuredConnectors.Except(runningConnectors))
         {
             logger.Info($"Starting new connector: {connector}");
             AddConnectorTask(connector, token);
         }
 
-        // Stop removed connectors
         foreach (var connector in runningConnectors.Except(configuredConnectors))
         {
             logger.Info($"Stopping removed connector: {connector}");
             await Remove(connector);
         }
 
-        // Restart connectors that are in both (configuration might have changed)
         foreach (var connector in runningConnectors.Intersect(configuredConnectors))
         {
             logger.Debug($"Connector '{connector}' configuration may have changed. Restarting.");
@@ -184,6 +177,49 @@ public class Worker(
         
         return Task.CompletedTask;
     }
+
+    public async Task Refresh(string connector, bool isDelete = false)
+    {
+        // Reload worker configuration to get latest settings
+        configurationProvider.ReloadWorkerConfig();
+        
+        // Check if connector is currently running
+        var connectorExists = _tasks.ContainsKey(connector);
+        
+        if (isDelete)
+        {
+            // Delete operation - remove connector if it exists
+            if (connectorExists)
+            {
+                logger.Info($"Deleting connector '{connector}'.");
+                await Remove(connector);
+            }
+            else
+            {
+                logger.Debug($"Connector '{connector}' not running, nothing to delete.");
+            }
+        }
+        else
+        {
+            // Add or update operation
+            if (connectorExists)
+            {
+                // Connector already running - restart it with new configuration
+                logger.Info($"Restarting connector '{connector}' with updated configuration.");
+                await Remove(connector);
+                await Task.Delay(500); // Brief delay before restart
+                await Add(connector);
+            }
+            else
+            {
+                // New connector - add it
+                logger.Info($"Starting new connector '{connector}'.");
+                await Add(connector);
+            }
+        }
+    }
+
+    public bool IsRunning(string connector) => _tasks.ContainsKey(connector);
 
     public Task Pause()
     {

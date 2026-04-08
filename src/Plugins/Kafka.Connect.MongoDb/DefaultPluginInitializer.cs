@@ -21,7 +21,7 @@ public class DefaultPluginInitializer : IPluginInitializer
             .AddScoped<IMongoCommandHandler, MongoCommandHandler>()
             .AddScoped<IPluginHandler, MongoPluginHandler>()
             .AddScoped<IPluginInitializer, DefaultPluginInitializer>()
-            .AddScoped<IMongoClientProvider, MongoClientProvider>()
+            .AddSingleton<IMongoClientProvider, MongoClientProvider>()
             .AddScoped<IStrategy, ReadStrategy>()
             .AddScoped<IStrategy, DeleteStrategy>()
             .AddScoped<IStrategy, InsertStrategy>()
@@ -29,30 +29,5 @@ public class DefaultPluginInitializer : IPluginInitializer
             .AddScoped<IStrategy, UpsertStrategy>()
             .AddScoped<IStrategy, StreamsReadStrategy>()
             .AddScoped<IMongoQueryRunner, MongoQueryRunner>();
-        AddMongoClients(collection, connectors);
-    }
-
-    private static void AddMongoClients(IServiceCollection collection, params (string Name, int Tasks)[] connectors)
-    {
-        foreach (var connector in connectors)
-        {
-            for (var t = 0; t < connector.Tasks; t++)
-            {
-                var taskId = t + 1;
-                collection.AddSingleton<IMongoClient>(provider =>
-                {
-                    var configurationProvider = provider.GetService<Plugin.Providers.IConfigurationProvider>() ??
-                                                throw new InvalidOperationException(
-                                                    $@"Unable to resolve service for type 'IConfigurationProvider' for {connector}.");
-                    var pluginConfig = configurationProvider.GetPluginConfig<PluginConfig>(connector.Name);
-                    if (pluginConfig == null)
-                        throw new InvalidOperationException(
-                            $"Unable to find the configuration matching {connector.Name}.");
-                    var settings = MongoClientSettings.FromConnectionString(pluginConfig.ConnectionUri);
-                    settings.ApplicationName = $"{connector.Name}-{taskId:00}";
-                    return new MongoClient(settings);
-                });
-            }
-        }
     }
 }

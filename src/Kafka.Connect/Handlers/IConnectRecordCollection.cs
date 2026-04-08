@@ -30,6 +30,8 @@ public interface IConnectRecordCollection
     Task<JsonNode> UpdateCommand(CommandRecord command);
     void Commit(IList<CommandRecord> commands);
     Task Store(bool refresh = false);
+    Task Store(string workerName);
+    Task Refresh(string workerName);
     void Configure(string connector, (string Connector, JsonObject Settings) configuration);
     void UpdateTo(Status status, string batchId = null);
     int Count(string batchId = null);

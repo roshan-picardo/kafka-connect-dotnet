@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Plugin;
 using Microsoft.Extensions.Configuration;
@@ -59,14 +60,12 @@ public static class ConfigurationExtensions
 
             if (type != null && Activator.CreateInstance(type) is IPluginInitializer instance)
             {
-                var connectors = configuration.GetSection("worker:connectors")
-                    .Get<IDictionary<string, ConnectorConfig>>()?
-                    .Where(c => c.Value.Plugin.Name == name && !c.Value.Disabled).Select(c => (c.Value.Name ?? c.Key, MaxTasks: c.Value.Tasks));
-                if (connectors != null)
-                {
-                    ServiceExtensions.AddPluginServices +=
-                        collection => instance.AddServices(collection, configuration, connectors.ToArray());
-                }
+                // Register plugin services without requiring connector information
+                // Connectors parameter is now optional - plugins should handle empty array
+                ServiceExtensions.AddPluginServices +=
+                    collection => instance.AddServices(collection, configuration, Array.Empty<(string, int)>());
+                
+                Log.ForContext<Worker>().Debug("{@Log}", new {Message = $"Plugin services registered for: {name}"});
             }
             else
             {
@@ -79,22 +78,18 @@ public static class ConfigurationExtensions
 
     public static IConfiguration ReloadConfigs(this IConfiguration configuration, string folder = null)
     {
-        var builder = new ConfigurationBuilder()
-            .AddConfiguration(configuration);
-
+        var builder = new ConfigurationBuilder();
+        builder.AddConfiguration(configuration);
         var targetFolder = folder ?? Directory.GetCurrentDirectory();
-        
-        // Skip reload if the directory doesn't exist
         if (Directory.Exists(targetFolder))
         {
-            foreach (var file in Directory.EnumerateFiles(targetFolder, "*.json"))
+            foreach (var file in Directory.EnumerateFiles(targetFolder, "*.json", SearchOption.AllDirectories))
             {
-                builder.AddJsonFile(file, true, true);
+                builder.AddJsonFile(file, optional: true, reloadOnChange: true);
             }
         }
-        
+
         var configurationRoot = builder.Build();
-        configurationRoot.Reload();
         return configurationRoot;
     }
 }

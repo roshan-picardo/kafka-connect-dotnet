@@ -21,30 +21,7 @@ public class DefaultPluginInitializer : IPluginInitializer
             .AddScoped<IStrategy, DeleteStrategy>()
             .AddScoped<IStrategy, ReadStrategy>()
             .AddScoped<IStrategySelector, ChangelogStrategySelector>()
-            .AddScoped<IPostgresClientProvider, PostgresClientProvider>()
+            .AddSingleton<IPostgresClientProvider, PostgresClientProvider>()
             .AddScoped<IPostgresCommandHandler, PostgresCommandHandler>();
-        AddPostgresClients(collection, connectors);
-    }
-    
-    private static void AddPostgresClients(IServiceCollection collection, (string Name, int Tasks)[] connectors)
-    {
-        foreach (var connector in connectors)
-        {
-            for (var t = 0; t < connector.Tasks; t++)
-            {
-                var taskId = t + 1;
-                collection.AddSingleton<IPostgresClient>(provider =>
-                {
-                    var configurationProvider = provider.GetService<Plugin.Providers.IConfigurationProvider>() ??
-                                                throw new InvalidOperationException(
-                                                    $"Unable to resolve service for type 'IConfigurationProvider' for {connector.Name}.");
-                    var postgresSinkConfig = configurationProvider.GetPluginConfig<PluginConfig>(connector.Name);
-                    if (postgresSinkConfig == null)
-                        throw new InvalidOperationException(
-                            $"Unable to find the configuration matching {connector.Name}.");
-                    return new PostgresClient($"{connector.Name}-{taskId:00}", new NpgsqlConnection(postgresSinkConfig.ConnectionString));
-                });
-            }
-        }
     }
 }

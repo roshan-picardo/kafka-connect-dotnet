@@ -17,7 +17,6 @@ public class WorkerTask(
     ILogger<WorkerTask> logger)
     : IWorkerTask
 {
-    private Timer _timer;
     private readonly PauseTokenSource _pauseTokenSource = new();
 
     public async Task Execute(string connector, int taskId, CancellationTokenSource cts)
@@ -45,33 +44,15 @@ public class WorkerTask(
             {
                 try
                 {
-                    var leaderConfig = configurationProvider.GetLeaderConfig();
-                    _timer.Interval = leaderConfig.MaxPollIntervalMs.GetValueOrDefault() - 100;
-
                     await workerRecordCollection.Consume(cts.Token);
                     
                     if (workerRecordCollection.Count() > 0)
                     {
-                        logger.Info($"Received {workerRecordCollection.Count()} configuration change(s) from Kafka topic.");
-                        
-                        // Process and deserialize the configuration records
                         await workerRecordCollection.Process();
-
-                        // Save configurations to local files (this writes to the settings directory)
-                        await workerRecordCollection.Store();
-
-                        logger.Info("Configuration changes saved to local files successfully.");
                         
-                        // Trigger Worker to reload configurations and adjust connectors
-                        await executionContext.Restart(2000);
-                    }
-
-                    workerRecordCollection.Commit();
-                    _pauseTokenSource.Pause();
-
-                    if (!_timer.Enabled)
-                    {
-                        _timer.Enabled = true;
+                        await workerRecordCollection.Store(configurationProvider.GetNodeName());
+                        
+                        await workerRecordCollection.Refresh(configurationProvider.GetNodeName());
                     }
 
                     attempts = parallelOptions.Attempts;

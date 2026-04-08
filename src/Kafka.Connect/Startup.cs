@@ -32,7 +32,7 @@ using Serilog.Formatting.Json;
                       collection
                           .AddHostedService<LeaderService>()
                           .AddHostedService<WorkerService>()
-                          .AddHostedService<ConfigMonitorService>()
+                          //.AddHostedService<ConfigMonitorService>()
                           .AddHostedService<HealthCheckService>();
                           //.AddHostedService<FailOverMonitorService>();
                   });
