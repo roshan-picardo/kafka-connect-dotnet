@@ -59,14 +59,12 @@ public static class ConfigurationExtensions
 
             if (type != null && Activator.CreateInstance(type) is IPluginInitializer instance)
             {
-                var connectors = configuration.GetSection("worker:connectors")
-                    .Get<IDictionary<string, ConnectorConfig>>()?
-                    .Where(c => c.Value.Plugin.Name == name && !c.Value.Disabled).Select(c => (c.Value.Name ?? c.Key, MaxTasks: c.Value.Tasks));
-                if (connectors != null)
-                {
-                    ServiceExtensions.AddPluginServices +=
-                        collection => instance.AddServices(collection, configuration, connectors.ToArray());
-                }
+                // Register plugin services without requiring connector information
+                // Connectors parameter is now optional - plugins should handle empty array
+                ServiceExtensions.AddPluginServices +=
+                    collection => instance.AddServices(collection, configuration, Array.Empty<(string, int)>());
+                
+                Log.ForContext<Worker>().Debug("{@Log}", new {Message = $"Plugin services registered for: {name}"});
             }
             else
             {
@@ -86,7 +84,7 @@ public static class ConfigurationExtensions
         {
             foreach (var file in Directory.EnumerateFiles(targetFolder, "*.json", SearchOption.AllDirectories))
             {
-                builder.AddJsonFile(file, optional: true, reloadOnChange: true);
+                builder.AddJsonFile(file, optional: false, reloadOnChange: true);
             }
         }
 

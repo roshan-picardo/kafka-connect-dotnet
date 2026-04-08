@@ -24,30 +24,7 @@ public class DefaultPluginInitializer : IPluginInitializer
             .AddScoped<IStrategy, DeleteStrategy>()
             .AddScoped<IStrategy, ReadStrategy>()
             .AddScoped<IStrategySelector, ChangelogStrategySelector>()
-            .AddScoped<IMySqlClientProvider, MySqlClientProvider>()
+            .AddSingleton<IMySqlClientProvider, MySqlClientProvider>()
             .AddScoped<IMySqlCommandHandler, MySqlCommandHandler>();
-        AddMySqlClients(collection, connectors);
-    }
-    
-    private static void AddMySqlClients(IServiceCollection collection, (string Name, int Tasks)[] connectors)
-    {
-        foreach (var connector in connectors)
-        {
-            for (var t = 0; t < connector.Tasks; t++)
-            {
-                var taskId = t + 1;
-                collection.AddSingleton<IMySqlClient>(provider =>
-                {
-                    var configurationProvider = provider.GetService<Plugin.Providers.IConfigurationProvider>() ??
-                                                throw new InvalidOperationException(
-                                                    $"Unable to resolve service for type 'IConfigurationProvider' for {connector.Name}.");
-                    var mySqlConfig = configurationProvider.GetPluginConfig<PluginConfig>(connector.Name);
-                    if (mySqlConfig == null)
-                        throw new InvalidOperationException(
-                            $"Unable to find the configuration matching {connector.Name}.");
-                    return new MySqlClient($"{connector.Name}-{taskId:00}", new MySqlConnection(mySqlConfig.ConnectionString));
-                });
-            }
-        }
     }
 }
