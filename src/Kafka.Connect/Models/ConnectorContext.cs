@@ -17,6 +17,7 @@ public class ConnectorContext
     public TimeSpan Uptime => _stopwatch.Elapsed;
     public IList<TaskContext> Tasks { get; } = new List<TaskContext>();
     public bool IsStopped => Connector == null || (Connector.IsStopped && (Tasks?.All(t => t.IsStopped) ?? true));
+    public bool IsDeleted { get; internal set; }
     public IConnector Connector { get; internal set; }
     public RestartContext RestartContext { get; set; }
 }
