@@ -21,6 +21,7 @@ public class WorkerTask(
 
     public async Task Execute(string connector, int taskId, CancellationTokenSource cts)
     {
+        logger.Info($"Staring worker task: {connector},  taskId: {taskId:00}");
         executionContext.Initialize(connector, taskId, this);
         await workerRecordCollection.Setup(ConnectorType.Worker, connector, taskId);
         

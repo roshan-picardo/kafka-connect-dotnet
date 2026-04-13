@@ -55,6 +55,8 @@ public class ExecutionContext(
             context = new ConnectorContext { Name = name };
             _workerContext.Connectors.Add(context);
         }
+        
+        context.IsDeleted = false;
         context.Connector = connector;
         context.RestartContext =
             new RestartContext(configurationProvider.GetRestartsConfig(), RestartsLevel.Connector);
@@ -129,7 +131,7 @@ public class ExecutionContext(
         return new
         {
             Worker = new { _workerContext.Name, _workerContext.Status },
-            Connectors = _workerContext.Connectors.Select(c => new { c.Name, c.Status }),
+            Connectors = _workerContext.Connectors.Where(c => !c.IsDeleted).Select(c => new { c.Name, c.Status }),
         };
     }
 
@@ -238,6 +240,22 @@ public class ExecutionContext(
         }
         
         await _workerContext.Worker.Refresh(connector, isDelete);
+        
+        if (isDelete)
+        {
+            MarkConnectorAsDeleted(connector);
+        }
+    }
+    
+    private void MarkConnectorAsDeleted(string connector)
+    {
+        if (string.IsNullOrWhiteSpace(connector)) return;
+        
+        var connectorContext = _workerContext.Connectors.FirstOrDefault(c => c.Name == connector);
+        if (connectorContext != null)
+        {
+            connectorContext.IsDeleted = true;
+        }
     }
 
     public IConnector GetConnector(string connector) =>
@@ -353,6 +371,8 @@ public class ExecutionContext(
     }
     private dynamic GetWorkerStatus()
     {
+        var activeConnectors = _workerContext.Connectors.Where(c => !c.IsDeleted).ToList();
+        
         return new
         {
             _workerContext.Name,
@@ -360,13 +380,13 @@ public class ExecutionContext(
             Uptime = _workerContext.Uptime.ToString(@"dd\.hh\:mm\:ss"),
             Summary = new
             {
-                _workerContext.Connectors.Count,
-                Running = _workerContext.Connectors.Count(c => !c.Connector.IsPaused && !c.IsStopped),
-                Paused = _workerContext.Connectors.Count(c => c.Connector.IsPaused),
-                Stopped = _workerContext.Connectors.Count(c => !c.Connector.IsPaused && c.IsStopped),
+                Count = activeConnectors.Count,
+                Running = activeConnectors.Count(c => !c.Connector.IsPaused && !c.IsStopped),
+                Paused = activeConnectors.Count(c => c.Connector.IsPaused),
+                Stopped = activeConnectors.Count(c => !c.Connector.IsPaused && c.IsStopped),
                 Records = _recordsCount
             },
-            Connectors = _workerContext.Connectors.Select(c => GetConnectorStatus(c))
+            Connectors = activeConnectors.Select(c => GetConnectorStatus(c))
         };
     }
 }

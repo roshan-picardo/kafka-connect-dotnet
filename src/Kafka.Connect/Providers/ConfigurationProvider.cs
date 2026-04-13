@@ -15,7 +15,7 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
 {
     private WorkerConfig _workerConfig;
     private LeaderConfig _leaderConfig;
-    private readonly IConfiguration _configuration;
+    private IConfiguration _configuration;
     private const string DefaultConverter = "Kafka.Connect.Converters.AvroConverter";
 
     public ConfigurationProvider(IConfiguration configuration)
@@ -32,7 +32,9 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
     {
         if (reload)
         {
-            SetLeaderConfig(_configuration.ReloadConfigs(_leaderConfig.Settings));
+            var reloadedConfig = _configuration.ReloadConfigs(_leaderConfig.Settings);
+            _configuration = reloadedConfig;
+            SetLeaderConfig(reloadedConfig);
         }
 
         return _leaderConfig;
@@ -40,17 +42,26 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
 
     public WorkerConfig GetWorkerConfig() => _workerConfig;
 
-    public void ReloadLeaderConfig() => SetLeaderConfig(_configuration.ReloadConfigs(_leaderConfig.Settings));
+    public void ReloadLeaderConfig()
+    {
+        var reloadedConfig = _configuration.ReloadConfigs(_leaderConfig.Settings);
+        _configuration = reloadedConfig;
+        SetLeaderConfig(reloadedConfig);
+    }
     
     public void ReloadWorkerConfig()
     {
         if (_workerConfig?.Settings != null)
         {
-            SetWorkerConfig(_configuration.ReloadConfigs(_workerConfig.Settings));
+            var reloadedConfig = _configuration.ReloadConfigs(_workerConfig.Settings);
+            _configuration = reloadedConfig;
+            SetWorkerConfig(reloadedConfig);
         }
         else if (IsLeader && _leaderConfig?.Settings != null)
         {
-            SetWorkerConfig(_configuration.ReloadConfigs(_leaderConfig.Settings));
+            var reloadedConfig = _configuration.ReloadConfigs(_leaderConfig.Settings);
+            _configuration = reloadedConfig;
+            SetWorkerConfig(reloadedConfig);
         }
     }
     
@@ -261,7 +272,7 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
 
     public T GetProcessorSettings<T>(string connector, string processor)
     {
-        var connectors = _configuration.GetSection("worker:connectors").Get<IDictionary<string, ConnectorConfig<T>>>();
+        var connectors = _configuration?.GetSection("worker:connectors")?.Get<IDictionary<string, ConnectorConfig<T>>>();
         var config = connectors?.SingleOrDefault(c => (c.Value.Name ?? c.Key) == connector).Value
             ?.Processors?.SingleOrDefault(p => p.Value != null && p.Value.Name == processor).Value;
         return config != null ? config.Settings : default;
@@ -269,8 +280,8 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
 
     public T GetPluginConfig<T>(string connector)
     {
-        var connectors = _configuration.GetSection("worker:connectors").Get<IDictionary<string, ConnectorPluginConfig<T>>>();
-        if (connectors.TryGetValue(connector, out var config) && config?.Plugin != null)
+        var connectors = _configuration?.GetSection("worker:connectors")?.Get<IDictionary<string, ConnectorPluginConfig<T>>>();
+        if (connectors != null && connectors.TryGetValue(connector, out var config) && config?.Plugin != null)
         {
             return config.Plugin.Properties;
         }
@@ -283,7 +294,7 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
         {
             return _leaderConfig.Connector.Log != null ? ((LogConfig<T>)_leaderConfig.Connector.Log).Attributes  : default;
         }
-        var connectors = _configuration.GetSection("worker:connectors").Get<IDictionary<string, ConnectorLogConfig<T>>>();
+        var connectors = _configuration?.GetSection("worker:connectors")?.Get<IDictionary<string, ConnectorLogConfig<T>>>();
         var config = connectors?.SingleOrDefault(c => (c.Value.Name ?? c.Key) == connector).Value?.Log;
         return config == null ? default : config.Attributes;
     }

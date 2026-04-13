@@ -81,11 +81,20 @@ public static class ConfigurationExtensions
         var builder = new ConfigurationBuilder();
         builder.AddConfiguration(configuration);
         var targetFolder = folder ?? Directory.GetCurrentDirectory();
+        
+        // Ensure absolute path for SetBasePath
+        if (!Path.IsPathRooted(targetFolder))
+        {
+            targetFolder = Path.GetFullPath(targetFolder);
+        }
+        
         if (Directory.Exists(targetFolder))
         {
+            builder.SetBasePath(targetFolder);
             foreach (var file in Directory.EnumerateFiles(targetFolder, "*.json", SearchOption.AllDirectories))
             {
-                builder.AddJsonFile(file, optional: true, reloadOnChange: true);
+                var relativePath = Path.GetRelativePath(targetFolder, file);
+                builder.AddJsonFile(relativePath, optional: false, reloadOnChange: false);
             }
         }
 

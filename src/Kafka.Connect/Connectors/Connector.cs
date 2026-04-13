@@ -27,6 +27,7 @@ public class Connector(
 
     public async Task Execute(string connector,  CancellationTokenSource cts)
     {
+        logger.Info($"Starting connector: {connector}");
         executionContext.Initialize(connector, this);
         var connectorConfig = configurationProvider.GetConnectorConfig(connector);
 
@@ -82,7 +83,7 @@ public class Connector(
                             logger.Error("Task is faulted, and will be terminated.", t.Exception?.InnerException);
                         }
 
-                        logger.Debug("Task will be stopped.");
+                        logger.Info($"Stopped task: {connector},  taskId: {taskId:00}");
                     }, TaskContinuationOptions.None);
                 }
             })).ContinueWith(t =>

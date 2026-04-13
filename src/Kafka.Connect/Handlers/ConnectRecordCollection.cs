@@ -148,7 +148,6 @@ public class ConnectRecordCollection(
     {
         using (logger.Track("Refreshing connectors based on configuration changes."))
         {
-            // Filter to keep only the latest message per key (max offset)
             var latestRecords = _sinkConnectRecords
                 .GroupBy(r => r.GetKey<string>())
                 .Select(g => g.OrderByDescending(r => r.Offset).First())
@@ -161,21 +160,19 @@ public class ConnectRecordCollection(
                 var connectorKey = record.GetKey<string>();
                 var value = record.GetValue<JsonNode>();
 
-                // Determine if this is a delete operation (null or empty value)
                 var isDelete = value == null || value.ToJsonString() == "{}";
 
                 if (isDelete)
                 {
-                    logger.Info($"Detected delete operation for connector '{connectorKey}'.");
+                    logger.Debug($"Detected delete operation for connector '{connectorKey}'.");
                     await executionContext.Refresh(connectorKey, isDelete: true);
                 }
                 else
                 {
-                    // Check if this worker is in the workers array
                     var workersArray = value["workers"]?.AsArray();
                     if (workersArray != null && workersArray.Any(w => w?.GetValue<string>() == workerName))
                     {
-                        logger.Info($"Detected configuration change for connector '{connectorKey}'.");
+                        logger.Debug($"Detected configuration change for connector '{connectorKey}'.");
                         await executionContext.Refresh(connectorKey, isDelete: false);
                     }
                     else
