@@ -192,7 +192,7 @@ public class ConnectorClient(
                         };
 
                         var delivered = await _producer.ProduceAsync(eofSignal.Topic, message);
-                        logger.Info("EOF message delivered.", new
+                        logger.Debug("EOF message delivered.", new
                         {
                             delivered.Topic,
                             Partition = delivered.Partition.Value,
@@ -214,7 +214,7 @@ public class ConnectorClient(
                 using (ConnectLog.TopicPartitionOffset(record.Topic, record.Partition, record.Offset))
                 {
                     var delivered = await _producer.ProduceAsync(topic, GetDeadLetterMessage(record, connector, taskId, command));
-                    logger.Info("Error message delivered.", new
+                    logger.Debug("Error message delivered.", new
                     {
                         delivered.Topic,
                         Partition = delivered.Partition.Value,

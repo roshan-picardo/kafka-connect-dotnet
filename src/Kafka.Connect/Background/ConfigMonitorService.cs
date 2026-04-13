@@ -49,8 +49,8 @@ public class ConfigMonitorService(
             var cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
             try
             {
-                logger.Info("Starting configuration monitor service...");
-                logger.Info($"Monitoring configuration topic for changes. Settings directory: {leaderConfig.Settings}");
+                logger.Debug("Starting configuration monitor service...");
+                logger.Debug($"Monitoring configuration topic for changes. Settings directory: {leaderConfig.Settings}");
 
                 using var scope = serviceScopeFactory.CreateScope();
                 var workerTask = scope.ServiceProvider.GetService<IWorkerTask>();
@@ -82,7 +82,7 @@ public class ConfigMonitorService(
             }
             finally
             {
-                logger.Info("Stopping configuration monitor service...");
+                logger.Debug("Stopping configuration monitor service...");
                 executionContext.Shutdown();
             }
         }

@@ -25,6 +25,7 @@ public class SinkTask(
 
     public async Task Execute(string connector, int taskId, CancellationTokenSource cts)
     {
+        logger.Info($"Staring sink task: {connector},  taskId: {taskId:00}");
         executionContext.Initialize(connector, taskId, this);
 
         await sinkRecordCollection.Setup(ConnectorType.Sink, connector, taskId);

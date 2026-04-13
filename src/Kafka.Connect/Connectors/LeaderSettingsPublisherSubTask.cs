@@ -16,6 +16,7 @@ public class LeaderSettingsPublisherSubTask(
 {
     public async Task Execute(string connector, int taskId, CancellationTokenSource cts)
     {
+        logger.Info($"Staring leader task: {connector},  taskId: {taskId:00}");
         executionContext.Initialize(connector, taskId, this);
         await leaderRecordCollection.Setup(ConnectorType.Leader, connector, taskId);
         
@@ -25,7 +26,6 @@ public class LeaderSettingsPublisherSubTask(
             return;
         }
 
-        // Manually update assignments for Leader publisher task to show in healthchecks
         executionContext.UpdateLeaderAssignments(connector, taskId, TopicType.Config);
 
         var reader = executionContext.ConfigurationChannel.Reader;

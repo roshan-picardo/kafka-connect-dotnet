@@ -5,32 +5,24 @@ using System.Linq;
 using Kafka.Connect.MongoDb.Models;
 using MongoDB.Driver;
 
-namespace Kafka.Connect.MongoDb.Collections
+namespace Kafka.Connect.MongoDb.Collections;
+
+public class MongoClientProvider(Plugin.Providers.IConfigurationProvider configurationProvider)
+    : IMongoClientProvider
 {
-    public class MongoClientProvider : IMongoClientProvider
+    private readonly ConcurrentDictionary<string, IMongoClient> _clientCache = new();
+
+    public IMongoClient GetMongoClient(string connector, int taskId)
     {
-        private readonly Plugin.Providers.IConfigurationProvider _configurationProvider;
-        private readonly ConcurrentDictionary<string, IMongoClient> _clientCache = new();
-
-        public MongoClientProvider(Plugin.Providers.IConfigurationProvider configurationProvider)
+        var key = $"{connector}-{taskId:00}";
+        return _clientCache.GetOrAdd(key, _ =>
         {
-            _configurationProvider = configurationProvider;
-        }
-
-        public IMongoClient GetMongoClient(string connector, int taskId)
-        {
-            var key = $"{connector}-{taskId:00}";
-            
-            return _clientCache.GetOrAdd(key, _ =>
-            {
-                var pluginConfig = _configurationProvider.GetPluginConfig<PluginConfig>(connector);
-                if (pluginConfig == null)
-                    throw new InvalidOperationException($"Unable to find the configuration matching {connector}.");
-                
-                var settings = MongoClientSettings.FromConnectionString(pluginConfig.ConnectionUri);
-                settings.ApplicationName = key;
-                return new MongoClient(settings);
-            });
-        }
+            var pluginConfig = configurationProvider.GetPluginConfig<PluginConfig>(connector);
+            if (pluginConfig == null)
+                throw new InvalidOperationException($"Unable to find the configuration matching {connector}.");
+            var settings = MongoClientSettings.FromConnectionString(pluginConfig.ConnectionUri);
+            settings.ApplicationName = key;
+            return new MongoClient(settings);
+        });
     }
 }

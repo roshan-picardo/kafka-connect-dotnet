@@ -9,6 +9,7 @@ using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Providers;
 using Kafka.Connect.Tokens;
 using Microsoft.Extensions.DependencyInjection;
+//H2KGH3AL1059
 
 namespace Kafka.Connect;
 
@@ -96,13 +97,11 @@ public class Worker(
 
         foreach (var connector in configuredConnectors.Except(runningConnectors))
         {
-            logger.Info($"Starting new connector: {connector}");
             AddConnectorTask(connector, token);
         }
 
         foreach (var connector in runningConnectors.Except(configuredConnectors))
         {
-            logger.Info($"Stopping removed connector: {connector}");
             await Remove(connector);
         }
 
@@ -114,7 +113,7 @@ public class Worker(
             AddConnectorTask(connector, token);
         }
         
-        logger.Info($"Connector sync complete. Running connectors: {_tasks.Count}");
+        logger.Debug($"Connector sync complete. Running connectors: {_tasks.Count}");
     }
 
     private void AddConnectorTask(string name, CancellationToken token)
@@ -139,10 +138,8 @@ public class Worker(
                     {
                         logger.Error("Connector is faulted, and is terminated.", t.Exception?.InnerException);
                     }
-
-                    logger.Debug("Connector Stopped.");
-                    
                     _tasks.TryRemove(name, out _);
+                    logger.Info($"Stopped connector: {name}");
                 }, CancellationToken.None);
             
             _tasks.TryAdd(name, (connectorTask, linkedTokenSource));
@@ -166,7 +163,7 @@ public class Worker(
     {
         if (_tasks.TryRemove(connector, out var taskInfo))
         {
-            logger.Info($"Stopping connector '{connector}'.");
+            logger.Debug($"Stopping connector '{connector}'.");
             taskInfo.Cts.Cancel();
             _waitCancellation.Cancel();
         }
@@ -191,7 +188,7 @@ public class Worker(
             // Delete operation - remove connector if it exists
             if (connectorExists)
             {
-                logger.Info($"Deleting connector '{connector}'.");
+                logger.Debug($"Deleting connector '{connector}'.");
                 await Remove(connector);
             }
             else
@@ -205,7 +202,7 @@ public class Worker(
             if (connectorExists)
             {
                 // Connector already running - restart it with new configuration
-                logger.Info($"Restarting connector '{connector}' with updated configuration.");
+                logger.Debug($"Restarting connector '{connector}' with updated configuration.");
                 await Remove(connector);
                 await Task.Delay(500); // Brief delay before restart
                 await Add(connector);
@@ -213,7 +210,7 @@ public class Worker(
             else
             {
                 // New connector - add it
-                logger.Info($"Starting new connector '{connector}'.");
+                logger.Debug($"Starting new connector '{connector}'.");
                 await Add(connector);
             }
         }

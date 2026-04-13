@@ -52,9 +52,7 @@ public class ConfigurationChangeHandler(
 
                 if (value != null && value.ToJsonString() != "{}")
                 {
-
-                    await File.WriteAllTextAsync(Path.Combine(leaderConfig.Settings, $"{connector}.json"),
-                        value.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+                    await WriteJsonToFileAsync(filePath, value);
                     existingFiles.Remove(filePath);
                 }
                 else
@@ -83,20 +81,16 @@ public class ConfigurationChangeHandler(
             var workerConfig = configurationProvider.GetWorkerConfig();
             var settingsPath = workerConfig?.Settings ?? Path.Combine(Directory.GetCurrentDirectory(), "worker-settings");
 
-            // Ensure the settings directory exists
             if (!Directory.Exists(settingsPath))
             {
                 Directory.CreateDirectory(settingsPath);
                 logger.Debug($"Created worker settings directory: {settingsPath}");
             }
 
-            // Filter to keep only the latest message per key (max offset)
             var latestRecords = records
                 .GroupBy(r => r.GetKey<string>())
                 .Select(g => g.OrderByDescending(r => r.Offset).First())
                 .ToList();
-
-            logger.Debug($"Filtered {records.Count()} records to {latestRecords.Count} latest records by key.");
 
             foreach (var record in latestRecords.Select(record =>
                      {
@@ -109,35 +103,31 @@ public class ConfigurationChangeHandler(
 
                 var filePath = Path.Combine(settingsPath, $"{connectorKey}.json");
 
-                // Delete if value is null or empty
                 if (value == null || value.ToJsonString() == "{}")
                 {
                     record.Status = Status.Deleting;
                     if (File.Exists(filePath))
                     {
                         File.Delete(filePath);
-                        logger.Info($"Deleted configuration file: {connectorKey}.json (null/empty value)");
+                        logger.Debug($"Deleted configuration file: {connectorKey}.json (null/empty value)");
                     }
                     record.UpdateStatus();
                     continue;
                 }
 
-                // Check if this worker is in the workers array
                 var workersArray = value["workers"]?.AsArray();
-                if (workersArray == null || !workersArray.Any(w => w?.GetValue<string>() == workerName))
+                if (workersArray == null || workersArray.All(w => w?.GetValue<string>() != workerName))
                 {
-                    // Worker not in list - delete the file if it exists
                     record.Status = Status.Deleting;
                     if (File.Exists(filePath))
                     {
                         File.Delete(filePath);
-                        logger.Info($"Deleted configuration file: {connectorKey}.json (worker '{workerName}' not in workers list)");
+                        logger.Debug($"Deleted configuration file: {connectorKey}.json (worker '{workerName}' not in workers list)");
                     }
                     record.UpdateStatus();
                     continue;
                 }
 
-                // Extract connector configuration (everything except 'workers' field)
                 var connectorConfig = new JsonObject();
                 foreach (var property in value.AsObject())
                 {
@@ -147,7 +137,6 @@ public class ConfigurationChangeHandler(
                     }
                 }
 
-                // Wrap in worker.connectors.<connectorKey> structure
                 var workerConfigJson = new JsonObject
                 {
                     {
@@ -160,10 +149,8 @@ public class ConfigurationChangeHandler(
                     }
                 };
 
-                await File.WriteAllTextAsync(filePath,
-                    workerConfigJson.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
-                
-                logger.Info($"Saved configuration for connector '{connectorKey}' to {filePath}");
+                await WriteJsonToFileAsync(filePath, workerConfigJson);
+                logger.Debug($"Saved configuration for connector '{connectorKey}' to {filePath}");
 
                 record.UpdateStatus();
             }
@@ -191,22 +178,21 @@ public class ConfigurationChangeHandler(
         };
     }
 
-    private static async Task WriteToFile(string folder, string key, JsonNode value)
+    private static async Task WriteJsonToFileAsync(string filePath, JsonNode jsonNode)
     {
-        var jsonFile = new JsonObject
+        var jsonContent = jsonNode.ToJsonString(new JsonSerializerOptions
         {
-            {
-                "leader",
-                new JsonObject
-                {
-                    {
-                        "connectors",
-                        new JsonObject { { key, value } }
-                    }
-                }
-            }
-        };
-        await File.WriteAllTextAsync(Path.Combine(folder, $"{key}.json"),
-            jsonFile.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+            WriteIndented = true,
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        });
+        await using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None, 4096, useAsync: true))
+        await using (var writer = new StreamWriter(fileStream))
+        {
+            await writer.WriteAsync(jsonContent);
+            await writer.FlushAsync();
+            await fileStream.FlushAsync();
+        }
+        
+        await Task.Delay(50);
     }
 }
