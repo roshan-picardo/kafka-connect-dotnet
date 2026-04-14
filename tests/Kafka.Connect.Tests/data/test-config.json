@@ -19,8 +19,8 @@
     "schema": "/schemas/user-event.avsc",
     "skip": false,
     "files": [
-      "/records/sink-tests-mongo.json",
-      "/records/source-tests-mongo.json"
+      "/records/standalone/sink-tests-mongo.json",
+      "/records/standalone/source-tests-mongo.json"
     ],
     "setup": {
       "database": "kafka_connect_db",
@@ -35,8 +35,8 @@
     "schema": "/schemas/user-event.avsc",
     "skip": false,
     "files": [
-      "/records/sink-tests-postgres.json",
-      "/records/source-tests-postgres.json"
+      "/records/standalone/sink-tests-postgres.json",
+      "/records/standalone/source-tests-postgres.json"
     ],
     "setup": {"database":  "kafka_connect_db",
     "scripts": [
@@ -48,8 +48,8 @@
     "schema": "/schemas/user-event.avsc",
     "skip": false,
     "files": [
-      "/records/sink-tests-sqlserver.json",
-      "/records/source-tests-sqlserver.json"
+      "/records/standalone/sink-tests-sqlserver.json",
+      "/records/standalone/source-tests-sqlserver.json"
     ],
     "setup": {
       "database": "kafka_connect_db",
@@ -63,8 +63,8 @@
     "schema": "/schemas/user-event.avsc",
     "skip": false,
     "files": [
-      "/records/sink-tests-mysql.json",
-      "/records/source-tests-mysql.json"
+      "/records/standalone/sink-tests-mysql.json",
+      "/records/standalone/source-tests-mysql.json"
     ],
     "setup": {
       "database": "kafka_connect_db",
@@ -78,8 +78,8 @@
     "schema": "/schemas/user-event.avsc",
     "skip": false,
     "files": [
-      "/records/sink-tests-mariadb.json",
-      "/records/source-tests-mariadb.json"
+      "/records/standalone/sink-tests-mariadb.json",
+      "/records/standalone/source-tests-mariadb.json"
     ],
     "setup": {
       "database": "kafka_connect_db",
@@ -93,8 +93,8 @@
     "schema": "/schemas/user-event.avsc",
     "skip": false,
     "files": [
-      "/records/sink-tests-oracle.json",
-      "/records/source-tests-oracle.json"
+      "/records/standalone/sink-tests-oracle.json",
+      "/records/standalone/source-tests-oracle.json"
     ],
     "setup": {
       "database": "XE",
@@ -109,8 +109,8 @@
     "schema": "/schemas/user-event.avsc",
     "skip" : false,
     "files": [
-      "/records/sink-tests-dynamodb.json",
-      "/records/source-tests-dynamodb.json"
+      "/records/standalone/sink-tests-dynamodb.json",
+      "/records/standalone/source-tests-dynamodb.json"
     ],
     "setup": {
       "database": "",
