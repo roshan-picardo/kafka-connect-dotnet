@@ -9,7 +9,7 @@
   "records": [
     {
       "operation": "setup",
-      "script": "CREATE TABLE IF NOT EXISTS public.\"sink_table\"(\"userId\" text, \"userName\" text, email text, timestamp text, action text);"
+      "script": "CREATE TABLE IF NOT EXISTS public.\"standalone_postgres_sink_data_table\"(\"userId\" text, \"userName\" text, email text, timestamp text, action text);"
     },
     {
       "operation": "publish",
