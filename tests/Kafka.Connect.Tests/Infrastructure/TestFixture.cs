@@ -26,6 +26,7 @@ public class TestFixture : IAsyncLifetime
     private OracleFixture? _oracleFixture;
     private MongoDbFixture? _mongoDbFixture;
     private DynamoDbFixture? _dynamoDbFixture;
+    private LeaderFixture? _leaderFixture;
     private WorkerFixture? _workerFixture;
 
     static TestFixture()
@@ -85,12 +86,15 @@ public class TestFixture : IAsyncLifetime
             }
 
             LogMessage("Starting integration test infrastructure...");
+            
+            // Configure containers based on mode
+            ConfigureContainersForMode();
 
             await CreateNetworkAsync();
             var testConfigs = await LoadTestConfigurationsAsync();
             InitializeFixturesAsync(testConfigs);
             await InitializeInfrastructureInParallelAsync();
-            await DeployKafkaConnectWorkerAsync();
+            await DeployKafkaConnectNodesAsync();
 
             LogMessage("Integration test infrastructure ready!");
         }
@@ -99,6 +103,57 @@ public class TestFixture : IAsyncLifetime
             TestLoggingService.LogMessage($"Failed to initialize test infrastructure: {ex.Message}");
             await DisposeAsync();
             throw;
+        }
+    }
+
+    private void ConfigureContainersForMode()
+    {
+        LogMessage($"Configuring containers for mode: Distributed={Configuration.Distributed}, Standalone={Configuration.Standalone}");
+        
+        var leaderContainer = Configuration.TestContainers.Containers.FirstOrDefault(c => c.Target == "leader");
+        var workerContainer = Configuration.TestContainers.Containers.FirstOrDefault(c => c.Target == "worker");
+        
+        if (Configuration.Distributed)
+        {
+            // Distributed mode: Enable leader, enable worker with distributed config
+            if (leaderContainer != null)
+            {
+                leaderContainer.Enabled = true;
+                LogMessage("Leader container enabled for distributed mode");
+            }
+            
+            if (workerContainer != null)
+            {
+                workerContainer.Enabled = true;
+                // Update worker command to use distributed config
+                var standaloneConfigIndex = workerContainer.Command.FindIndex(c => c.Contains("appsettings.standalone.config"));
+                if (standaloneConfigIndex >= 0)
+                {
+                    workerContainer.Command[standaloneConfigIndex] = "--config=/app/config/appsettings.distributed.config";
+                }
+                // Add worker config
+                var workerConfigIndex = workerContainer.Command.FindIndex(c => c.Contains("appsettings.distributed.config"));
+                if (workerConfigIndex >= 0)
+                {
+                    workerContainer.Command.Insert(workerConfigIndex + 1, "--config=/app/config/appsettings.worker.config");
+                }
+                LogMessage("Worker container enabled for distributed mode");
+            }
+        }
+        else if (Configuration.Standalone)
+        {
+            // Standalone mode: Disable leader, enable worker with standalone config
+            if (leaderContainer != null)
+            {
+                leaderContainer.Enabled = false;
+                LogMessage("Leader container disabled for standalone mode");
+            }
+            
+            if (workerContainer != null)
+            {
+                workerContainer.Enabled = true;
+                LogMessage("Worker container enabled for standalone mode");
+            }
         }
     }
 
@@ -146,6 +201,7 @@ public class TestFixture : IAsyncLifetime
         _oracleFixture = new OracleFixture(Configuration, LogMessage, _containerService, _network!, testConfigs);
         _mongoDbFixture = new MongoDbFixture(Configuration, LogMessage, _containerService, _network!, testConfigs);
         _dynamoDbFixture = new DynamoDbFixture(Configuration, LogMessage, _containerService, _network!, testConfigs);
+        _leaderFixture = new LeaderFixture(Configuration, LogMessage, _containerService, _network!);
         _workerFixture = new WorkerFixture(Configuration, LogMessage, _containerService, _network!);
     }
 
@@ -171,7 +227,7 @@ public class TestFixture : IAsyncLifetime
         LogMessage("All infrastructure components initialized!");
     }
 
-    private async Task DeployKafkaConnectWorkerAsync()
+    private async Task DeployKafkaConnectNodesAsync()
     {
         if (Configuration.DebugMode)
         {
@@ -182,7 +238,17 @@ public class TestFixture : IAsyncLifetime
             return;
         }
 
-        await _workerFixture!.InitializeAsync();
+        if (Configuration.Distributed)
+        {
+            LogMessage("Deploying Kafka Connect in distributed mode (Leader + Worker)...");
+            await _leaderFixture!.InitializeAsync();
+            await _workerFixture!.InitializeAsync();
+        }
+        else if (Configuration.Standalone)
+        {
+            LogMessage("Deploying Kafka Connect in standalone mode (Worker only)...");
+            await _workerFixture!.InitializeAsync();
+        }
     }
 
     public TestConfiguration Configuration { get; }
@@ -208,8 +274,9 @@ public class TestFixture : IAsyncLifetime
 
             LogMessage("Tearing down test infrastructure...");
 
-            // Dispose fixtures in reverse order (worker first, then databases, then Kafka)
+            // Dispose fixtures in reverse order (worker first, leader, then databases, then Kafka)
             if (_workerFixture != null) await _workerFixture.DisposeAsync();
+            if (_leaderFixture != null) await _leaderFixture.DisposeAsync();
             if (_dynamoDbFixture != null) await _dynamoDbFixture.DisposeAsync();
             if (_mongoDbFixture != null) await _mongoDbFixture.DisposeAsync();
             if (_oracleFixture != null) await _oracleFixture.DisposeAsync();

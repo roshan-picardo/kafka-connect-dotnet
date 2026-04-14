@@ -7,6 +7,8 @@ public class TestConfiguration
     public bool SkipInfrastructure { get; set; } = false;
     public bool SkipKafkaConnectLogFlush { get; set; } = false;
     public bool DebugMode { get; set; } = false;
+    public bool Distributed { get; set; } = false;
+    public bool Standalone { get; set; } = true;
     public TestContainersConfig TestContainers { get; set; } = new();
     public Dictionary<string, string> Services { get; set; } = new();
     
