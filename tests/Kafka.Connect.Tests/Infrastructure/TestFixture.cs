@@ -27,7 +27,8 @@ public class TestFixture : IAsyncLifetime
     private MongoDbFixture? _mongoDbFixture;
     private DynamoDbFixture? _dynamoDbFixture;
     private LeaderFixture? _leaderFixture;
-    private WorkerFixture? _workerFixture;
+    private StandaloneFixture? _standaloneFixture;
+    private DistributedFixture? _distributedFixture;
 
     static TestFixture()
     {
@@ -91,6 +92,7 @@ public class TestFixture : IAsyncLifetime
             ConfigureContainersForMode();
 
             await CreateNetworkAsync();
+            await BuildKafkaConnectImageAsync();
             var testConfigs = await LoadTestConfigurationsAsync();
             InitializeFixturesAsync(testConfigs);
             await InitializeInfrastructureInParallelAsync();
@@ -111,49 +113,28 @@ public class TestFixture : IAsyncLifetime
         LogMessage($"Configuring containers for mode: Distributed={Configuration.Distributed}, Standalone={Configuration.Standalone}");
         
         var leaderContainer = Configuration.TestContainers.Containers.FirstOrDefault(c => c.Target == "leader");
-        var workerContainer = Configuration.TestContainers.Containers.FirstOrDefault(c => c.Target == "worker");
+        var standaloneContainer = Configuration.TestContainers.Containers.FirstOrDefault(c => c.Target == "standalone");
+        var distributedContainer = Configuration.TestContainers.Containers.FirstOrDefault(c => c.Target == "distributed");
         
-        if (Configuration.Distributed)
+        // Enable/disable leader based on distributed mode
+        if (leaderContainer != null)
         {
-            // Distributed mode: Enable leader, enable worker with distributed config
-            if (leaderContainer != null)
-            {
-                leaderContainer.Enabled = true;
-                LogMessage("Leader container enabled for distributed mode");
-            }
-            
-            if (workerContainer != null)
-            {
-                workerContainer.Enabled = true;
-                // Update worker command to use distributed config
-                var standaloneConfigIndex = workerContainer.Command.FindIndex(c => c.Contains("appsettings.standalone.config"));
-                if (standaloneConfigIndex >= 0)
-                {
-                    workerContainer.Command[standaloneConfigIndex] = "--config=/app/config/appsettings.distributed.config";
-                }
-                // Add worker config
-                var workerConfigIndex = workerContainer.Command.FindIndex(c => c.Contains("appsettings.distributed.config"));
-                if (workerConfigIndex >= 0)
-                {
-                    workerContainer.Command.Insert(workerConfigIndex + 1, "--config=/app/config/appsettings.worker.config");
-                }
-                LogMessage("Worker container enabled for distributed mode");
-            }
+            leaderContainer.Enabled = Configuration.Distributed;
+            LogMessage($"Leader container {(Configuration.Distributed ? "enabled" : "disabled")}");
         }
-        else if (Configuration.Standalone)
+        
+        // Enable/disable standalone container
+        if (standaloneContainer != null)
         {
-            // Standalone mode: Disable leader, enable worker with standalone config
-            if (leaderContainer != null)
-            {
-                leaderContainer.Enabled = false;
-                LogMessage("Leader container disabled for standalone mode");
-            }
-            
-            if (workerContainer != null)
-            {
-                workerContainer.Enabled = true;
-                LogMessage("Worker container enabled for standalone mode");
-            }
+            standaloneContainer.Enabled = Configuration.Standalone;
+            LogMessage($"Standalone container {(Configuration.Standalone ? "enabled" : "disabled")}");
+        }
+        
+        // Enable/disable distributed container
+        if (distributedContainer != null)
+        {
+            distributedContainer.Enabled = Configuration.Distributed;
+            LogMessage($"Distributed container {(Configuration.Distributed ? "enabled" : "disabled")}");
         }
     }
 
@@ -173,6 +154,29 @@ public class TestFixture : IAsyncLifetime
                                    ex.Message.Contains("duplicate"))
         {
             LogMessage($"Network already exists, skipping creation: {Configuration.TestContainers.Network.Name}");
+        }
+    }
+
+    private async Task BuildKafkaConnectImageAsync()
+    {
+        if (Configuration.DebugMode)
+        {
+            LogMessage("Debug mode active, skipping Docker image build");
+            return;
+        }
+
+        // Find any container that uses a Dockerfile (they all use the same one)
+        var dockerfileContainer = Configuration.TestContainers.Containers
+            .FirstOrDefault(c => !string.IsNullOrEmpty(c.DockerfilePath) && c.Enabled);
+
+        if (dockerfileContainer != null)
+        {
+            LogMessage($"Building Kafka Connect Docker image once for all containers...");
+            await _containerService.BuildDockerImageAsync(
+                dockerfileContainer.DockerfilePath!,
+                "kafka-connect:latest",
+                dockerfileContainer.CleanUpImage);
+            LogMessage("Kafka Connect Docker image built successfully!");
         }
     }
 
@@ -202,7 +206,8 @@ public class TestFixture : IAsyncLifetime
         _mongoDbFixture = new MongoDbFixture(Configuration, LogMessage, _containerService, _network!, testConfigs);
         _dynamoDbFixture = new DynamoDbFixture(Configuration, LogMessage, _containerService, _network!, testConfigs);
         _leaderFixture = new LeaderFixture(Configuration, LogMessage, _containerService, _network!);
-        _workerFixture = new WorkerFixture(Configuration, LogMessage, _containerService, _network!);
+        _standaloneFixture = new StandaloneFixture(Configuration, LogMessage, _containerService, _network!);
+        _distributedFixture = new DistributedFixture(Configuration, LogMessage, _containerService, _network!);
     }
 
     private async Task InitializeInfrastructureInParallelAsync()
@@ -238,16 +243,24 @@ public class TestFixture : IAsyncLifetime
             return;
         }
 
+        var deploymentTasks = new List<Task>();
+
         if (Configuration.Distributed)
         {
-            LogMessage("Deploying Kafka Connect in distributed mode (Leader + Worker)...");
-            await _leaderFixture!.InitializeAsync();
-            await _workerFixture!.InitializeAsync();
+            LogMessage("Deploying Kafka Connect in distributed mode (Leader + Distributed Worker)...");
+            deploymentTasks.Add(_leaderFixture!.InitializeAsync());
+            deploymentTasks.Add(_distributedFixture!.InitializeAsync());
         }
-        else if (Configuration.Standalone)
+        
+        if (Configuration.Standalone)
         {
-            LogMessage("Deploying Kafka Connect in standalone mode (Worker only)...");
-            await _workerFixture!.InitializeAsync();
+            LogMessage("Deploying Kafka Connect in standalone mode...");
+            deploymentTasks.Add(_standaloneFixture!.InitializeAsync());
+        }
+
+        if (deploymentTasks.Count > 0)
+        {
+            await Task.WhenAll(deploymentTasks);
         }
     }
 
@@ -274,8 +287,9 @@ public class TestFixture : IAsyncLifetime
 
             LogMessage("Tearing down test infrastructure...");
 
-            // Dispose fixtures in reverse order (worker first, leader, then databases, then Kafka)
-            if (_workerFixture != null) await _workerFixture.DisposeAsync();
+            // Dispose fixtures in reverse order (workers first, leader, then databases, then Kafka)
+            if (_distributedFixture != null) await _distributedFixture.DisposeAsync();
+            if (_standaloneFixture != null) await _standaloneFixture.DisposeAsync();
             if (_leaderFixture != null) await _leaderFixture.DisposeAsync();
             if (_dynamoDbFixture != null) await _dynamoDbFixture.DisposeAsync();
             if (_mongoDbFixture != null) await _mongoDbFixture.DisposeAsync();

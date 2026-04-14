@@ -39,6 +39,14 @@ public class KafkaFixture(
 
         var patternConfigFiles = Directory.GetFiles(configDirectory, "appsettings.*.json");
         configFiles.AddRange(patternConfigFiles);
+        
+        // Also search in standalone subdirectory
+        var standaloneDirectory = Path.Join(configDirectory, "standalone");
+        if (Directory.Exists(standaloneDirectory))
+        {
+            var standaloneConfigFiles = Directory.GetFiles(standaloneDirectory, "appsettings.*.json");
+            configFiles.AddRange(standaloneConfigFiles);
+        }
 
         if (configFiles.Count == 0)
         {
