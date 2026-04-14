@@ -8,7 +8,7 @@
   "records": [
     {
       "operation": "setup",
-      "script": "CREATE TABLE \"SYSTEM\".\"sink_table\" (\"userId\" VARCHAR2(255), \"userName\" VARCHAR2(255), \"email\" VARCHAR2(255), \"timestamp\" VARCHAR2(255), \"action\" VARCHAR2(255))"
+      "script": "CREATE TABLE \"SYSTEM\".\"standalone_oracle_sink_data_table\" (\"userId\" VARCHAR2(255), \"userName\" VARCHAR2(255), \"email\" VARCHAR2(255), \"timestamp\" VARCHAR2(255), \"action\" VARCHAR2(255))"
     },
     {
       "operation": "publish",
@@ -78,7 +78,7 @@
     },
     {
       "operation": "cleanup",
-      "script": "DROP TABLE \"SYSTEM\".\"sink_table\""
+      "script": "DROP TABLE \"SYSTEM\".\"standalone_oracle_sink_data_table\""
     }
   ]
 }

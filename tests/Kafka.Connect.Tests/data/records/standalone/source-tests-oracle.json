@@ -104,7 +104,7 @@
     },
     {
       "operation": "cleanup",
-      "script": "BEGIN EXECUTE IMMEDIATE 'DROP TABLE \"SYSTEM\".\"source_table\"'; EXCEPTION WHEN OTHERS THEN IF SQLCODE != -942 THEN RAISE; END IF; END;"
+      "script": "BEGIN EXECUTE IMMEDIATE 'DROP TABLE \"SYSTEM\".\"standalone_oracle_source_data_table\"'; EXCEPTION WHEN OTHERS THEN IF SQLCODE != -942 THEN RAISE; END IF; END;"
     }
   ]
 }
