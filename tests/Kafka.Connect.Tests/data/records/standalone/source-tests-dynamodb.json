@@ -1,8 +1,8 @@
 {
   "title": "DynamoDB - source tests",
   "properties": {
-    "topic": "dynamodb-source-data-topic",
-    "table": "kafka-connect-source-table"
+    "topic": "standalone-dynamodb-source-data-topic",
+    "table": "standalone_dynamodb_source_data_table"
   },
   "records": [
     {

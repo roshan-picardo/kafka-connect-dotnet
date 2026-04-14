@@ -1,10 +1,10 @@
 {
   "title": "Postgres - source tests",
   "properties": {
-    "topic": "postgres-source-data-topic",
+    "topic": "standalone-postgres-source-data-topic",
     "database": "kafka_connect_db",
     "schema": "public",
-    "table": "source_table"
+    "table": "standalone_postgres_source_data_table"
   },
   "records": [
     {
@@ -107,7 +107,7 @@
     },
     {
       "operation": "cleanup",
-      "script": "DROP TABLE IF EXISTS public.source_table;"
+      "script": "DROP TABLE IF EXISTS public.standalone_postgres_source_data_table;"
     }
   ]
 }

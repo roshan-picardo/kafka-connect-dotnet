@@ -1,15 +1,15 @@
 {
   "title": "SqlServer - sink tests",
   "properties": {
-    "topic": "sqlserver-sink-data-topic",
+    "topic": "standalone-sqlserver-sink-data-topic",
     "database": "kafka_connect_db",
     "schema": "dbo",
-    "table": "sink_table"
+    "table": "standalone_sqlserver_sink_data_table"
   },
   "records": [
     {
       "operation": "setup",
-      "script": "USE kafka_connect_db; IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='sink_table' AND xtype='U') CREATE TABLE [dbo].[sink_table]([userId] NVARCHAR(255), [userName] NVARCHAR(255), [email] NVARCHAR(255), [timestamp] NVARCHAR(255), [action] NVARCHAR(255));"
+      "script": "USE kafka_connect_db; IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='standalone_sqlserver_sink_data_table' AND xtype='U') CREATE TABLE [dbo].[standalone_sqlserver_sink_data_table]([userId] NVARCHAR(255), [userName] NVARCHAR(255), [email] NVARCHAR(255), [timestamp] NVARCHAR(255), [action] NVARCHAR(255));"
     },
     {
       "operation": "publish",
@@ -79,7 +79,7 @@
     },
     {
       "operation": "cleanup",
-      "script": "IF EXISTS (SELECT * FROM sysobjects WHERE name='sink_table' AND xtype='U') DROP TABLE [dbo].[sink_table];"
+      "script": "IF EXISTS (SELECT * FROM sysobjects WHERE name='standalone_sqlserver_sink_data_table' AND xtype='U') DROP TABLE [dbo].[standalone_sqlserver_sink_data_table];"
     }
   ]
 }

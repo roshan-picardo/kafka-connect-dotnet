@@ -1,10 +1,10 @@
 {
   "title": "MySql - source tests",
   "properties": {
-    "topic": "mysql-source-data-topic",
+    "topic": "standalone-mysql-source-data-topic",
     "database": "kafka_connect_db",
     "schema": "kafka_connect_db",
-    "table": "source_table"
+    "table": "standalone_mysql_source_data_table"
   },
   "records": [
     {
@@ -104,7 +104,7 @@
     },
     {
       "operation": "cleanup",
-      "script": "DROP TABLE IF EXISTS `source_table`;"
+      "script": "DROP TABLE IF EXISTS `standalone_mysql_source_data_table`;"
     }
   ]
 }

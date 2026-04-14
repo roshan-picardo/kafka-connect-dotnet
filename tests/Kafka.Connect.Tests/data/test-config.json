@@ -25,8 +25,8 @@
     "setup": {
       "database": "kafka_connect_db",
       "scripts": [
-        "{ \"create\": \"source-collection\", \"changeStreamPreAndPostImages\": { \"enabled\": true } }",
-        "{ \"create\": \"sink-collection\", \"changeStreamPreAndPostImages\": { \"enabled\": true } }"
+        "{ \"create\": \"standalone_mongodb_source_data_collection\", \"changeStreamPreAndPostImages\": { \"enabled\": true } }",
+        "{ \"create\": \"standalone_mongodb_sink_data_collection\", \"changeStreamPreAndPostImages\": { \"enabled\": true } }"
       ]
     }
   },
@@ -40,7 +40,7 @@
     ],
     "setup": {"database":  "kafka_connect_db",
     "scripts": [
-      "CREATE TABLE IF NOT EXISTS public.\"source_table\"(\"userId\" text, \"userName\" text, email text, timestamp text, action text);"
+      "CREATE TABLE IF NOT EXISTS public.\"standalone_postgres_source_data_table\"(\"userId\" text, \"userName\" text, email text, timestamp text, action text);"
     ]}
   },
   {
@@ -54,7 +54,7 @@
     "setup": {
       "database": "kafka_connect_db",
       "scripts": [
-        "IF OBJECT_ID('[dbo].[source_table]', 'U') IS NOT NULL DROP TABLE [dbo].[source_table]; CREATE TABLE [dbo].[source_table]([userId] NVARCHAR(255), [userName] NVARCHAR(255), [email] NVARCHAR(255), [timestamp] NVARCHAR(255), [action] NVARCHAR(255));"
+        "IF OBJECT_ID('[dbo].[standalone_sqlserver_source_data_table]', 'U') IS NOT NULL DROP TABLE [dbo].[standalone_sqlserver_source_data_table]; CREATE TABLE [dbo].[standalone_sqlserver_source_data_table]([userId] NVARCHAR(255), [userName] NVARCHAR(255), [email] NVARCHAR(255), [timestamp] NVARCHAR(255), [action] NVARCHAR(255));"
       ]
     }
   },
@@ -69,7 +69,7 @@
     "setup": {
       "database": "kafka_connect_db",
       "scripts": [
-        "DROP TABLE IF EXISTS `source_table`; CREATE TABLE `source_table`(`userId` VARCHAR(255), `userName` VARCHAR(255), `email` VARCHAR(255), `timestamp` VARCHAR(255), `action` VARCHAR(255));"
+        "DROP TABLE IF EXISTS `standalone_mysql_source_data_table`; CREATE TABLE `standalone_mysql_source_data_table`(`userId` VARCHAR(255), `userName` VARCHAR(255), `email` VARCHAR(255), `timestamp` VARCHAR(255), `action` VARCHAR(255));"
       ]
     }
   },
@@ -84,7 +84,7 @@
     "setup": {
       "database": "kafka_connect_db",
       "scripts": [
-        "DROP TABLE IF EXISTS `source_table`; CREATE TABLE `source_table`(`userId` VARCHAR(255), `userName` VARCHAR(255), `email` VARCHAR(255), `timestamp` VARCHAR(255), `action` VARCHAR(255));"
+        "DROP TABLE IF EXISTS `standalone_mariadb_source_data_table`; CREATE TABLE `standalone_mariadb_source_data_table`(`userId` VARCHAR(255), `userName` VARCHAR(255), `email` VARCHAR(255), `timestamp` VARCHAR(255), `action` VARCHAR(255));"
       ]
     }
   },
@@ -99,8 +99,8 @@
     "setup": {
       "database": "XE",
       "scripts": [
-        "BEGIN EXECUTE IMMEDIATE 'DROP TABLE \"SYSTEM\".\"source_table\"'; EXCEPTION WHEN OTHERS THEN IF SQLCODE != -942 THEN RAISE; END IF; END;",
-        "CREATE TABLE \"SYSTEM\".\"source_table\" (\"userId\" VARCHAR2(255), \"userName\" VARCHAR2(255), \"email\" VARCHAR2(255), \"timestamp\" VARCHAR2(255), \"action\" VARCHAR2(255))"
+        "BEGIN EXECUTE IMMEDIATE 'DROP TABLE \"SYSTEM\".\"standalone_oracle_source_data_table\"'; EXCEPTION WHEN OTHERS THEN IF SQLCODE != -942 THEN RAISE; END IF; END;",
+        "CREATE TABLE \"SYSTEM\".\"standalone_oracle_source_data_table\" (\"userId\" VARCHAR2(255), \"userName\" VARCHAR2(255), \"email\" VARCHAR2(255), \"timestamp\" VARCHAR2(255), \"action\" VARCHAR2(255))"
       ]
     }
   },
@@ -115,8 +115,8 @@
     "setup": {
       "database": "",
       "scripts": [
-        "{ \"TableName\": \"kafka-connect-sink-table\", \"KeySchema\": [{ \"AttributeName\": \"userId\", \"KeyType\": \"HASH\" }], \"AttributeDefinitions\": [{ \"AttributeName\": \"userId\", \"AttributeType\": \"S\" }] }",
-        "{ \"TableName\": \"kafka-connect-source-table\", \"KeySchema\": [{ \"AttributeName\": \"userId\", \"KeyType\": \"HASH\" }], \"AttributeDefinitions\": [{ \"AttributeName\": \"userId\", \"AttributeType\": \"S\" }], \"StreamSpecification\": { \"StreamEnabled\": true, \"StreamViewType\": \"NEW_AND_OLD_IMAGES\" } }",
+        "{ \"TableName\": \"standalone_dynamodb_sink_data_table\", \"KeySchema\": [{ \"AttributeName\": \"userId\", \"KeyType\": \"HASH\" }], \"AttributeDefinitions\": [{ \"AttributeName\": \"userId\", \"AttributeType\": \"S\" }] }",
+        "{ \"TableName\": \"standalone_dynamodb_source_data_table\", \"KeySchema\": [{ \"AttributeName\": \"userId\", \"KeyType\": \"HASH\" }], \"AttributeDefinitions\": [{ \"AttributeName\": \"userId\", \"AttributeType\": \"S\" }], \"StreamSpecification\": { \"StreamEnabled\": true, \"StreamViewType\": \"NEW_AND_OLD_IMAGES\" } }",
         "{ \"TableName\": \"kafka-connect-health-table\", \"KeySchema\": [{ \"AttributeName\": \"id\", \"KeyType\": \"HASH\" }], \"AttributeDefinitions\": [{ \"AttributeName\": \"id\", \"AttributeType\": \"S\" }] }"
       ]
     }

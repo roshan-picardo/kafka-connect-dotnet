@@ -1,9 +1,9 @@
 {
   "title": "Oracle - sink tests",
   "properties": {
-    "topic": "oracle-sink-data-topic",
+    "topic": "standalone-oracle-sink-data-topic",
     "schema": "SYSTEM",
-    "table": "sink_table"
+    "table": "standalone_oracle_sink_data_table"
   },
   "records": [
     {

@@ -1,8 +1,8 @@
 {
   "title": "MongoDB - sink tests",
   "properties": {
-    "topic": "mongodb-sink-data-topic",
-    "collection": "sink-collection",
+    "topic": "standalone-mongodb-sink-data-topic",
+    "collection": "standalone_mongodb_sink_data_collection",
     "database": "kafka_connect_db"
   },
   "records": [

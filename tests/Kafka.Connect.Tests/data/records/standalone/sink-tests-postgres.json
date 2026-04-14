@@ -1,10 +1,10 @@
 {
   "title": "Postgres - sink tests",
   "properties": {
-    "topic": "postgres-sink-data-topic",
+    "topic": "standalone-postgres-sink-data-topic",
     "database": "kafka_connect_db",
     "schema": "public",
-    "table": "sink_table"
+    "table": "standalone_postgres_sink_data_table"
   },
   "records": [
     {
@@ -79,7 +79,7 @@
     },
     {
       "operation": "cleanup",
-      "script": "DROP TABLE IF EXISTS public.sink_table;"
+      "script": "DROP TABLE IF EXISTS public.standalone_postgres_sink_data_table;"
     }
   ]
 }

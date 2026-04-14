@@ -1,10 +1,10 @@
 {
   "title": "Oracle - source tests",
   "properties": {
-    "topic": "oracle-source-data-topic",
+    "topic": "standalone-oracle-source-data-topic",
     "database": "XE",
     "schema": "SYSTEM",
-    "table": "source_table"
+    "table": "standalone_oracle_source_data_table"
   },
   "records": [
     {

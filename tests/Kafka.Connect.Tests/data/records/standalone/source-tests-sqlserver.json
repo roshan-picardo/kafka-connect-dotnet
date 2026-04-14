@@ -1,10 +1,10 @@
 {
   "title": "SqlServer - source tests",
   "properties": {
-    "topic": "sqlserver-source-data-topic",
+    "topic": "standalone-sqlserver-source-data-topic",
     "database": "kafka_connect_db",
     "schema": "dbo",
-    "table": "source_table"
+    "table": "standalone_sqlserver_source_data_table"
   },
   "records": [
     {
@@ -104,7 +104,7 @@
     },
     {
       "operation": "cleanup",
-      "script": "DROP TABLE IF EXISTS [dbo].[source_table];"
+      "script": "DROP TABLE IF EXISTS [dbo].[standalone_sqlserver_source_data_table];"
     }
   ]
 }

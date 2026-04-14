@@ -1,9 +1,9 @@
 {
   "title": "MongoDB - source tests",
   "properties": {
-    "topic": "mongodb-source-data-topic",
+    "topic": "standalone-mongodb-source-data-topic",
     "database": "kafka_connect_db",
-    "collection": "source-collection"
+    "collection": "standalone_mongodb_source_data_collection"
   },
   "records": [
     {
