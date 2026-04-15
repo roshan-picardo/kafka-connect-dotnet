@@ -202,6 +202,11 @@ public class LeaderFixture(
                 {
                     successCount++;
                     LogMessage($"Successfully submitted connector configuration: {fileName}", "");
+                    
+                    // Add delay to allow worker to process and flush config file to disk
+                    // This prevents race conditions where the worker tries to reload configs
+                    // before the file system has fully synced the writes
+                    await Task.Delay(1000);
                 }
                 else
                 {
