@@ -1,5 +1,5 @@
 {
-  "title": "SqlServer - source tests",
+  "title": "sqlserver-standalone-source-connector-tests",
   "properties": {
     "topic": "standalone-sqlserver-source-data-topic",
     "database": "kafka_connect_db",

@@ -1,5 +1,5 @@
 {
-  "title": "MySql - source tests",
+  "title": "mysql-standalone-source-connector-tests",
   "properties": {
     "topic": "standalone-mysql-source-data-topic",
     "database": "kafka_connect_db",

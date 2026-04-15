@@ -1,14 +1,14 @@
 {
-  "title": "mysql-standalone-sink-connector-tests",
+  "title": "mysql-distributed-sink-connector-tests",
   "properties": {
-    "topic": "standalone-mysql-sink-data-topic",
+    "topic": "distributed-mysql-sink-data-topic",
     "database": "kafka_connect_db",
-    "table": "standalone_mysql_sink_data_table"
+    "table": "distributed_mysql_sink_data_table"
   },
   "records": [
     {
       "operation": "setup",
-      "script": "CREATE TABLE IF NOT EXISTS `kafka_connect_db`.`standalone_mysql_sink_data_table` (`userId` VARCHAR(255), `userName` VARCHAR(255), `email` VARCHAR(255), `timestamp` VARCHAR(255), `action` VARCHAR(255));"
+      "script": "CREATE TABLE IF NOT EXISTS `kafka_connect_db`.`distributed_mysql_sink_data_table` (`userId` VARCHAR(255), `userName` VARCHAR(255), `email` VARCHAR(255), `timestamp` VARCHAR(255), `action` VARCHAR(255));"
     },
     {
       "operation": "publish",
@@ -78,7 +78,7 @@
     },
     {
       "operation": "cleanup",
-      "script": "DROP TABLE IF EXISTS `kafka_connect_db`.`standalone_mysql_sink_data_table`;"
+      "script": "DROP TABLE IF EXISTS `kafka_connect_db`.`distributed_mysql_sink_data_table`;"
     }
   ]
 }

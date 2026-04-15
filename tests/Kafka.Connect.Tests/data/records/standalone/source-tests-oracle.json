@@ -1,5 +1,5 @@
 {
-  "title": "Oracle - source tests",
+  "title": "oracle-standalone-source-connector-tests",
   "properties": {
     "topic": "standalone-oracle-source-data-topic",
     "database": "XE",

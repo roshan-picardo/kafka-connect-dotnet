@@ -1,4 +1,5 @@
 using DotNet.Testcontainers.Networks;
+using System.Text;
 using System.Text.Json;
 
 namespace IntegrationTests.Kafka.Connect.Infrastructure.Fixtures;
@@ -28,6 +29,9 @@ public class LeaderFixture(
         {
             await WaitForReadyAsync();
         }
+        
+        // Submit distributed connector configurations to the leader
+        await SubmitDistributedConnectorsAsync();
         
         LogMessage("Kafka Connect leader initialized!", "");
     }
@@ -150,5 +154,155 @@ public class LeaderFixture(
 
         throw new TimeoutException(
             $"Leader and connectors did not reach 'Running' status after {LeaderReadyMaxAttempts} attempts");
+    }
+
+    private async Task SubmitDistributedConnectorsAsync()
+    {
+        LogMessage("Submitting distributed connector configurations to leader...", "");
+        
+        var configDirectory = Path.Join(Directory.GetCurrentDirectory(), "Configurations", "distributed");
+        
+        if (!Directory.Exists(configDirectory))
+        {
+            LogMessage("No distributed configuration directory found, skipping connector submission", "");
+            return;
+        }
+        
+        var configFiles = Directory.GetFiles(configDirectory, "*.json");
+        
+        if (configFiles.Length == 0)
+        {
+            LogMessage("No distributed connector configuration files found, skipping connector submission", "");
+            return;
+        }
+        
+        var leaderEndpoint = Configuration.GetServiceEndpoint("Leader");
+        
+        using var httpClient = new HttpClient
+        {
+            Timeout = TimeSpan.FromSeconds(30)
+        };
+        
+        var successCount = 0;
+        var failureCount = 0;
+        
+        foreach (var configFile in configFiles)
+        {
+            try
+            {
+                var fileName = Path.GetFileNameWithoutExtension(configFile);
+                var configContent = await File.ReadAllTextAsync(configFile);
+                
+                var postUrl = $"{leaderEndpoint}/connectors/{fileName}";
+                var content = new StringContent(configContent, Encoding.UTF8, "application/json");
+                
+                var response = await httpClient.PostAsync(postUrl, content);
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    successCount++;
+                    LogMessage($"Successfully submitted connector configuration: {fileName}", "");
+                }
+                else
+                {
+                    failureCount++;
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    LogMessage($"Failed to submit connector configuration {fileName}: HTTP {(int)response.StatusCode} - {errorContent}", "");
+                }
+            }
+            catch (Exception ex)
+            {
+                failureCount++;
+                LogMessage($"Error submitting connector configuration {Path.GetFileName(configFile)}: {ex.Message}", "");
+            }
+        }
+        
+        LogMessage($"Connector submission completed: {successCount} succeeded, {failureCount} failed", "");
+        
+        // Fetch and log distributed worker status
+        if (successCount > 0)
+        {
+            LogMessage("Waiting 30 seconds for connectors to start...", "");
+            await Task.Delay(30000);
+            await LogDistributedWorkerStatusAsync(httpClient);
+        }
+    }
+
+    private async Task LogDistributedWorkerStatusAsync(HttpClient httpClient)
+    {
+        try
+        {
+            var distributedEndpoint = Configuration.GetServiceEndpoint("Distributed");
+            var statusUrl = $"{distributedEndpoint}/workers/status";
+            
+            LogMessage("Fetching distributed worker status...", "");
+            
+            var response = await httpClient.GetAsync(statusUrl);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                try
+                {
+                    var statusDoc = JsonDocument.Parse(content);
+                    
+                    if (statusDoc.RootElement.TryGetProperty("status", out var status))
+                    {
+                        // Log worker status
+                        if (status.TryGetProperty("worker", out var worker))
+                        {
+                            var workerStatus = worker.TryGetProperty("status", out var ws) ? ws.GetString() : "Unknown";
+                            var workerName = worker.TryGetProperty("name", out var wn) ? wn.GetString() : "Unknown";
+                            LogMessage($"Distributed Worker: {workerName} - Status: {workerStatus}", "");
+                        }
+                        
+                        // Log connector statuses
+                        if (status.TryGetProperty("connectors", out var connectors))
+                        {
+                            var connectorList = new List<string>();
+                            foreach (var connector in connectors.EnumerateArray())
+                            {
+                                if (connector.TryGetProperty("name", out var name) &&
+                                    connector.TryGetProperty("status", out var connectorStatus))
+                                {
+                                    var connectorName = name.GetString();
+                                    var connectorStatusValue = connectorStatus.GetString();
+                                    connectorList.Add($"{connectorName}={connectorStatusValue}");
+                                }
+                            }
+                            
+                            if (connectorList.Count > 0)
+                            {
+                                LogMessage($"Distributed Connectors: [{string.Join(", ", connectorList)}]", "");
+                            }
+                            else
+                            {
+                                LogMessage("Distributed Connectors: None registered yet", "");
+                            }
+                        }
+                    }
+                    else
+                    {
+                        LogMessage($"Distributed worker status response missing 'status' property: {content}", "");
+                    }
+                }
+                catch (JsonException ex)
+                {
+                    LogMessage($"Failed to parse distributed worker status JSON: {ex.Message}", "");
+                }
+            }
+            else
+            {
+                LogMessage($"Failed to fetch distributed worker status: HTTP {(int)response.StatusCode}", "");
+            }
+        }
+        catch (Exception ex)
+        {
+            LogMessage($"Error fetching distributed worker status: {ex.Message}", "");
+        }
+        
+        // Pause execution to allow inspection
+        // LogMessage("Press Enter to continue...", "");
+        // Console.ReadLine();
     }
 }

@@ -1,5 +1,5 @@
 {
-  "title": "SqlServer - sink tests",
+  "title": "sqlserver-standalone-sink-connector-tests",
   "properties": {
     "topic": "standalone-sqlserver-sink-data-topic",
     "database": "kafka_connect_db",

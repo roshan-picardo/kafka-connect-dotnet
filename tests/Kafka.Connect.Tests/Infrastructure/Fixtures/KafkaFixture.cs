@@ -47,6 +47,14 @@ public class KafkaFixture(
             var standaloneConfigFiles = Directory.GetFiles(standaloneDirectory, "appsettings.*.json");
             configFiles.AddRange(standaloneConfigFiles);
         }
+        
+        // Also search in distributed subdirectory
+        var distributedDirectory = Path.Join(configDirectory, "distributed");
+        if (Directory.Exists(distributedDirectory))
+        {
+            var distributedConfigFiles = Directory.GetFiles(distributedDirectory, "*.json");
+            configFiles.AddRange(distributedConfigFiles);
+        }
 
         if (configFiles.Count == 0)
         {
@@ -63,6 +71,7 @@ public class KafkaFixture(
                 var configContent = await File.ReadAllTextAsync(configFile);
                 var configJson = JsonDocument.Parse(configContent);
 
+                // Handle standalone format: worker.connectors
                 if (configJson.RootElement.TryGetProperty("worker", out var worker))
                 {
                     if (worker.TryGetProperty("topics", out var workerTopics))
@@ -118,6 +127,40 @@ public class KafkaFixture(
                                             allTopics.Add(topicName);
                                         }
                                     }
+                                }
+                            }
+                        }
+                    }
+                }
+                // Handle distributed format: connector at root level
+                else if (configJson.RootElement.TryGetProperty("connector", out var connector))
+                {
+                    // Handle sink connector topics (from topics array)
+                    if (connector.TryGetProperty("topics", out var topics))
+                    {
+                        foreach (var topic in topics.EnumerateArray())
+                        {
+                            var topicName = topic.GetString();
+                            if (!string.IsNullOrEmpty(topicName))
+                            {
+                                allTopics.Add(topicName);
+                            }
+                        }
+                    }
+
+                    // Handle source connector topics (from plugin.properties.commands)
+                    if (connector.TryGetProperty("plugin", out var plugin) &&
+                        plugin.TryGetProperty("properties", out var properties) &&
+                        properties.TryGetProperty("commands", out var commands))
+                    {
+                        foreach (var command in commands.EnumerateObject())
+                        {
+                            if (command.Value.TryGetProperty("topic", out var commandTopic))
+                            {
+                                var topicName = commandTopic.GetString();
+                                if (!string.IsNullOrEmpty(topicName))
+                                {
+                                    allTopics.Add(topicName);
                                 }
                             }
                         }

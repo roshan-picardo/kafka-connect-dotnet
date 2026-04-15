@@ -1,5 +1,5 @@
 {
-  "title": "MariaDb - source tests",
+  "title": "mariadb-standalone-source-connector-tests",
   "properties": {
     "topic": "standalone-mariadb-source-data-topic",
     "database": "kafka_connect_db",

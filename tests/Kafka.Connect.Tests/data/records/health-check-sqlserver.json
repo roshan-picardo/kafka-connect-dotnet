@@ -1,5 +1,5 @@
 {
-  "title": "SqlServer - health checks",
+  "title": "sqlserver-health-check-tests",
   "properties": {
     "target": "SqlServer",
     "topic": "-",

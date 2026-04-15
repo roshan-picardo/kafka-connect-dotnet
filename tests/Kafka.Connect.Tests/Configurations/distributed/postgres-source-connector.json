@@ -1,0 +1,53 @@
+{
+  "connector": {
+    "groupId": "distributed-postgres-source-connector",
+    "tasks": 1,
+    "paused": false,
+    "disabled": false,
+    "plugin": {
+      "type": "source",
+      "name": "postgres",
+      "handler": "Kafka.Connect.Postgres.PostgresPluginHandler",
+      "strategy": {
+        "name": "Kafka.Connect.Postgres.Strategies.ReadStrategy"
+      },
+      "properties": {
+        "host": "postgres",
+        "port": 5432,
+        "userId": "postgres",
+        "password": "postgres",
+        "database": "kafka_connect_db",
+        "changelog": {
+          "schema": "public",
+          "table": "distributed_postgres_audit_log"
+        },
+        "commands": {
+          "distributed-postgres-source-command": {
+            "topic": "distributed-postgres-source-data-topic",
+            "table": "distributed_postgres_source_data_table",
+            "schema": "public",
+            "keys": ["userId"],
+            "snapshot": {
+              "enabled": false,
+              "key": "userId"
+            }
+          }
+        }
+      }
+    },
+    "log": {
+      "provider": "",
+      "attributes": [
+        "id",
+        "timestamp",
+        "operation",
+        "after.userId",
+        "after.userName",
+        "after.email"
+      ]
+    }
+  },
+  "workers": [
+    "distributed-worker"
+  ]
+}

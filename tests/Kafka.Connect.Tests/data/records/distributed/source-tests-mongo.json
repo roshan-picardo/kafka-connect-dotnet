@@ -1,8 +1,9 @@
 {
-  "title": "dynamodb-standalone-source-connector-tests",
+  "title": "mongodb-distributed-source-connector-tests",
   "properties": {
-    "topic": "standalone-dynamodb-source-data-topic",
-    "table": "standalone_dynamodb_source_data_table"
+    "topic": "distributed-mongodb-source-data-topic",
+    "database": "kafka_connect_db",
+    "collection": "distributed_mongodb_source_data_collection"
   },
   "records": [
     {
@@ -17,7 +18,6 @@
       }
     },
     {
-      "delay": 1000,
       "operation": "consume",
       "key": {
         "userId": "user-001"
@@ -49,7 +49,6 @@
       }
     },
     {
-      "delay": 1000,
       "operation": "consume",
       "key": {
         "userId": "user-001"
@@ -74,7 +73,6 @@
       }
     },
     {
-      "delay": 1000,
       "operation": "consume",
       "key": {
         "userId": "user-001"

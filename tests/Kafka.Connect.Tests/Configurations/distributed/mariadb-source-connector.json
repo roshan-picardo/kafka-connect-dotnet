@@ -1,0 +1,53 @@
+{
+  "connector": {
+    "groupId": "distributed-mariadb-source-connector",
+    "tasks": 1,
+    "paused": false,
+    "disabled": false,
+    "plugin": {
+      "type": "source",
+      "name": "mariadb",
+      "handler": "Kafka.Connect.MariaDb.MariaDbPluginHandler",
+      "strategy": {
+        "name": "Kafka.Connect.MariaDb.Strategies.ReadStrategy"
+      },
+      "properties": {
+        "host": "mariadb",
+        "port": 3306,
+        "userId": "root",
+        "password": "rootpassword",
+        "database": "kafka_connect_db",
+        "changelog": {
+          "schema": "kafka_connect_db",
+          "table": "distributed_mariadb_audit_log"
+        },
+        "commands": {
+          "distributed-mariadb-source-command": {
+            "topic": "distributed-mariadb-source-data-topic",
+            "table": "distributed_mariadb_source_data_table",
+            "schema": "kafka_connect_db",
+            "keys": ["userId"],
+            "snapshot": {
+              "enabled": false,
+              "key": "userId"
+            }
+          }
+        }
+      }
+    },
+    "log": {
+      "provider": "",
+      "attributes": [
+        "id",
+        "timestamp",
+        "operation",
+        "after.userId",
+        "after.userName",
+        "after.email"
+      ]
+    }
+  },
+  "workers": [
+    "distributed-worker"
+  ]
+}

@@ -1,5 +1,5 @@
 {
-  "title": "Oracle - sink tests",
+  "title": "oracle-standalone-sink-connector-tests",
   "properties": {
     "topic": "standalone-oracle-sink-data-topic",
     "schema": "SYSTEM",

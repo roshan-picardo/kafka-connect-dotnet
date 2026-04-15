@@ -1,0 +1,42 @@
+{
+  "connector": {
+    "groupId": "distributed-mongodb-source-connector",
+    "tasks": 1,
+    "paused": false,
+    "disabled": false,
+    "plugin": {
+      "type": "source",
+      "name": "mongodb",
+      "handler": "Kafka.Connect.MongoDb.MongoPluginHandler",
+      "strategy": {
+        "name": "Kafka.Connect.MongoDb.Strategies.StreamsReadStrategy"
+      },
+      "properties": {
+        "connectionUri": "mongodb://mongodb:27017/?replicaSet=rs0",
+        "database": "kafka_connect_db",
+        "commands": {
+          "distributed-mongodb-source-command": {
+            "topic": "distributed-mongodb-source-data-topic",
+            "collection": "distributed_mongodb_source_data_collection",
+            "keys": ["userId"],
+            "timestamp": 0
+          }
+        }
+      }
+    },
+    "log": {
+      "provider": "",
+      "attributes": [
+        "id",
+        "timestamp",
+        "operation",
+        "after.userId",
+        "after.userName",
+        "after.email"
+      ]
+    }
+  },
+  "workers": [
+    "distributed-worker"
+  ]
+}

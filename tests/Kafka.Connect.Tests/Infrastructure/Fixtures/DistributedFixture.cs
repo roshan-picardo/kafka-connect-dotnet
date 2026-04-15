@@ -66,18 +66,38 @@ public class DistributedFixture(
                                 workerRunning = workerStatus.GetString() == "Running";
                             }
 
-                            // For distributed mode, we may not have connectors initially
-                            // Just check if worker is running
-                            if (workerRunning)
+                            var allConnectorsRunning = true;
+                            var connectorStatuses = new List<string>();
+
+                            if (status.TryGetProperty("connectors", out var connectors))
+                            {
+                                foreach (var connector in connectors.EnumerateArray())
+                                {
+                                    if (connector.TryGetProperty("name", out var name) &&
+                                        connector.TryGetProperty("status", out var connectorStatus))
+                                    {
+                                        var connectorName = name.GetString();
+                                        var connectorStatusValue = connectorStatus.GetString();
+                                        connectorStatuses.Add($"{connectorName}={connectorStatusValue}");
+
+                                        if (connectorStatusValue != "Running")
+                                        {
+                                            allConnectorsRunning = false;
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (workerRunning && allConnectorsRunning && connectorStatuses.Count > 0)
                             {
                                 LogMessage(
-                                    $"Distributed worker is ready (attempt {attempt}): Worker=Running",
+                                    $"Distributed worker and connectors are ready (attempt {attempt}): Worker=Running, Connectors=[{string.Join(", ", connectorStatuses)}]",
                                     "");
                                 return;
                             }
 
                             LogMessage(
-                                $"Distributed worker not ready yet (attempt {attempt}/{WorkerReadyMaxAttempts}): Worker={workerRunning}",
+                                $"Distributed worker or connectors not ready yet (attempt {attempt}/{WorkerReadyMaxAttempts}): Worker={workerRunning}, Connectors=[{string.Join(", ", connectorStatuses)}]",
                                 "");
                         }
                         else
@@ -128,6 +148,6 @@ public class DistributedFixture(
         }
 
         throw new TimeoutException(
-            $"Distributed worker did not reach 'Running' status after {WorkerReadyMaxAttempts} attempts");
+            $"Distributed worker and connectors did not reach 'Running' status after {WorkerReadyMaxAttempts} attempts");
     }
 }

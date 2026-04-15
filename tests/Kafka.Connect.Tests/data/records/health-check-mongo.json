@@ -1,5 +1,5 @@
 {
-  "title": "MongoDB - health checks",
+  "title": "mongodb-health-check-tests",
   "properties": {
     "target": "MongoDB",
     "topic": "-",

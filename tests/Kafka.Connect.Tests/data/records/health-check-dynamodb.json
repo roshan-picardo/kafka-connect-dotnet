@@ -1,5 +1,5 @@
 {
-  "title": "DynamoDB - health check",
+  "title": "dynamodb-health-check-tests",
   "properties": {
     "target": "DynamoDb",
     "topic": "-",

@@ -1,5 +1,5 @@
 {
-  "title": "Postgres - source tests",
+  "title": "postgres-standalone-source-connector-tests",
   "properties": {
     "topic": "standalone-postgres-source-data-topic",
     "database": "kafka_connect_db",

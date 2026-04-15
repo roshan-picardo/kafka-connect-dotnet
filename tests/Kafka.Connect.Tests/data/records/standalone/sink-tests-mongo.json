@@ -1,5 +1,5 @@
 {
-  "title": "MongoDB - sink tests",
+  "title": "mongodb-standalone-sink-connector-tests",
   "properties": {
     "topic": "standalone-mongodb-sink-data-topic",
     "collection": "standalone_mongodb_sink_data_collection",

@@ -1,8 +1,8 @@
 {
-  "title": "dynamodb-standalone-source-connector-tests",
+  "title": "dynamodb-distributed-source-connector-tests",
   "properties": {
-    "topic": "standalone-dynamodb-source-data-topic",
-    "table": "standalone_dynamodb_source_data_table"
+    "topic": "distributed-dynamodb-source-data-topic",
+    "table": "distributed_dynamodb_source_data_table"
   },
   "records": [
     {

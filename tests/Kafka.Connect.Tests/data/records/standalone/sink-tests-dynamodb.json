@@ -1,5 +1,5 @@
 {
-  "title": "DynamoDB - sink tests",
+  "title": "dynamodb-standalone-sink-connector-tests",
   "properties": {
     "topic": "standalone-dynamodb-sink-data-topic",
     "table": "standalone_dynamodb_sink_data_table"

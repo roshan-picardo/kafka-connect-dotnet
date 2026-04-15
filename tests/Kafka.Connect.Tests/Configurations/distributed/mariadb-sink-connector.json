@@ -1,0 +1,50 @@
+{
+  "connector": {
+    "groupId": "distributed-mariadb-sink-connector",
+    "topics": ["distributed-mariadb-sink-data-topic"],
+    "tasks": 1,
+    "paused": false,
+    "disabled": false,
+    "processors": {
+      "1": {
+        "name": "Kafka.Connect.Processors.WhitelistFieldProjector",
+        "settings": [
+          "userId",
+          "userName",
+          "email",
+          "timestamp",
+          "action"
+        ]
+      }
+    },
+    "plugin": {
+      "type": "sink",
+      "name": "mariadb",
+      "handler": "Kafka.Connect.MariaDb.MariaDbPluginHandler",
+      "strategy": {
+        "Name": "Kafka.Connect.MariaDb.Strategies.UpsertStrategy"
+      },
+      "properties": {
+        "host": "mariadb",
+        "port": 3306,
+        "userId": "root",
+        "password": "rootpassword",
+        "database": "kafka_connect_db",
+        "schema": "kafka_connect_db",
+        "table": "distributed_mariadb_sink_data_table",
+        "lookup": "`userId`='#userId#'",
+        "filter": "`userId`='#userId#'"
+      }
+    },
+    "log": {
+      "provider": "",
+      "attributes": [
+        "userId",
+        "userName"
+      ]
+    }
+  },
+  "workers": [
+    "distributed-worker"
+  ]
+}
