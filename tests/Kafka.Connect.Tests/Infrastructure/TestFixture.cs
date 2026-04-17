@@ -26,7 +26,9 @@ public class TestFixture : IAsyncLifetime
     private OracleFixture? _oracleFixture;
     private MongoDbFixture? _mongoDbFixture;
     private DynamoDbFixture? _dynamoDbFixture;
-    private WorkerFixture? _workerFixture;
+    private LeaderFixture? _leaderFixture;
+    private StandaloneFixture? _standaloneFixture;
+    private DistributedFixture? _distributedFixture;
 
     static TestFixture()
     {
@@ -85,12 +87,16 @@ public class TestFixture : IAsyncLifetime
             }
 
             LogMessage("Starting integration test infrastructure...");
+            
+            // Configure containers based on mode
+            ConfigureContainersForMode();
 
             await CreateNetworkAsync();
+            await BuildKafkaConnectImageAsync();
             var testConfigs = await LoadTestConfigurationsAsync();
             InitializeFixturesAsync(testConfigs);
             await InitializeInfrastructureInParallelAsync();
-            await DeployKafkaConnectWorkerAsync();
+            await DeployKafkaConnectNodesAsync();
 
             LogMessage("Integration test infrastructure ready!");
         }
@@ -99,6 +105,36 @@ public class TestFixture : IAsyncLifetime
             TestLoggingService.LogMessage($"Failed to initialize test infrastructure: {ex.Message}");
             await DisposeAsync();
             throw;
+        }
+    }
+
+    private void ConfigureContainersForMode()
+    {
+        LogMessage($"Configuring containers for mode: Distributed={Configuration.Distributed}, Standalone={Configuration.Standalone}");
+        
+        var leaderContainer = Configuration.TestContainers.Containers.FirstOrDefault(c => c.Target == "leader");
+        var standaloneContainer = Configuration.TestContainers.Containers.FirstOrDefault(c => c.Target == "standalone");
+        var distributedContainer = Configuration.TestContainers.Containers.FirstOrDefault(c => c.Target == "distributed");
+        
+        // Enable/disable leader based on distributed mode
+        if (leaderContainer != null)
+        {
+            leaderContainer.Enabled = Configuration.Distributed;
+            LogMessage($"Leader container {(Configuration.Distributed ? "enabled" : "disabled")}");
+        }
+        
+        // Enable/disable standalone container
+        if (standaloneContainer != null)
+        {
+            standaloneContainer.Enabled = Configuration.Standalone;
+            LogMessage($"Standalone container {(Configuration.Standalone ? "enabled" : "disabled")}");
+        }
+        
+        // Enable/disable distributed container
+        if (distributedContainer != null)
+        {
+            distributedContainer.Enabled = Configuration.Distributed;
+            LogMessage($"Distributed container {(Configuration.Distributed ? "enabled" : "disabled")}");
         }
     }
 
@@ -118,6 +154,29 @@ public class TestFixture : IAsyncLifetime
                                    ex.Message.Contains("duplicate"))
         {
             LogMessage($"Network already exists, skipping creation: {Configuration.TestContainers.Network.Name}");
+        }
+    }
+
+    private async Task BuildKafkaConnectImageAsync()
+    {
+        if (Configuration.DebugMode)
+        {
+            LogMessage("Debug mode active, skipping Docker image build");
+            return;
+        }
+
+        // Find any container that uses a Dockerfile (they all use the same one)
+        var dockerfileContainer = Configuration.TestContainers.Containers
+            .FirstOrDefault(c => !string.IsNullOrEmpty(c.DockerfilePath) && c.Enabled);
+
+        if (dockerfileContainer != null)
+        {
+            LogMessage($"Building Kafka Connect Docker image once for all containers...");
+            await _containerService.BuildDockerImageAsync(
+                dockerfileContainer.DockerfilePath!,
+                "kafka-connect:latest",
+                dockerfileContainer.CleanUpImage);
+            LogMessage("Kafka Connect Docker image built successfully!");
         }
     }
 
@@ -146,7 +205,9 @@ public class TestFixture : IAsyncLifetime
         _oracleFixture = new OracleFixture(Configuration, LogMessage, _containerService, _network!, testConfigs);
         _mongoDbFixture = new MongoDbFixture(Configuration, LogMessage, _containerService, _network!, testConfigs);
         _dynamoDbFixture = new DynamoDbFixture(Configuration, LogMessage, _containerService, _network!, testConfigs);
-        _workerFixture = new WorkerFixture(Configuration, LogMessage, _containerService, _network!);
+        _leaderFixture = new LeaderFixture(Configuration, LogMessage, _containerService, _network!);
+        _standaloneFixture = new StandaloneFixture(Configuration, LogMessage, _containerService, _network!);
+        _distributedFixture = new DistributedFixture(Configuration, LogMessage, _containerService, _network!);
     }
 
     private async Task InitializeInfrastructureInParallelAsync()
@@ -171,7 +232,7 @@ public class TestFixture : IAsyncLifetime
         LogMessage("All infrastructure components initialized!");
     }
 
-    private async Task DeployKafkaConnectWorkerAsync()
+    private async Task DeployKafkaConnectNodesAsync()
     {
         if (Configuration.DebugMode)
         {
@@ -182,7 +243,25 @@ public class TestFixture : IAsyncLifetime
             return;
         }
 
-        await _workerFixture!.InitializeAsync();
+        var deploymentTasks = new List<Task>();
+
+        if (Configuration.Distributed)
+        {
+            LogMessage("Deploying Kafka Connect in distributed mode (Leader + Distributed Worker)...");
+            deploymentTasks.Add(_leaderFixture!.InitializeAsync());
+            deploymentTasks.Add(_distributedFixture!.InitializeAsync());
+        }
+        
+        if (Configuration.Standalone)
+        {
+            LogMessage("Deploying Kafka Connect in standalone mode...");
+            deploymentTasks.Add(_standaloneFixture!.InitializeAsync());
+        }
+
+        if (deploymentTasks.Count > 0)
+        {
+            await Task.WhenAll(deploymentTasks);
+        }
     }
 
     public TestConfiguration Configuration { get; }
@@ -208,8 +287,10 @@ public class TestFixture : IAsyncLifetime
 
             LogMessage("Tearing down test infrastructure...");
 
-            // Dispose fixtures in reverse order (worker first, then databases, then Kafka)
-            if (_workerFixture != null) await _workerFixture.DisposeAsync();
+            // Dispose fixtures in reverse order (workers first, leader, then databases, then Kafka)
+            if (_distributedFixture != null) await _distributedFixture.DisposeAsync();
+            if (_standaloneFixture != null) await _standaloneFixture.DisposeAsync();
+            if (_leaderFixture != null) await _leaderFixture.DisposeAsync();
             if (_dynamoDbFixture != null) await _dynamoDbFixture.DisposeAsync();
             if (_mongoDbFixture != null) await _mongoDbFixture.DisposeAsync();
             if (_oracleFixture != null) await _oracleFixture.DisposeAsync();

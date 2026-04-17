@@ -1,0 +1,44 @@
+{
+  "connector": {
+    "groupId": "distributed-dynamodb-source-connector",
+    "tasks": 1,
+    "paused": false,
+    "disabled": false,
+    "plugin": {
+      "type": "source",
+      "name": "dynamodb",
+      "handler": "Kafka.Connect.DynamoDb.DynamoDbPluginHandler",
+      "strategy": {
+        "name": "Kafka.Connect.DynamoDb.Strategies.StreamReadStrategy"
+      },
+      "properties": {
+        "region": "us-east-1",
+        "accessKeyId": "dummy",
+        "secretAccessKey": "dummy",
+        "serviceUrl": "http://dynamodb:8000",
+        "commands": {
+          "distributed-dynamodb-source-command": {
+            "topic": "distributed-dynamodb-source-data-topic",
+            "tableName": "distributed_dynamodb_source_data_table",
+            "keys": ["userId"],
+            "shardIteratorType": "TRIM_HORIZON",
+            "timestamp": 0
+          }
+        }
+      }
+    },
+    "log": {
+      "provider": "",
+      "attributes": [
+        "operation",
+        "timestamp",
+        "after.userId",
+        "after.userName",
+        "after.email"
+      ]
+    }
+  },
+  "workers": [
+    "distributed-worker"
+  ]
+}

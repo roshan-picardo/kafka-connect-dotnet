@@ -1,5 +1,5 @@
 {
-  "title": "Postgres - health checks",
+  "title": "postgres-health-check-tests",
   "properties": {
     "target": "Postgres",
     "topic": "-",

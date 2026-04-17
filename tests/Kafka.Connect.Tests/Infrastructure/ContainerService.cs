@@ -7,41 +7,73 @@ namespace IntegrationTests.Kafka.Connect.Infrastructure;
 public interface IContainerService
 {
     Task<IContainer> CreateContainerAsync(ContainerConfig config, INetwork network, TestLoggingService loggingService);
+    Task BuildDockerImageAsync(string dockerfilePath, string imageName, bool cleanUpImage);
 }
 
 public class ContainerService : IContainerService
 {
-    public async Task<IContainer> CreateContainerAsync(ContainerConfig config, INetwork network, TestLoggingService loggingService)
-    {
-        ContainerBuilder containerBuilder;
+    private readonly Dictionary<string, string> _builtImages = new();
+    private readonly SemaphoreSlim _buildLock = new(1, 1);
 
-        if (!string.IsNullOrEmpty(config.DockerfilePath))
+    public async Task BuildDockerImageAsync(string dockerfilePath, string imageName, bool cleanUpImage)
+    {
+        await _buildLock.WaitAsync();
+        try
         {
+            // Check if image already built
+            if (_builtImages.ContainsKey(dockerfilePath))
+            {
+                TestLoggingService.LogMessage($"Docker image already built for {dockerfilePath}, reusing: {_builtImages[dockerfilePath]}");
+                return;
+            }
+
             var currentDir = Directory.GetCurrentDirectory();
             var projectRoot = currentDir;
-            while (!File.Exists(Path.Combine(projectRoot, config.DockerfilePath)))
+            while (!File.Exists(Path.Combine(projectRoot, dockerfilePath)))
             {
                 var parent = Directory.GetParent(projectRoot);
                 if (parent == null) break;
                 projectRoot = parent.FullName;
             }
 
-            if (!File.Exists(Path.Combine(projectRoot, config.DockerfilePath)))
+            if (!File.Exists(Path.Combine(projectRoot, dockerfilePath)))
             {
-                throw new FileNotFoundException($"Could not find {config.DockerfilePath} in project hierarchy");
+                throw new FileNotFoundException($"Could not find {dockerfilePath} in project hierarchy");
             }
 
+            TestLoggingService.LogMessage($"Building Docker image from {dockerfilePath}...");
+            
             var futureImage = new ImageFromDockerfileBuilder()
                 .WithDockerfileDirectory(new CommonDirectoryPath(projectRoot), string.Empty)
-                .WithDockerfile(config.DockerfilePath)
-                .WithName($"{config.Name}:latest")
-                .WithCleanUp(config.CleanUpImage)
+                .WithDockerfile(dockerfilePath)
+                .WithName(imageName)
+                .WithCleanUp(cleanUpImage)
                 .Build();
 
             await futureImage.CreateAsync();
+            
+            _builtImages[dockerfilePath] = imageName;
+            TestLoggingService.LogMessage($"Docker image built successfully: {imageName}");
+        }
+        finally
+        {
+            _buildLock.Release();
+        }
+    }
+
+    public async Task<IContainer> CreateContainerAsync(ContainerConfig config, INetwork network, TestLoggingService loggingService)
+    {
+        ContainerBuilder containerBuilder;
+
+        if (!string.IsNullOrEmpty(config.DockerfilePath))
+        {
+            // Use the pre-built image name
+            var imageName = _builtImages.ContainsKey(config.DockerfilePath)
+                ? _builtImages[config.DockerfilePath]
+                : "kafka-connect:latest";
 
             containerBuilder = new ContainerBuilder()
-                .WithImage(futureImage)
+                .WithImage(imageName)
                 .WithOutputConsumer(Consume.RedirectStdoutAndStderrToStream(
                     new KafkaConnectLogBuffer(),
                     new KafkaConnectLogBuffer()));

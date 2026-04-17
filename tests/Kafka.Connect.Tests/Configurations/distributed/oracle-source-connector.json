@@ -1,0 +1,53 @@
+{
+  "connector": {
+    "groupId": "distributed-oracle-source-connector",
+    "tasks": 1,
+    "paused": false,
+    "disabled": false,
+    "plugin": {
+      "type": "source",
+      "name": "oracle",
+      "handler": "Kafka.Connect.Oracle.OraclePluginHandler",
+      "strategy": {
+        "name": "Kafka.Connect.Oracle.Strategies.ReadStrategy"
+      },
+      "properties": {
+        "host": "oracle",
+        "port": 1521,
+        "userId": "system",
+        "password": "oracle123",
+        "serviceName": "XE",
+        "changelog": {
+          "schema": "\"SYSTEM\"",
+          "table": "\"distributed_oracle_audit_log\""
+        },
+        "commands": {
+          "distributed-oracle-source-command": {
+            "topic": "distributed-oracle-source-data-topic",
+            "table": "\"distributed_oracle_source_data_table\"",
+            "schema": "\"SYSTEM\"",
+            "keys": ["userId"],
+            "snapshot": {
+              "enabled": false,
+              "key": "userId"
+            }
+          }
+        }
+      }
+    },
+    "log": {
+      "provider": "",
+      "attributes": [
+        "id",
+        "timestamp",
+        "operation",
+        "after.userId",
+        "after.userName",
+        "after.email"
+      ]
+    }
+  },
+  "workers": [
+    "distributed-worker"
+  ]
+}

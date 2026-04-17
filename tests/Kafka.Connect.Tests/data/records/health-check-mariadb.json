@@ -1,5 +1,5 @@
 {
-  "title": "MariaDb - health checks",
+  "title": "mariadb-health-check-tests",
   "properties": {
     "target": "MariaDb",
     "topic": "-",

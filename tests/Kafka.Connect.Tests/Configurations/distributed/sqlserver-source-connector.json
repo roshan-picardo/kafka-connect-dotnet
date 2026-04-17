@@ -1,0 +1,53 @@
+{
+  "connector": {
+    "groupId": "distributed-sqlserver-source-connector",
+    "tasks": 1,
+    "paused": false,
+    "disabled": false,
+    "plugin": {
+      "type": "source",
+      "name": "sqlserver",
+      "handler": "Kafka.Connect.SqlServer.SqlServerPluginHandler",
+      "strategy": {
+        "name": "Kafka.Connect.SqlServer.Strategies.ReadStrategy"
+      },
+      "properties": {
+        "server": "sqlserver",
+        "port": 1433,
+        "userId": "sa",
+        "password": "YourStrong@Passw0rd",
+        "database": "kafka_connect_db",
+        "changelog": {
+          "schema": "dbo",
+          "table": "distributed_sqlserver_audit_log"
+        },
+        "commands": {
+          "distributed-sqlserver-source-command": {
+            "topic": "distributed-sqlserver-source-data-topic",
+            "table": "distributed_sqlserver_source_data_table",
+            "schema": "dbo",
+            "keys": ["userId"],
+            "snapshot": {
+              "enabled": false,
+              "key": "userId"
+            }
+          }
+        }
+      }
+    },
+    "log": {
+      "provider": "",
+      "attributes": [
+        "id",
+        "timestamp",
+        "operation",
+        "after.userId",
+        "after.userName",
+        "after.email"
+      ]
+    }
+  },
+  "workers": [
+    "distributed-worker"
+  ]
+}

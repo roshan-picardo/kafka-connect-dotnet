@@ -97,10 +97,19 @@ public class SqlServerFixture(
     {
         LogMessage("Creating SQL Server databases from connector configurations...", "");
 
-        var configFiles = Directory.GetFiles(Path.Join(Directory.GetCurrentDirectory(), "Configurations"),
-            "appsettings.*.json");
+        var configDirectory = Path.Join(Directory.GetCurrentDirectory(), "Configurations");
+        var configFiles = new List<string>();
+        
+        configFiles.AddRange(Directory.GetFiles(configDirectory, "appsettings.*.json"));
+        
+        // Also search in standalone subdirectory
+        var standaloneDirectory = Path.Join(configDirectory, "standalone");
+        if (Directory.Exists(standaloneDirectory))
+        {
+            configFiles.AddRange(Directory.GetFiles(standaloneDirectory, "appsettings.*.json"));
+        }
 
-        if (configFiles.Length == 0)
+        if (configFiles.Count == 0)
         {
             LogMessage("No connector configuration files found, skipping SQL Server database creation", "");
             return;
