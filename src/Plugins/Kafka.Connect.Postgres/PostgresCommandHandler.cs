@@ -60,27 +60,30 @@ public class PostgresCommandHandler(
                     }
                 }
 
-                using (logger.Track("Making sure audit log function exists"))
+                // Create a unique function name based on the audit log table to support multiple workers
+                var functionName = $"trg_func_{config.Changelog.Table}_audit_logger";
+                
+                using (logger.Track($"Making sure audit log function '{functionName}' exists"))
                 {
                     var lookupLogFunction = $"""
                                              SELECT COUNT(*)
                                              FROM information_schema.routines
-                                             WHERE 
+                                             WHERE
                                                  routine_catalog = '{config.Database}' AND
-                                                 routine_schema = '{config.Changelog.Schema}' AND 
-                                                 routine_name = 'trg_func_connect_audit_logger'
+                                                 routine_schema = '{config.Changelog.Schema}' AND
+                                                 routine_name = '{functionName}'
                                              """;
                     var exists = (long)(await new NpgsqlCommand(lookupLogFunction, connection).ExecuteScalarAsync())! >
                                  0;
                     if (!exists)
                     {
                         var auditLogTrigger = $"""
-                                               CREATE FUNCTION trg_func_connect_audit_logger() RETURNS TRIGGER AS $audit_log$
+                                               CREATE FUNCTION {config.Changelog.Schema}.{functionName}() RETURNS TRIGGER AS $audit_log$
                                                    BEGIN
-                                                       INSERT INTO {config.Changelog.Schema}.{config.Changelog.Table}(log_schema, log_table, log_operation, log_before, log_after) 
+                                                       INSERT INTO {config.Changelog.Schema}.{config.Changelog.Table}(log_schema, log_table, log_operation, log_before, log_after)
                                                        VALUES(tg_table_schema, tg_table_name, tg_op, row_to_json(OLD.*), row_to_json(NEW.*));
                                                        RETURN NULL;
-                                                   END; 
+                                                   END;
                                                $audit_log$ LANGUAGE plpgsql;
                                                """;
                         await new NpgsqlCommand(auditLogTrigger, connection).ExecuteScalarAsync();
@@ -94,19 +97,19 @@ public class PostgresCommandHandler(
                         var lookupTrigger = $"""
                                              SELECT COUNT(*)
                                              FROM information_schema.triggers
-                                             WHERE 
+                                             WHERE
                                                  trigger_catalog = '{config.Database}' AND
-                                                 trigger_schema = '{command.Schema}' AND 
+                                                 trigger_schema = '{command.Schema}' AND
                                                  trigger_name = 'trg_{command.Table}_audit_log' AND
-                                                 event_object_table = '{command.Table}' 
+                                                 event_object_table = '{command.Table}'
                                              """;
                         var exists = (long)(await new NpgsqlCommand(lookupTrigger, connection).ExecuteScalarAsync())! >
                                      0;
                         if (exists) continue;
                         var attachTrigger = $"""
                                              CREATE OR REPLACE TRIGGER trg_{command.Table}_audit_log
-                                             AFTER INSERT OR UPDATE OR DELETE ON {command.Schema}.{command.Table} 
-                                             FOR EACH ROW EXECUTE PROCEDURE trg_func_connect_audit_logger();
+                                             AFTER INSERT OR UPDATE OR DELETE ON {command.Schema}.{command.Table}
+                                             FOR EACH ROW EXECUTE PROCEDURE {config.Changelog.Schema}.{functionName}();
                                              """;
                         await new NpgsqlCommand(attachTrigger, connection).ExecuteScalarAsync();
                     }
