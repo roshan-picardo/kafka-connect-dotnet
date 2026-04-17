@@ -20,10 +20,9 @@ public class ContainerService : IContainerService
         await _buildLock.WaitAsync();
         try
         {
-            // Check if image already built
-            if (_builtImages.ContainsKey(dockerfilePath))
+            if (_builtImages.TryGetValue(dockerfilePath, out var image))
             {
-                TestLoggingService.LogMessage($"Docker image already built for {dockerfilePath}, reusing: {_builtImages[dockerfilePath]}");
+                TestLoggingService.LogMessage($"Docker image already built for {dockerfilePath}, reusing: {image}");
                 return;
             }
 
@@ -53,7 +52,6 @@ public class ContainerService : IContainerService
             await futureImage.CreateAsync();
             
             _builtImages[dockerfilePath] = imageName;
-            TestLoggingService.LogMessage($"Docker image built successfully: {imageName}");
         }
         finally
         {
