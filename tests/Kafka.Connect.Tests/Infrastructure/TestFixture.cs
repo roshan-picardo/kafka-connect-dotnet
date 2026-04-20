@@ -266,8 +266,46 @@ public class TestFixture : IAsyncLifetime
             var distributedEndpoint = Configuration.GetServiceEndpoint("Distributed");
             var statusUrl = $"{distributedEndpoint}/workers/status";
             
+            // Check if any connectors need restarting
+            var connectorsRestarted = false;
+            
+            using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+            try
+            {
+                var response = await httpClient.GetAsync(statusUrl);
+                if (response.IsSuccessStatusCode)
+                {
+                    var content = await response.Content.ReadAsStringAsync();
+                    var statusDoc = System.Text.Json.JsonDocument.Parse(content);
+                    
+                    if (statusDoc.RootElement.TryGetProperty("status", out var status) &&
+                        status.TryGetProperty("connectors", out var connectors))
+                    {
+                        foreach (var connector in connectors.EnumerateArray())
+                        {
+                            if (connector.TryGetProperty("status", out var connectorStatus) &&
+                                connectorStatus.GetString() != "Running")
+                            {
+                                connectorsRestarted = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // Ignore errors in pre-check
+            }
+            
             // Reuse the existing WaitForWorkerReadyAsync with silent mode - only logs if connectors need restarting
             await _leaderFixture.WaitForWorkerReadyAsync(statusUrl, "Distributed worker", _leaderFixture.RetryFailedConnectorsAsync, silent: true);
+            
+            // If connectors were restarted, wait longer for them to fully initialize and resume processing
+            if (connectorsRestarted)
+            {
+                await Task.Delay(10000); // Wait 10 seconds for connectors to fully restart and resume
+            }
         }
     }
 

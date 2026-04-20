@@ -11,6 +11,9 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
 {
     protected async Task Run(TestCase testCase, string target)
     {
+        // Set timestamp for xUnit output
+        testCase.StartTimestamp = DateTime.Now.ToString("HH:mm:ss");
+        
         // Ensure all connectors are healthy before running the test
         await fixture.EnsureConnectorsHealthyAsync();
         
@@ -301,9 +304,12 @@ public record TestCaseRecord(string Operation, int Delay, string Script, JsonNod
 
 public record TestCase(string Title, Dictionary<string, string> Properties, TestCaseRecord[] Records, bool Skip = false)
 {
+    public string? StartTimestamp { get; set; }
+    
     public override string ToString()
     {
-        return $"title: {Title}, topic: {Properties["topic"]}, records: {Records.Length}";
+        var timestamp = !string.IsNullOrEmpty(StartTimestamp) ? $", at: {StartTimestamp}" : "";
+        return $"title: {Title}, topic: {Properties["topic"]}, records: {Records.Length}{timestamp}";
     }
 }
 
