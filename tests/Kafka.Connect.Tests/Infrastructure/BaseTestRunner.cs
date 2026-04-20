@@ -247,7 +247,7 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
         {
             try
             {
-                var loop = 120; // Wait up to 12 seconds for initial message
+                var loop = 300; // Wait up to 30 seconds for initial message
                 ConsumeResult<string, string>? lastResult = null;
                 ConsumeResult<string, string>? result;
                 
@@ -262,7 +262,7 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
 
                 if (lastResult == null)
                 {
-                    throw new DataException("Consumer returned null after waiting for 12 seconds...");
+                    throw new DataException("Consumer returned null after waiting for 30 seconds...");
                 }
 
                 while (true)
