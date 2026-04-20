@@ -8,9 +8,9 @@
   "shadowCopy": false,
   "stopOnFail": true,
   "longRunningTestSeconds": 60,
-  "maxParallelThreads": -1,
+  "maxParallelThreads": 1,
   "parallelizeAssembly": false,
-  "parallelizeTestCollections": true,
+  "parallelizeTestCollections": false,
   "reporters": {
     "console": {
       "enabled": false
