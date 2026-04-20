@@ -41,7 +41,7 @@ public abstract class InfrastructureFixture(
     /// <summary>
     /// Common method to wait for a worker to be ready with retry logic
     /// </summary>
-    public async Task WaitForWorkerReadyAsync(string statusUrl, string workerName, Func<List<string>, Task>? retryFailedConnectorsCallback = null)
+    public async Task WaitForWorkerReadyAsync(string statusUrl, string workerName, Func<List<string>, Task>? retryFailedConnectorsCallback = null, bool silent = false)
     {
         using var httpClient = new HttpClient
         {
@@ -98,9 +98,12 @@ public abstract class InfrastructureFixture(
 
                             if (workerRunning && allConnectorsRunning && connectorStatuses.Count > 0)
                             {
-                                LogMessage(
-                                    $"{workerName} and connectors are ready (attempt {attempt}): Worker=Running, Connectors=[{string.Join(", ", connectorStatuses)}]",
-                                    "");
+                                if (!silent)
+                                {
+                                    LogMessage(
+                                        $"{workerName} and connectors are ready (attempt {attempt}): Worker=Running, Connectors=[{string.Join(", ", connectorStatuses)}]",
+                                        "");
+                                }
                                 return;
                             }
 
@@ -118,9 +121,12 @@ public abstract class InfrastructureFixture(
                             }
                             else
                             {
-                                LogMessage(
-                                    $"{workerName} or connectors not ready yet (attempt {attempt}/{WorkerReadyMaxAttempts}): Worker={workerRunning}, Connectors=[{string.Join(", ", connectorStatuses)}]",
-                                    "");
+                                if (!silent)
+                                {
+                                    LogMessage(
+                                        $"{workerName} or connectors not ready yet (attempt {attempt}/{WorkerReadyMaxAttempts}): Worker={workerRunning}, Connectors=[{string.Join(", ", connectorStatuses)}]",
+                                        "");
+                                }
                             }
                         }
                         else
@@ -139,20 +145,29 @@ public abstract class InfrastructureFixture(
                 }
                 else
                 {
-                    LogMessage(
-                        $"{workerName} not ready yet (attempt {attempt}/{WorkerReadyMaxAttempts}): HTTP {(int)response.StatusCode}",
-                        "");
+                    if (!silent)
+                    {
+                        LogMessage(
+                            $"{workerName} not ready yet (attempt {attempt}/{WorkerReadyMaxAttempts}): HTTP {(int)response.StatusCode}",
+                            "");
+                    }
                 }
             }
             catch (HttpRequestException ex)
             {
-                var errorType = ex.InnerException?.GetType().Name ?? ex.GetType().Name;
-                LogMessage(
-                    $"{workerName} endpoint not available yet (attempt {attempt}/{WorkerReadyMaxAttempts}): {errorType}", "");
+                if (!silent)
+                {
+                    var errorType = ex.InnerException?.GetType().Name ?? ex.GetType().Name;
+                    LogMessage(
+                        $"{workerName} endpoint not available yet (attempt {attempt}/{WorkerReadyMaxAttempts}): {errorType}", "");
+                }
             }
             catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
             {
-                LogMessage($"{workerName} health check timeout (attempt {attempt}/{WorkerReadyMaxAttempts})", "");
+                if (!silent)
+                {
+                    LogMessage($"{workerName} health check timeout (attempt {attempt}/{WorkerReadyMaxAttempts})", "");
+                }
             }
             catch (Exception ex)
             {
@@ -162,9 +177,12 @@ public abstract class InfrastructureFixture(
                         $"{workerName} did not become ready after {WorkerReadyMaxAttempts} attempts", ex);
                 }
 
-                LogMessage(
-                    $"{workerName} not ready yet (attempt {attempt}/{WorkerReadyMaxAttempts}): {ex.GetType().Name} - {ex.Message}",
-                    "");
+                if (!silent)
+                {
+                    LogMessage(
+                        $"{workerName} not ready yet (attempt {attempt}/{WorkerReadyMaxAttempts}): {ex.GetType().Name} - {ex.Message}",
+                        "");
+                }
             }
 
             await Task.Delay(WorkerReadyDelayMs);

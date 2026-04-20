@@ -266,8 +266,8 @@ public class TestFixture : IAsyncLifetime
             var distributedEndpoint = Configuration.GetServiceEndpoint("Distributed");
             var statusUrl = $"{distributedEndpoint}/workers/status";
             
-            // Reuse the existing WaitForWorkerReadyAsync with a single attempt to check and restart failed connectors
-            await _leaderFixture.WaitForWorkerReadyAsync(statusUrl, "Distributed worker", _leaderFixture.RetryFailedConnectorsAsync);
+            // Reuse the existing WaitForWorkerReadyAsync with silent mode - only logs if connectors need restarting
+            await _leaderFixture.WaitForWorkerReadyAsync(statusUrl, "Distributed worker", _leaderFixture.RetryFailedConnectorsAsync, silent: true);
         }
     }
 
