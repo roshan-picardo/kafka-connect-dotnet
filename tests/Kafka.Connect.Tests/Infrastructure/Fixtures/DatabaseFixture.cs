@@ -17,8 +17,6 @@ public abstract class DatabaseFixture(
     public override async Task InitializeAsync()
     {
         var targetName = GetTargetName();
-        LogMessage($"Initializing {targetName}...", "");
-        
         await CreateContainersAsync();
         
         await WaitForReadyAsync();

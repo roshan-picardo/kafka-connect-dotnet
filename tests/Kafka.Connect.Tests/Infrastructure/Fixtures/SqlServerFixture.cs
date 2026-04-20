@@ -57,7 +57,7 @@ public class SqlServerFixture(
                 var command = new SqlCommand("SELECT @@VERSION", connection);
                 await command.ExecuteScalarAsync();
 
-                LogMessage($"SQL Server is ready (attempt {attempt})", "");
+                LogMessage($"Service is ready: sqlserver", "");
                 return;
             }
             catch (Exception ex)
@@ -65,10 +65,10 @@ public class SqlServerFixture(
                 if (attempt == DatabaseReadyMaxAttempts)
                 {
                     throw new TimeoutException(
-                        $"SQL Server did not become ready after {DatabaseReadyMaxAttempts} attempts", ex);
+                        $"Service failed to start after {DatabaseReadyMaxAttempts} attempts: sqlserver", ex);
                 }
 
-                LogMessage($"SQL Server not ready yet (attempt {attempt}/{DatabaseReadyMaxAttempts}): {ex.Message}",
+                LogMessage($"Service failed to start: sqlserver ({attempt}/{DatabaseReadyMaxAttempts})",
                     "");
                 await Task.Delay(DatabaseReadyDelayMs);
             }

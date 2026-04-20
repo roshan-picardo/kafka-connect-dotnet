@@ -27,7 +27,7 @@ public class MySqlFixture(
                 var command = new MySqlCommand("SELECT VERSION()", connection);
                 await command.ExecuteScalarAsync();
 
-                LogMessage($"MySQL is ready (attempt {attempt})", "");
+                LogMessage($"Service is ready: mysql", "");
                 return;
             }
             catch (Exception ex)
@@ -35,10 +35,10 @@ public class MySqlFixture(
                 if (attempt == DatabaseReadyMaxAttempts)
                 {
                     throw new TimeoutException(
-                        $"MySQL did not become ready after {DatabaseReadyMaxAttempts} attempts", ex);
+                        $"Service failed to start after {DatabaseReadyMaxAttempts} attempts: mysql", ex);
                 }
 
-                LogMessage($"MySQL not ready yet (attempt {attempt}/{DatabaseReadyMaxAttempts}): {ex.Message}", "");
+                LogMessage($"Service failed to start: mysql ({attempt}/{DatabaseReadyMaxAttempts})", "");
                 await Task.Delay(DatabaseReadyDelayMs);
             }
         }

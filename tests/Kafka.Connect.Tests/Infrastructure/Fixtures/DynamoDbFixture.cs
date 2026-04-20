@@ -39,7 +39,7 @@ public class DynamoDbFixture(
 
                 await client.ListTablesAsync();
 
-                LogMessage($"DynamoDB is ready (attempt {attempt})", "");
+                LogMessage($"Service is ready: dynamodb", "");
                 return;
             }
             catch (Exception ex)
@@ -47,10 +47,10 @@ public class DynamoDbFixture(
                 if (attempt == DatabaseReadyMaxAttempts)
                 {
                     throw new TimeoutException(
-                        $"DynamoDB did not become ready after {DatabaseReadyMaxAttempts} attempts", ex);
+                        $"Service failed to start after {DatabaseReadyMaxAttempts} attempts: dynamodb", ex);
                 }
 
-                LogMessage($"DynamoDB not ready yet (attempt {attempt}/{DatabaseReadyMaxAttempts}): {ex.Message}", "");
+                LogMessage($"Service failed to start: dynamodb ({attempt}/{DatabaseReadyMaxAttempts})", "");
                 await Task.Delay(DatabaseReadyDelayMs);
             }
             finally
