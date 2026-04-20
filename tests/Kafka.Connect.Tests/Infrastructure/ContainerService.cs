@@ -20,10 +20,9 @@ public class ContainerService : IContainerService
         await _buildLock.WaitAsync();
         try
         {
-            // Check if image already built
-            if (_builtImages.ContainsKey(dockerfilePath))
+            if (_builtImages.TryGetValue(dockerfilePath, out var image))
             {
-                TestLoggingService.LogMessage($"Docker image already built for {dockerfilePath}, reusing: {_builtImages[dockerfilePath]}");
+                TestLoggingService.LogMessage($"Docker image already built for {dockerfilePath}, reusing: {image}");
                 return;
             }
 
@@ -53,7 +52,6 @@ public class ContainerService : IContainerService
             await futureImage.CreateAsync();
             
             _builtImages[dockerfilePath] = imageName;
-            TestLoggingService.LogMessage($"Docker image built successfully: {imageName}");
         }
         finally
         {
@@ -67,9 +65,8 @@ public class ContainerService : IContainerService
 
         if (!string.IsNullOrEmpty(config.DockerfilePath))
         {
-            // Use the pre-built image name
-            var imageName = _builtImages.ContainsKey(config.DockerfilePath)
-                ? _builtImages[config.DockerfilePath]
+            var imageName = _builtImages.TryGetValue(config.DockerfilePath, out var image)
+                ? image
                 : "kafka-connect:latest";
 
             containerBuilder = new ContainerBuilder()
@@ -123,11 +120,9 @@ public class ContainerService : IContainerService
         
         TestLoggingService.LogMessage($"Creating container: {config.Name} ({config.Image})");
         await container.StartAsync();
-        TestLoggingService.LogMessage($"Container started: {config.Name}");
         
         if (config.Name == "mongodb" && config.Command.Contains("--replSet"))
         {
-            TestLoggingService.LogMessage($"Initializing MongoDB replica set for {config.Name}...");
             await Task.Delay(5000); 
             
             var initResult = await container.ExecAsync([
@@ -137,7 +132,6 @@ public class ContainerService : IContainerService
             
             if (initResult.ExitCode == 0)
             {
-                TestLoggingService.LogMessage("MongoDB replica set initialized successfully");
                 await Task.Delay(5000); 
             }
             else

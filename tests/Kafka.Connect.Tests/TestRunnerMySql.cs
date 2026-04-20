@@ -173,6 +173,7 @@ public class TestRunnerMySql(TestFixture fixture, ITestOutputHelper output) : Ba
             }
             return JsonSerializer.SerializeToNode(recordData);
         }
+        
         return null;
     }
 

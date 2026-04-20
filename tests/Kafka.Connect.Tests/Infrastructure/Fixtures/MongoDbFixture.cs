@@ -25,7 +25,7 @@ public class MongoDbFixture(
                 var client = new MongoClient(connectionString);
                 await client.ListDatabaseNamesAsync();
 
-                LogMessage($"MongoDB is ready (attempt {attempt})", "");
+                LogMessage($"Service is ready: mongodb", "");
                 return;
             }
             catch (Exception ex)
@@ -33,10 +33,10 @@ public class MongoDbFixture(
                 if (attempt == DatabaseReadyMaxAttempts)
                 {
                     throw new TimeoutException(
-                        $"MongoDB did not become ready after {DatabaseReadyMaxAttempts} attempts", ex);
+                        $"Service failed to start after {DatabaseReadyMaxAttempts} attempts: mongodb", ex);
                 }
 
-                LogMessage($"MongoDB not ready yet (attempt {attempt}/{DatabaseReadyMaxAttempts}): {ex.Message}", "");
+                LogMessage($"Service failed to start: mongodb ({attempt}/{DatabaseReadyMaxAttempts})", "");
                 await Task.Delay(DatabaseReadyDelayMs);
             }
         }

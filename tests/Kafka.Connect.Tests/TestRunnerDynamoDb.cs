@@ -102,12 +102,12 @@ public class TestRunnerDynamoDb(TestFixture fixture, ITestOutputHelper output) :
             Key = key
         });
 
-        if (response.Item == null || response.Item.Count == 0)
+        if (response.Item != null && response.Item.Count > 0)
         {
-            return null;
+            return ConvertAttributeValuesToJson(response.Item);
         }
-
-        return ConvertAttributeValuesToJson(response.Item);
+        
+        return null;
     }
 
     private static Dictionary<string, AttributeValue> ConvertJsonToAttributeValues(string json)

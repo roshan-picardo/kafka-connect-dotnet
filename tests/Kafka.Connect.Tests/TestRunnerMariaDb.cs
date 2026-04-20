@@ -173,6 +173,7 @@ public class TestRunnerMariaDb(TestFixture fixture, ITestOutputHelper output) : 
             }
             return JsonSerializer.SerializeToNode(recordData);
         }
+        
         return null;
     }
 

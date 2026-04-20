@@ -82,7 +82,6 @@ public static class ConfigurationExtensions
         builder.AddConfiguration(configuration);
         var targetFolder = folder ?? Directory.GetCurrentDirectory();
         
-        // Ensure absolute path for SetBasePath
         if (!Path.IsPathRooted(targetFolder))
         {
             targetFolder = Path.GetFullPath(targetFolder);

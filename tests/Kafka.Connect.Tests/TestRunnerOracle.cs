@@ -173,6 +173,7 @@ public class TestRunnerOracle(TestFixture fixture, ITestOutputHelper output) : B
             }
             return JsonSerializer.SerializeToNode(recordData);
         }
+        
         return null;
     }
 

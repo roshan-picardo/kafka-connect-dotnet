@@ -173,6 +173,7 @@ public class TestRunnerSqlServer(TestFixture fixture, ITestOutputHelper output) 
             }
             return JsonSerializer.SerializeToNode(recordData);
         }
+        
         return null;
     }
 

@@ -63,7 +63,12 @@ public class TestRunnerMongoDb(TestFixture fixture, ITestOutputHelper output) : 
         var database = GetMongoDatabase(properties["database"]);
         var collection = database.GetCollection<BsonDocument>(properties["collection"]);
         var actual = await collection.Find(BsonDocument.Parse(record.Key?.ToJsonString())).FirstOrDefaultAsync();
-        return actual == null ? null : JsonNode.Parse(
-            actual.ToJson(new JsonWriterSettings { OutputMode = JsonOutputMode.RelaxedExtendedJson }));
+        
+        if (actual != null)
+        {
+            return JsonNode.Parse(actual.ToJson(new JsonWriterSettings { OutputMode = JsonOutputMode.RelaxedExtendedJson }));
+        }
+        
+        return null;
     }
 }

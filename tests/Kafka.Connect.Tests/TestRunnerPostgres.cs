@@ -173,6 +173,7 @@ public class TestRunnerPostgres(TestFixture fixture, ITestOutputHelper output) :
             }
             return JsonSerializer.SerializeToNode(recordData);
         }
+        
         return null;
     }
 

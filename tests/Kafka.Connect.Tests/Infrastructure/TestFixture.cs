@@ -88,11 +88,10 @@ public class TestFixture : IAsyncLifetime
 
             LogMessage("Starting integration test infrastructure...");
             
-            // Configure containers based on mode
             ConfigureContainersForMode();
 
-            await CreateNetworkAsync();
             await BuildKafkaConnectImageAsync();
+            await CreateNetworkAsync();
             var testConfigs = await LoadTestConfigurationsAsync();
             InitializeFixturesAsync(testConfigs);
             await InitializeInfrastructureInParallelAsync();
@@ -116,25 +115,19 @@ public class TestFixture : IAsyncLifetime
         var standaloneContainer = Configuration.TestContainers.Containers.FirstOrDefault(c => c.Target == "standalone");
         var distributedContainer = Configuration.TestContainers.Containers.FirstOrDefault(c => c.Target == "distributed");
         
-        // Enable/disable leader based on distributed mode
         if (leaderContainer != null)
         {
             leaderContainer.Enabled = Configuration.Distributed;
-            LogMessage($"Leader container {(Configuration.Distributed ? "enabled" : "disabled")}");
         }
         
-        // Enable/disable standalone container
         if (standaloneContainer != null)
         {
             standaloneContainer.Enabled = Configuration.Standalone;
-            LogMessage($"Standalone container {(Configuration.Standalone ? "enabled" : "disabled")}");
         }
         
-        // Enable/disable distributed container
         if (distributedContainer != null)
         {
             distributedContainer.Enabled = Configuration.Distributed;
-            LogMessage($"Distributed container {(Configuration.Distributed ? "enabled" : "disabled")}");
         }
     }
 
@@ -148,7 +141,6 @@ public class TestFixture : IAsyncLifetime
         {
             LogMessage($"Creating network: {Configuration.TestContainers.Network.Name}");
             await _network.CreateAsync();
-            LogMessage($"Network created: {Configuration.TestContainers.Network.Name}");
         }
         catch (Exception ex) when (ex.Message.Contains("already exists") || ex.Message.Contains("network with name") ||
                                    ex.Message.Contains("duplicate"))
@@ -171,12 +163,10 @@ public class TestFixture : IAsyncLifetime
 
         if (dockerfileContainer != null)
         {
-            LogMessage($"Building Kafka Connect Docker image once for all containers...");
             await _containerService.BuildDockerImageAsync(
                 dockerfileContainer.DockerfilePath!,
                 "kafka-connect:latest",
                 dockerfileContainer.CleanUpImage);
-            LogMessage("Kafka Connect Docker image built successfully!");
         }
     }
 
@@ -212,9 +202,8 @@ public class TestFixture : IAsyncLifetime
 
     private async Task InitializeInfrastructureInParallelAsync()
     {
-        LogMessage("Initializing infrastructure components in parallel...");
+        LogMessage("Initializing infrastructure components...");
 
-        // Initialize Kafka and all databases in parallel
         var initializationTasks = new List<Task>
         {
             _kafkaFixture!.InitializeAsync(),
@@ -228,7 +217,6 @@ public class TestFixture : IAsyncLifetime
         };
 
         await Task.WhenAll(initializationTasks);
-
         LogMessage("All infrastructure components initialized!");
     }
 
