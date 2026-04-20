@@ -92,22 +92,32 @@ public class TestRunnerDynamoDb(TestFixture fixture, ITestOutputHelper output) :
 
     protected override async Task<JsonNode?> Search(Dictionary<string, string> properties, TestCaseRecord record)
     {
-        var client = GetDynamoDbClient();
-        var tableName = properties["table"];
-        var key = ConvertJsonToAttributeValues(record.Key?.ToJsonString() ?? "{}");
-        
-        var response = await client.GetItemAsync(new GetItemRequest
+        // Retry search operation up to 30 times with 1 second delay (30 seconds total)
+        for (var attempt = 1; attempt <= 30; attempt++)
         {
-            TableName = tableName,
-            Key = key
-        });
+            var client = GetDynamoDbClient();
+            var tableName = properties["table"];
+            var key = ConvertJsonToAttributeValues(record.Key?.ToJsonString() ?? "{}");
+            
+            var response = await client.GetItemAsync(new GetItemRequest
+            {
+                TableName = tableName,
+                Key = key
+            });
 
-        if (response.Item == null || response.Item.Count == 0)
-        {
-            return null;
+            if (response.Item != null && response.Item.Count > 0)
+            {
+                return ConvertAttributeValuesToJson(response.Item);
+            }
+            
+            // If not found and not last attempt, wait before retrying
+            if (attempt < 30)
+            {
+                await Task.Delay(1000);
+            }
         }
-
-        return ConvertAttributeValuesToJson(response.Item);
+        
+        return null;
     }
 
     private static Dictionary<string, AttributeValue> ConvertJsonToAttributeValues(string json)

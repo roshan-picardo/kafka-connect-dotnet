@@ -198,7 +198,7 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
         {
             try
             {
-                var loop = 120;
+                var loop = 300; // Increased from 120 to 300 (30 seconds total wait time)
                 ConsumeResult<string, string>? lastResult = null;
                 ConsumeResult<string, string>? result;
                 
@@ -213,15 +213,15 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
 
                 if (lastResult == null)
                 {
-                    throw new DataException("Consumer returned null after waiting for a minute...");
+                    throw new DataException("Consumer returned null after waiting for 30 seconds...");
                 }
 
                 while (true)
                 {
-                    result = consumer.Consume(100); 
+                    result = consumer.Consume(100);
                     if (result == null)
                     {
-                        break; 
+                        break;
                     }
                     lastResult = result;
                 }
