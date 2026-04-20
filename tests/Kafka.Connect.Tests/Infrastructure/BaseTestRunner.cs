@@ -25,8 +25,31 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
                         await Setup(properties);
                         break;
                     case "search":
-                        var searched = await Search(properties, record);
-                        Validate(record.Value, searched);
+                        // Retry search and validation up to 30 times with 1 second delay (30 seconds total)
+                        Exception? lastException = null;
+                        for (var attempt = 1; attempt <= 30; attempt++)
+                        {
+                            try
+                            {
+                                var searched = await Search(properties, record);
+                                Validate(record.Value, searched);
+                                break; // Success - exit retry loop
+                            }
+                            catch (Exception ex)
+                            {
+                                lastException = ex;
+                                // If not last attempt, wait before retrying
+                                if (attempt < 30)
+                                {
+                                    await Task.Delay(1000);
+                                }
+                            }
+                        }
+                        // If we exhausted all retries, throw the last exception
+                        if (lastException != null)
+                        {
+                            throw lastException;
+                        }
                         break;
                     case "insert":
                         await Insert(properties, record);
@@ -41,8 +64,31 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
                         await Publish(properties, record);
                         break;
                     case "consume":
-                        var consumed = await Consume(properties, record);
-                        Validate(record.Value, consumed);
+                        // Retry consume and validation up to 30 times with 1 second delay (30 seconds total)
+                        Exception? lastConsumeException = null;
+                        for (var attempt = 1; attempt <= 30; attempt++)
+                        {
+                            try
+                            {
+                                var consumed = await Consume(properties, record);
+                                Validate(record.Value, consumed);
+                                break; // Success - exit retry loop
+                            }
+                            catch (Exception ex)
+                            {
+                                lastConsumeException = ex;
+                                // If not last attempt, wait before retrying
+                                if (attempt < 30)
+                                {
+                                    await Task.Delay(1000);
+                                }
+                            }
+                        }
+                        // If we exhausted all retries, throw the last exception
+                        if (lastConsumeException != null)
+                        {
+                            throw lastConsumeException;
+                        }
                         break;
                     case "cleanup":
                         properties["cleanup"] = record.Script;
@@ -198,7 +244,7 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
         {
             try
             {
-                var loop = 300; // Increased from 120 to 300 (30 seconds total wait time)
+                var loop = 120; // Wait up to 12 seconds for initial message
                 ConsumeResult<string, string>? lastResult = null;
                 ConsumeResult<string, string>? result;
                 
@@ -213,7 +259,7 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
 
                 if (lastResult == null)
                 {
-                    throw new DataException("Consumer returned null after waiting for 30 seconds...");
+                    throw new DataException("Consumer returned null after waiting for 12 seconds...");
                 }
 
                 while (true)

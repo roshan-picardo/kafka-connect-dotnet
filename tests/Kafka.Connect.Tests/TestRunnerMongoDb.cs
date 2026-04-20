@@ -60,23 +60,13 @@ public class TestRunnerMongoDb(TestFixture fixture, ITestOutputHelper output) : 
 
     protected override async Task<JsonNode?> Search(Dictionary<string, string> properties, TestCaseRecord record)
     {
-        // Retry search operation up to 30 times with 1 second delay (30 seconds total)
-        for (var attempt = 1; attempt <= 30; attempt++)
+        var database = GetMongoDatabase(properties["database"]);
+        var collection = database.GetCollection<BsonDocument>(properties["collection"]);
+        var actual = await collection.Find(BsonDocument.Parse(record.Key?.ToJsonString())).FirstOrDefaultAsync();
+        
+        if (actual != null)
         {
-            var database = GetMongoDatabase(properties["database"]);
-            var collection = database.GetCollection<BsonDocument>(properties["collection"]);
-            var actual = await collection.Find(BsonDocument.Parse(record.Key?.ToJsonString())).FirstOrDefaultAsync();
-            
-            if (actual != null)
-            {
-                return JsonNode.Parse(actual.ToJson(new JsonWriterSettings { OutputMode = JsonOutputMode.RelaxedExtendedJson }));
-            }
-            
-            // If not found and not last attempt, wait before retrying
-            if (attempt < 30)
-            {
-                await Task.Delay(1000);
-            }
+            return JsonNode.Parse(actual.ToJson(new JsonWriterSettings { OutputMode = JsonOutputMode.RelaxedExtendedJson }));
         }
         
         return null;

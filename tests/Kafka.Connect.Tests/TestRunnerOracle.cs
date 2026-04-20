@@ -149,39 +149,29 @@ public class TestRunnerOracle(TestFixture fixture, ITestOutputHelper output) : B
 
     protected override async Task<JsonNode?> Search(Dictionary<string, string> properties, TestCaseRecord record)
     {
-        // Retry search operation up to 30 times with 1 second delay (30 seconds total)
-        for (var attempt = 1; attempt <= 30; attempt++)
+        await using var connection = GetOracleConnection();
+        await connection.OpenAsync();
+
+        var keyJson = record.Key?.ToJsonString() ?? "{}";
+        var keyDoc = JsonDocument.Parse(keyJson);
+
+        var whereConditions = keyDoc.RootElement.EnumerateObject().Select(property => $"\"{property.Name}\" = '{GetParameterValue(property.Value)}'").ToList();
+
+        var sql = $"SELECT * FROM \"{properties["schema"]}\".\"{properties["table"]}\" WHERE {string.Join(" AND ", whereConditions)}";
+
+        await using var command = new OracleCommand(sql, connection);
+
+        await using var reader = await command.ExecuteReaderAsync();
+        if (await reader.ReadAsync())
         {
-            await using var connection = GetOracleConnection();
-            await connection.OpenAsync();
-
-            var keyJson = record.Key?.ToJsonString() ?? "{}";
-            var keyDoc = JsonDocument.Parse(keyJson);
-
-            var whereConditions = keyDoc.RootElement.EnumerateObject().Select(property => $"\"{property.Name}\" = '{GetParameterValue(property.Value)}'").ToList();
-
-            var sql = $"SELECT * FROM \"{properties["schema"]}\".\"{properties["table"]}\" WHERE {string.Join(" AND ", whereConditions)}";
-
-            await using var command = new OracleCommand(sql, connection);
-
-            await using var reader = await command.ExecuteReaderAsync();
-            if (await reader.ReadAsync())
+            var recordData = new Dictionary<string, object?>();
+            for (var i = 0; i < reader.FieldCount; i++)
             {
-                var recordData = new Dictionary<string, object?>();
-                for (var i = 0; i < reader.FieldCount; i++)
-                {
-                    var columnName = reader.GetName(i);
-                    var value = reader.GetValue(i);
-                    recordData[columnName] = value == DBNull.Value ? null : value;
-                }
-                return JsonSerializer.SerializeToNode(recordData);
+                var columnName = reader.GetName(i);
+                var value = reader.GetValue(i);
+                recordData[columnName] = value == DBNull.Value ? null : value;
             }
-            
-            // If not found and not last attempt, wait before retrying
-            if (attempt < 30)
-            {
-                await Task.Delay(1000);
-            }
+            return JsonSerializer.SerializeToNode(recordData);
         }
         
         return null;
