@@ -41,7 +41,7 @@ public abstract class InfrastructureFixture(
     /// <summary>
     /// Common method to wait for a worker to be ready with retry logic
     /// </summary>
-    protected async Task WaitForWorkerReadyAsync(string statusUrl, string workerName, Func<List<string>, Task>? retryFailedConnectorsCallback = null)
+    public async Task WaitForWorkerReadyAsync(string statusUrl, string workerName, Func<List<string>, Task>? retryFailedConnectorsCallback = null)
     {
         using var httpClient = new HttpClient
         {

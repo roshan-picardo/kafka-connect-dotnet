@@ -73,7 +73,7 @@ public class LeaderFixture(
         }
     }
 
-    private async Task RetryFailedConnectorsAsync(List<string> failedConnectorNames)
+    public async Task RetryFailedConnectorsAsync(List<string> failedConnectorNames)
     {
         if (failedConnectorNames.Count == 0)
         {

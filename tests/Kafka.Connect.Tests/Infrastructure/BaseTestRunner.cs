@@ -11,6 +11,9 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
 {
     protected async Task Run(TestCase testCase, string target)
     {
+        // Ensure all connectors are healthy before running the test
+        await fixture.EnsureConnectorsHealthyAsync();
+        
         output.WriteLine($"Executing test: {testCase.Title}");
         if (testCase.Properties is { } properties)
         {

@@ -253,6 +253,23 @@ public class TestFixture : IAsyncLifetime
     }
 
     public TestConfiguration Configuration { get; }
+    
+    public async Task EnsureConnectorsHealthyAsync()
+    {
+        if (Configuration.DebugMode || Configuration.SkipInfrastructure || !Configuration.Distributed)
+        {
+            return;
+        }
+
+        if (_leaderFixture != null)
+        {
+            var distributedEndpoint = Configuration.GetServiceEndpoint("Distributed");
+            var statusUrl = $"{distributedEndpoint}/workers/status";
+            
+            // Reuse the existing WaitForWorkerReadyAsync with a single attempt to check and restart failed connectors
+            await _leaderFixture.WaitForWorkerReadyAsync(statusUrl, "Distributed worker", _leaderFixture.RetryFailedConnectorsAsync);
+        }
+    }
 
     public async Task DisposeAsync()
     {
