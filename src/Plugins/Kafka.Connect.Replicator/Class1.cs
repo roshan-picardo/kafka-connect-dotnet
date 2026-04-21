@@ -1,6 +1,5 @@
-﻿namespace Kafka.Connect.Replicator
+﻿namespace Kafka.Connect.Replicator;
+
+public class Class1
 {
-    public class Class1
-    {
-    }
 }

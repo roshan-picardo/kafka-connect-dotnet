@@ -12,108 +12,107 @@ using Kafka.Connect.Plugin.Strategies;
 using MongoDB.Bson;
 using MongoDB.Driver;
 
-namespace Kafka.Connect.MongoDb.Collections
-{
-    public class MongoQueryRunner(
-        ILogger<MongoQueryRunner> logger,
-        IMongoClientProvider mongoClientProvider,
-        IConfigurationProvider configurationProvider)
-        : IMongoQueryRunner
-    {
-        public async Task WriteMany(IList<WriteModel<BsonDocument>> models, string connector, int taskId)
-        {
-            using (logger.Track("Writing models to database"))
-            {
-                var sinkConfig = configurationProvider.GetPluginConfig<PluginConfig>(connector);
-                if (models == null || !models.Any())
-                {
-                    return;
-                }
+namespace Kafka.Connect.MongoDb.Collections;
 
-                using (ConnectLog.Mongo(sinkConfig.Database, sinkConfig.Collection))
+public class MongoQueryRunner(
+    ILogger<MongoQueryRunner> logger,
+    IMongoClientProvider mongoClientProvider,
+    IConfigurationProvider configurationProvider)
+    : IMongoQueryRunner
+{
+    public async Task WriteMany(IList<WriteModel<BsonDocument>> models, string connector, int taskId)
+    {
+        using (logger.Track("Writing models to database"))
+        {
+            var sinkConfig = configurationProvider.GetPluginConfig<PluginConfig>(connector);
+            if (models == null || !models.Any())
+            {
+                return;
+            }
+
+            using (ConnectLog.Mongo(sinkConfig.Database, sinkConfig.Collection))
+            {
+                try
                 {
-                    try
-                    {
-                        var collection = mongoClientProvider.GetMongoClient(connector, taskId)
-                            .GetDatabase(sinkConfig.Database)
-                            .GetCollection<BsonDocument>(sinkConfig.Collection);
-                        var bulkWriteResult = await collection.BulkWriteAsync(models,
-                            new BulkWriteOptions { IsOrdered = sinkConfig.IsWriteOrdered });
-                        logger.Debug("Models written successfully to mongodb.",
-                            new
-                            {
-                                Acknowledged = bulkWriteResult.IsAcknowledged,
-                                Requests = bulkWriteResult.RequestCount,
-                                Deleted = bulkWriteResult.DeletedCount,
-                                Inserted = bulkWriteResult.InsertedCount,
-                                Matched = bulkWriteResult.MatchedCount,
-                                Modified = bulkWriteResult.ModifiedCount,
-                                Processed = bulkWriteResult.ProcessedRequests.Count,
-                                Upserts = bulkWriteResult.Upserts.Count,
-                            });
-                    }
-                    catch (MongoBulkWriteException ex)
-                    {
-                        // TODO: set log context needs to be setup
-                        throw new ConnectRetriableException(ex.Message, ex);
-                    }
-                    catch (MongoException me)
-                    {
-                        throw new ConnectRetriableException(me.Message, me);
-                    }
+                    var collection = mongoClientProvider.GetMongoClient(connector, taskId)
+                        .GetDatabase(sinkConfig.Database)
+                        .GetCollection<BsonDocument>(sinkConfig.Collection);
+                    var bulkWriteResult = await collection.BulkWriteAsync(models,
+                        new BulkWriteOptions { IsOrdered = sinkConfig.IsWriteOrdered });
+                    logger.Debug("Models written successfully to mongodb.",
+                        new
+                        {
+                            Acknowledged = bulkWriteResult.IsAcknowledged,
+                            Requests = bulkWriteResult.RequestCount,
+                            Deleted = bulkWriteResult.DeletedCount,
+                            Inserted = bulkWriteResult.InsertedCount,
+                            Matched = bulkWriteResult.MatchedCount,
+                            Modified = bulkWriteResult.ModifiedCount,
+                            Processed = bulkWriteResult.ProcessedRequests.Count,
+                            Upserts = bulkWriteResult.Upserts.Count,
+                        });
+                }
+                catch (MongoBulkWriteException ex)
+                {
+                    // TODO: set log context needs to be setup
+                    throw new ConnectRetriableException(ex.Message, ex);
+                }
+                catch (MongoException me)
+                {
+                    throw new ConnectRetriableException(me.Message, me);
                 }
             }
         }
+    }
 
-        public async Task<IList<BsonDocument>> ReadMany(
-            StrategyModel<FindModel<BsonDocument>> model,
-            string connector,
-            int taskId,
-            string collection)
+    public async Task<IList<BsonDocument>> ReadMany(
+        StrategyModel<FindModel<BsonDocument>> model,
+        string connector,
+        int taskId,
+        string collection)
+    {
+        var sourceConfig = configurationProvider.GetPluginConfig<PluginConfig>(connector);
+        var dbCollection = mongoClientProvider.GetMongoClient(connector, taskId)
+            .GetDatabase(sourceConfig.Database)
+            .GetCollection<BsonDocument>(collection);
+
+        return await (await dbCollection.FindAsync(model.Model.Filter, model.Model.Options)).ToListAsync();
+    }
+
+    public async Task<IList<ChangeStreamDocument<BsonDocument>>> WatchMany(
+        StrategyModel<WatchModel> model,
+        string connector,
+        int taskId,
+        string collection)
+    {
+        using (logger.Track("Watching collection for changes"))
         {
             var sourceConfig = configurationProvider.GetPluginConfig<PluginConfig>(connector);
             var dbCollection = mongoClientProvider.GetMongoClient(connector, taskId)
                 .GetDatabase(sourceConfig.Database)
                 .GetCollection<BsonDocument>(collection);
 
-            return await (await dbCollection.FindAsync(model.Model.Filter, model.Model.Options)).ToListAsync();
-        }
-
-        public async Task<IList<ChangeStreamDocument<BsonDocument>>> WatchMany(
-            StrategyModel<WatchModel> model,
-            string connector,
-            int taskId,
-            string collection)
-        {
-            using (logger.Track("Watching collection for changes"))
+            using (ConnectLog.Mongo(sourceConfig.Database, collection))
             {
-                var sourceConfig = configurationProvider.GetPluginConfig<PluginConfig>(connector);
-                var dbCollection = mongoClientProvider.GetMongoClient(connector, taskId)
-                    .GetDatabase(sourceConfig.Database)
-                    .GetCollection<BsonDocument>(collection);
+                var changes = new List<ChangeStreamDocument<BsonDocument>>();
+                var batchSize = model.Model.Options.BatchSize ?? 100;
 
-                using (ConnectLog.Mongo(sourceConfig.Database, collection))
+                using var cursor = await dbCollection.WatchAsync(model.Model.Options);
+
+                if (await cursor.MoveNextAsync())
                 {
-                    var changes = new List<ChangeStreamDocument<BsonDocument>>();
-                    var batchSize = model.Model.Options.BatchSize ?? 100;
-                    
-                    using var cursor = await dbCollection.WatchAsync(model.Model.Options);
-                    
-                    if (await cursor.MoveNextAsync())
+                    foreach (var change in cursor.Current)
                     {
-                        foreach (var change in cursor.Current)
+                        changes.Add(change);
+                        if (changes.Count >= batchSize)
                         {
-                            changes.Add(change);
-                            if (changes.Count >= batchSize)
-                            {
-                                break;
-                            }
+                            break;
                         }
                     }
-
-                    logger.Debug("Change stream documents retrieved", new { Count = changes.Count });
-                    return changes;
                 }
+
+                logger.Debug("Change stream documents retrieved", new { Count = changes.Count });
+                return changes;
             }
         }
     }

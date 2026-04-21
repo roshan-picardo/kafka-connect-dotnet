@@ -9,20 +9,20 @@ public interface IPostgresClient
     NpgsqlConnection GetConnection();
 }
 
-public class PostgresClient : IPostgresClient, IDisposable
+public class PostgresClient(string connector, NpgsqlConnection connection) : IPostgresClient, IDisposable
 {
-    private readonly NpgsqlConnection _connection;
-
-    public PostgresClient(string connector, NpgsqlConnection connection)
+    private readonly NpgsqlConnection _connection = EnsureOpen(connection);
+    
+    public string ApplicationName { get; } = connector;
+    
+    private static NpgsqlConnection EnsureOpen(NpgsqlConnection conn)
     {
-        ApplicationName = connector;
-        _connection = connection;
-        if (_connection is not { State: ConnectionState.Open })
+        if (conn is not { State: ConnectionState.Open })
         {
-            _connection.Open();
+            conn.Open();
         }
+        return conn;
     }
-    public string ApplicationName { get; }
     public NpgsqlConnection GetConnection()
     {
         if (_connection is { State: ConnectionState.Open })

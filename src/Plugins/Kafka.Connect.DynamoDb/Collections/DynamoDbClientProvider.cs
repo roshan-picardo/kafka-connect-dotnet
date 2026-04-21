@@ -7,16 +7,10 @@ using Kafka.Connect.DynamoDb.Models;
 
 namespace Kafka.Connect.DynamoDb.Collections;
 
-public class DynamoDbClientProvider : IDynamoDbClientProvider
+public class DynamoDbClientProvider(Plugin.Providers.IConfigurationProvider configurationProvider) : IDynamoDbClientProvider
 {
-    private readonly Plugin.Providers.IConfigurationProvider _configurationProvider;
     private readonly ConcurrentDictionary<string, IAmazonDynamoDB> _dynamoDbClientCache = new();
     private readonly ConcurrentDictionary<string, AmazonDynamoDBStreamsClient> _streamsClientCache = new();
-
-    public DynamoDbClientProvider(Plugin.Providers.IConfigurationProvider configurationProvider)
-    {
-        _configurationProvider = configurationProvider;
-    }
     
     public IAmazonDynamoDB GetDynamoDbClient(string connector, int taskId)
     {
@@ -24,7 +18,7 @@ public class DynamoDbClientProvider : IDynamoDbClientProvider
         
         return _dynamoDbClientCache.GetOrAdd(key, _ =>
         {
-            var pluginConfig = _configurationProvider.GetPluginConfig<PluginConfig>(connector);
+            var pluginConfig = configurationProvider.GetPluginConfig<PluginConfig>(connector);
             if (pluginConfig == null)
                 throw new InvalidOperationException($"Unable to find the configuration matching {connector}.");
 
@@ -65,7 +59,7 @@ public class DynamoDbClientProvider : IDynamoDbClientProvider
         
         return _streamsClientCache.GetOrAdd(key, _ =>
         {
-            var pluginConfig = _configurationProvider.GetPluginConfig<PluginConfig>(connector);
+            var pluginConfig = configurationProvider.GetPluginConfig<PluginConfig>(connector);
             if (pluginConfig == null)
                 throw new InvalidOperationException($"Unable to find the configuration matching {connector}.");
 

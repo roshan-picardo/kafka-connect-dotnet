@@ -1,10 +1,9 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Kafka.Connect.Plugin
+namespace Kafka.Connect.Plugin;
+
+public interface IPluginInitializer
 {
-    public interface IPluginInitializer
-    {
-        void AddServices(IServiceCollection collection, IConfiguration configuration, params (string Name, int Tasks)[] connectors);
-    }
+    void AddServices(IServiceCollection collection, IConfiguration configuration, params (string Name, int Tasks)[] connectors);
 }

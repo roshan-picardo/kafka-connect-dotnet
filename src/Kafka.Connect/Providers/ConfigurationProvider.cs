@@ -150,6 +150,10 @@ public class ConfigurationProvider : IConfigurationProvider, Kafka.Connect.Plugi
 
     public IList<ConnectorConfig> GetAllConnectorConfigs(bool includeDisabled = false)
     {
+        if (IsLeader)
+        {
+            return [_leaderConfig.Connector];
+        }
         if (!_workerConfig.Standalone)
         {
             return [_workerConfig.Connector];

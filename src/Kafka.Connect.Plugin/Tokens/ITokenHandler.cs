@@ -1,7 +1,6 @@
-namespace Kafka.Connect.Plugin.Tokens
+namespace Kafka.Connect.Plugin.Tokens;
+
+public interface ITokenHandler
 {
-    public interface ITokenHandler
-    {
-        void NoOp();
-    }
+    void NoOp();
 }
