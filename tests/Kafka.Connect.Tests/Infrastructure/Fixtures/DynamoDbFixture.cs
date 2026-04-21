@@ -39,7 +39,7 @@ public class DynamoDbFixture(
 
                 await client.ListTablesAsync();
 
-                LogMessage($"Service is ready: dynamodb", "");
+                LogMessage($"Started: {GetTargetName()}", "");
                 return;
             }
             catch (Exception ex)
@@ -47,10 +47,10 @@ public class DynamoDbFixture(
                 if (attempt == DatabaseReadyMaxAttempts)
                 {
                     throw new TimeoutException(
-                        $"Service failed to start after {DatabaseReadyMaxAttempts} attempts: dynamodb", ex);
+                        $"Failed to start {GetTargetName()} after {DatabaseReadyMaxAttempts} attempts", ex);
                 }
 
-                LogMessage($"Service failed to start: dynamodb ({attempt}/{DatabaseReadyMaxAttempts})", "");
+                LogMessage($"Starting: {GetTargetName()} (attempt: {attempt}/{DatabaseReadyMaxAttempts})", "");
                 await Task.Delay(DatabaseReadyDelayMs);
             }
             finally
@@ -198,7 +198,7 @@ public class DynamoDbFixture(
             }
             catch (Exception ex)
             {
-                LogMessage($"Failed to execute DynamoDB script: {script} - {ex.Message}", "");
+                LogMessage($"Failed to execute {GetTargetName()} script: {script} - {ex.Message}", "");
                 throw;
             }
         }

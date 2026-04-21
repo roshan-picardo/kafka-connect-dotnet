@@ -101,8 +101,8 @@ public abstract class InfrastructureFixture(
                                 if (!silent)
                                 {
                                     LogMessage(
-                                        $"{workerName} and connectors are ready (attempt {attempt}): Worker=Running, Connectors=[{string.Join(", ", connectorStatuses)}]",
-                                        "");
+                                        $"Started: {workerName} and connectors.",
+                                        $"Worker=Running, Connectors=[{string.Join(", ", connectorStatuses)}]");
                                 }
                                 return;
                             }
@@ -111,8 +111,8 @@ public abstract class InfrastructureFixture(
                             if (workerRunning && !allConnectorsRunning && failedConnectors.Count > 0 && retryFailedConnectorsCallback != null)
                             {
                                 LogMessage(
-                                    $"{workerName} has failed connectors (attempt {attempt}/{WorkerReadyMaxAttempts}): [{string.Join(", ", failedConnectors)}]. Retrying submission...",
-                                    "");
+                                    $"Starting: {workerName} (attempt {attempt}/{WorkerReadyMaxAttempts})",
+                                    $"Failed: [{string.Join(", ", failedConnectors)}]");
                                 
                                 await retryFailedConnectorsCallback(failedConnectors);
                                 
@@ -124,23 +124,23 @@ public abstract class InfrastructureFixture(
                                 if (!silent)
                                 {
                                     LogMessage(
-                                        $"{workerName} or connectors not ready yet (attempt {attempt}/{WorkerReadyMaxAttempts}): Worker={workerRunning}, Connectors=[{string.Join(", ", connectorStatuses)}]",
-                                        "");
+                                        $"Staring: {workerName} (attempt: {attempt}/{WorkerReadyMaxAttempts})",
+                                        $"Worker={workerRunning}, Connectors=[{string.Join(", ", connectorStatuses)}]");
                                 }
                             }
                         }
                         else
                         {
                             LogMessage(
-                                $"{workerName} response missing 'status' property (attempt {attempt}/{WorkerReadyMaxAttempts}): {content}",
-                                "");
+                                $"Failed to start {workerName} after (attempt: {attempt}/{WorkerReadyMaxAttempts})",
+                                $"Response missing 'status' property: {content} ");
                         }
                     }
                     catch (JsonException ex)
                     {
                         LogMessage(
-                            $"Failed to parse {workerName} status JSON (attempt {attempt}/{WorkerReadyMaxAttempts}): {ex.Message}",
-                            "");
+                            $"Failed start {workerName} after (attempt: {attempt}/{WorkerReadyMaxAttempts}): ",
+                            $"{ex.Message}");
                     }
                 }
                 else
@@ -148,7 +148,7 @@ public abstract class InfrastructureFixture(
                     if (!silent)
                     {
                         LogMessage(
-                            $"{workerName} not ready yet (attempt {attempt}/{WorkerReadyMaxAttempts}): HTTP {(int)response.StatusCode}",
+                            $"Starting: {workerName} (attempt {attempt}/{WorkerReadyMaxAttempts})",
                             "");
                     }
                 }
@@ -159,14 +159,14 @@ public abstract class InfrastructureFixture(
                 {
                     var errorType = ex.InnerException?.GetType().Name ?? ex.GetType().Name;
                     LogMessage(
-                        $"{workerName} endpoint not available yet (attempt {attempt}/{WorkerReadyMaxAttempts}): {errorType}", "");
+                        $"Staring :{workerName} (attempt {attempt}/{WorkerReadyMaxAttempts})", $"Endpoint not available yet: {errorType} {ex.Message}");
                 }
             }
             catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
             {
                 if (!silent)
                 {
-                    LogMessage($"{workerName} health check timeout (attempt {attempt}/{WorkerReadyMaxAttempts})", "");
+                    LogMessage($"Starting: {workerName} (attempt {attempt}/{WorkerReadyMaxAttempts})", $"Health check timeout: {ex.InnerException.Message}");
                 }
             }
             catch (Exception ex)
@@ -174,13 +174,13 @@ public abstract class InfrastructureFixture(
                 if (attempt == WorkerReadyMaxAttempts)
                 {
                     throw new TimeoutException(
-                        $"{workerName} did not become ready after {WorkerReadyMaxAttempts} attempts", ex);
+                        $"Failed to start {workerName} after {WorkerReadyMaxAttempts} attempts", ex);
                 }
 
                 if (!silent)
                 {
                     LogMessage(
-                        $"{workerName} not ready yet (attempt {attempt}/{WorkerReadyMaxAttempts}): {ex.GetType().Name} - {ex.Message}",
+                        $"Failed to start {workerName} (attempt {attempt}/{WorkerReadyMaxAttempts}): {ex.GetType().Name} - {ex.Message}",
                         "");
                 }
             }
@@ -189,7 +189,7 @@ public abstract class InfrastructureFixture(
         }
 
         throw new TimeoutException(
-            $"{workerName} and connectors did not reach 'Running' status after {WorkerReadyMaxAttempts} attempts");
+            $"Failed to start {workerName} after {WorkerReadyMaxAttempts} attempts");
     }
 
     public virtual async ValueTask DisposeAsync()

@@ -1,6 +1,7 @@
 using DotNet.Testcontainers.Networks;
 using Microsoft.Data.SqlClient;
 using System.Text.Json;
+using Amazon.DynamoDBv2.Model;
 
 namespace IntegrationTests.Kafka.Connect.Infrastructure.Fixtures;
 
@@ -17,7 +18,6 @@ public class SqlServerFixture(
     public override async Task InitializeAsync()
     {
         var targetName = GetTargetName();
-        LogMessage($"Initializing {targetName} infrastructure...", "");
         
         await CreateContainersAsync();
         
@@ -30,12 +30,9 @@ public class SqlServerFixture(
             
         if (testConfig?.Setup?.Scripts != null && testConfig.Setup.Scripts.Length > 0)
         {
-            LogMessage($"Executing setup scripts for {targetName}...", "");
             await ExecuteScriptsAsync(testConfig.Setup.Database ?? string.Empty, testConfig.Setup.Scripts);
-            LogMessage($"Setup scripts executed for {targetName}!", "");
         }
-
-        LogMessage($"{targetName} infrastructure initialized!", "");
+        LogMessage($"Infrastructure is ready: {GetTargetName()}", "");
     }
 
     protected override async Task WaitForReadyAsync()
@@ -57,7 +54,7 @@ public class SqlServerFixture(
                 var command = new SqlCommand("SELECT @@VERSION", connection);
                 await command.ExecuteScalarAsync();
 
-                LogMessage($"Service is ready: sqlserver", "");
+                LogMessage($"Started: {GetTargetName()}", "");
                 return;
             }
             catch (Exception ex)
@@ -65,11 +62,10 @@ public class SqlServerFixture(
                 if (attempt == DatabaseReadyMaxAttempts)
                 {
                     throw new TimeoutException(
-                        $"Service failed to start after {DatabaseReadyMaxAttempts} attempts: sqlserver", ex);
+                        $"Failed to start {GetTargetName()} after {DatabaseReadyMaxAttempts} attempts", ex);
                 }
 
-                LogMessage($"Service failed to start: sqlserver ({attempt}/{DatabaseReadyMaxAttempts})",
-                    "");
+                LogMessage($"Starting: {GetTargetName()} (attempt: {attempt}/{DatabaseReadyMaxAttempts})", "");
                 await Task.Delay(DatabaseReadyDelayMs);
             }
         }
@@ -93,10 +89,8 @@ public class SqlServerFixture(
         }
     }
 
-    public async Task CreateDatabasesFromConfigurationsAsync()
+    private async Task CreateDatabasesFromConfigurationsAsync()
     {
-        LogMessage("Creating SQL Server databases from connector configurations...", "");
-
         var configDirectory = Path.Join(Directory.GetCurrentDirectory(), "Configurations");
         var configFiles = new List<string>();
         
@@ -111,7 +105,6 @@ public class SqlServerFixture(
 
         if (configFiles.Count == 0)
         {
-            LogMessage("No connector configuration files found, skipping SQL Server database creation", "");
             return;
         }
 
@@ -155,15 +148,15 @@ public class SqlServerFixture(
             try
             {
                 await CreateDatabaseAsync(databaseName);
-                LogMessage($"Created SQL Server database: {databaseName}", "");
+                LogMessage($"Created {GetTargetName()} database: {databaseName}", "");
             }
             catch (Exception ex)
             {
-                LogMessage($"Failed to create SQL Server database {databaseName}: {ex.Message}", "");
+                LogMessage($"Failed to create {GetTargetName()} database {databaseName}: {ex.Message}", "");
             }
         }
 
-        LogMessage($"SQL Server database creation completed. Created {sqlServerDatabases.Count} databases.", "");
+        LogMessage($"Completed {GetTargetName()} database creation. Created {sqlServerDatabases.Count} databases.", "");
     }
 
     private async Task CreateDatabaseAsync(string databaseName)

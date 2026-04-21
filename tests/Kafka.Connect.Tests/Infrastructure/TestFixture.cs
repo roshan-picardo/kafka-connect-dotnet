@@ -266,7 +266,6 @@ public class TestFixture : IAsyncLifetime
             var distributedEndpoint = Configuration.GetServiceEndpoint("Distributed");
             var statusUrl = $"{distributedEndpoint}/workers/status";
             
-            // Check if any connectors need restarting
             var connectorsRestarted = false;
             
             using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
@@ -298,13 +297,11 @@ public class TestFixture : IAsyncLifetime
                 // Ignore errors in pre-check
             }
             
-            // Reuse the existing WaitForWorkerReadyAsync with silent mode - only logs if connectors need restarting
             await _leaderFixture.WaitForWorkerReadyAsync(statusUrl, "Distributed worker", _leaderFixture.RetryFailedConnectorsAsync, silent: true);
             
-            // If connectors were restarted, wait longer for them to fully initialize and resume processing
             if (connectorsRestarted)
             {
-                await Task.Delay(10000); // Wait 10 seconds for connectors to fully restart and resume
+                await Task.Delay(10000); 
             }
         }
     }
@@ -330,18 +327,32 @@ public class TestFixture : IAsyncLifetime
 
             LogMessage("Tearing down test infrastructure...");
 
-            // Dispose fixtures in reverse order (workers first, leader, then databases, then Kafka)
-            if (_distributedFixture != null) await _distributedFixture.DisposeAsync();
-            if (_standaloneFixture != null) await _standaloneFixture.DisposeAsync();
-            if (_leaderFixture != null) await _leaderFixture.DisposeAsync();
-            if (_dynamoDbFixture != null) await _dynamoDbFixture.DisposeAsync();
-            if (_mongoDbFixture != null) await _mongoDbFixture.DisposeAsync();
-            if (_oracleFixture != null) await _oracleFixture.DisposeAsync();
-            if (_sqlServerFixture != null) await _sqlServerFixture.DisposeAsync();
-            if (_mariaDbFixture != null) await _mariaDbFixture.DisposeAsync();
-            if (_mySqlFixture != null) await _mySqlFixture.DisposeAsync();
-            if (_postgresFixture != null) await _postgresFixture.DisposeAsync();
-            if (_kafkaFixture != null) await _kafkaFixture.DisposeAsync();
+            // Dispose Kafka Connect nodes first (in parallel)
+            var kafkaConnectDisposalTasks = new List<Task>();
+            if (_distributedFixture != null) kafkaConnectDisposalTasks.Add(_distributedFixture.DisposeAsync().AsTask());
+            if (_standaloneFixture != null) kafkaConnectDisposalTasks.Add(_standaloneFixture.DisposeAsync().AsTask());
+            if (_leaderFixture != null) kafkaConnectDisposalTasks.Add(_leaderFixture.DisposeAsync().AsTask());
+            
+            if (kafkaConnectDisposalTasks.Count > 0)
+            {
+                await Task.WhenAll(kafkaConnectDisposalTasks);
+            }
+
+            // Dispose infrastructure components in parallel
+            var infrastructureDisposalTasks = new List<Task>();
+            if (_dynamoDbFixture != null) infrastructureDisposalTasks.Add(_dynamoDbFixture.DisposeAsync().AsTask());
+            if (_mongoDbFixture != null) infrastructureDisposalTasks.Add(_mongoDbFixture.DisposeAsync().AsTask());
+            if (_oracleFixture != null) infrastructureDisposalTasks.Add(_oracleFixture.DisposeAsync().AsTask());
+            if (_sqlServerFixture != null) infrastructureDisposalTasks.Add(_sqlServerFixture.DisposeAsync().AsTask());
+            if (_mariaDbFixture != null) infrastructureDisposalTasks.Add(_mariaDbFixture.DisposeAsync().AsTask());
+            if (_mySqlFixture != null) infrastructureDisposalTasks.Add(_mySqlFixture.DisposeAsync().AsTask());
+            if (_postgresFixture != null) infrastructureDisposalTasks.Add(_postgresFixture.DisposeAsync().AsTask());
+            if (_kafkaFixture != null) infrastructureDisposalTasks.Add(_kafkaFixture.DisposeAsync().AsTask());
+            
+            if (infrastructureDisposalTasks.Count > 0)
+            {
+                await Task.WhenAll(infrastructureDisposalTasks);
+            }
 
             if (_network != null)
             {

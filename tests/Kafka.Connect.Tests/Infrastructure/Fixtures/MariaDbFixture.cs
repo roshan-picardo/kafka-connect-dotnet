@@ -27,7 +27,7 @@ public class MariaDbFixture(
                 var command = new MySqlCommand("SELECT VERSION()", connection);
                 await command.ExecuteScalarAsync();
 
-                LogMessage($"Service is ready: mariadb", "");
+                LogMessage($"Started: {GetTargetName()}", "");
                 return;
             }
             catch (Exception ex)
@@ -35,10 +35,10 @@ public class MariaDbFixture(
                 if (attempt == DatabaseReadyMaxAttempts)
                 {
                     throw new TimeoutException(
-                        $"Service failed to start after {DatabaseReadyMaxAttempts} attempts: mariadb", ex);
+                        $"Failed to start {GetTargetName()} after {DatabaseReadyMaxAttempts} attempts", ex);
                 }
 
-                LogMessage($"Service failed to start: mariadb ({attempt}/{DatabaseReadyMaxAttempts})", "");
+                LogMessage($"Starting: {GetTargetName()} (attempt: {attempt}/{DatabaseReadyMaxAttempts})", "");
                 await Task.Delay(DatabaseReadyDelayMs);
             }
         }

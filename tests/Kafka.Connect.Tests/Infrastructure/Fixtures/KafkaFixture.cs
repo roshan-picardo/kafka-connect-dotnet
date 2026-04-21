@@ -1,6 +1,8 @@
 using Confluent.Kafka;
 using Confluent.Kafka.Admin;
+using DotNet.Testcontainers.Containers;
 using DotNet.Testcontainers.Networks;
+using System.Net.Sockets;
 using System.Text.Json;
 
 namespace IntegrationTests.Kafka.Connect.Infrastructure.Fixtures;
@@ -13,15 +15,193 @@ public class KafkaFixture(
     : InfrastructureFixture(configuration, logMessage, containerService, network)
 {
     private IAdminClient? _adminClient;
+    private const int KafkaReadyMaxAttempts = 30;
+    private const int KafkaReadyDelayMs = 1000;
+    private readonly List<IContainer> _containers = new();
 
     protected override string GetTargetName() => "kafka";
 
     public override async Task InitializeAsync()
     {
-        await CreateContainersAsync();
-        await Task.Delay(5000);
+        await CreateKafkaContainersAsync();
         await CreateConnectorTopicsAsync();
         LogMessage("Kafka infrastructure initialized!", "");
+    }
+
+    private async Task CreateKafkaContainersAsync()
+    {
+        var targetName = GetTargetName();
+        var allContainers = Configuration.TestContainers.Containers;
+
+        var targetContainers = allContainers
+            .Where(c => c.Target?.Equals(targetName, StringComparison.OrdinalIgnoreCase) == true && c.Enabled)
+            .ToList();
+
+        // Step 1: Start Zookeeper first
+        var zookeeperConfig = targetContainers.FirstOrDefault(c =>
+            c.Name.Contains("zookeeper", StringComparison.OrdinalIgnoreCase));
+        
+        if (zookeeperConfig != null)
+        {
+            var zookeeperContainer = await containerService.CreateContainerAsync(
+                zookeeperConfig, network, new TestLoggingService());
+            _containers.Add(zookeeperContainer);
+            
+            // Wait for Zookeeper to be ready
+            await WaitForZookeeperAsync();
+        }
+
+        // Step 2: Start Broker and Schema Registry in parallel
+        var brokerConfig = targetContainers.FirstOrDefault(c =>
+            c.Name.Contains("broker", StringComparison.OrdinalIgnoreCase) ||
+            (c.Name.Contains("kafka", StringComparison.OrdinalIgnoreCase) &&
+             !c.Name.Contains("zookeeper", StringComparison.OrdinalIgnoreCase)));
+        
+        var schemaConfig = targetContainers.FirstOrDefault(c =>
+            c.Name.Contains("schema", StringComparison.OrdinalIgnoreCase));
+
+        var tasks = new List<Task>();
+
+        if (brokerConfig != null)
+        {
+            tasks.Add(Task.Run(async () =>
+            {
+                var brokerContainer = await containerService.CreateContainerAsync(
+                    brokerConfig, network, new TestLoggingService());
+                _containers.Add(brokerContainer);
+                await WaitForBrokerAsync();
+            }));
+        }
+
+        if (schemaConfig != null)
+        {
+            tasks.Add(Task.Run(async () =>
+            {
+                var schemaContainer = await containerService.CreateContainerAsync(
+                    schemaConfig, network, new TestLoggingService());
+                _containers.Add(schemaContainer);
+                await WaitForSchemaRegistryAsync();
+            }));
+        }
+
+        await Task.WhenAll(tasks);
+        
+        LogMessage("All Kafka services are ready", "");
+    }
+
+    private async Task WaitForZookeeperAsync()
+    {
+        var zookeeperEndpoint = Configuration.GetServiceEndpoint("Zookeeper");
+        var parts = zookeeperEndpoint.Split(':');
+        var host = parts[0];
+        var port = int.Parse(parts[1]);
+
+        for (var attempt = 1; attempt <= KafkaReadyMaxAttempts; attempt++)
+        {
+            try
+            {
+                using var client = new TcpClient();
+                await client.ConnectAsync(host, port);
+                
+                // Send "ruok" (are you ok) command to Zookeeper
+                var stream = client.GetStream();
+                var command = System.Text.Encoding.ASCII.GetBytes("ruok");
+                await stream.WriteAsync(command);
+                
+                var buffer = new byte[4];
+                var bytesRead = await stream.ReadAsync(buffer);
+                var response = System.Text.Encoding.ASCII.GetString(buffer, 0, bytesRead);
+                
+                if (response == "imok")
+                {
+                    LogMessage("Service is ready: zookeeper", "");
+                    return;
+                }
+            }
+            catch (Exception)
+            {
+                if (attempt == KafkaReadyMaxAttempts)
+                {
+                    throw new TimeoutException(
+                        $"Service failed to start after {KafkaReadyMaxAttempts} attempts: zookeeper");
+                }
+
+                LogMessage($"Starting: zookeeper (attempt: {attempt}/{KafkaReadyMaxAttempts})", "");
+                await Task.Delay(KafkaReadyDelayMs);
+            }
+        }
+    }
+
+    private async Task WaitForBrokerAsync()
+    {
+        var bootstrapServers = Configuration.GetServiceEndpoint("Kafka");
+
+        for (var attempt = 1; attempt <= KafkaReadyMaxAttempts; attempt++)
+        {
+            try
+            {
+                using var adminClient = new AdminClientBuilder(new AdminClientConfig
+                    {
+                        BootstrapServers = bootstrapServers,
+                        SocketTimeoutMs = 5000
+                    })
+                    .Build();
+
+                var metadata = adminClient.GetMetadata(TimeSpan.FromSeconds(5));
+                
+                if (metadata.Brokers.Count > 0)
+                {
+                    LogMessage("Service is ready: broker", "");
+                    return;
+                }
+            }
+            catch (Exception)
+            {
+                if (attempt == KafkaReadyMaxAttempts)
+                {
+                    throw new TimeoutException(
+                        $"Service failed to start after {KafkaReadyMaxAttempts} attempts: kafka-broker");
+                }
+
+                LogMessage($"Starting: broker (attempt: {attempt}/{KafkaReadyMaxAttempts})", "");
+                await Task.Delay(KafkaReadyDelayMs);
+            }
+        }
+    }
+
+    private async Task WaitForSchemaRegistryAsync()
+    {
+        var schemaRegistryUrl = Configuration.GetServiceEndpoint("SchemaRegistry");
+        
+        using var httpClient = new HttpClient
+        {
+            Timeout = TimeSpan.FromSeconds(5)
+        };
+
+        for (var attempt = 1; attempt <= KafkaReadyMaxAttempts; attempt++)
+        {
+            try
+            {
+                var response = await httpClient.GetAsync($"{schemaRegistryUrl}/subjects");
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    LogMessage("Service is ready: schema-registry", "");
+                    return;
+                }
+            }
+            catch (Exception)
+            {
+                if (attempt == KafkaReadyMaxAttempts)
+                {
+                    throw new TimeoutException(
+                        $"Service failed to start after {KafkaReadyMaxAttempts} attempts: schema-registry");
+                }
+
+                LogMessage($"Starting: schema-registry (attempt: {attempt}/{KafkaReadyMaxAttempts})", "");
+                await Task.Delay(KafkaReadyDelayMs);
+            }
+        }
     }
 
     private async Task CreateConnectorTopicsAsync()
@@ -178,15 +358,15 @@ public class KafkaFixture(
             try
             {
                 await CreateTopicAsync(topic);
-                LogMessage($"Created connector topic: {topic}", "");
+                LogMessage($"Created topic: {topic}", "");
             }
             catch (Exception ex)
             {
-                LogMessage($"Failed to create connector topic {topic}: {ex.Message}", "");
+                LogMessage($"Failed to create topic {topic}: {ex.Message}", "");
             }
         }
 
-        LogMessage($"Topic creation completed. Created {allTopics.Count} connector topics.", "");
+        LogMessage($"Topic creation completed. Created {allTopics.Count} topics.", "");
     }
 
     private async Task CreateTopicAsync(string topicName, int partitions = 1, short replicationFactor = 1)
@@ -239,6 +419,10 @@ public class KafkaFixture(
     public override async ValueTask DisposeAsync()
     {
         _adminClient?.Dispose();
+        
+        // Dispose all containers in parallel
+        await Task.WhenAll(_containers.Select(c => c.DisposeAsync().AsTask()));
+        
         await base.DisposeAsync();
     }
 }

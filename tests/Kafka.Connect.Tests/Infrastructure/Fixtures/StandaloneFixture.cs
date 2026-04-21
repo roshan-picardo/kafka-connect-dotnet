@@ -13,8 +13,6 @@ public class StandaloneFixture(
 
     public override async Task InitializeAsync()
     {
-        LogMessage("Initializing Kafka Connect standalone worker...", "");
-        
         await CreateContainersAsync();
         
         await Task.Delay(10000);
@@ -27,6 +25,6 @@ public class StandaloneFixture(
             await WaitForWorkerReadyAsync(statusUrl, "Standalone worker");
         }
         
-        LogMessage("Kafka Connect standalone worker initialized!", "");
+        LogMessage($"Kafka Connect {GetTargetName()} worker is ready.", "");
     }
 }
