@@ -22,7 +22,7 @@ public class StandaloneFixture(
         {
             var standaloneEndpoint = Configuration.GetServiceEndpoint("Standalone");
             var statusUrl = $"{standaloneEndpoint}/workers/status";
-            await WaitForWorkerReadyAsync(statusUrl, "Standalone worker");
+            await WaitForWorkerReadyAsync(statusUrl, $"{GetTargetName()} worker");
         }
         
         LogMessage($"Kafka Connect {GetTargetName()} worker is ready.", "");

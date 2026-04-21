@@ -65,12 +65,12 @@ public class ContainerService : IContainerService
 
         if (!string.IsNullOrEmpty(config.DockerfilePath))
         {
-            var imageName = _builtImages.TryGetValue(config.DockerfilePath, out var image)
+            config.Image = _builtImages.TryGetValue(config.DockerfilePath, out var image)
                 ? image
                 : "kafka-connect:latest";
 
             containerBuilder = new ContainerBuilder()
-                .WithImage(imageName)
+                .WithImage(config.Image)
                 .WithOutputConsumer(Consume.RedirectStdoutAndStderrToStream(
                     new KafkaConnectLogBuffer(),
                     new KafkaConnectLogBuffer()));

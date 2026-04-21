@@ -22,7 +22,7 @@ public class DistributedFixture(
         {
             var distributedEndpoint = Configuration.GetServiceEndpoint("Distributed");
             var statusUrl = $"{distributedEndpoint}/workers/status";
-            await WaitForWorkerReadyAsync(statusUrl, "Distributed worker");
+            await WaitForWorkerReadyAsync(statusUrl, $"{GetTargetName()} worker");
         }
         
         LogMessage($"Kafka Connect {GetTargetName()} worker is ready.", "");

@@ -22,7 +22,7 @@ public class LeaderFixture(
         {
             var leaderEndpoint = Configuration.GetServiceEndpoint("Leader");
             var statusUrl = $"{leaderEndpoint}/workers/status";
-            await WaitForWorkerReadyAsync(statusUrl, "leader");
+            await WaitForWorkerReadyAsync(statusUrl, GetTargetName());
         }
         
         await SubmitDistributedConnectorsAsync();
