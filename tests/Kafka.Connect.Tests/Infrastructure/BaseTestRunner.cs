@@ -45,6 +45,7 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
                                 output.WriteLine($"[SEARCH] Search returned: {searched?.ToJsonString() ?? "null"}");
                                 Validate(record.Value, searched);
                                 output.WriteLine($"[SEARCH] Validation successful on attempt {attempt}");
+                                lastException = null; // Clear exception on success
                                 break; // Success - exit retry loop
                             }
                             catch (Exception ex)
@@ -103,6 +104,7 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
                                 output.WriteLine($"[CONSUME] Consumed message: {consumed?.ToJsonString() ?? "null"}");
                                 Validate(record.Value, consumed);
                                 output.WriteLine($"[CONSUME] Validation successful on attempt {attempt}");
+                                lastConsumeException = null; // Clear exception on success
                                 break; // Success - exit retry loop
                             }
                             catch (Exception ex)
