@@ -15,7 +15,7 @@ public class DistributedFixture(
     {
         await CreateContainersAsync();
         
-        await Task.Delay(10000);
+        await Task.Delay(ReadyDelayMs);
         
         var distributedConfig = Configuration.TestContainers.Containers.FirstOrDefault(c => c.Target == "distributed");
         if (distributedConfig?.WaitForHealthCheck == true)

@@ -15,7 +15,7 @@ public class StandaloneFixture(
     {
         await CreateContainersAsync();
         
-        await Task.Delay(10000);
+        await Task.Delay(ReadyDelayMs);
         
         var standaloneConfig = Configuration.TestContainers.Containers.FirstOrDefault(c => c.Target == "standalone");
         if (standaloneConfig?.WaitForHealthCheck == true)

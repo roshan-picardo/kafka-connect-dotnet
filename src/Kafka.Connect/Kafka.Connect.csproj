@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
     <PropertyGroup>
-        <TargetFramework>net8.0</TargetFramework>
+        <TargetFramework>net10.0</TargetFramework>
         <UseAppHost>false</UseAppHost>
         <LangVersion>12</LangVersion>
     </PropertyGroup>
@@ -11,12 +11,6 @@
         <PackageReference Include="Confluent.SchemaRegistry.Serdes.Avro" />
         <PackageReference Include="Confluent.SchemaRegistry.Serdes.Json" />
         <PackageReference Include="Confluent.SchemaRegistry.Serdes.Protobuf" />
-        <PackageReference Include="Microsoft.Extensions.Configuration" />
-        <PackageReference Include="Microsoft.Extensions.Configuration.Binder" />
-        <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
-        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
-        <PackageReference Include="Microsoft.Extensions.Options" />
-        <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
         <PackageReference Include="Serilog.Settings.Configuration" />
         <PackageReference Include="Serilog.Sinks.Console" />
     </ItemGroup>

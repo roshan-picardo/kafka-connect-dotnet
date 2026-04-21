@@ -10,8 +10,6 @@ public abstract class DatabaseFixture(
     TestCaseConfig[]? testConfigs)
     : InfrastructureFixture(configuration, logMessage, containerService, network)
 {
-    protected const int DatabaseReadyMaxAttempts = 60;
-    protected const int DatabaseReadyDelayMs = 1000;
     protected readonly TestCaseConfig[]? TestConfigs = testConfigs;
 
     public override async Task InitializeAsync()

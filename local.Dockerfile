@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS base
+FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS base
 WORKDIR /src
 
 # Copy only src directory and config files (no tests)
@@ -31,7 +31,7 @@ RUN cd /src/src && \
     done
 
 # Runtime stage for debug builds
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 
 # Copy the published application and plugins from debug stage
