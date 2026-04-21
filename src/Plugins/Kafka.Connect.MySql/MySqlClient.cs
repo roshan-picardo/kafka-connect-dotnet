@@ -9,21 +9,20 @@ public interface IMySqlClient
     MySqlConnection GetConnection();
 }
 
-public class MySqlClient : IMySqlClient, IDisposable
+public class MySqlClient(string connector, MySqlConnection connection) : IMySqlClient, IDisposable
 {
-    private readonly MySqlConnection _connection;
-
-    public MySqlClient(string connector, MySqlConnection connection)
-    {
-        ApplicationName = connector;
-        _connection = connection;
-        if (_connection is not { State: ConnectionState.Open })
-        {
-            _connection.Open();
-        }
-    }
+    private readonly MySqlConnection _connection = EnsureOpen(connection);
     
-    public string ApplicationName { get; }
+    public string ApplicationName { get; } = connector;
+    
+    private static MySqlConnection EnsureOpen(MySqlConnection conn)
+    {
+        if (conn is not { State: ConnectionState.Open })
+        {
+            conn.Open();
+        }
+        return conn;
+    }
     
     public MySqlConnection GetConnection()
     {

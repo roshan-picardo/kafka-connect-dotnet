@@ -9,21 +9,20 @@ public interface ISqlServerClient
     SqlConnection GetConnection();
 }
 
-public class SqlServerClient : ISqlServerClient, IDisposable
+public class SqlServerClient(string connector, SqlConnection connection) : ISqlServerClient, IDisposable
 {
-    private readonly SqlConnection _connection;
-
-    public SqlServerClient(string connector, SqlConnection connection)
-    {
-        ApplicationName = connector;
-        _connection = connection;
-        if (_connection is not { State: ConnectionState.Open })
-        {
-            _connection.Open();
-        }
-    }
+    private readonly SqlConnection _connection = EnsureOpen(connection);
     
-    public string ApplicationName { get; }
+    public string ApplicationName { get; } = connector;
+    
+    private static SqlConnection EnsureOpen(SqlConnection conn)
+    {
+        if (conn is not { State: ConnectionState.Open })
+        {
+            conn.Open();
+        }
+        return conn;
+    }
     
     public SqlConnection GetConnection()
     {

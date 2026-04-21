@@ -9,21 +9,20 @@ public interface IOracleClient
     OracleConnection GetConnection();
 }
 
-public class OracleClient : IOracleClient, IDisposable
+public class OracleClient(string connector, OracleConnection connection) : IOracleClient, IDisposable
 {
-    private readonly OracleConnection _connection;
-
-    public OracleClient(string connector, OracleConnection connection)
-    {
-        ApplicationName = connector;
-        _connection = connection;
-        if (_connection is not { State: ConnectionState.Open })
-        {
-            _connection.Open();
-        }
-    }
+    private readonly OracleConnection _connection = EnsureOpen(connection);
     
-    public string ApplicationName { get; }
+    public string ApplicationName { get; } = connector;
+    
+    private static OracleConnection EnsureOpen(OracleConnection conn)
+    {
+        if (conn is not { State: ConnectionState.Open })
+        {
+            conn.Open();
+        }
+        return conn;
+    }
     
     public OracleConnection GetConnection()
     {

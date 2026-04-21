@@ -8,18 +8,13 @@ using Kafka.Connect.Plugin.Providers;
 
 namespace Kafka.Connect.Processors;
 
-public class WhitelistFieldProjector : Processor<IList<string>>
+public class WhitelistFieldProjector(
+    ILogger<WhitelistFieldProjector> logger,
+    IConfigurationProvider configurationProvider) : Processor<IList<string>>(configurationProvider)
 {
-    private readonly ILogger<WhitelistFieldProjector> _logger;
-
-    public WhitelistFieldProjector(ILogger<WhitelistFieldProjector> logger, IConfigurationProvider configurationProvider) : base(configurationProvider)
-    {
-        _logger = logger;
-    }
-
     protected override Task<(bool Skip,  ConnectMessage<IDictionary<string, object>> Flattened)> Apply(IList<string> settings, ConnectMessage<IDictionary<string, object>> message)
     {
-        using (_logger.Track("Applying whitelist field projector."))
+        using (logger.Track("Applying whitelist field projector."))
         {
             var processed = new ConnectMessage<IDictionary<string, object>>
             {

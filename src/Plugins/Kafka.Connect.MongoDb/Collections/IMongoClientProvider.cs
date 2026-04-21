@@ -1,9 +1,8 @@
 using MongoDB.Driver;
 
-namespace Kafka.Connect.MongoDb.Collections
+namespace Kafka.Connect.MongoDb.Collections;
+
+public interface IMongoClientProvider
 {
-    public interface IMongoClientProvider
-    {
-        IMongoClient GetMongoClient(string connector, int taskId);
-    }
+    IMongoClient GetMongoClient(string connector, int taskId);
 }

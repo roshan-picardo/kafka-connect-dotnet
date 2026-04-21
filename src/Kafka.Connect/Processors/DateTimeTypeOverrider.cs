@@ -10,20 +10,15 @@ using Kafka.Connect.Plugin.Providers;
 
 namespace Kafka.Connect.Processors;
 
-public class DateTimeTypeOverrider : Processor<IDictionary<string, string>>
+public class DateTimeTypeOverrider(
+    ILogger<DateTimeTypeOverrider> logger,
+    IConfigurationProvider configurationProvider) : Processor<IDictionary<string, string>>(configurationProvider)
 {
-    private readonly ILogger<DateTimeTypeOverrider> _logger;
-
-    public DateTimeTypeOverrider(ILogger<DateTimeTypeOverrider> logger, IConfigurationProvider configurationProvider) : base(configurationProvider)
-    {
-        _logger = logger;
-    }
-
     protected override Task<(bool Skip,  ConnectMessage<IDictionary<string, object>> Flattened)> Apply(
         IDictionary<string, string> settings,
         ConnectMessage<IDictionary<string, object>> message)
     {
-        using (_logger.Track("Applying datetime type overrider."))
+        using (logger.Track("Applying datetime type overrider."))
         {
             var processed = new ConnectMessage<IDictionary<string, object>>
             {

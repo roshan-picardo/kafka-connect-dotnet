@@ -2,65 +2,56 @@ using Confluent.Kafka;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Providers;
 
-namespace Kafka.Connect.Builders
+namespace Kafka.Connect.Builders;
+
+public class KafkaClientBuilder(
+    ILogger<KafkaClientBuilder> logger,
+    IConfigurationProvider configurationProvider,
+    IKafkaClientEventHandler kafkaClientEventHandler) : IKafkaClientBuilder
 {
-    public class KafkaClientBuilder : IKafkaClientBuilder
+    public IConsumer<byte[], byte[]> GetConsumer(string connector, int taskId)
     {
-        private readonly ILogger<KafkaClientBuilder> _logger;
-        private readonly IConfigurationProvider _configurationProvider;
-        private readonly IKafkaClientEventHandler _kafkaClientEventHandler;
-
-        public KafkaClientBuilder(ILogger<KafkaClientBuilder> logger, IConfigurationProvider configurationProvider, IKafkaClientEventHandler kafkaClientEventHandler)
+        using (logger.Track("Creating message consumer."))
         {
-            _logger = logger;
-            _configurationProvider = configurationProvider;
-            _kafkaClientEventHandler = kafkaClientEventHandler;
+            return new ConsumerBuilder<byte[], byte[]>(configurationProvider.GetConsumerConfig(connector))
+                .SetErrorHandler((_, error) => kafkaClientEventHandler.HandleError(error))
+                .SetLogHandler((_, message) => kafkaClientEventHandler.HandleLogMessage(message))
+                .SetStatisticsHandler((_, stats) => kafkaClientEventHandler.HandleStatistics(stats))
+                .SetPartitionsAssignedHandler((_, partitions) =>
+                    kafkaClientEventHandler.HandlePartitionAssigned(connector, taskId, partitions))
+                .SetPartitionsRevokedHandler((_, offsets) =>
+                    kafkaClientEventHandler.HandlePartitionRevoked(connector, taskId, offsets))
+                .SetOffsetsCommittedHandler((_, offsets) => kafkaClientEventHandler.HandleOffsetCommitted(offsets))
+                .Build();
         }
+    }
 
-        public IConsumer<byte[], byte[]> GetConsumer(string connector, int taskId)
+    public IProducer<byte[], byte[]> GetProducer(string connector)
+    {
+        return GetProducer(configurationProvider.GetProducerConfig(connector));
+    }
+
+    public IProducer<byte[], byte[]> GetProducer(ProducerConfig producerConfig)
+    {
+        using (logger.Track("Creating message producer."))
         {
-            using (_logger.Track("Creating message consumer."))
-            {
-                return new ConsumerBuilder<byte[], byte[]>(_configurationProvider.GetConsumerConfig(connector))
-                    .SetErrorHandler((_, error) => _kafkaClientEventHandler.HandleError(error))
-                    .SetLogHandler((_, message) => _kafkaClientEventHandler.HandleLogMessage(message))
-                    .SetStatisticsHandler((_, stats) => _kafkaClientEventHandler.HandleStatistics(stats))
-                    .SetPartitionsAssignedHandler((_, partitions) =>
-                        _kafkaClientEventHandler.HandlePartitionAssigned(connector, taskId, partitions))
-                    .SetPartitionsRevokedHandler((_, offsets) =>
-                        _kafkaClientEventHandler.HandlePartitionRevoked(connector, taskId, offsets))
-                    .SetOffsetsCommittedHandler((_, offsets) => _kafkaClientEventHandler.HandleOffsetCommitted(offsets))
-                    .Build();
-            }
+            return new ProducerBuilder<byte[], byte[]>(producerConfig)
+                .SetLogHandler((_, message) => kafkaClientEventHandler.HandleLogMessage(message))
+                .SetErrorHandler((_, error) => kafkaClientEventHandler.HandleError(error))
+                .SetStatisticsHandler((_, message) => kafkaClientEventHandler.HandleStatistics(message))
+                .Build();
         }
+    }
 
-        public IProducer<byte[], byte[]> GetProducer(string connector)
+    public IAdminClient GetAdminClient(string connector = null)
+    {
+        using (logger.Track("Creating Kafka admin client."))
         {
-            return GetProducer(_configurationProvider.GetProducerConfig(connector));
-        }
-
-        public IProducer<byte[], byte[]> GetProducer(ProducerConfig producerConfig)
-        {
-            using (_logger.Track("Creating message producer."))
-            {
-                return new ProducerBuilder<byte[], byte[]>(producerConfig)
-                    .SetLogHandler((_, message) => _kafkaClientEventHandler.HandleLogMessage(message))
-                    .SetErrorHandler((_, error) => _kafkaClientEventHandler.HandleError(error))
-                    .SetStatisticsHandler((_, message) => _kafkaClientEventHandler.HandleStatistics(message))
-                    .Build();
-            }
-        }
-
-        public IAdminClient GetAdminClient(string connector = null)
-        {
-            using (_logger.Track("Creating Kafka admin client."))
-            {
-                return new AdminClientBuilder(_configurationProvider.GetConsumerConfig(connector))
-                    .SetErrorHandler((_, error) => _kafkaClientEventHandler.HandleError(error))
-                    .SetLogHandler((_, message) => _kafkaClientEventHandler.HandleLogMessage(message))
-                    .SetStatisticsHandler((_, message) => _kafkaClientEventHandler.HandleStatistics(message))
-                    .Build();
-            }
+            return new AdminClientBuilder(configurationProvider.GetConsumerConfig(connector))
+                .SetErrorHandler((_, error) => kafkaClientEventHandler.HandleError(error))
+                .SetLogHandler((_, message) => kafkaClientEventHandler.HandleLogMessage(message))
+                .SetStatisticsHandler((_, message) => kafkaClientEventHandler.HandleStatistics(message))
+                .Build();
         }
     }
 }
