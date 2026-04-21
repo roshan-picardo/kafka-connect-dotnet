@@ -26,11 +26,11 @@ public class FailOverMonitorService(
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var failOverConfig = configurationProvider.GetFailOverConfig();
-        var connectorConfigs = configurationProvider.GetAllConnectorConfigs();
         try
         {
             if (!failOverConfig.Disabled)
             {
+                var connectorConfigs = configurationProvider.GetAllConnectorConfigs();
                 logger.Debug("Starting fail over monitoring service...");
                 await Task.Delay(failOverConfig.InitialDelayMs, stoppingToken);
                 var adminClient =  _kafkaClientBuilder.GetAdminClient();
