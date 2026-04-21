@@ -235,14 +235,12 @@ public class TestFixture : IAsyncLifetime
 
         if (Configuration.Distributed)
         {
-            LogMessage("Deploying Kafka Connect in distributed mode (Leader + Distributed Worker)...");
             deploymentTasks.Add(_leaderFixture!.InitializeAsync());
             deploymentTasks.Add(_distributedFixture!.InitializeAsync());
         }
         
         if (Configuration.Standalone)
         {
-            LogMessage("Deploying Kafka Connect in standalone mode...");
             deploymentTasks.Add(_standaloneFixture!.InitializeAsync());
         }
 

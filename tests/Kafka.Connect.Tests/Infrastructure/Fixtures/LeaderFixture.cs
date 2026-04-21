@@ -22,7 +22,7 @@ public class LeaderFixture(
         {
             var leaderEndpoint = Configuration.GetServiceEndpoint("Leader");
             var statusUrl = $"{leaderEndpoint}/workers/status";
-            await WaitForWorkerReadyAsync(statusUrl, "Leader");
+            await WaitForWorkerReadyAsync(statusUrl, "leader");
         }
         
         await SubmitDistributedConnectorsAsync();
@@ -55,7 +55,7 @@ public class LeaderFixture(
         {
             var distributedEndpoint = Configuration.GetServiceEndpoint("Distributed");
             var statusUrl = $"{distributedEndpoint}/workers/status";
-            await WaitForWorkerReadyAsync(statusUrl, "Distributed worker", RetryFailedConnectorsAsync);
+            await WaitForWorkerReadyAsync(statusUrl, "distributed worker", RetryFailedConnectorsAsync);
         }
     }
 
@@ -66,7 +66,7 @@ public class LeaderFixture(
             return;
         }
 
-        LogMessage($"Retrying submission for failed connectors: [{string.Join(", ", failedConnectorNames)}]", "");
+        LogMessage($"Retrying failed connectors: [{string.Join(", ", failedConnectorNames)}]", "");
         
         var configDirectory = Path.Join(Directory.GetCurrentDirectory(), "Configurations", "distributed");
         await SubmitConnectorConfigurationsAsync(failedConnectorNames, configDirectory, "resubmitted");
@@ -106,24 +106,24 @@ public class LeaderFixture(
                 if (response.IsSuccessStatusCode)
                 {
                     successCount++;
-                    LogMessage($"Successfully {actionVerb} connector configuration: {connectorName}", "");
+                    LogMessage($"Submitted connector configuration: {connectorName}", "");
                     await Task.Delay(500);
                 }
                 else
                 {
                     failureCount++;
                     var errorContent = await response.Content.ReadAsStringAsync();
-                    LogMessage($"Failed to {actionVerb.TrimEnd('d')} connector configuration {connectorName}: HTTP {(int)response.StatusCode} - {errorContent}", "");
+                    LogMessage($"Failed to submit connector configuration {connectorName}: HTTP {(int)response.StatusCode} - {errorContent}", "");
                 }
             }
             catch (Exception ex)
             {
                 failureCount++;
-                LogMessage($"Error {actionVerb.TrimEnd('d')}ting connector configuration {connectorName}: {ex.Message}", "");
+                LogMessage($"Error submitting connector configuration {connectorName}: {ex.Message}", "");
             }
         }
         
-        LogMessage($"Connector {actionVerb.TrimEnd('d')}sion completed: {successCount} succeeded, {failureCount} failed", "");
+        LogMessage($"Configuration completed: {successCount} succeeded, {failureCount} failed", "");
         
         return successCount;
     }

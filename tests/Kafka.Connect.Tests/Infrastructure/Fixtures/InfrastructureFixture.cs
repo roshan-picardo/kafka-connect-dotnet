@@ -16,9 +16,9 @@ public abstract class InfrastructureFixture(
     protected readonly IContainerService ContainerService = containerService;
     protected readonly INetwork Network = network;
     private readonly List<IContainer> _containers = new();
-    
-    protected const int WorkerReadyMaxAttempts = 60;
-    protected const int WorkerReadyDelayMs = 1000;
+
+    private const int WorkerReadyMaxAttempts = 60;
+    private const int WorkerReadyDelayMs = 1000;
 
     public abstract Task InitializeAsync();
 
@@ -40,15 +40,10 @@ public abstract class InfrastructureFixture(
         }
     }
 
-    /// <summary>
-    /// Common method to wait for a worker to be ready with retry logic
-    /// </summary>
     public async Task WaitForWorkerReadyAsync(string statusUrl, string workerName, Func<List<string>, Task>? retryFailedConnectorsCallback = null, bool silent = false)
     {
-        using var httpClient = new HttpClient
-        {
-            Timeout = TimeSpan.FromSeconds(15)
-        };
+        using var httpClient = new HttpClient();
+        httpClient.Timeout = TimeSpan.FromSeconds(15);
 
         for (var attempt = 1; attempt <= WorkerReadyMaxAttempts; attempt++)
         {
@@ -150,13 +145,11 @@ public abstract class InfrastructureFixture(
                     }
                 }
             }
-            catch (HttpRequestException ex)
+            catch (HttpRequestException)
             {
                 if (!silent)
                 {
-                    var errorType = ex.InnerException?.GetType().Name ?? ex.GetType().Name;
-                    LogMessage(
-                        $"Staring :{workerName} (attempt {attempt}/{WorkerReadyMaxAttempts})", $"Endpoint not available yet: {errorType} {ex.Message}");
+                    LogMessage($"Staring :{workerName} (attempt {attempt}/{WorkerReadyMaxAttempts})", "");
                 }
             }
             catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
