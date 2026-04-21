@@ -68,7 +68,7 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
                                 Validate(record.Value, consumed);
                                 break;
                             }
-                            catch (Exception ex)
+                            catch
                             {
                                 if (attempt < 30)
                                 {

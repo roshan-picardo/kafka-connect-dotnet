@@ -47,7 +47,7 @@ public class MariaDbFixture(
     protected override async Task ExecuteScriptsAsync(string database, string[] scripts)
     {
         var connectionString = Configuration.GetServiceEndpoint("MariaDb");
-        var builder = new MySqlConnectionStringBuilder(connectionString)
+        var builder = new MySqlConnectionStringBuilder(connectionString ?? string.Empty)
         {
             Database = database
         };

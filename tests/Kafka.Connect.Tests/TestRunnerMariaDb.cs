@@ -18,7 +18,7 @@ public class TestRunnerMariaDb(TestFixture fixture, ITestOutputHelper output) : 
         var connectionString = _fixture.Configuration.GetServiceEndpoint("MariaDb");
         if (!string.IsNullOrEmpty(databaseName))
         {
-            var builder = new MySqlConnectionStringBuilder(connectionString)
+            var builder = new MySqlConnectionStringBuilder(connectionString ?? string.Empty)
             {
                 Database = databaseName
             };

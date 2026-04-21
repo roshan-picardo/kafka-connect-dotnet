@@ -43,8 +43,8 @@ public class KafkaFixture(
         
         if (zookeeperConfig != null)
         {
-            var zookeeperContainer = await containerService.CreateContainerAsync(
-                zookeeperConfig, network, new TestLoggingService());
+            var zookeeperContainer = await ContainerService.CreateContainerAsync(
+                zookeeperConfig, Network, new TestLoggingService());
             _containers.Add(zookeeperContainer);
             
             // Wait for Zookeeper to be ready
@@ -66,8 +66,8 @@ public class KafkaFixture(
         {
             tasks.Add(Task.Run(async () =>
             {
-                var brokerContainer = await containerService.CreateContainerAsync(
-                    brokerConfig, network, new TestLoggingService());
+                var brokerContainer = await ContainerService.CreateContainerAsync(
+                    brokerConfig, Network, new TestLoggingService());
                 _containers.Add(brokerContainer);
                 await WaitForBrokerAsync();
             }));
@@ -77,8 +77,8 @@ public class KafkaFixture(
         {
             tasks.Add(Task.Run(async () =>
             {
-                var schemaContainer = await containerService.CreateContainerAsync(
-                    schemaConfig, network, new TestLoggingService());
+                var schemaContainer = await ContainerService.CreateContainerAsync(
+                    schemaConfig, Network, new TestLoggingService());
                 _containers.Add(schemaContainer);
                 await WaitForSchemaRegistryAsync();
             }));
@@ -92,6 +92,11 @@ public class KafkaFixture(
     private async Task WaitForZookeeperAsync()
     {
         var zookeeperEndpoint = Configuration.GetServiceEndpoint("Zookeeper");
+        if (string.IsNullOrEmpty(zookeeperEndpoint))
+        {
+            throw new InvalidOperationException("Zookeeper endpoint is not configured");
+        }
+        
         var parts = zookeeperEndpoint.Split(':');
         var host = parts[0];
         var port = int.Parse(parts[1]);
@@ -103,7 +108,6 @@ public class KafkaFixture(
                 using var client = new TcpClient();
                 await client.ConnectAsync(host, port);
                 
-                // Send "ruok" (are you ok) command to Zookeeper
                 var stream = client.GetStream();
                 var command = System.Text.Encoding.ASCII.GetBytes("ruok");
                 await stream.WriteAsync(command);
@@ -135,6 +139,10 @@ public class KafkaFixture(
     private async Task WaitForBrokerAsync()
     {
         var bootstrapServers = Configuration.GetServiceEndpoint("Kafka");
+        if (string.IsNullOrEmpty(bootstrapServers))
+        {
+            throw new InvalidOperationException("Kafka endpoint is not configured");
+        }
 
         for (var attempt = 1; attempt <= KafkaReadyMaxAttempts; attempt++)
         {
@@ -172,6 +180,10 @@ public class KafkaFixture(
     private async Task WaitForSchemaRegistryAsync()
     {
         var schemaRegistryUrl = Configuration.GetServiceEndpoint("SchemaRegistry");
+        if (string.IsNullOrEmpty(schemaRegistryUrl))
+        {
+            throw new InvalidOperationException("SchemaRegistry endpoint is not configured");
+        }
         
         using var httpClient = new HttpClient
         {
@@ -372,6 +384,10 @@ public class KafkaFixture(
     private async Task CreateTopicAsync(string topicName, int partitions = 1, short replicationFactor = 1)
     {
         var bootstrapServers = Configuration.GetServiceEndpoint("Kafka");
+        if (string.IsNullOrEmpty(bootstrapServers))
+        {
+            throw new InvalidOperationException("Kafka endpoint is not configured");
+        }
 
         _adminClient ??= new AdminClientBuilder(new AdminClientConfig
             {

@@ -13,6 +13,8 @@ public abstract class InfrastructureFixture(
 {
     protected readonly TestConfiguration Configuration = configuration;
     protected readonly Action<string, string> LogMessage = logMessage;
+    protected readonly IContainerService ContainerService = containerService;
+    protected readonly INetwork Network = network;
     private readonly List<IContainer> _containers = new();
     
     protected const int WorkerReadyMaxAttempts = 60;
@@ -33,7 +35,7 @@ public abstract class InfrastructureFixture(
 
         foreach (var config in targetContainers)
         {
-            var container = await containerService.CreateContainerAsync(config, network, new TestLoggingService());
+            var container = await ContainerService.CreateContainerAsync(config, Network, new TestLoggingService());
             _containers.Add(container);
         }
     }
@@ -101,8 +103,7 @@ public abstract class InfrastructureFixture(
                                 if (!silent)
                                 {
                                     LogMessage(
-                                        $"Started: {workerName} and connectors.",
-                                        $"Worker=Running, Connectors=[{string.Join(", ", connectorStatuses)}]");
+                                        $"Started: {workerName} and connectors.", "");
                                 }
                                 return;
                             }
@@ -111,12 +112,10 @@ public abstract class InfrastructureFixture(
                             if (workerRunning && !allConnectorsRunning && failedConnectors.Count > 0 && retryFailedConnectorsCallback != null)
                             {
                                 LogMessage(
-                                    $"Starting: {workerName} (attempt {attempt}/{WorkerReadyMaxAttempts})",
-                                    $"Failed: [{string.Join(", ", failedConnectors)}]");
+                                    $"Starting: {workerName} (attempt {attempt}/{WorkerReadyMaxAttempts})", "");
                                 
                                 await retryFailedConnectorsCallback(failedConnectors);
                                 
-                                // Give some time for the resubmission to take effect
                                 await Task.Delay(2000);
                             }
                             else
@@ -124,23 +123,21 @@ public abstract class InfrastructureFixture(
                                 if (!silent)
                                 {
                                     LogMessage(
-                                        $"Staring: {workerName} (attempt: {attempt}/{WorkerReadyMaxAttempts})",
-                                        $"Worker={workerRunning}, Connectors=[{string.Join(", ", connectorStatuses)}]");
+                                        $"Staring: {workerName} (attempt: {attempt}/{WorkerReadyMaxAttempts})", "");
                                 }
                             }
                         }
                         else
                         {
                             LogMessage(
-                                $"Failed to start {workerName} after (attempt: {attempt}/{WorkerReadyMaxAttempts})",
-                                $"Response missing 'status' property: {content} ");
+                                $"Failed to start {workerName} after (attempt: {attempt}/{WorkerReadyMaxAttempts}) : Response missing 'status' property: {content} ", "");
                         }
                     }
                     catch (JsonException ex)
                     {
                         LogMessage(
-                            $"Failed start {workerName} after (attempt: {attempt}/{WorkerReadyMaxAttempts}): ",
-                            $"{ex.Message}");
+                            $"Failed start {workerName} after (attempt: {attempt}/{WorkerReadyMaxAttempts}): {ex.Message}",
+                            "");
                     }
                 }
                 else

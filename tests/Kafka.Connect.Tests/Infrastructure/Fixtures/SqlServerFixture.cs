@@ -175,7 +175,8 @@ public class SqlServerFixture(
         // Check if database exists
         var checkCommand = new SqlCommand("SELECT COUNT(*) FROM sys.databases WHERE name = @dbName", connection);
         checkCommand.Parameters.AddWithValue("@dbName", databaseName);
-        var exists = (int)await checkCommand.ExecuteScalarAsync()! > 0;
+        var result = await checkCommand.ExecuteScalarAsync();
+        var exists = result != null && (int)result > 0;
 
         if (!exists)
         {
