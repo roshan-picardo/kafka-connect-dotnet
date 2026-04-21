@@ -24,23 +24,33 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
                 switch (record.Operation?.ToLowerInvariant())
                 {
                     case "setup":
+                        output.WriteLine($"[SETUP] Starting setup with script: {record.Script}");
                         properties["setup"] = record.Script;
                         await Setup(properties);
+                        output.WriteLine($"[SETUP] Completed successfully");
                         break;
                     case "search":
+                        output.WriteLine($"[SEARCH] Starting search operation");
                         // Retry search and validation up to 30 times with 1 second delay (30 seconds total)
                         Exception? lastException = null;
                         for (var attempt = 1; attempt <= 30; attempt++)
                         {
                             try
                             {
+                                if (attempt > 1)
+                                {
+                                    output.WriteLine($"[SEARCH] Retry attempt {attempt}/30");
+                                }
                                 var searched = await Search(properties, record);
+                                output.WriteLine($"[SEARCH] Search returned: {searched?.ToJsonString() ?? "null"}");
                                 Validate(record.Value, searched);
+                                output.WriteLine($"[SEARCH] Validation successful on attempt {attempt}");
                                 break; // Success - exit retry loop
                             }
                             catch (Exception ex)
                             {
                                 lastException = ex;
+                                output.WriteLine($"[SEARCH] Attempt {attempt}/30 failed: {ex.Message}");
                                 // If not last attempt, wait before retrying
                                 if (attempt < 30)
                                 {
@@ -51,35 +61,54 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
                         // If we exhausted all retries, throw the last exception
                         if (lastException != null)
                         {
+                            output.WriteLine($"[SEARCH] All 30 attempts failed. Last error: {lastException.Message}");
                             throw lastException;
                         }
                         break;
                     case "insert":
+                        output.WriteLine($"[INSERT] Starting insert operation with key: {record.Key?.ToJsonString() ?? "null"}");
                         await Insert(properties, record);
+                        output.WriteLine($"[INSERT] Completed successfully");
                         break;
                     case "update":
+                        output.WriteLine($"[UPDATE] Starting update operation with key: {record.Key?.ToJsonString() ?? "null"}");
                         await Update(properties, record);
+                        output.WriteLine($"[UPDATE] Completed successfully");
                         break;
                     case "delete":
+                        output.WriteLine($"[DELETE] Starting delete operation with key: {record.Key?.ToJsonString() ?? "null"}");
                         await Delete(properties, record);
+                        output.WriteLine($"[DELETE] Completed successfully");
                         break;
                     case "publish":
+                        output.WriteLine($"[PUBLISH] Starting publish to topic: {properties.GetValueOrDefault("topic", "unknown")}");
+                        output.WriteLine($"[PUBLISH] Key: {record.Key?.ToJsonString() ?? "null"}");
+                        output.WriteLine($"[PUBLISH] Value: {record.Value?.ToJsonString() ?? "null"}");
                         await Publish(properties, record);
+                        output.WriteLine($"[PUBLISH] Completed successfully");
                         break;
                     case "consume":
+                        output.WriteLine($"[CONSUME] Starting consume from topic: {properties.GetValueOrDefault("topic", "unknown")}");
                         // Retry consume and validation up to 30 times with 1 second delay (30 seconds total)
                         Exception? lastConsumeException = null;
                         for (var attempt = 1; attempt <= 30; attempt++)
                         {
                             try
                             {
+                                if (attempt > 1)
+                                {
+                                    output.WriteLine($"[CONSUME] Retry attempt {attempt}/30");
+                                }
                                 var consumed = await Consume(properties, record);
+                                output.WriteLine($"[CONSUME] Consumed message: {consumed?.ToJsonString() ?? "null"}");
                                 Validate(record.Value, consumed);
+                                output.WriteLine($"[CONSUME] Validation successful on attempt {attempt}");
                                 break; // Success - exit retry loop
                             }
                             catch (Exception ex)
                             {
                                 lastConsumeException = ex;
+                                output.WriteLine($"[CONSUME] Attempt {attempt}/30 failed: {ex.Message}");
                                 // If not last attempt, wait before retrying
                                 if (attempt < 30)
                                 {
@@ -90,12 +119,15 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
                         // If we exhausted all retries, throw the last exception
                         if (lastConsumeException != null)
                         {
+                            output.WriteLine($"[CONSUME] All 30 attempts failed. Last error: {lastConsumeException.Message}");
                             throw lastConsumeException;
                         }
                         break;
                     case "cleanup":
+                        output.WriteLine($"[CLEANUP] Starting cleanup with script: {record.Script}");
                         properties["cleanup"] = record.Script;
                         await Cleanup(properties);
+                        output.WriteLine($"[CLEANUP] Completed successfully");
                         break;
                     default:
                         throw new InvalidOperationException($"Unknown operation: {record.Operation}");
@@ -167,7 +199,7 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
     {
         var result = await ProduceMessageAsync(properties["topic"], record.Key?.ToJsonString() ?? "",
             record.Value?.ToJsonString() ?? "");
-        output.WriteLine($"Sent message to {result.Topic}:{result.Partition}:{result.Offset}");
+        output.WriteLine($"[PUBLISH] Message delivered to {result.Topic}:{result.Partition}:{result.Offset}");
     }
 
     private async Task<DeliveryResult<string, string>> ProduceMessageAsync(string topic, string key, string value)
@@ -213,6 +245,7 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
 
     private async Task<ConsumeResult<string, string>?> ConsumeMessageAsync(string topic)
     {
+        output.WriteLine($"[CONSUME] Creating consumer for topic: {topic}");
         var consumerConfig = new ConsumerConfig
         {
             BootstrapServers = fixture.Configuration.GetServiceEndpoint("Kafka"),
@@ -242,6 +275,7 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
             })
             .Build();
         consumer.Subscribe(topic);
+        output.WriteLine($"[CONSUME] Subscribed to topic: {topic}");
 
         return await Task.Run(() =>
         {
@@ -251,20 +285,25 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
                 ConsumeResult<string, string>? lastResult = null;
                 ConsumeResult<string, string>? result;
                 
+                output.WriteLine($"[CONSUME] Polling for messages (max 30 seconds)...");
                 do
                 {
                     result = consumer.Consume(100);
                     if (result != null)
                     {
                         lastResult = result;
+                        output.WriteLine($"[CONSUME] Received message from {result.Topic}:{result.Partition}:{result.Offset}");
                     }
                 } while (result == null && loop-- > 0);
 
                 if (lastResult == null)
                 {
+                    output.WriteLine($"[CONSUME] No messages received after 30 seconds");
                     throw new DataException("Consumer returned null after waiting for 30 seconds...");
                 }
 
+                output.WriteLine($"[CONSUME] Checking for additional messages...");
+                var additionalCount = 0;
                 while (true)
                 {
                     result = consumer.Consume(100);
@@ -272,15 +311,19 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
                     {
                         break;
                     }
+                    additionalCount++;
                     lastResult = result;
+                    output.WriteLine($"[CONSUME] Received additional message #{additionalCount} from {result.Topic}:{result.Partition}:{result.Offset}");
                 }
 
+                output.WriteLine($"[CONSUME] Committing offset for {lastResult.Topic}:{lastResult.Partition}:{lastResult.Offset}");
                 consumer.Commit(lastResult);
 
                 return lastResult;
             }
             finally
             {
+                output.WriteLine($"[CONSUME] Unsubscribing from topic: {topic}");
                 consumer.Unsubscribe();
             }
         });
