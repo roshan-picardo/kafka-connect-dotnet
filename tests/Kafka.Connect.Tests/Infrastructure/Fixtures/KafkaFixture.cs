@@ -25,7 +25,6 @@ public class KafkaFixture(
     {
         await CreateKafkaContainersAsync();
         await CreateConnectorTopicsAsync();
-        LogMessage("Kafka infrastructure initialized!", "");
     }
 
     private async Task CreateKafkaContainersAsync()
@@ -51,42 +50,36 @@ public class KafkaFixture(
             await WaitForZookeeperAsync();
         }
 
-        // Step 2: Start Broker and Schema Registry in parallel
+        // Step 2: Start Broker and wait for it to be ready
         var brokerConfig = targetContainers.FirstOrDefault(c =>
             c.Name.Contains("broker", StringComparison.OrdinalIgnoreCase) ||
             (c.Name.Contains("kafka", StringComparison.OrdinalIgnoreCase) &&
              !c.Name.Contains("zookeeper", StringComparison.OrdinalIgnoreCase)));
         
+        if (brokerConfig != null)
+        {
+            var brokerContainer = await ContainerService.CreateContainerAsync(
+                brokerConfig, Network, new TestLoggingService());
+            _containers.Add(brokerContainer);
+            
+            // Wait for Broker to be ready before starting Schema Registry
+            await WaitForBrokerAsync();
+        }
+
+        // Step 3: Start Schema Registry after Broker is ready
         var schemaConfig = targetContainers.FirstOrDefault(c =>
             c.Name.Contains("schema", StringComparison.OrdinalIgnoreCase));
 
-        var tasks = new List<Task>();
-
-        if (brokerConfig != null)
-        {
-            tasks.Add(Task.Run(async () =>
-            {
-                var brokerContainer = await ContainerService.CreateContainerAsync(
-                    brokerConfig, Network, new TestLoggingService());
-                _containers.Add(brokerContainer);
-                await WaitForBrokerAsync();
-            }));
-        }
-
         if (schemaConfig != null)
         {
-            tasks.Add(Task.Run(async () =>
-            {
-                var schemaContainer = await ContainerService.CreateContainerAsync(
-                    schemaConfig, Network, new TestLoggingService());
-                _containers.Add(schemaContainer);
-                await WaitForSchemaRegistryAsync();
-            }));
+            var schemaContainer = await ContainerService.CreateContainerAsync(
+                schemaConfig, Network, new TestLoggingService());
+            _containers.Add(schemaContainer);
+            
+            await WaitForSchemaRegistryAsync();
         }
-
-        await Task.WhenAll(tasks);
         
-        LogMessage("All Kafka services are ready", "");
+        LogMessage($"Infrastructure is ready: {GetTargetName()}", "");
     }
 
     private async Task WaitForZookeeperAsync()
@@ -118,7 +111,7 @@ public class KafkaFixture(
                 
                 if (response == "imok")
                 {
-                    LogMessage("Service is ready: zookeeper", "");
+                    LogMessage("Started: zookeeper", "");
                     return;
                 }
             }
@@ -127,7 +120,7 @@ public class KafkaFixture(
                 if (attempt == KafkaReadyMaxAttempts)
                 {
                     throw new TimeoutException(
-                        $"Service failed to start after {KafkaReadyMaxAttempts} attempts: zookeeper");
+                        $"Failed to start zookeeper after {KafkaReadyMaxAttempts} attempts");
                 }
 
                 LogMessage($"Starting: zookeeper (attempt: {attempt}/{KafkaReadyMaxAttempts})", "");
@@ -159,7 +152,7 @@ public class KafkaFixture(
                 
                 if (metadata.Brokers.Count > 0)
                 {
-                    LogMessage("Service is ready: broker", "");
+                    LogMessage("Started: broker", "");
                     return;
                 }
             }
@@ -168,7 +161,7 @@ public class KafkaFixture(
                 if (attempt == KafkaReadyMaxAttempts)
                 {
                     throw new TimeoutException(
-                        $"Service failed to start after {KafkaReadyMaxAttempts} attempts: kafka-broker");
+                        $"Failed to start broker after {KafkaReadyMaxAttempts} attempts");
                 }
 
                 LogMessage($"Starting: broker (attempt: {attempt}/{KafkaReadyMaxAttempts})", "");
@@ -198,7 +191,7 @@ public class KafkaFixture(
                 
                 if (response.IsSuccessStatusCode)
                 {
-                    LogMessage("Service is ready: schema-registry", "");
+                    LogMessage("Started: schema-registry", "");
                     return;
                 }
             }
@@ -207,7 +200,7 @@ public class KafkaFixture(
                 if (attempt == KafkaReadyMaxAttempts)
                 {
                     throw new TimeoutException(
-                        $"Service failed to start after {KafkaReadyMaxAttempts} attempts: schema-registry");
+                        $"Failed to start schema-registry after {KafkaReadyMaxAttempts} attempts");
                 }
 
                 LogMessage($"Starting: schema-registry (attempt: {attempt}/{KafkaReadyMaxAttempts})", "");
