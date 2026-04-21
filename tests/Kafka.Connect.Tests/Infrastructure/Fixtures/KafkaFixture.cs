@@ -145,8 +145,12 @@ public class KafkaFixture(
                     {
                         BootstrapServers = bootstrapServers,
                         SocketTimeoutMs = 5000,
-                        LogConnectionClose = false,
-                        Debug = ""
+
+                    }).SetLogHandler((_, _) =>
+                    {
+                    })
+                    .SetErrorHandler((_, _) =>
+                    {
                     })
                     .Build();
 
