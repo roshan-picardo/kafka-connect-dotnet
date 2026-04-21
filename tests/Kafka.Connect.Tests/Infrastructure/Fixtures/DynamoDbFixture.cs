@@ -20,7 +20,7 @@ public class DynamoDbFixture(
     {
         var serviceUrl = Configuration.GetServiceEndpoint("DynamoDb");
 
-        for (var attempt = 1; attempt <= DatabaseReadyMaxAttempts; attempt++)
+        for (var attempt = 1; attempt <= ReadyMaxAttempts; attempt++)
         {
             AmazonDynamoDBClient? client = null;
             try
@@ -44,14 +44,14 @@ public class DynamoDbFixture(
             }
             catch (Exception ex)
             {
-                if (attempt == DatabaseReadyMaxAttempts)
+                if (attempt == ReadyMaxAttempts)
                 {
                     throw new TimeoutException(
-                        $"Failed to start {GetTargetName()} after {DatabaseReadyMaxAttempts} attempts", ex);
+                        $"Failed to start {GetTargetName()} after {ReadyMaxAttempts} attempts", ex);
                 }
 
-                LogMessage($"Starting: {GetTargetName()} (attempt: {attempt}/{DatabaseReadyMaxAttempts})", "");
-                await Task.Delay(DatabaseReadyDelayMs);
+                LogMessage($"Starting: {GetTargetName()} (attempt: {attempt}/{ReadyMaxAttempts})", "");
+                await Task.Delay(ReadyDelayMs);
             }
             finally
             {
@@ -193,7 +193,7 @@ public class DynamoDbFixture(
                         break;
                     }
 
-                    await Task.Delay(1000);
+                    await Task.Delay(ReadyDelayMs);
                 }
             }
             catch (Exception ex)

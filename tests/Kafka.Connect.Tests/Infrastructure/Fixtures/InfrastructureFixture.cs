@@ -17,8 +17,9 @@ public abstract class InfrastructureFixture(
     protected readonly INetwork Network = network;
     private readonly List<IContainer> _containers = new();
 
-    private const int WorkerReadyMaxAttempts = 60;
-    private const int WorkerReadyDelayMs = 1000;
+    // Readiness check configuration
+    protected const int ReadyMaxAttempts = 60;
+    protected const int ReadyDelayMs = 1000;
 
     public abstract Task InitializeAsync();
 
@@ -45,7 +46,7 @@ public abstract class InfrastructureFixture(
         using var httpClient = new HttpClient();
         httpClient.Timeout = TimeSpan.FromSeconds(15);
 
-        for (var attempt = 1; attempt <= WorkerReadyMaxAttempts; attempt++)
+        for (var attempt = 1; attempt <= ReadyMaxAttempts; attempt++)
         {
             try
             {
@@ -107,31 +108,31 @@ public abstract class InfrastructureFixture(
                             if (workerRunning && !allConnectorsRunning && failedConnectors.Count > 0 && retryFailedConnectorsCallback != null)
                             {
                                 LogMessage(
-                                    $"Starting: {workerName} (attempt {attempt}/{WorkerReadyMaxAttempts})", "");
+                                    $"Starting: {workerName} (attempt {attempt}/{ReadyMaxAttempts})", "");
                                 
                                 await retryFailedConnectorsCallback(failedConnectors);
                                 
-                                await Task.Delay(2000);
+                                await Task.Delay(ReadyDelayMs);
                             }
                             else
                             {
                                 if (!silent)
                                 {
                                     LogMessage(
-                                        $"Staring: {workerName} (attempt: {attempt}/{WorkerReadyMaxAttempts})", "");
+                                        $"Staring: {workerName} (attempt: {attempt}/{ReadyMaxAttempts})", "");
                                 }
                             }
                         }
                         else
                         {
                             LogMessage(
-                                $"Failed to start {workerName} after (attempt: {attempt}/{WorkerReadyMaxAttempts}) : Response missing 'status' property: {content} ", "");
+                                $"Failed to start {workerName} after (attempt: {attempt}/{ReadyMaxAttempts}) : Response missing 'status' property: {content} ", "");
                         }
                     }
                     catch (JsonException ex)
                     {
                         LogMessage(
-                            $"Failed start {workerName} after (attempt: {attempt}/{WorkerReadyMaxAttempts}): {ex.Message}",
+                            $"Failed start {workerName} after (attempt: {attempt}/{ReadyMaxAttempts}): {ex.Message}",
                             "");
                     }
                 }
@@ -140,7 +141,7 @@ public abstract class InfrastructureFixture(
                     if (!silent)
                     {
                         LogMessage(
-                            $"Starting: {workerName} (attempt {attempt}/{WorkerReadyMaxAttempts})",
+                            $"Starting: {workerName} (attempt {attempt}/{ReadyMaxAttempts})",
                             "");
                     }
                 }
@@ -149,37 +150,37 @@ public abstract class InfrastructureFixture(
             {
                 if (!silent)
                 {
-                    LogMessage($"Staring :{workerName} (attempt {attempt}/{WorkerReadyMaxAttempts})", "");
+                    LogMessage($"Staring :{workerName} (attempt {attempt}/{ReadyMaxAttempts})", "");
                 }
             }
             catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
             {
                 if (!silent)
                 {
-                    LogMessage($"Starting: {workerName} (attempt {attempt}/{WorkerReadyMaxAttempts})", $"Health check timeout: {ex.InnerException.Message}");
+                    LogMessage($"Starting: {workerName} (attempt {attempt}/{ReadyMaxAttempts})", $"Health check timeout: {ex.InnerException.Message}");
                 }
             }
             catch (Exception ex)
             {
-                if (attempt == WorkerReadyMaxAttempts)
+                if (attempt == ReadyMaxAttempts)
                 {
                     throw new TimeoutException(
-                        $"Failed to start {workerName} after {WorkerReadyMaxAttempts} attempts", ex);
+                        $"Failed to start {workerName} after {ReadyMaxAttempts} attempts", ex);
                 }
 
                 if (!silent)
                 {
                     LogMessage(
-                        $"Failed to start {workerName} (attempt {attempt}/{WorkerReadyMaxAttempts}): {ex.GetType().Name} - {ex.Message}",
+                        $"Failed to start {workerName} (attempt {attempt}/{ReadyMaxAttempts}): {ex.GetType().Name} - {ex.Message}",
                         "");
                 }
             }
 
-            await Task.Delay(WorkerReadyDelayMs);
+            await Task.Delay(ReadyDelayMs);
         }
 
         throw new TimeoutException(
-            $"Failed to start {workerName} after {WorkerReadyMaxAttempts} attempts");
+            $"Failed to start {workerName} after {ReadyMaxAttempts} attempts");
     }
 
     public virtual async ValueTask DisposeAsync()

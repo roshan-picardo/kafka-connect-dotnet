@@ -107,7 +107,7 @@ public class LeaderFixture(
                 {
                     successCount++;
                     LogMessage($"Submitted connector configuration: {connectorName}", "");
-                    await Task.Delay(500);
+                    await Task.Delay(ReadyDelayMs);
                 }
                 else
                 {

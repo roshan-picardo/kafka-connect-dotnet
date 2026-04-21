@@ -15,8 +15,6 @@ public class KafkaFixture(
     : InfrastructureFixture(configuration, logMessage, containerService, network)
 {
     private IAdminClient? _adminClient;
-    private const int KafkaReadyMaxAttempts = 30;
-    private const int KafkaReadyDelayMs = 1000;
     private readonly List<IContainer> _containers = new();
 
     protected override string GetTargetName() => "kafka";
@@ -94,7 +92,7 @@ public class KafkaFixture(
         var host = parts[0];
         var port = int.Parse(parts[1]);
 
-        for (var attempt = 1; attempt <= KafkaReadyMaxAttempts; attempt++)
+        for (var attempt = 1; attempt <= ReadyMaxAttempts; attempt++)
         {
             try
             {
@@ -117,14 +115,14 @@ public class KafkaFixture(
             }
             catch (Exception)
             {
-                if (attempt == KafkaReadyMaxAttempts)
+                if (attempt == ReadyMaxAttempts)
                 {
                     throw new TimeoutException(
-                        $"Failed to start zookeeper after {KafkaReadyMaxAttempts} attempts");
+                        $"Failed to start zookeeper after {ReadyMaxAttempts} attempts");
                 }
 
-                LogMessage($"Starting: zookeeper (attempt: {attempt}/{KafkaReadyMaxAttempts})", "");
-                await Task.Delay(KafkaReadyDelayMs);
+                LogMessage($"Starting: zookeeper (attempt: {attempt}/{ReadyMaxAttempts})", "");
+                await Task.Delay(ReadyDelayMs);
             }
         }
     }
@@ -137,7 +135,7 @@ public class KafkaFixture(
             throw new InvalidOperationException("Kafka endpoint is not configured");
         }
 
-        for (var attempt = 1; attempt <= KafkaReadyMaxAttempts; attempt++)
+        for (var attempt = 1; attempt <= ReadyMaxAttempts; attempt++)
         {
             try
             {
@@ -164,14 +162,14 @@ public class KafkaFixture(
             }
             catch (Exception)
             {
-                if (attempt == KafkaReadyMaxAttempts)
+                if (attempt == ReadyMaxAttempts)
                 {
                     throw new TimeoutException(
-                        $"Failed to start broker after {KafkaReadyMaxAttempts} attempts");
+                        $"Failed to start broker after {ReadyMaxAttempts} attempts");
                 }
 
-                LogMessage($"Starting: broker (attempt: {attempt}/{KafkaReadyMaxAttempts})", "");
-                await Task.Delay(KafkaReadyDelayMs);
+                LogMessage($"Starting: broker (attempt: {attempt}/{ReadyMaxAttempts})", "");
+                await Task.Delay(ReadyDelayMs);
             }
         }
     }
@@ -189,7 +187,7 @@ public class KafkaFixture(
             Timeout = TimeSpan.FromSeconds(5)
         };
 
-        for (var attempt = 1; attempt <= KafkaReadyMaxAttempts; attempt++)
+        for (var attempt = 1; attempt <= ReadyMaxAttempts; attempt++)
         {
             try
             {
@@ -203,14 +201,14 @@ public class KafkaFixture(
             }
             catch (Exception)
             {
-                if (attempt == KafkaReadyMaxAttempts)
+                if (attempt == ReadyMaxAttempts)
                 {
                     throw new TimeoutException(
-                        $"Failed to start schema-registry after {KafkaReadyMaxAttempts} attempts");
+                        $"Failed to start schema-registry after {ReadyMaxAttempts} attempts");
                 }
 
-                LogMessage($"Starting: schema-registry (attempt: {attempt}/{KafkaReadyMaxAttempts})", "");
-                await Task.Delay(KafkaReadyDelayMs);
+                LogMessage($"Starting: schema-registry (attempt: {attempt}/{ReadyMaxAttempts})", "");
+                await Task.Delay(ReadyDelayMs);
             }
         }
     }

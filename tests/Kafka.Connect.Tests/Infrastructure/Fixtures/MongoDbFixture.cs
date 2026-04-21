@@ -18,7 +18,7 @@ public class MongoDbFixture(
     {
         var connectionString = Configuration.GetServiceEndpoint("Mongo");
 
-        for (var attempt = 1; attempt <= DatabaseReadyMaxAttempts; attempt++)
+        for (var attempt = 1; attempt <= ReadyMaxAttempts; attempt++)
         {
             try
             {
@@ -30,14 +30,14 @@ public class MongoDbFixture(
             }
             catch (Exception ex)
             {
-                if (attempt == DatabaseReadyMaxAttempts)
+                if (attempt == ReadyMaxAttempts)
                 {
                     throw new TimeoutException(
-                        $"Failed to start {GetTargetName()} after {DatabaseReadyMaxAttempts} attempts", ex);
+                        $"Failed to start {GetTargetName()} after {ReadyMaxAttempts} attempts", ex);
                 }
 
-                LogMessage($"Starting: {GetTargetName()} (attempt: {attempt}/{DatabaseReadyMaxAttempts})", "");
-                await Task.Delay(DatabaseReadyDelayMs);
+                LogMessage($"Starting: {GetTargetName()} (attempt: {attempt}/{ReadyMaxAttempts})", "");
+                await Task.Delay(ReadyDelayMs);
             }
         }
     }
