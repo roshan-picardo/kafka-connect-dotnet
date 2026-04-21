@@ -25,7 +25,7 @@ public class MongoDbFixture(
                 var client = new MongoClient(connectionString);
                 await client.ListDatabaseNamesAsync();
 
-                LogMessage($"Service is ready: mongodb", "");
+                LogMessage($"Started: {GetTargetName()}", "");
                 return;
             }
             catch (Exception ex)
@@ -33,10 +33,10 @@ public class MongoDbFixture(
                 if (attempt == DatabaseReadyMaxAttempts)
                 {
                     throw new TimeoutException(
-                        $"Service failed to start after {DatabaseReadyMaxAttempts} attempts: mongodb", ex);
+                        $"Failed to start {GetTargetName()} after {DatabaseReadyMaxAttempts} attempts", ex);
                 }
 
-                LogMessage($"Service failed to start: mongodb ({attempt}/{DatabaseReadyMaxAttempts})", "");
+                LogMessage($"Starting: {GetTargetName()} (attempt: {attempt}/{DatabaseReadyMaxAttempts})", "");
                 await Task.Delay(DatabaseReadyDelayMs);
             }
         }
@@ -52,13 +52,12 @@ public class MongoDbFixture(
         {
             try
             {
-                // Parse the script as a MongoDB command JSON document
                 var commandDoc = BsonDocument.Parse(script);
                 await db.RunCommandAsync<BsonDocument>(commandDoc);
             }
             catch (Exception ex)
             {
-                LogMessage($"Failed to execute MongoDB command: {script} - {ex.Message}", "");
+                LogMessage($"Failed to execute {GetTargetName()} command: {script} - {ex.Message}", "");
                 throw;
             }
         }

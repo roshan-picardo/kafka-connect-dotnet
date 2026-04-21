@@ -13,10 +13,12 @@ public abstract class InfrastructureFixture(
 {
     protected readonly TestConfiguration Configuration = configuration;
     protected readonly Action<string, string> LogMessage = logMessage;
+    protected readonly IContainerService ContainerService = containerService;
+    protected readonly INetwork Network = network;
     private readonly List<IContainer> _containers = new();
-    
-    protected const int WorkerReadyMaxAttempts = 60;
-    protected const int WorkerReadyDelayMs = 1000;
+
+    private const int WorkerReadyMaxAttempts = 60;
+    private const int WorkerReadyDelayMs = 1000;
 
     public abstract Task InitializeAsync();
 
@@ -33,20 +35,15 @@ public abstract class InfrastructureFixture(
 
         foreach (var config in targetContainers)
         {
-            var container = await containerService.CreateContainerAsync(config, network, new TestLoggingService());
+            var container = await ContainerService.CreateContainerAsync(config, Network, new TestLoggingService());
             _containers.Add(container);
         }
     }
 
-    /// <summary>
-    /// Common method to wait for a worker to be ready with retry logic
-    /// </summary>
-    protected async Task WaitForWorkerReadyAsync(string statusUrl, string workerName, Func<List<string>, Task>? retryFailedConnectorsCallback = null)
+    public async Task WaitForWorkerReadyAsync(string statusUrl, string workerName, Func<List<string>, Task>? retryFailedConnectorsCallback = null, bool silent = false)
     {
-        using var httpClient = new HttpClient
-        {
-            Timeout = TimeSpan.FromSeconds(15)
-        };
+        using var httpClient = new HttpClient();
+        httpClient.Timeout = TimeSpan.FromSeconds(15);
 
         for (var attempt = 1; attempt <= WorkerReadyMaxAttempts; attempt++)
         {
@@ -98,9 +95,11 @@ public abstract class InfrastructureFixture(
 
                             if (workerRunning && allConnectorsRunning && connectorStatuses.Count > 0)
                             {
-                                LogMessage(
-                                    $"{workerName} and connectors are ready (attempt {attempt}): Worker=Running, Connectors=[{string.Join(", ", connectorStatuses)}]",
-                                    "");
+                                if (!silent)
+                                {
+                                    LogMessage(
+                                        $"Started: {workerName} and connectors.", "");
+                                }
                                 return;
                             }
 
@@ -108,70 +107,79 @@ public abstract class InfrastructureFixture(
                             if (workerRunning && !allConnectorsRunning && failedConnectors.Count > 0 && retryFailedConnectorsCallback != null)
                             {
                                 LogMessage(
-                                    $"{workerName} has failed connectors (attempt {attempt}/{WorkerReadyMaxAttempts}): [{string.Join(", ", failedConnectors)}]. Retrying submission...",
-                                    "");
+                                    $"Starting: {workerName} (attempt {attempt}/{WorkerReadyMaxAttempts})", "");
                                 
                                 await retryFailedConnectorsCallback(failedConnectors);
                                 
-                                // Give some time for the resubmission to take effect
                                 await Task.Delay(2000);
                             }
                             else
                             {
-                                LogMessage(
-                                    $"{workerName} or connectors not ready yet (attempt {attempt}/{WorkerReadyMaxAttempts}): Worker={workerRunning}, Connectors=[{string.Join(", ", connectorStatuses)}]",
-                                    "");
+                                if (!silent)
+                                {
+                                    LogMessage(
+                                        $"Staring: {workerName} (attempt: {attempt}/{WorkerReadyMaxAttempts})", "");
+                                }
                             }
                         }
                         else
                         {
                             LogMessage(
-                                $"{workerName} response missing 'status' property (attempt {attempt}/{WorkerReadyMaxAttempts}): {content}",
-                                "");
+                                $"Failed to start {workerName} after (attempt: {attempt}/{WorkerReadyMaxAttempts}) : Response missing 'status' property: {content} ", "");
                         }
                     }
                     catch (JsonException ex)
                     {
                         LogMessage(
-                            $"Failed to parse {workerName} status JSON (attempt {attempt}/{WorkerReadyMaxAttempts}): {ex.Message}",
+                            $"Failed start {workerName} after (attempt: {attempt}/{WorkerReadyMaxAttempts}): {ex.Message}",
                             "");
                     }
                 }
                 else
                 {
-                    LogMessage(
-                        $"{workerName} not ready yet (attempt {attempt}/{WorkerReadyMaxAttempts}): HTTP {(int)response.StatusCode}",
-                        "");
+                    if (!silent)
+                    {
+                        LogMessage(
+                            $"Starting: {workerName} (attempt {attempt}/{WorkerReadyMaxAttempts})",
+                            "");
+                    }
                 }
             }
-            catch (HttpRequestException ex)
+            catch (HttpRequestException)
             {
-                var errorType = ex.InnerException?.GetType().Name ?? ex.GetType().Name;
-                LogMessage(
-                    $"{workerName} endpoint not available yet (attempt {attempt}/{WorkerReadyMaxAttempts}): {errorType}", "");
+                if (!silent)
+                {
+                    LogMessage($"Staring :{workerName} (attempt {attempt}/{WorkerReadyMaxAttempts})", "");
+                }
             }
             catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
             {
-                LogMessage($"{workerName} health check timeout (attempt {attempt}/{WorkerReadyMaxAttempts})", "");
+                if (!silent)
+                {
+                    LogMessage($"Starting: {workerName} (attempt {attempt}/{WorkerReadyMaxAttempts})", $"Health check timeout: {ex.InnerException.Message}");
+                }
             }
             catch (Exception ex)
             {
                 if (attempt == WorkerReadyMaxAttempts)
                 {
                     throw new TimeoutException(
-                        $"{workerName} did not become ready after {WorkerReadyMaxAttempts} attempts", ex);
+                        $"Failed to start {workerName} after {WorkerReadyMaxAttempts} attempts", ex);
                 }
 
-                LogMessage(
-                    $"{workerName} not ready yet (attempt {attempt}/{WorkerReadyMaxAttempts}): {ex.GetType().Name} - {ex.Message}",
-                    "");
+                if (!silent)
+                {
+                    LogMessage(
+                        $"Failed to start {workerName} (attempt {attempt}/{WorkerReadyMaxAttempts}): {ex.GetType().Name} - {ex.Message}",
+                        "");
+                }
             }
 
             await Task.Delay(WorkerReadyDelayMs);
         }
 
         throw new TimeoutException(
-            $"{workerName} and connectors did not reach 'Running' status after {WorkerReadyMaxAttempts} attempts");
+            $"Failed to start {workerName} after {WorkerReadyMaxAttempts} attempts");
     }
 
     public virtual async ValueTask DisposeAsync()

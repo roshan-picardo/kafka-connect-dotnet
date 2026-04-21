@@ -13,8 +13,6 @@ public class DistributedFixture(
 
     public override async Task InitializeAsync()
     {
-        LogMessage("Initializing Kafka Connect distributed worker...", "");
-        
         await CreateContainersAsync();
         
         await Task.Delay(10000);
@@ -24,9 +22,9 @@ public class DistributedFixture(
         {
             var distributedEndpoint = Configuration.GetServiceEndpoint("Distributed");
             var statusUrl = $"{distributedEndpoint}/workers/status";
-            await WaitForWorkerReadyAsync(statusUrl, "Distributed worker");
+            await WaitForWorkerReadyAsync(statusUrl, $"{GetTargetName()} worker");
         }
         
-        LogMessage("Kafka Connect distributed worker initialized!", "");
+        LogMessage($"Kafka Connect {GetTargetName()} worker is ready.", "");
     }
 }

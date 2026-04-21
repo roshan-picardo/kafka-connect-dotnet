@@ -26,11 +26,10 @@ public abstract class DatabaseFixture(
             
         if (testConfig?.Setup?.Scripts is { Length: > 0 })
         {
-            await ExecuteScriptsAsync(testConfig.Setup.Database ?? string.Empty, testConfig.Setup.Scripts);
-            LogMessage($"Setup scripts executed for {targetName}!", "");
+            await ExecuteScriptsAsync(testConfig.Setup.Database, testConfig.Setup.Scripts);
         }
 
-        LogMessage($"{targetName} initialized!", "");
+        LogMessage($"Infrastructure is ready: {GetTargetName()}", "");
     }
 
     protected abstract Task WaitForReadyAsync();

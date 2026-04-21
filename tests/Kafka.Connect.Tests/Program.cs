@@ -203,7 +203,11 @@ async Task RunInteractiveMode()
                 return null;
             }
             
-            var testCases = (from config in configs.Where(c => !c.Skip) let target = config.Target ?? "Unknown" where config.Files?.Any() == true from file in config.Files let fileName = Path.GetFileNameWithoutExtension(file.TrimStart('/')) select (fileName, target)).ToList();
+            var testCases = (from config in configs.Where(c => !c.Skip && c.Files != null && c.Files.Any())
+                            let target = config.Target ?? "Unknown"
+                            from file in config.Files!
+                            let fileName = Path.GetFileNameWithoutExtension(file.TrimStart('/')) ?? "unknown"
+                            select (fileName: fileName, target: target)).ToList();
 
             if (testCases.Count == 0)
             {

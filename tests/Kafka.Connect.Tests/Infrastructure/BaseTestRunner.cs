@@ -11,6 +11,7 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
 {
     protected async Task Run(TestCase testCase, string target)
     {
+        await fixture.EnsureConnectorsHealthyAsync();
         output.WriteLine($"Executing test: {testCase.Title}");
         if (testCase.Properties is { } properties)
         {
@@ -25,30 +26,25 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
                         await Setup(properties);
                         break;
                     case "search":
-                        // Retry search and validation up to 30 times with 1 second delay (30 seconds total)
-                        Exception? lastException = null;
                         for (var attempt = 1; attempt <= 30; attempt++)
                         {
                             try
                             {
                                 var searched = await Search(properties, record);
                                 Validate(record.Value, searched);
-                                break; // Success - exit retry loop
+                                break; 
                             }
-                            catch (Exception ex)
+                            catch (Exception)
                             {
-                                lastException = ex;
-                                // If not last attempt, wait before retrying
                                 if (attempt < 30)
                                 {
-                                    await Task.Delay(1000);
+                                    await Task.Delay(500);
+                                }
+                                else
+                                {
+                                    throw;
                                 }
                             }
-                        }
-                        // If we exhausted all retries, throw the last exception
-                        if (lastException != null)
-                        {
-                            throw lastException;
                         }
                         break;
                     case "insert":
@@ -64,30 +60,25 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
                         await Publish(properties, record);
                         break;
                     case "consume":
-                        // Retry consume and validation up to 30 times with 1 second delay (30 seconds total)
-                        Exception? lastConsumeException = null;
                         for (var attempt = 1; attempt <= 30; attempt++)
                         {
                             try
                             {
                                 var consumed = await Consume(properties, record);
                                 Validate(record.Value, consumed);
-                                break; // Success - exit retry loop
+                                break;
                             }
-                            catch (Exception ex)
+                            catch
                             {
-                                lastConsumeException = ex;
-                                // If not last attempt, wait before retrying
                                 if (attempt < 30)
                                 {
-                                    await Task.Delay(1000);
+                                    await Task.Delay(500);
+                                }
+                                else
+                                {
+                                    throw;
                                 }
                             }
-                        }
-                        // If we exhausted all retries, throw the last exception
-                        if (lastConsumeException != null)
-                        {
-                            throw lastConsumeException;
                         }
                         break;
                     case "cleanup":
@@ -162,12 +153,11 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
 
     private async Task Publish(Dictionary<string, string> properties, TestCaseRecord record)
     {
-        var result = await ProduceMessageAsync(properties["topic"], record.Key?.ToJsonString() ?? "",
+        await ProduceMessageAsync(properties["topic"], record.Key?.ToJsonString() ?? "",
             record.Value?.ToJsonString() ?? "");
-        output.WriteLine($"Sent message to {result.Topic}:{result.Partition}:{result.Offset}");
     }
 
-    private async Task<DeliveryResult<string, string>> ProduceMessageAsync(string topic, string key, string value)
+    private async Task ProduceMessageAsync(string topic, string key, string value)
     {
         var producerConfig = new ProducerConfig
         {
@@ -205,7 +195,6 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
         };
 
         var result = await producer.ProduceAsync(topic, message);
-        return result;
     }
 
     private async Task<ConsumeResult<string, string>?> ConsumeMessageAsync(string topic)
@@ -244,7 +233,7 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
         {
             try
             {
-                var loop = 120; // Wait up to 12 seconds for initial message
+                var loop = 300; // Wait up to 30 seconds for initial message
                 ConsumeResult<string, string>? lastResult = null;
                 ConsumeResult<string, string>? result;
                 
@@ -259,9 +248,10 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
 
                 if (lastResult == null)
                 {
-                    throw new DataException("Consumer returned null after waiting for 12 seconds...");
+                    throw new DataException("Consumer returned null after waiting for 30 seconds...");
                 }
 
+                var additionalCount = 0;
                 while (true)
                 {
                     result = consumer.Consume(100);
@@ -269,6 +259,7 @@ public abstract class BaseTestRunner(TestFixture fixture, ITestOutputHelper outp
                     {
                         break;
                     }
+                    additionalCount++;
                     lastResult = result;
                 }
 
@@ -300,7 +291,7 @@ public record TestCase(string Title, Dictionary<string, string> Properties, Test
 {
     public override string ToString()
     {
-        return $"title: {Title}, topic: {Properties["topic"]}, records: {Records.Length}";
+        return $"title: {Title}, topic: {Properties["topic"]}, records: {Records.Length}, at: {DateTime.Now.ToString("HH:mm:ss")}";
     }
 }
 

@@ -27,7 +27,7 @@ public class PostgresFixture(
                 var command = new NpgsqlCommand("SELECT version()", connection);
                 await command.ExecuteScalarAsync();
 
-                LogMessage($"Service is ready: postgres", "");
+                LogMessage($"Started: {GetTargetName()}", "");
                 return;
             }
             catch (Exception ex)
@@ -35,11 +35,10 @@ public class PostgresFixture(
                 if (attempt == DatabaseReadyMaxAttempts)
                 {
                     throw new TimeoutException(
-                        $"Service failed to start after {DatabaseReadyMaxAttempts} attempts: postgres", ex);
+                        $"Failed to start {GetTargetName()} after {DatabaseReadyMaxAttempts} attempts", ex);
                 }
 
-                LogMessage($"Service failed to start: postgres ({attempt}/{DatabaseReadyMaxAttempts})",
-                    "");
+                LogMessage($"Starting: {GetTargetName()} (attempt: {attempt}/{DatabaseReadyMaxAttempts})", "");
                 await Task.Delay(DatabaseReadyDelayMs);
             }
         }

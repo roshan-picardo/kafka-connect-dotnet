@@ -27,7 +27,7 @@ public class OracleFixture(
                 var command = new OracleCommand("SELECT * FROM DUAL", connection);
                 await command.ExecuteScalarAsync();
 
-                LogMessage($"Service is ready: oracle", "");
+                LogMessage($"Started: {GetTargetName()}", "");
                 return;
             }
             catch (Exception ex)
@@ -35,10 +35,10 @@ public class OracleFixture(
                 if (attempt == DatabaseReadyMaxAttempts)
                 {
                     throw new TimeoutException(
-                        $"Service failed to start after {DatabaseReadyMaxAttempts} attempts: oracle", ex);
+                        $"Failed to start {GetTargetName()} after {DatabaseReadyMaxAttempts} attempts", ex);
                 }
 
-                LogMessage($"Service failed to start: oracle ({attempt}/{DatabaseReadyMaxAttempts})", "");
+                LogMessage($"Starting: {GetTargetName()} (attempt: {attempt}/{DatabaseReadyMaxAttempts})", "");
                 await Task.Delay(DatabaseReadyDelayMs);
             }
         }

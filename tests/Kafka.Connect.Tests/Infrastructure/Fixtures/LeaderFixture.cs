@@ -15,30 +15,23 @@ public class LeaderFixture(
 
     public override async Task InitializeAsync()
     {
-        LogMessage("Initializing Kafka Connect leader...", "");
-        
         await CreateContainersAsync();
-        
-        await Task.Delay(10000);
         
         var leaderConfig = Configuration.TestContainers.Containers.FirstOrDefault(c => c.Target == "leader");
         if (leaderConfig?.WaitForHealthCheck == true)
         {
             var leaderEndpoint = Configuration.GetServiceEndpoint("Leader");
             var statusUrl = $"{leaderEndpoint}/workers/status";
-            await WaitForWorkerReadyAsync(statusUrl, "Leader");
+            await WaitForWorkerReadyAsync(statusUrl, GetTargetName());
         }
         
-        // Submit distributed connector configurations to the leader
         await SubmitDistributedConnectorsAsync();
         
-        LogMessage("Kafka Connect leader initialized!", "");
+        LogMessage($"Kafka Connect {GetTargetName()} is ready.", "");
     }
 
     private async Task SubmitDistributedConnectorsAsync()
     {
-        LogMessage("Submitting distributed connector configurations to leader...", "");
-        
         var configDirectory = Path.Join(Directory.GetCurrentDirectory(), "Configurations", "distributed");
         
         if (!Directory.Exists(configDirectory))
@@ -55,32 +48,25 @@ public class LeaderFixture(
             return;
         }
         
-        // Submit all connector configurations
         var connectorNames = configFiles.Select(Path.GetFileNameWithoutExtension).ToList();
         var successCount = await SubmitConnectorConfigurationsAsync(connectorNames!, configDirectory, "submitted");
         
-        // Wait for distributed worker and connectors to be ready with retry logic
         if (successCount > 0)
         {
-            LogMessage("Waiting for distributed worker and connectors to be ready...", "");
-            await Task.Delay(10000); // Initial delay before checking
-            
             var distributedEndpoint = Configuration.GetServiceEndpoint("Distributed");
             var statusUrl = $"{distributedEndpoint}/workers/status";
-            
-            // Pass retry callback to resubmit failed connectors
-            await WaitForWorkerReadyAsync(statusUrl, "Distributed worker", RetryFailedConnectorsAsync);
+            await WaitForWorkerReadyAsync(statusUrl, "distributed worker", RetryFailedConnectorsAsync);
         }
     }
 
-    private async Task RetryFailedConnectorsAsync(List<string> failedConnectorNames)
+    public async Task RetryFailedConnectorsAsync(List<string> failedConnectorNames)
     {
         if (failedConnectorNames.Count == 0)
         {
             return;
         }
 
-        LogMessage($"Retrying submission for failed connectors: [{string.Join(", ", failedConnectorNames)}]", "");
+        LogMessage($"Retrying failed connectors: [{string.Join(", ", failedConnectorNames)}]", "");
         
         var configDirectory = Path.Join(Directory.GetCurrentDirectory(), "Configurations", "distributed");
         await SubmitConnectorConfigurationsAsync(failedConnectorNames, configDirectory, "resubmitted");
@@ -120,28 +106,24 @@ public class LeaderFixture(
                 if (response.IsSuccessStatusCode)
                 {
                     successCount++;
-                    LogMessage($"Successfully {actionVerb} connector configuration: {connectorName}", "");
-                    
-                    // Add delay to allow worker to process and flush config file to disk
-                    // This prevents race conditions where the worker tries to reload configs
-                    // before the file system has fully synced the writes
-                    await Task.Delay(1000);
+                    LogMessage($"Submitted connector configuration: {connectorName}", "");
+                    await Task.Delay(500);
                 }
                 else
                 {
                     failureCount++;
                     var errorContent = await response.Content.ReadAsStringAsync();
-                    LogMessage($"Failed to {actionVerb.TrimEnd('d')} connector configuration {connectorName}: HTTP {(int)response.StatusCode} - {errorContent}", "");
+                    LogMessage($"Failed to submit connector configuration {connectorName}: HTTP {(int)response.StatusCode} - {errorContent}", "");
                 }
             }
             catch (Exception ex)
             {
                 failureCount++;
-                LogMessage($"Error {actionVerb.TrimEnd('d')}ting connector configuration {connectorName}: {ex.Message}", "");
+                LogMessage($"Error submitting connector configuration {connectorName}: {ex.Message}", "");
             }
         }
         
-        LogMessage($"Connector {actionVerb.TrimEnd('d')}sion completed: {successCount} succeeded, {failureCount} failed", "");
+        LogMessage($"Configuration completed: {successCount} succeeded, {failureCount} failed", "");
         
         return successCount;
     }
