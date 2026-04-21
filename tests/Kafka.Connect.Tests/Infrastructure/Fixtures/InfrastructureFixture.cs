@@ -150,7 +150,7 @@ public abstract class InfrastructureFixture(
             {
                 if (!silent)
                 {
-                    LogMessage($"Staring :{workerName} (attempt {attempt}/{ReadyMaxAttempts})", "");
+                    LogMessage($"Staring: {workerName} (attempt {attempt}/{ReadyMaxAttempts})", "");
                 }
             }
             catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
