@@ -144,7 +144,9 @@ public class KafkaFixture(
                 using var adminClient = new AdminClientBuilder(new AdminClientConfig
                     {
                         BootstrapServers = bootstrapServers,
-                        SocketTimeoutMs = 5000
+                        SocketTimeoutMs = 5000,
+                        LogConnectionClose = false,
+                        Debug = ""
                     })
                     .Build();
 

@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS base
+FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS base
 
 ARG BUILD_VERSION=1.0.0.1
 ARG GITHUB_TOKEN
@@ -50,7 +50,7 @@ RUN cd /src && \
     done;
 
 # Runtime stage for release builds
-FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS runtime
 WORKDIR /app
 
 # Copy the published application and plugins from release stage

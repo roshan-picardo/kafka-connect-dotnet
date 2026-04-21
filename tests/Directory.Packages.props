@@ -4,7 +4,7 @@
   <ItemGroup>
     <!-- Test Framework Packages (not in src) -->
     <PackageVersion Include="Docker.DotNet" Version="3.125.15" />
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
     <PackageVersion Include="xunit" Version="2.6.2" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="2.5.3" />
     <PackageVersion Include="coverlet.collector" Version="6.0.0" />
@@ -16,11 +16,12 @@
     <PackageVersion Include="Testcontainers.PostgreSql" Version="3.6.0" />
     <PackageVersion Include="Testcontainers.Kafka" Version="3.6.0" />
     <!-- Additional test-specific packages -->
-    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="8.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Logging" Version="8.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="8.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="9.0.4" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="9.0.4" />
+    <PackageVersion Include="Microsoft.Extensions.Logging" Version="9.0.4" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="9.0.4" />
+    <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="9.0.4" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageVersion Include="System.Text.Json" Version="8.0.4" />
+    <PackageVersion Include="System.Text.Json" Version="9.0.4" />
   </ItemGroup>
 </Project>
