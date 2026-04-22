@@ -40,6 +40,7 @@ jobs:
         GITHUB_USERNAME: ${{ github.actor }}
 
     - name: Run unit tests
+      id: unit_tests
       run: |
         dotnet restore tests/Kafka.Connect.UnitTests/Kafka.Connect.UnitTests.csproj --configfile nuget.config
         dotnet build tests/Kafka.Connect.UnitTests/Kafka.Connect.UnitTests.csproj --no-restore
@@ -49,6 +50,7 @@ jobs:
         GITHUB_USERNAME: ${{ github.actor }}
 
     - name: Run integration tests
+      id: integration_tests
       run: |
         dotnet restore tests/Kafka.Connect.Tests/Kafka.Connect.Tests.csproj --configfile nuget.config
         dotnet build tests/Kafka.Connect.Tests/Kafka.Connect.Tests.csproj --no-restore
@@ -69,7 +71,7 @@ jobs:
       if: always()
       uses: dorny/test-reporter@v1
       with:
-        name: .NET Test Results
+        name: test-results
         path: TestResults/**/*.trx
         reporter: dotnet-trx
 
@@ -98,13 +100,73 @@ jobs:
             body
           });
 
+    - name: Collect test counts
+      if: always()
+      id: test_counts
+      run: |
+        python3 - <<'PY'
+        import glob
+        import os
+        import xml.etree.ElementTree as ET
+
+        def parse_trx(filename):
+            files = sorted(glob.glob(f"TestResults/**/{filename}", recursive=True))
+            if not files:
+                return {
+                    "total": 0,
+                    "passed": 0,
+                    "failed": 0,
+                    "skipped": 0,
+                }
+
+            root = ET.parse(files[-1]).getroot()
+            counters = root.find('.//{*}Counters')
+            if counters is None:
+                return {
+                    "total": 0,
+                    "passed": 0,
+                    "failed": 0,
+                    "skipped": 0,
+                }
+
+            total = int(counters.attrib.get('total', '0'))
+            passed = int(counters.attrib.get('passed', '0'))
+            failed = int(counters.attrib.get('failed', '0'))
+            not_executed = int(counters.attrib.get('notExecuted', '0'))
+            inconclusive = int(counters.attrib.get('inconclusive', '0'))
+            skipped = not_executed + inconclusive
+
+            return {
+                "total": total,
+                "passed": passed,
+                "failed": failed,
+                "skipped": skipped,
+            }
+
+        unit = parse_trx('unit-tests.trx')
+        integration = parse_trx('integration-tests.trx')
+
+        with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as out:
+            out.write(f"unit_total={unit['total']}\n")
+            out.write(f"unit_passed={unit['passed']}\n")
+            out.write(f"unit_failed={unit['failed']}\n")
+            out.write(f"unit_skipped={unit['skipped']}\n")
+
+            out.write(f"integration_total={integration['total']}\n")
+            out.write(f"integration_passed={integration['passed']}\n")
+            out.write(f"integration_failed={integration['failed']}\n")
+            out.write(f"integration_skipped={integration['skipped']}\n")
+        PY
+
     - name: Publish test report (main summary)
       if: always() && github.ref == 'refs/heads/main'
       run: |
         echo "## CI Test Summary" >> $GITHUB_STEP_SUMMARY
-        echo "- Job status: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
-        echo "- Unit + integration tests executed" >> $GITHUB_STEP_SUMMARY
-        echo "- Detailed results are available in the Checks tab and uploaded artifacts" >> $GITHUB_STEP_SUMMARY
+        echo "### Test Summary" >> $GITHUB_STEP_SUMMARY
+        echo "- Job status: ${{ job.status == 'success' && '✅ success' || (job.status == 'failure' && '❌ failure' || format('⚠️ {0}', job.status)) }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Unit tests: ${{ steps.unit_tests.outcome == 'success' && '✅ passed' || (steps.unit_tests.outcome == 'failure' && '❌ failed' || format('⚠️ {0}', steps.unit_tests.outcome)) }} (${{ steps.test_counts.outputs.unit_passed }}/${{ steps.test_counts.outputs.unit_total }}, skipped: ${{ steps.test_counts.outputs.unit_skipped }}) ![Unit tests badge](${{ steps.unit_tests.outcome == 'success' && format('https://img.shields.io/badge/tests-{0}%20passed-success', steps.test_counts.outputs.unit_passed) || (steps.unit_tests.outcome == 'failure' && format('https://img.shields.io/badge/tests-{0}%20failed-critical', steps.test_counts.outputs.unit_failed) || format('https://img.shields.io/badge/tests-{0}%20unknown-lightgrey', steps.test_counts.outputs.unit_total)) }})" >> $GITHUB_STEP_SUMMARY
+        echo "- Integration tests: ${{ steps.integration_tests.outcome == 'success' && '✅ passed' || (steps.integration_tests.outcome == 'failure' && '❌ failed' || format('⚠️ {0}', steps.integration_tests.outcome)) }} (${{ steps.test_counts.outputs.integration_passed }}/${{ steps.test_counts.outputs.integration_total }}, skipped: ${{ steps.test_counts.outputs.integration_skipped }}) ![Integration tests badge](${{ steps.integration_tests.outcome == 'success' && format('https://img.shields.io/badge/tests-{0}%20passed-success', steps.test_counts.outputs.integration_passed) || (steps.integration_tests.outcome == 'failure' && format('https://img.shields.io/badge/tests-{0}%20failed-critical', steps.test_counts.outputs.integration_failed) || format('https://img.shields.io/badge/tests-{0}%20unknown-lightgrey', steps.test_counts.outputs.integration_total)) }})" >> $GITHUB_STEP_SUMMARY
+        echo "- [View detailed results in Checks tab](https://github.com/${{ github.repository }}/commit/${{ github.sha }}/checks)" >> $GITHUB_STEP_SUMMARY
 
   build-and-push-docker:
     needs: build-and-test
@@ -164,3 +226,37 @@ jobs:
           BUILD_VERSION=${{ steps.version.outputs.VERSION }}
           GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
           GITHUB_USERNAME=${{ github.actor }}
+
+    - name: Publish artifact summary (Docker and NuGet)
+      run: |
+        VERSION="${{ steps.version.outputs.VERSION }}"
+
+        echo "## Published Artifacts" >> $GITHUB_STEP_SUMMARY
+        echo "### Docker Images" >> $GITHUB_STEP_SUMMARY
+
+        while IFS= read -r tag; do
+          if [ -n "$tag" ]; then
+            echo "- $tag" >> $GITHUB_STEP_SUMMARY
+          fi
+        done <<< "${{ steps.meta.outputs.tags }}"
+
+        echo "### NuGet Packages" >> $GITHUB_STEP_SUMMARY
+        echo "- Source: https://nuget.pkg.github.com/${{ github.actor }}/index.json" >> $GITHUB_STEP_SUMMARY
+
+        PROJECTS_FILE=$(mktemp)
+        echo "src/Kafka.Connect.Plugin/Kafka.Connect.Plugin.csproj" > "$PROJECTS_FILE"
+        find src/Plugins -mindepth 2 -maxdepth 2 -name '*.csproj' | sort >> "$PROJECTS_FILE"
+
+        while IFS= read -r project; do
+          if [ -z "$project" ] || [ ! -f "$project" ]; then
+            continue
+          fi
+
+          PACKAGE_ID=$(grep -m1 -oP '(?<=<PackageId>).*?(?=</PackageId>)' "$project" || true)
+          if [ -z "$PACKAGE_ID" ]; then
+            PACKAGE_ID=$(basename "$project" .csproj)
+          fi
+          echo "- $PACKAGE_ID $VERSION" >> $GITHUB_STEP_SUMMARY
+        done < "$PROJECTS_FILE"
+
+        rm -f "$PROJECTS_FILE"
