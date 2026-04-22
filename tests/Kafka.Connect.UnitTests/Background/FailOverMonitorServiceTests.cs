@@ -43,25 +43,23 @@ namespace UnitTests.Kafka.Connect.Background
         }
 
         [Fact]
-        public void ExecuteAsync_ServiceNotEnabled()
+        public async Task ExecuteAsync_ServiceNotEnabled()
         {
             _configProvider.GetFailOverConfig().Returns(new FailOverConfig {Disabled = true});
             _failOverMonitorService = GetFailOverMonitorService();
-            _failOverMonitorService.StartAsync(new CancellationToken());
+            await _failOverMonitorService.StartAsync(CancellationToken.None);
+            await _failOverMonitorService.ExecuteTask.WaitAsync(TimeSpan.FromSeconds(5));
             _logger.Received(1).Debug("Fail over monitoring service is not enabled...");
         }
 
         [Fact]
-        public void ServiceEnabledButCancellationRequested_StopsService()
+        public async Task ServiceEnabledButCancellationRequested_StopsService()
         {
             _configProvider.GetFailOverConfig().Returns(new FailOverConfig {Disabled = false, InitialDelayMs = 1, PeriodicDelayMs = 1});
             _configProvider.GetAllConnectorConfigs().Returns(new List<ConnectorConfig>());
             _failOverMonitorService = GetFailOverMonitorService();
-            _failOverMonitorService.StartAsync(GetCancellationToken(1));
-            while (!_failOverMonitorService.ExecuteTask.IsCompletedSuccessfully)
-            {
-                // wait for the task to complete
-            }
+            await _failOverMonitorService.StartAsync(GetCancellationToken(1));
+            await _failOverMonitorService.ExecuteTask.WaitAsync(TimeSpan.FromSeconds(5));
             
             _kafkaClientBuilder.Received().GetAdminClient();
             _logger.Received().Debug("Starting fail over monitoring service...");
@@ -69,10 +67,10 @@ namespace UnitTests.Kafka.Connect.Background
         }
 
         [Theory]
-        [InlineData(new [] {"one", "two"}, "three", 3)]
+        [InlineData(new [] {"one", "two"}, "three", 2)]
         [InlineData(new [] {"one", "two"}, null, 2)]
         [InlineData(null, "one", 1)]
-        public void ExecuteAsync_MakeSureGetMetadataCalledPerTopic(string[] topics, string topic, int expected)
+        public async Task ExecuteAsync_MakeSureGetMetadataCalledPerTopic(string[] topics, string topic, int expected)
         {
             _configProvider.GetFailOverConfig().Returns(new FailOverConfig {FailureThreshold = 3, InitialDelayMs = 1, PeriodicDelayMs = 1, RestartDelayMs = 1});
             _configProvider.GetAllConnectorConfigs().Returns(new List<ConnectorConfig>
@@ -81,25 +79,20 @@ namespace UnitTests.Kafka.Connect.Background
                 {
                     Name = "unit-test-fail-over-enabled",
                     Disabled = false,
-                    Topic = topic,
-                    Topics = topics?.ToList()
+                    Topics = topics ?? (topic != null ? new[] { topic } : null)
                 }
             });
             
             _adminClient.GetMetadata(Arg.Any<string>(), Arg.Any<TimeSpan>()).Returns(null as Metadata);
             _failOverMonitorService = GetFailOverMonitorService();
             
-            _failOverMonitorService.StartAsync(GetCancellationToken(1));
-            
-            while (!_failOverMonitorService.ExecuteTask.IsCompletedSuccessfully)
-            {
-                // wait for the task to complete
-            }
+            await _failOverMonitorService.StartAsync(GetCancellationToken(1));
+            await _failOverMonitorService.ExecuteTask.WaitAsync(TimeSpan.FromSeconds(5));
             _adminClient.Received(expected).GetMetadata(Arg.Any<string>(), Arg.Any<TimeSpan>());
         }
 
         [Fact]
-        public void ExecuteAsync_BrokerFailureForAllConnectorsAndWorkerRestart()
+        public async Task ExecuteAsync_BrokerFailureForAllConnectorsAndWorkerRestart()
         {
             var failOverConfig = new FailOverConfig {InitialDelayMs = 1, FailureThreshold = 3, PeriodicDelayMs = 1, RestartDelayMs = 1};
             _configProvider.GetFailOverConfig().Returns(failOverConfig);
@@ -109,13 +102,13 @@ namespace UnitTests.Kafka.Connect.Background
                 {
                     Name = "unit-test-fail-over-enabled-a",
                     Disabled = false,
-                    Topics = new List<string>{ "TopicFailingA" }
+                    Topics = new[] { "TopicFailingA" }
                 },
                 new()
                 {
                     Name = "unit-test-fail-over-enabled-b",
                     Disabled = false,
-                    Topics = new List<string>{ "TopicFailingB" }
+                    Topics = new[] { "TopicFailingB" }
                 }
             });
 
@@ -125,12 +118,8 @@ namespace UnitTests.Kafka.Connect.Background
                         {new(args[0] as string, new List<PartitionMetadata>(), ErrorCode.BrokerNotAvailable)}, 0, ""));
             
             _failOverMonitorService = GetFailOverMonitorService();
-            _failOverMonitorService.StartAsync(GetCancellationToken(3));
-            
-            while (!_failOverMonitorService.ExecuteTask.IsCompletedSuccessfully)
-            {
-                // wait for the task to complete
-            }
+            await _failOverMonitorService.StartAsync(GetCancellationToken(3));
+            await _failOverMonitorService.ExecuteTask.WaitAsync(TimeSpan.FromSeconds(5));
             _adminClient.Received(3).GetMetadata("TopicFailingA", Arg.Any<TimeSpan>());
             _adminClient.Received(3).GetMetadata("TopicFailingB", Arg.Any<TimeSpan>());
             for (var i = failOverConfig.FailureThreshold; i == 0; i--)
@@ -139,11 +128,11 @@ namespace UnitTests.Kafka.Connect.Background
                 _logger.Received().Trace( "Broker failure detected.", new{Connector = "unit-test-fail-over-enabled-b", Threshold = i });
             }
 
-            _executionContext.Received().Restart(Arg.Any<int>());
+            await _executionContext.Received().Restart(Arg.Any<int>());
         }
         
         [Fact]
-        public void ExecuteAsync_BrokerFailureForOneConnectorAndConnectorRestart()
+        public async Task ExecuteAsync_BrokerFailureForOneConnectorAndConnectorRestart()
         {
             var failOverConfig = new FailOverConfig {FailureThreshold = 3, InitialDelayMs = 1, PeriodicDelayMs = 1, RestartDelayMs = 1};
             _configProvider.GetFailOverConfig().Returns(failOverConfig);
@@ -153,13 +142,13 @@ namespace UnitTests.Kafka.Connect.Background
                 {
                     Name = "unit-test-fail-over-enabled-a",
                     Disabled = false,
-                    Topics = new List<string>{ "TopicFailing" }
+                    Topics = new[] { "TopicFailing" }
                 },
                 new()
                 {
                     Name = "unit-test-fail-over-enabled-b",
                     Disabled = false,
-                    Topics = new List<string>{ "TopicPassing" }
+                    Topics = new[] { "TopicPassing" }
                 }
             });
             
@@ -176,12 +165,8 @@ namespace UnitTests.Kafka.Connect.Background
             
             _failOverMonitorService = GetFailOverMonitorService();
             
-            _failOverMonitorService.StartAsync(GetCancellationToken(3));
-            
-            while (!_failOverMonitorService.ExecuteTask.IsCompletedSuccessfully)
-            {
-                // wait for the task to complete
-            }
+            await _failOverMonitorService.StartAsync(GetCancellationToken(3));
+            await _failOverMonitorService.ExecuteTask.WaitAsync(TimeSpan.FromSeconds(5));
             _adminClient.Received(3).GetMetadata("TopicPassing", Arg.Any<TimeSpan>());
             _adminClient.Received(3).GetMetadata("TopicFailing", Arg.Any<TimeSpan>());
             for (var i = failOverConfig.FailureThreshold; i == 0; i--)
@@ -190,12 +175,12 @@ namespace UnitTests.Kafka.Connect.Background
                 _logger.Received().Trace( "Broker failure detected.", new{Connector = "unit-test-fail-over-enabled-b", Threshold = i });
             }
 
-            _executionContext.Received(1).Restart(Arg.Any<int>(), "unit-test-fail-over-enabled-a");
+            await _executionContext.Received(1).Restart(Arg.Any<int>(), "unit-test-fail-over-enabled-a");
         }
         
         [Theory]
         [MemberData(nameof(GetMetadataScenariosTestData))]
-        public void ExecuteAsync_TopicMetadataScenarios(string topic, Metadata metadata, int expected)
+        public async Task ExecuteAsync_TopicMetadataScenarios(string topic, Metadata metadata, int expected)
         {
             var failOverConfig = new FailOverConfig {FailureThreshold = 3, InitialDelayMs = 1, PeriodicDelayMs = 1, RestartDelayMs = 1};
             _configProvider.GetFailOverConfig().Returns(failOverConfig);
@@ -205,7 +190,7 @@ namespace UnitTests.Kafka.Connect.Background
                 {
                     Name = "unit-test-fail-over-enabled",
                     Disabled = false,
-                    Topic = topic
+                    Topics = new[] { topic }
                 }
             });
             
@@ -213,16 +198,13 @@ namespace UnitTests.Kafka.Connect.Background
                 .Returns(metadata);
             
             _failOverMonitorService = GetFailOverMonitorService();
-            _failOverMonitorService.StartAsync(GetCancellationToken(1));
-            while (!_failOverMonitorService.ExecuteTask.IsCompletedSuccessfully)
-            {
-                // wait for the task to complete
-            }
+            await _failOverMonitorService.StartAsync(GetCancellationToken(1));
+            await _failOverMonitorService.ExecuteTask.WaitAsync(TimeSpan.FromSeconds(5));
             _logger.Received(expected).Trace("Broker failure detected.", Arg.Any<object>());
         }
 
         [Fact]
-        public void ExecuteAsync_ExamineFailOverSingleConnectorThresholdResets()
+        public async Task ExecuteAsync_ExamineFailOverSingleConnectorThresholdResets()
         {
             var failOverConfig = new FailOverConfig {FailureThreshold = 3, InitialDelayMs = 1, PeriodicDelayMs = 1, RestartDelayMs = 1};
             _configProvider.GetFailOverConfig().Returns(failOverConfig);
@@ -232,7 +214,7 @@ namespace UnitTests.Kafka.Connect.Background
                 {
                     Name = "unit-test-fail-over-enabled",
                     Disabled = false,
-                    Topic = "test-topic"
+                    Topics = new[] { "test-topic" }
                 }
             });
             
@@ -244,19 +226,15 @@ namespace UnitTests.Kafka.Connect.Background
                     _ => new Metadata(new List<BrokerMetadata>(), new List<TopicMetadata> { new("test-topic", new List<PartitionMetadata>(), ErrorCode.BrokerNotAvailable)}, 0, ""));
             _failOverMonitorService = GetFailOverMonitorService();
 
-            _failOverMonitorService.StartAsync(GetCancellationToken(4));
-
-            while (!_failOverMonitorService.ExecuteTask.IsCompletedSuccessfully)
-            {
-                // wait for the task to complete
-            }
+            await _failOverMonitorService.StartAsync(GetCancellationToken(4));
+            await _failOverMonitorService.ExecuteTask.WaitAsync(TimeSpan.FromSeconds(5));
 
             _adminClient.Received(4).GetMetadata("test-topic", Arg.Any<TimeSpan>());
             _logger.Received(3).Trace( "Broker failure detected.", Arg.Any<object>());
         }
         
         [Fact]
-        public void ExecuteAsync_OneConnectorMetadataThrowsException()
+        public async Task ExecuteAsync_OneConnectorMetadataThrowsException()
         {
             var failOverConfig = new FailOverConfig {FailureThreshold = 3, InitialDelayMs = 1, PeriodicDelayMs = 1, RestartDelayMs = 1};
             _configProvider.GetFailOverConfig().Returns(failOverConfig);
@@ -266,19 +244,19 @@ namespace UnitTests.Kafka.Connect.Background
                 {
                     Name = "unit-test-fail-over-exception",
                     Disabled = false,
-                    Topics = new List<string>{ "topic-exception" }
+                    Topics = new[] { "topic-exception" }
                 },
                 new()
                 {
                     Name = "unit-test-fail-over-general-Failure",
                     Disabled = false,
-                    Topics = new List<string>{ "topic-error" }
+                    Topics = new[] { "topic-error" }
                 },
                 new()
                 {
                     Name = "unit-test-fail-over-passing",
                     Disabled = false,
-                    Topics = new List<string>{ "topic-pass" }
+                    Topics = new[] { "topic-pass" }
                 }
             });
 
@@ -293,12 +271,8 @@ namespace UnitTests.Kafka.Connect.Background
                         {new(args[0] as string, new List<PartitionMetadata>(), ErrorCode.NoError)}, 0, ""));
             
             _failOverMonitorService = GetFailOverMonitorService();
-            _failOverMonitorService.StartAsync(GetCancellationToken(1));
-            
-            while (!_failOverMonitorService.ExecuteTask.IsCompletedSuccessfully)
-            {
-                // wait for the task to complete
-            }
+            await _failOverMonitorService.StartAsync(GetCancellationToken(1));
+            await _failOverMonitorService.ExecuteTask.WaitAsync(TimeSpan.FromSeconds(5));
             _adminClient.Received(1).GetMetadata("topic-exception", Arg.Any<TimeSpan>());
             _adminClient.Received(1).GetMetadata("topic-error", Arg.Any<TimeSpan>());
             _adminClient.Received(1).GetMetadata("topic-pass", Arg.Any<TimeSpan>());
@@ -310,7 +284,7 @@ namespace UnitTests.Kafka.Connect.Background
         }
         
         [Fact]
-        public void ExecuteAsync_RestartWorkerWhenMetadataReturnsErrorAndExceptions()
+        public async Task ExecuteAsync_RestartWorkerWhenMetadataReturnsErrorAndExceptions()
         {
             var failOverConfig = new FailOverConfig {FailureThreshold = 3, InitialDelayMs = 1, PeriodicDelayMs = 1, RestartDelayMs = 1};
             _configProvider.GetFailOverConfig().Returns(failOverConfig);
@@ -320,7 +294,7 @@ namespace UnitTests.Kafka.Connect.Background
                 {
                     Name = "unit-test-fail-over-exception",
                     Disabled = false,
-                    Topics = new List<string>{ "topic-exception" }
+                    Topics = new[] { "topic-exception" }
                 }
             });
 
@@ -331,12 +305,8 @@ namespace UnitTests.Kafka.Connect.Background
             _adminClient.GetMetadata("topic-exception", Arg.Any<TimeSpan>()).Throws(new Exception("UnitTestFailure"));
 
             _failOverMonitorService = GetFailOverMonitorService();
-            _failOverMonitorService.StartAsync(GetCancellationToken(3));
-            
-            while (!_failOverMonitorService.ExecuteTask.IsCompletedSuccessfully)
-            {
-                // wait for the task to complete
-            }
+            await _failOverMonitorService.StartAsync(GetCancellationToken(3));
+            await _failOverMonitorService.ExecuteTask.WaitAsync(TimeSpan.FromSeconds(5));
             _adminClient.Received(3).GetMetadata("topic-exception", Arg.Any<TimeSpan>());
             for (var i = failOverConfig.FailureThreshold; i == 0; i--)
             {
@@ -344,11 +314,11 @@ namespace UnitTests.Kafka.Connect.Background
                 _logger.Received(1).Error("Unhandled error while reading metadata.",new {Connector = "unit-test-fail-over-exception",Threshold=i}, Arg.Any<Exception>());
             }
 
-            _executionContext.Received().Restart(Arg.Any<int>());
+            await _executionContext.Received().Restart(Arg.Any<int>());
         }
         
         [Fact]
-        public void ExecuteAsync_ThrowsExceptionAtRestart()
+        public async Task ExecuteAsync_ThrowsExceptionAtRestart()
         {
             var failOverConfig = new FailOverConfig {FailureThreshold = 1, InitialDelayMs = 1, PeriodicDelayMs = 1, RestartDelayMs = 1};
             _configProvider.GetFailOverConfig().Returns(failOverConfig);
@@ -358,7 +328,7 @@ namespace UnitTests.Kafka.Connect.Background
                 {
                     Name = "unit-test-fail-over",
                     Disabled = false,
-                    Topics = new List<string> {"topic-test"}
+                    Topics = new[] { "topic-test" }
                 }
             });
             
@@ -366,15 +336,11 @@ namespace UnitTests.Kafka.Connect.Background
             _executionContext.Restart(Arg.Any<int>()).Throws<Exception>();
             
             _failOverMonitorService = GetFailOverMonitorService();
-            _failOverMonitorService.StartAsync(GetCancellationToken(1));
-            
-            while (!_failOverMonitorService.ExecuteTask.IsCompletedSuccessfully)
-            {
-                // wait for the task to complete
-            }
+            await _failOverMonitorService.StartAsync(GetCancellationToken(1));
+            await _failOverMonitorService.ExecuteTask.WaitAsync(TimeSpan.FromSeconds(5));
             
             _adminClient.Received(1).GetMetadata("topic-test", Arg.Any<TimeSpan>());
-            _executionContext.Received(1).Restart(Arg.Any<int>());
+            await _executionContext.Received(1).Restart(Arg.Any<int>());
             _logger.Received(1).Trace("Broker failure detected.",Arg.Any<object>());
             _logger.Received(1).Error( "Fail over monitoring service reported errors / hasn't started." , Arg.Any<Exception>());
             _logger.Received(1).Debug("Stopping fail over monitoring service...");
@@ -383,7 +349,7 @@ namespace UnitTests.Kafka.Connect.Background
         [Theory]
         [InlineData(typeof(TaskCanceledException))]
         [InlineData(typeof(OperationCanceledException))]
-        public void ExecuteAsync_ThrowsTaskCanceledExceptionAtRestart(Type exType)
+        public async Task ExecuteAsync_ThrowsTaskCanceledExceptionAtRestart(Type exType)
         {
             var failOverConfig = new FailOverConfig {FailureThreshold = 1, InitialDelayMs = 1, PeriodicDelayMs = 1, RestartDelayMs = 1};
             _configProvider.GetFailOverConfig().Returns(failOverConfig);
@@ -393,22 +359,18 @@ namespace UnitTests.Kafka.Connect.Background
                 {
                     Name = "unit-test-fail-over",
                     Disabled = false,
-                    Topics = new List<string> {"topic-test"}
+                    Topics = new[] { "topic-test" }
                 }
             });
             _adminClient.GetMetadata("topic-test", Arg.Any<TimeSpan>()).Throws(new Exception("UnitTestFailure"));
             _executionContext.Restart(Arg.Any<int>()).Throws(Activator.CreateInstance(exType, "Token Cancelled.") as Exception);
 
             _failOverMonitorService = GetFailOverMonitorService();
-            _failOverMonitorService.StartAsync(GetCancellationToken(1));
-            
-            while (!_failOverMonitorService.ExecuteTask.IsCompletedSuccessfully)
-            {
-                // wait for the task to complete
-            }
+            await _failOverMonitorService.StartAsync(GetCancellationToken(1));
+            await _failOverMonitorService.ExecuteTask.WaitAsync(TimeSpan.FromSeconds(5));
             
             _adminClient.Received(1).GetMetadata("topic-test", Arg.Any<TimeSpan>());
-            _executionContext.Received(1).Restart(Arg.Any<int>());
+            await _executionContext.Received(1).Restart(Arg.Any<int>());
             _logger.Received(1).Trace( "Broker failure detected.", Arg.Any<object>());
             _logger.Received(1).Trace( "Task has been cancelled. Fail over service will be terminated." );
             _logger.Received(1).Debug("Stopping fail over monitoring service..." );
@@ -439,7 +401,7 @@ namespace UnitTests.Kafka.Connect.Background
         {
             var cts = new CancellationTokenSource();
 
-            _tokenHandler.When(k => k.DoNothing()).Do(_ =>
+            _tokenHandler.When(k => k.NoOp()).Do(_ =>
             {
                 if (--loop == 0) cts.Cancel();
             });
