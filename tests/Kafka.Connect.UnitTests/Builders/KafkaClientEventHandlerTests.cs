@@ -83,23 +83,45 @@ namespace UnitTests.Kafka.Connect.Builders
                     throw new ArgumentOutOfRangeException(nameof(log), logLevel, null);
             }
         }
+
+        [Theory]
+        [InlineData(SyslogLevel.Notice)]
+        [InlineData(SyslogLevel.Warning)]
+        public void HandleLogMessage_WhenConsumerPropertyMessage_LogsTrace(SyslogLevel level)
+        {
+            const string message = "rdkafka#producer-1 Configuration property group.id is a consumer property and will be ignored by this producer instance";
+            var log = new LogMessage("Test", level, "tests", message);
+
+            _kafkaClientEventHandler.HandleLogMessage(log);
+
+            _logger.Received(1).Trace(log.Message, Arg.Any<object>());
+            _logger.DidNotReceive().Warning(log.Message, Arg.Any<object>());
+        }
         
         [Fact]
-        public void HandleStatistics_ReturningExpectedLogs()
+        public void HandleStatistics_LogsStatisticsDebugMessage()
         {
-            const string log = "unit test stats";
-            
-            _kafkaClientEventHandler.HandleStatistics(log);
-            
-            _logger.Debug("Statistics", log);
+            const string stats = "unit test stats";
+
+            _kafkaClientEventHandler.HandleStatistics(stats);
+
+            _logger.Received(1).Debug("Statistics", Arg.Any<object>());
         }
         
         [Fact]
         public void HandlePartitionAssigned_WhenNoPartitionsSet()
         {
-            
             _kafkaClientEventHandler.HandlePartitionAssigned("connector", 1, new List<TopicPartition>());
-            
+
+            _logger.Received().Trace("No partitions assigned.");
+            _executionContext.DidNotReceive().AssignPartitions(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<List<TopicPartition>>());
+        }
+
+        [Fact]
+        public void HandlePartitionAssigned_WhenNullPartitions_LogsTrace()
+        {
+            _kafkaClientEventHandler.HandlePartitionAssigned("connector", 1, null);
+
             _logger.Received().Trace("No partitions assigned.");
             _executionContext.DidNotReceive().AssignPartitions(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<List<TopicPartition>>());
         }
@@ -120,7 +142,16 @@ namespace UnitTests.Kafka.Connect.Builders
         public void HandlePartitionRevoked_WhenNoPartitionsSet()
         {
             _kafkaClientEventHandler.HandlePartitionRevoked("connector", 1, new List<TopicPartitionOffset>());
-            
+
+            _logger.Received().Trace("No partitions revoked.");
+            _executionContext.DidNotReceive().RevokePartitions(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<List<TopicPartition>>());
+        }
+
+        [Fact]
+        public void HandlePartitionRevoked_WhenNullOffsets_LogsTrace()
+        {
+            _kafkaClientEventHandler.HandlePartitionRevoked("connector", 1, null);
+
             _logger.Received().Trace("No partitions revoked.");
             _executionContext.DidNotReceive().RevokePartitions(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<List<TopicPartition>>());
         }
