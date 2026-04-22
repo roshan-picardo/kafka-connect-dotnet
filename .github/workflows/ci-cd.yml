@@ -29,29 +29,33 @@ jobs:
           8.0.x
           10.0.x
         
-    - name: Restore dependencies
+    - name: Restore source dependencies
       run: dotnet restore src/Kafka.Connect.sln --configfile nuget.config
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         GITHUB_USERNAME: ${{ github.actor }}
         
-    - name: Build
+    - name: Build source code
       run: dotnet build src/Kafka.Connect.sln --no-restore
-      
-    - name: Run unit tests
-      run: dotnet test tests/Kafka.Connect.UnitTests/Kafka.Connect.UnitTests.csproj --verbosity normal --logger "trx;LogFileName=unit-tests.trx" --results-directory TestResults
-        
-    - name: Restore integration test dependencies
-      run: dotnet restore tests/Kafka.Connect.Tests/Kafka.Connect.Tests.csproj --configfile nuget.config
+
+    - name: Restore tests dependencies
+      run: |
+        dotnet restore tests/Kafka.Connect.UnitTests/Kafka.Connect.UnitTests.csproj --configfile nuget.config
+        dotnet restore tests/Kafka.Connect.Tests/Kafka.Connect.Tests.csproj --configfile nuget.config
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         GITHUB_USERNAME: ${{ github.actor }}
-        
-    - name: Build integration tests
-      run: dotnet build tests/Kafka.Connect.Tests/Kafka.Connect.Tests.csproj --no-restore
+
+    - name: Build tests
+      run: |
+        dotnet build tests/Kafka.Connect.UnitTests/Kafka.Connect.UnitTests.csproj --no-restore
+        dotnet build tests/Kafka.Connect.Tests/Kafka.Connect.Tests.csproj --no-restore
+      
+    - name: Run unit tests
+      run: dotnet test tests/Kafka.Connect.UnitTests/Kafka.Connect.UnitTests.csproj --no-build --verbosity normal --logger "trx;LogFileName=unit-tests.trx" --results-directory TestResults
       
     - name: Run integration tests
-      run: dotnet test tests/Kafka.Connect.Tests/Kafka.Connect.Tests.csproj --no-build --verbosity normal --logger trx --results-directory TestResults
+      run: dotnet test tests/Kafka.Connect.Tests/Kafka.Connect.Tests.csproj --no-build --verbosity normal --logger "trx;LogFileName=integration-tests.trx" --results-directory TestResults
       env:
         DOCKER_HOST: unix:///var/run/docker.sock
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
