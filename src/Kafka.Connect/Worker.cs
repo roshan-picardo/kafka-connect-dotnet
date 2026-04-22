@@ -9,7 +9,6 @@ using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Providers;
 using Kafka.Connect.Tokens;
 using Microsoft.Extensions.DependencyInjection;
-//H2KGH3AL1059
 
 namespace Kafka.Connect;
 
