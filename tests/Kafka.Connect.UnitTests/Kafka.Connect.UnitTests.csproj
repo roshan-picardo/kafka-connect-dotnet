@@ -36,7 +36,6 @@
     </ItemGroup>
 
     <ItemGroup>
-      <Compile Remove="Processors\JsonTypeOverriderTests.cs" />
       <Compile Remove="Providers\ProcessorServiceProviderTests.cs" />
       <Compile Remove="Serializers\**" />
       <Compile Remove="Connectors\ConnectorTests.cs" />
