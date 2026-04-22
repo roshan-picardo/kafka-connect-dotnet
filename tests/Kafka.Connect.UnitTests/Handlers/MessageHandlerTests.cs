@@ -1,263 +1,168 @@
+using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using Confluent.Kafka;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Handlers;
-using Kafka.Connect.Models;
+using Kafka.Connect.Plugin.Converters;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Plugin.Processors;
-using Kafka.Connect.Providers;
-using Newtonsoft.Json.Linq;
+using Kafka.Connect.Plugin.Providers;
 using NSubstitute;
 using Xunit;
+using IConfigurationProvider = Kafka.Connect.Providers.IConfigurationProvider;
 
-namespace UnitTests.Kafka.Connect.Handlers
+namespace UnitTests.Kafka.Connect.Handlers;
+
+public class MessageHandlerTests
 {
-    public class MessageHandlerTests
+    private readonly ILogger<MessageHandler> _logger = Substitute.For<ILogger<MessageHandler>>();
+    private readonly IConnectPluginFactory _connectPluginFactory = Substitute.For<IConnectPluginFactory>();
+    private readonly IConfigurationProvider _configurationProvider = Substitute.For<IConfigurationProvider>();
+    private readonly MessageHandler _handler;
+
+    public MessageHandlerTests()
     {
-        private readonly ILogger<MessageHandler> _logger;
-        private readonly IProcessorServiceProvider _processorServiceProvider;
-        private readonly IConfigurationProvider _configurationProvider;
-        private readonly IMessageHandler _messageHandler;
-        private IProcessor _processor;
+        _handler = new MessageHandler(_logger, _connectPluginFactory, _configurationProvider);
+    }
 
-        public MessageHandlerTests()
+    [Fact]
+    public async Task Process_WhenNoProcessorConfig_ReturnsOriginalMessage()
+    {
+        var message = new ConnectMessage<JsonNode>
         {
-            _logger = Substitute.For<ILogger<MessageHandler>>();
-            _processorServiceProvider = Substitute.For<IProcessorServiceProvider>();
-            _configurationProvider = Substitute.For<IConfigurationProvider>();
-            _messageHandler = new MessageHandler(_logger, _processorServiceProvider, _configurationProvider);
-        }
+            Key = JsonNode.Parse("{\"id\":1}"),
+            Value = JsonNode.Parse("{\"name\":\"alice\"}")
+        };
+        _configurationProvider.GetMessageProcessors("connector", "topic").Returns(new List<ProcessorConfig>());
 
-        [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
-        public async Task Process_WhenConfigurationIsEmptyOrNull(bool isNull)
-        {
-            var sinkRecord = new SinkRecord(new ConsumeResult<byte[], byte[]>()
-            {
-                Message = new Message<byte[], byte[]>()
-                {
-                    Headers = new Headers()
-                }
-            })
-            {
-                Deserialized = new ConnectMessage<JToken> { Value = new JObject {{"field", "test.value"}}},
-                Skip = true
-            };
+        var result = await _handler.Process("connector", "topic", message);
 
-            _configurationProvider.GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>())
-                .Returns(isNull ? null : new List<ProcessorConfig>());
+        Assert.False(result.Skip);
+        Assert.Equal(message.Key?.ToJsonString(), result.Message.Key?.ToJsonString());
+        Assert.Equal(message.Value?.ToJsonString(), result.Message.Value?.ToJsonString());
+    }
 
-            var (skip, data) = await _messageHandler.Process(sinkRecord, "");
-            
-            Assert.Equal(sinkRecord.Skip, skip);
-            Assert.Equal(((ConnectRecord)sinkRecord).Deserialized, data);
-            _processorServiceProvider.DidNotReceive().GetProcessors();
-            _configurationProvider.Received().GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>());
-        }
-        
-        [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
-        public async Task Process_WhenProcessorsListIsEmptyOrNull(bool isNull)
+    [Fact]
+    public async Task Process_WhenProcessorNotRegistered_ContinuesAndLogsTrace()
+    {
+        var message = new ConnectMessage<JsonNode>
         {
-            var sinkRecord = new SinkRecord(new ConsumeResult<byte[], byte[]>()
-            {
-                Message = new Message<byte[], byte[]>()
-                {
-                    Headers = new Headers()
-                }
-            })
-            {
-                Deserialized = new ConnectMessage<JToken> { Value = new JObject {{"field", "test.value"}}},
-                Skip = true
-            };
+            Key = JsonNode.Parse("{\"id\":1}"),
+            Value = JsonNode.Parse("{\"name\":\"alice\"}")
+        };
+        _configurationProvider.GetMessageProcessors("connector", "topic")
+            .Returns(new List<ProcessorConfig> { new() { Name = "proc-a" } });
+        _connectPluginFactory.GetProcessor("proc-a").Returns((IProcessor)null);
 
-            _configurationProvider.GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>())
-                .Returns(new List<ProcessorConfig>() {new() {Name = "firstProcessor"}});
-            _processorServiceProvider.GetProcessors().Returns(isNull ? null : new List<IProcessor>());
+        var result = await _handler.Process("connector", "topic", message);
 
-            var (skip, data) = await _messageHandler.Process(sinkRecord, "");
-            
-            Assert.Equal(sinkRecord.Skip, skip);
-            Assert.Equal(((ConnectRecord)sinkRecord).Deserialized, data);
-            _processorServiceProvider.Received().GetProcessors();
-            _configurationProvider.Received().GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>());
-        }
-        
-        [Fact]
-        public async Task Process_WhenConfiguredProcessorIsNotRegistered()
+        Assert.False(result.Skip);
+        _logger.Received(1).Trace("Processor is not registered.", Arg.Any<object>());
+    }
+
+    [Fact]
+    public async Task Process_WhenProcessorReturnsSkip_StopsFurtherProcessing()
+    {
+        var message = new ConnectMessage<JsonNode>
         {
-            var sinkRecord = new SinkRecord(new ConsumeResult<byte[], byte[]>()
+            Key = JsonNode.Parse("{\"id\":1}"),
+            Value = JsonNode.Parse("{\"name\":\"alice\"}")
+        };
+
+        var proc1 = Substitute.For<IProcessor>();
+        var proc2 = Substitute.For<IProcessor>();
+
+        _configurationProvider.GetMessageProcessors("connector", "topic")
+            .Returns(new List<ProcessorConfig>
             {
-                Message = new Message<byte[], byte[]>()
-                {
-                    Headers = new Headers()
-                }
-            })
-            {
-                Deserialized = new ConnectMessage<JToken> { Value = new JObject {{"field", "test.value"}}},
-                Skip = true
-            };
-            _processor = Substitute.For<IProcessor>();
-            _processor.IsOfType(Arg.Any<string>()).Returns(false);
-            _configurationProvider.GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>())
-                .Returns(new List<ProcessorConfig>() {new() {Name = "Kafka.Connect.Processors.Unknown"}});
-            _processorServiceProvider.GetProcessors().Returns( new List<IProcessor> {_processor});
-            
-            var (skip, data) = await _messageHandler.Process(sinkRecord, "");
-            
-            Assert.False(skip);
-            Assert.Equivalent(sinkRecord.Deserialized.Value, data.Value);
-            _processor.Received().IsOfType(Arg.Any<string>());
-            _processorServiceProvider.Received().GetProcessors();
-            _configurationProvider.Received().GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>());
-            _logger.Received().Trace("Processor is not registered.", Arg.Any<object>());
-        }
-        
-        [Fact]
-        public async Task Process_ApplyAllProcessors()
-        {
-            var sinkRecord = new SinkRecord(new ConsumeResult<byte[], byte[]>()
-            {
-                Message = new Message<byte[], byte[]>()
-                {
-                    Headers = new Headers()
-                }
-            })
-            {
-                Deserialized = new ConnectMessage<JToken> { Value = new JObject {{"field", "test.value"}}},
-                Skip = true
-            };
-            _processor = Substitute.For<IProcessor>();
-            _processor.IsOfType(Arg.Any<string>()).Returns(true);
-            _configurationProvider.GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>())
-                .Returns(new List<ProcessorConfig> {new() {Name = "Kafka.Connect.Processors.One"}, new() {Name = "Kafka.Connect.Processors.Two"}});
-            _processorServiceProvider.GetProcessors().Returns( new List<IProcessor> {_processor});
-            
-            var (skip, data) = await _messageHandler.Process(sinkRecord, "");
-            
-            Assert.False(skip);
-            Assert.Equal(sinkRecord.Deserialized.Value, data.Value);
-            _processor.Received(2).IsOfType(Arg.Any<string>());
-            await _processor.Received(2).Apply(Arg.Any<IDictionary<string, object>>(), Arg.Any<string>());
-            _processorServiceProvider.Received().GetProcessors();
-            _configurationProvider.Received().GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>());
-        }
-        
-        [Fact]
-        public async Task Process_SkipsAfterFirst()
-        {
-            var sinkRecord = new SinkRecord(new ConsumeResult<byte[], byte[]>()
-            {
-                Message = new Message<byte[], byte[]>()
-                {
-                    Headers = new Headers()
-                }
-            })
-            {
-                Deserialized = new ConnectMessage<JToken> { Value = new JObject {{"field", "test.value"}}},
-                Skip = true
-            };
-            var pExecute = Substitute.For<IProcessor>();
-            var pSkip = Substitute.For<IProcessor>();
-            pExecute.IsOfType("Kafka.Connect.Processors.Execute").Returns(true);
-            pSkip.IsOfType("Kafka.Connect.Processors.Skip").Returns(true);
-            _configurationProvider.GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>())
-                .Returns(new List<ProcessorConfig> {new() {Name = "Kafka.Connect.Processors.Execute"}, new() {Name = "Kafka.Connect.Processors.Skip"}});
-            _processorServiceProvider.GetProcessors().Returns( new List<IProcessor> {pExecute, pSkip});
-            pExecute.Apply(Arg.Any<IDictionary<string, object>>(), Arg.Any<string>()).Returns((true, new Dictionary<string, object>()));
-            
-            var (skip, data) = await _messageHandler.Process(sinkRecord, "");
-            
-            Assert.True(skip);
-            Assert.Equal(sinkRecord.Deserialized.Value, data.Value);
-            await pExecute.Received().Apply(Arg.Any<IDictionary<string, object>>(), Arg.Any<string>());
-            await pSkip.DidNotReceive().Apply(Arg.Any<IDictionary<string, object>>(), Arg.Any<string>());
-            _processorServiceProvider.Received().GetProcessors();
-            _configurationProvider.Received().GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>());
-            _logger.Received().Trace("Message will be skipped from further processing.");
-        }
-        
-        
-        [Fact]
-        public async Task Process_LoopAll_ExecuteNotFoundAndSkip()
-        {
-            var sinkRecord = new SinkRecord(new ConsumeResult<byte[], byte[]>()
-            {
-                Message = new Message<byte[], byte[]>()
-                {
-                    Headers = new Headers()
-                }
-            })
-            {
-                Deserialized = new ConnectMessage<JToken> { Value = new JObject {{"field", "test.value"}}},
-                Skip = true
-            };
-            var pNotFound = Substitute.For<IProcessor>();
-            var pExecute = Substitute.For<IProcessor>();
-            var pSkip = Substitute.For<IProcessor>();
-            pNotFound.IsOfType("Kafka.Connect.Processors.NotFound").Returns(false);
-            pExecute.IsOfType("Kafka.Connect.Processors.Execute").Returns(true);
-            pSkip.IsOfType("Kafka.Connect.Processors.Skip").Returns(true);
-            _configurationProvider.GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>())
-                .Returns(new List<ProcessorConfig> {new() {Name = "Kafka.Connect.Processors.NotFound"}, new() {Name = "Kafka.Connect.Processors.Execute"}, new() {Name="Kafka.Connect.Processors.Skip"}});
-            _processorServiceProvider.GetProcessors().Returns( new List<IProcessor> {pNotFound, pExecute, pSkip});
-            pExecute.Apply(Arg.Any<IDictionary<string, object>>(), Arg.Any<string>()).Returns((true, new Dictionary<string, object>()));
-            
-            var (skip, data) = await _messageHandler.Process(sinkRecord, "");
-            
-            Assert.True(skip);
-            Assert.Equal(sinkRecord.Deserialized.Value, data.Value);
-            await pExecute.Received().Apply(Arg.Any<IDictionary<string, object>>(), Arg.Any<string>());
-            await pNotFound.DidNotReceive().Apply(Arg.Any<IDictionary<string, object>>(), Arg.Any<string>());
-            await pSkip.DidNotReceive().Apply(Arg.Any<IDictionary<string, object>>(), Arg.Any<string>());
-            _processorServiceProvider.Received().GetProcessors();
-            _configurationProvider.Received().GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>());
-            _logger.Received().Trace("Message will be skipped from further processing.");
-            _logger.Received().Trace("Processor is not registered.", Arg.Any<object>());
-        }
-        
-        
-        [Fact]
-        public async Task Process_LoopAll_MaintainsOrder()
-        {
-            var sinkRecord = new SinkRecord(new ConsumeResult<byte[], byte[]>()
-            {
-                Message = new Message<byte[], byte[]>()
-                {
-                    Headers = new Headers()
-                }
-            })
-            {
-                Deserialized = new ConnectMessage<JToken> { Value = new JObject {{"field", "test.value"}}},
-                Skip = true
-            };
-            var pSecond = Substitute.For<IProcessor>();
-            var pFirst = Substitute.For<IProcessor>();
-            var pThird = Substitute.For<IProcessor>();
-            pSecond.IsOfType("Kafka.Connect.Processors.Second").Returns(true);
-            pThird.IsOfType("Kafka.Connect.Processors.Third").Returns(true);
-            pFirst.IsOfType("Kafka.Connect.Processors.First").Returns(true);
-            _configurationProvider.GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>())
-                .Returns(new List<ProcessorConfig> {new() {Name = "Kafka.Connect.Processors.Second", Order = 2}, new() {Name = "Kafka.Connect.Processors.Third", Order = 3}, new() {Name="Kafka.Connect.Processors.First", Order = 1}});
-            _processorServiceProvider.GetProcessors().Returns( new List<IProcessor> {pSecond, pThird, pFirst});
-            
-            var (skip, data) = await _messageHandler.Process(sinkRecord, "");
-            
-            Assert.False(skip);
-            Assert.Equal(sinkRecord.Deserialized.Value, data.Value);
-            Received.InOrder(() =>
-            {
-                pFirst.Apply(Arg.Any<IDictionary<string, object>>(), Arg.Any<string>());
-                pSecond.Apply(Arg.Any<IDictionary<string, object>>(), Arg.Any<string>());
-                pThird.Apply(Arg.Any<IDictionary<string, object>>(), Arg.Any<string>());
+                new() { Name = "proc-a" },
+                new() { Name = "proc-b" }
             });
-            _processorServiceProvider.Received().GetProcessors();
-            _configurationProvider.Received().GetMessageProcessors(Arg.Any<string>(), Arg.Any<string>());
-        }
+        _connectPluginFactory.GetProcessor("proc-a").Returns(proc1);
+        _connectPluginFactory.GetProcessor("proc-b").Returns(proc2);
+
+        proc1.Apply(Arg.Any<string>(), Arg.Any<ConnectMessage<IDictionary<string, object>>>())
+            .Returns((true, message.Convert()));
+
+        var result = await _handler.Process("connector", "topic", message);
+
+        Assert.True(result.Skip);
+        await proc2.DidNotReceive().Apply(Arg.Any<string>(), Arg.Any<ConnectMessage<IDictionary<string, object>>>());
+    }
+
+    [Fact]
+    public async Task Serialize_UsesConfiguredConverters()
+    {
+        var converterConfig = new ConverterConfig
+        {
+            Key = "key-converter",
+            Value = "value-converter",
+            Subject = "Topic",
+            Record = "orders"
+        };
+        _configurationProvider.GetMessageConverters("connector", "topic-a").Returns(converterConfig);
+
+        var keyConverter = Substitute.For<IMessageConverter>();
+        var valueConverter = Substitute.For<IMessageConverter>();
+        _connectPluginFactory.GetMessageConverter("key-converter").Returns(keyConverter);
+        _connectPluginFactory.GetMessageConverter("value-converter").Returns(valueConverter);
+
+        keyConverter.Serialize(Arg.Any<string>(), Arg.Any<JsonNode>(), Arg.Any<string>(), null, true)
+            .Returns(new byte[] { 1 });
+        valueConverter.Serialize(Arg.Any<string>(), Arg.Any<JsonNode>(), Arg.Any<string>(), null, true)
+            .Returns(new byte[] { 2 });
+
+        var message = new ConnectMessage<JsonNode>
+        {
+            Key = JsonNode.Parse("{\"id\":1}"),
+            Value = JsonNode.Parse("{\"name\":\"alice\"}")
+        };
+
+        var result = await _handler.Serialize("connector", "topic-a", message);
+
+        Assert.Equal(new byte[] { 1 }, result.Key);
+        Assert.Equal(new byte[] { 2 }, result.Value);
+        await keyConverter.Received(1).Serialize("topic-a", message.Key, Arg.Any<string>(), null, true);
+        await valueConverter.Received(1).Serialize("topic-a", message.Value, Arg.Any<string>(), null, true);
+    }
+
+    [Fact]
+    public async Task Deserialize_WhenConverterReturnsNull_DefaultsToEmptyObject()
+    {
+        var converterConfig = new ConverterConfig
+        {
+            Key = "key-converter",
+            Value = "value-converter",
+            Subject = "Topic",
+            Record = "orders"
+        };
+        _configurationProvider.GetMessageConverters("connector", "topic-a").Returns(converterConfig);
+
+        var keyConverter = Substitute.For<IMessageConverter>();
+        var valueConverter = Substitute.For<IMessageConverter>();
+        _connectPluginFactory.GetMessageConverter("key-converter").Returns(keyConverter);
+        _connectPluginFactory.GetMessageConverter("value-converter").Returns(valueConverter);
+
+        keyConverter.Deserialize(Arg.Any<string>(), Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<IDictionary<string, byte[]>>(), false)
+            .Returns((JsonNode)null);
+        valueConverter.Deserialize(Arg.Any<string>(), Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<IDictionary<string, byte[]>>(), true)
+            .Returns(JsonNode.Parse("{\"ok\":true}"));
+
+        var result = await _handler.Deserialize(
+            "connector",
+            "topic-a",
+            new ConnectMessage<byte[]>
+            {
+                Key = new byte[] { 1 },
+                Value = new byte[] { 2 },
+                Headers = new Dictionary<string, byte[]>()
+            });
+
+        Assert.Equal("{}", result.Key?.ToJsonString());
+        Assert.Equal(true, result.Value?["ok"]?.GetValue<bool>());
+        await keyConverter.Received(1).Deserialize("topic-a", Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<IDictionary<string, byte[]>>(), false);
+        await valueConverter.Received(1).Deserialize("topic-a", Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<IDictionary<string, byte[]>>(), true);
     }
 }

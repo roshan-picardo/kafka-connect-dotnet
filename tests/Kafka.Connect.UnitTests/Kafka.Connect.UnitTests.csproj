@@ -37,19 +37,13 @@
 
     <ItemGroup>
       <Compile Remove="Processors\JsonTypeOverriderTests.cs" />
-      <Compile Remove="Handlers\MessageHandlerTests.cs" />
       <Compile Remove="Providers\ProcessorServiceProviderTests.cs" />
       <Compile Remove="Serializers\**" />
-      <Compile Remove="Handlers\SinkConsumerTests.cs" />
-      <Compile Remove="Handlers\SinkProcessorTests.cs" />
       <Compile Remove="Connectors\ConnectorTests.cs" />
       <Compile Remove="Providers\ConfigurationProviderTests.cs" />
       <Compile Remove="Connectors\ExecutionContextTests.cs" />
       <Compile Remove="Providers\DefaultLogRecordTests.cs" />
       <Compile Remove="Providers\SinkHandlerProviderTests.cs" />
-      <Compile Remove="Handlers\PartitionHandlerTests.cs" />
-      <Compile Remove="Handlers\RetriableHandlerTests.cs" />
-      <Compile Remove="Handlers\SinkExceptionHandlerTests.cs" />
     </ItemGroup>
 
     <ItemGroup>
