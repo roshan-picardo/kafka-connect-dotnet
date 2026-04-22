@@ -37,8 +37,6 @@
 
     <ItemGroup>
       <Compile Remove="Serializers\**" />
-      <Compile Remove="Connectors\ConnectorTests.cs" />
-      <Compile Remove="Connectors\ExecutionContextTests.cs" />
     </ItemGroup>
 
     <ItemGroup>
