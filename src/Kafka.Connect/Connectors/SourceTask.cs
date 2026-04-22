@@ -7,7 +7,6 @@ using Kafka.Connect.Plugin.Exceptions;
 using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
-using Kafka.Connect.Plugin.Tokens;
 using Kafka.Connect.Providers;
 using Kafka.Connect.Tokens;
 
@@ -17,7 +16,6 @@ public class SourceTask(
     IExecutionContext executionContext,
     IConfigurationProvider configurationProvider,
     IConnectRecordCollection pollRecordCollection, 
-    ITokenHandler tokenHandler,
     ILogger<SourceTask> logger)
     : ISourceTask
 {
@@ -47,7 +45,6 @@ public class SourceTask(
 
         while (!cts.IsCancellationRequested)
         {
-            tokenHandler.NoOp();
             await _pauseTokenSource.WaitUntilTimeout(Interlocked.Exchange(ref timeoutInMs, configurationProvider.GetBatchConfig(connector).Interval), cts.Token);
 
             if (cts.IsCancellationRequested) break;

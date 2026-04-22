@@ -6,7 +6,6 @@ using Confluent.Kafka;
 using Kafka.Connect.Builders;
 using Kafka.Connect.Connectors;
 using Kafka.Connect.Plugin.Logging;
-using Kafka.Connect.Plugin.Tokens;
 using Kafka.Connect.Providers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -17,7 +16,6 @@ public class FailOverMonitorService(
     ILogger<FailOverMonitorService> logger,
     IExecutionContext executionContext,
     IServiceScopeFactory serviceScopeFactory,
-    ITokenHandler tokenHandler,
     IConfigurationProvider configurationProvider)
     : BackgroundService
 {
@@ -115,7 +113,6 @@ public class FailOverMonitorService(
                             .ToDictionary(c => c.Name, _ => failOverConfig.FailureThreshold);
                     }
 
-                    tokenHandler.NoOp();
                 }
             }
         }

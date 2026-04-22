@@ -9,7 +9,6 @@ using Kafka.Connect.Builders;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Connectors;
 using Kafka.Connect.Plugin.Logging;
-using Kafka.Connect.Plugin.Tokens;
 using Kafka.Connect.Providers;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
@@ -25,7 +24,6 @@ namespace UnitTests.Kafka.Connect.Background
         private readonly IServiceScopeFactory _serviceScopeFactory;
         private FailOverMonitorService _failOverMonitorService;
         private readonly IAdminClient _adminClient;
-        private readonly ITokenHandler _tokenHandler;
         private readonly IConnector _connector;
         private readonly IConfigurationProvider _configProvider;
         private readonly IExecutionContext _executionContext;
@@ -36,7 +34,6 @@ namespace UnitTests.Kafka.Connect.Background
             _serviceScopeFactory = Substitute.For<IServiceScopeFactory>();
             _kafkaClientBuilder = Substitute.For<IKafkaClientBuilder>();
             _adminClient = Substitute.For<IAdminClient>();
-            _tokenHandler = Substitute.For<ITokenHandler>();
             _connector = Substitute.For<IConnector>();
             _configProvider = Substitute.For<IConfigurationProvider>();
             _executionContext = Substitute.For<IExecutionContext>();
@@ -58,7 +55,7 @@ namespace UnitTests.Kafka.Connect.Background
             _configProvider.GetFailOverConfig().Returns(new FailOverConfig {Disabled = false, InitialDelayMs = 1, PeriodicDelayMs = 1});
             _configProvider.GetAllConnectorConfigs().Returns(new List<ConnectorConfig>());
             _failOverMonitorService = GetFailOverMonitorService();
-            await _failOverMonitorService.StartAsync(GetCancellationToken(1));
+            await _failOverMonitorService.StartAsync(GetCancellationToken(cancelAfterMs: 25));
             await _failOverMonitorService.ExecuteTask.WaitAsync(TimeSpan.FromSeconds(5));
             
             _kafkaClientBuilder.Received().GetAdminClient();
@@ -118,7 +115,7 @@ namespace UnitTests.Kafka.Connect.Background
                         {new(args[0] as string, new List<PartitionMetadata>(), ErrorCode.BrokerNotAvailable)}, 0, ""));
             
             _failOverMonitorService = GetFailOverMonitorService();
-            await _failOverMonitorService.StartAsync(GetCancellationToken(3));
+            await _failOverMonitorService.StartAsync(GetCancellationToken(5));
             await _failOverMonitorService.ExecuteTask.WaitAsync(TimeSpan.FromSeconds(5));
             _adminClient.Received(3).GetMetadata("TopicFailingA", Arg.Any<TimeSpan>());
             _adminClient.Received(3).GetMetadata("TopicFailingB", Arg.Any<TimeSpan>());
@@ -165,7 +162,7 @@ namespace UnitTests.Kafka.Connect.Background
             
             _failOverMonitorService = GetFailOverMonitorService();
             
-            await _failOverMonitorService.StartAsync(GetCancellationToken(3));
+            await _failOverMonitorService.StartAsync(GetCancellationToken(5));
             await _failOverMonitorService.ExecuteTask.WaitAsync(TimeSpan.FromSeconds(5));
             _adminClient.Received(3).GetMetadata("TopicPassing", Arg.Any<TimeSpan>());
             _adminClient.Received(3).GetMetadata("TopicFailing", Arg.Any<TimeSpan>());
@@ -394,16 +391,22 @@ namespace UnitTests.Kafka.Connect.Background
             _serviceScopeFactory.CreateScope().ServiceProvider.GetService<IKafkaClientBuilder>()
                 .Returns(_kafkaClientBuilder);
             _kafkaClientBuilder.GetAdminClient().Returns(_adminClient);
-            return new FailOverMonitorService(_logger, _executionContext, _serviceScopeFactory, _tokenHandler, _configProvider);
+            return new FailOverMonitorService(_logger, _executionContext, _serviceScopeFactory, _configProvider);
         }
         
-        private CancellationToken GetCancellationToken(int loop)
+        private CancellationToken GetCancellationToken(int metadataCalls = 0, int cancelAfterMs = 0)
         {
             var cts = new CancellationTokenSource();
 
-            _tokenHandler.When(k => k.NoOp()).Do(_ =>
+            if (cancelAfterMs > 0)
             {
-                if (--loop == 0) cts.Cancel();
+                cts.CancelAfter(cancelAfterMs);
+                return cts.Token;
+            }
+
+            _adminClient.When(k => k.GetMetadata(Arg.Any<string>(), Arg.Any<TimeSpan>())).Do(_ =>
+            {
+                if (--metadataCalls == 0) cts.Cancel();
             });
             return cts.Token;
         }

@@ -5,7 +5,6 @@ using Kafka.Connect.Background;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Connectors;
 using Kafka.Connect.Models;
-using Kafka.Connect.Plugin.Tokens;
 using Kafka.Connect.Providers;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
@@ -18,7 +17,6 @@ public class HealthCheckServiceTests
     private readonly global::Kafka.Connect.Plugin.Logging.ILogger<HealthCheckService> _logger = Substitute.For<global::Kafka.Connect.Plugin.Logging.ILogger<HealthCheckService>>();
     private readonly IConfigurationProvider _configurationProvider = Substitute.For<IConfigurationProvider>();
     private readonly IExecutionContext _executionContext = Substitute.For<IExecutionContext>();
-    private readonly ITokenHandler _tokenHandler = Substitute.For<ITokenHandler>();
     private HealthCheckService _healthCheckService;
 
     [Fact]
@@ -33,7 +31,7 @@ public class HealthCheckServiceTests
         _logger.When(l => l.Debug("Health check service is disabled..."))
             .Do(_ => completionTcs.SetResult(true));
         
-        _healthCheckService = new HealthCheckService(_logger, _configurationProvider, _executionContext, _tokenHandler);
+        _healthCheckService = new HealthCheckService(_logger, _configurationProvider, _executionContext);
 
         // Act
         await _healthCheckService.StartAsync(CancellationToken.None);
@@ -71,7 +69,7 @@ public class HealthCheckServiceTests
         _logger.When(l => l.Debug("Stopping the health check service..."))
             .Do(_ => completionTcs.SetResult(true));
         
-        _healthCheckService = new HealthCheckService(_logger, _configurationProvider, _executionContext, _tokenHandler);
+        _healthCheckService = new HealthCheckService(_logger, _configurationProvider, _executionContext);
 
         // Act
         await _healthCheckService.StartAsync(cts.Token);
@@ -103,7 +101,7 @@ public class HealthCheckServiceTests
         _logger.When(l => l.Debug("Stopping the health check service..."))
             .Do(_ => completionTcs.SetResult(true));
         
-        _healthCheckService = new HealthCheckService(_logger, _configurationProvider, _executionContext, _tokenHandler);
+        _healthCheckService = new HealthCheckService(_logger, _configurationProvider, _executionContext);
 
         // Act
         await _healthCheckService.StartAsync(CancellationToken.None);
@@ -152,7 +150,7 @@ public class HealthCheckServiceTests
         _logger.When(l => l.Debug("Stopping the health check service..."))
             .Do(_ => completionTcs.SetResult(true));
         
-        _healthCheckService = new HealthCheckService(_logger, _configurationProvider, _executionContext, _tokenHandler);
+        _healthCheckService = new HealthCheckService(_logger, _configurationProvider, _executionContext);
 
         // Act
         await _healthCheckService.StartAsync(cts.Token);
@@ -176,7 +174,7 @@ public class HealthCheckServiceTests
         
         _configurationProvider.GetHealthCheckConfig().Returns(new HealthCheckConfig{Timeout = 1, Interval = 1});
         
-        _healthCheckService = new HealthCheckService(_logger, _configurationProvider, _executionContext, _tokenHandler);
+        _healthCheckService = new HealthCheckService(_logger, _configurationProvider, _executionContext);
 
         // Act
         await _healthCheckService.StartAsync(cts.Token);

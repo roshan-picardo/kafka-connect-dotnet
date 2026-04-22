@@ -3,7 +3,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Kafka.Connect.Connectors;
 using Kafka.Connect.Plugin.Logging;
-using Kafka.Connect.Plugin.Tokens;
 using Kafka.Connect.Providers;
 using Microsoft.Extensions.Hosting;
 
@@ -12,8 +11,7 @@ namespace Kafka.Connect.Background;
 public class HealthCheckService(
     ILogger<HealthCheckService> logger,
     IConfigurationProvider configurationProvider,
-    IExecutionContext executionContext,
-    ITokenHandler tokenHandler)
+    IExecutionContext executionContext)
     : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -30,7 +28,6 @@ public class HealthCheckService(
                 {
                     logger.Health(executionContext.GetStatus());
                     await Task.Delay(config.Interval, stoppingToken);
-                    tokenHandler.NoOp();
                 }
             }
         }

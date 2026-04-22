@@ -4,7 +4,6 @@ using System.Threading.Tasks;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Handlers;
 using Kafka.Connect.Plugin.Logging;
-using Kafka.Connect.Plugin.Tokens;
 using Kafka.Connect.Providers;
 using Kafka.Connect.Tokens;
 
@@ -14,7 +13,6 @@ public class SinkTask(
     IConfigurationProvider configurationProvider,
     IExecutionContext executionContext,
     IConnectRecordCollection sinkRecordCollection, 
-    ITokenHandler tokenHandler,
     ILogger<SinkTask> logger)
     : ISinkTask
 {
@@ -40,7 +38,6 @@ public class SinkTask(
 
         while (!cts.IsCancellationRequested)
         {
-            tokenHandler.NoOp();
             await _pauseTokenSource.WaitWhilePaused(cts.Token);
             if (cts.IsCancellationRequested) break;
 

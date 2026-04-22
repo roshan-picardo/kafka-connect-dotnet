@@ -5,117 +5,117 @@ using System.Threading.Tasks;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Connectors;
 using Kafka.Connect.Handlers;
+using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
-using Kafka.Connect.Plugin.Tokens;
 using Kafka.Connect.Providers;
 using NSubstitute;
 using Xunit;
 
-namespace UnitTests.Kafka.Connect.Connectors
+namespace UnitTests.Kafka.Connect.Connectors;
+
+public class SourceTaskTests
 {
-    public class SourceTaskTests
+    private readonly IExecutionContext _executionContext;
+    private readonly IConfigurationProvider _configurationProvider;
+    private readonly IConnectRecordCollection _pollRecordCollection;
+    private readonly SourceTask _sourceTask;
+
+    public SourceTaskTests()
     {
-        private readonly IExecutionContext _executionContext;
-        private readonly IConfigurationProvider _configurationProvider;
-        private readonly IConnectRecordCollection _pollRecordCollection;
-        private readonly ISinkExceptionHandler _sinkExceptionHandler;
-        private readonly ITokenHandler _tokenHandler;
-        private readonly ISourceTask _sourceTask;
+        _executionContext = Substitute.For<IExecutionContext>();
+        _configurationProvider = Substitute.For<IConfigurationProvider>();
+        _pollRecordCollection = Substitute.For<IConnectRecordCollection>();
+        var logger = Substitute.For<ILogger<SourceTask>>();
 
-        public SourceTaskTests()
+        _configurationProvider
+            .GetBatchConfig(Arg.Any<string>())
+            .Returns(new BatchConfig());
+        _configurationProvider
+            .GetParallelRetryOptions(Arg.Any<string>())
+            .Returns(new ParallelRetryOptions { Attempts = 3, DegreeOfParallelism = 1 });
+
+        _sourceTask = new SourceTask(
+            _executionContext, _configurationProvider, _pollRecordCollection, logger);
+    }
+
+    [Fact]
+    public async Task Execute_WhenSubscribeFails_SetsIsStoppedAndReturnsEarly()
+    {
+        const string connector = "test-connector";
+        const int taskId = 1;
+        _pollRecordCollection.TrySubscribe().Returns(false);
+
+        await _sourceTask.Execute(connector, taskId, new CancellationTokenSource());
+
+        Assert.True(_sourceTask.IsStopped);
+        Received.InOrder(() =>
         {
-            _executionContext = Substitute.For<IExecutionContext>();
-            _configurationProvider = Substitute.For<IConfigurationProvider>();
-            _pollRecordCollection = Substitute.For<IConnectRecordCollection>();
-            _sinkExceptionHandler = Substitute.For<ISinkExceptionHandler>();
-            _tokenHandler = Substitute.For<ITokenHandler>();
-            _sourceTask = new SourceTask(
-                _executionContext,
-                _configurationProvider,
-                _pollRecordCollection,
-                _tokenHandler);
-        }
-        
-        [Fact]
-        public async Task Execute_StopTaskIfSubscriberNotFound()
+            _executionContext.Initialize(connector, taskId, _sourceTask);
+            _pollRecordCollection.Setup(ConnectorType.Source, connector, taskId);
+            _pollRecordCollection.TrySubscribe();
+        });
+        await _pollRecordCollection.Received(0).Consume(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Execute_WhenPublisherFails_SetsIsStoppedAndReturnsEarly()
+    {
+        const string connector = "test-connector";
+        const int taskId = 1;
+        _pollRecordCollection.TrySubscribe().Returns(true);
+        _pollRecordCollection.TryPublisher().Returns(false);
+
+        await _sourceTask.Execute(connector, taskId, new CancellationTokenSource());
+
+        Assert.True(_sourceTask.IsStopped);
+        Received.InOrder(() =>
         {
-            // Arrange
-            const string connector = "test-connector";
-            const int taskId = 1;
-            var cts = GetCancellationToken();
-            _pollRecordCollection.TrySubscribe().Returns(false);
+            _executionContext.Initialize(connector, taskId, _sourceTask);
+            _pollRecordCollection.Setup(ConnectorType.Source, connector, taskId);
+            _pollRecordCollection.TrySubscribe();
+            _pollRecordCollection.TryPublisher();
+        });
+        await _pollRecordCollection.Received(0).Consume(Arg.Any<CancellationToken>());
+    }
 
-            // Act
-            await _sourceTask.Execute(connector, 1, cts);
+    [Fact]
+    public async Task Execute_WhenCancelledAtLoopStart_CleansUpWithoutBatch()
+    {
+        // Pre-cancel token to skip loop body entirely.
+        const string connector = "test-connector";
+        const int taskId = 1;
+        _pollRecordCollection.TrySubscribe().Returns(true);
+        _pollRecordCollection.TryPublisher().Returns(true);
+        var cts = new CancellationTokenSource();
+        cts.Cancel();
 
-            // Assert
-            Received.InOrder(() =>
-            {
-                _executionContext.Initialize(connector, taskId, _sourceTask);
-                _pollRecordCollection.Setup(ConnectorType.Source, connector, taskId);
-                _pollRecordCollection.TrySubscribe();
-            });
-        }
-        
-        [Fact]
-        public async Task Execute_StopTaskIfPublisherNotFound()
-        {
-            // Arrange
-            const string connector = "test-connector";
-            const int taskId = 1;
-            var cts = GetCancellationToken();
-            _pollRecordCollection.TrySubscribe().Returns(true);
-            _pollRecordCollection.TryPublisher().Returns(false);
+        await _sourceTask.Execute(connector, taskId, cts);
 
-            // Act
-            await _sourceTask.Execute(connector, 1, cts);
+        _executionContext.Received(1).Initialize(connector, taskId, _sourceTask);
+        await _pollRecordCollection.Received(0).Consume(Arg.Any<CancellationToken>());
+        Assert.True(_sourceTask.IsStopped);
+    }
 
-            // Assert
-            Received.InOrder(() =>
-            {
-                _executionContext.Initialize(connector, taskId, _sourceTask);
-                _pollRecordCollection.Setup(ConnectorType.Source, connector, taskId);
-                _pollRecordCollection.TrySubscribe();
-                _pollRecordCollection.TryPublisher();
-            });
-        }
-        
-        [Fact]
-        public async Task Execute_StopTaskIfCancelledImmediately()
-        {
-            // Arrange
-            const string connector = "test-connector";
-            const int taskId = 1;
-            var cts = GetCancellationToken(0);
-            _pollRecordCollection.TrySubscribe().Returns(true);
-            _pollRecordCollection.TryPublisher().Returns(true);
-            _configurationProvider.GetBatchConfig(Arg.Any<string>()).Returns(new BatchConfig());
+    [Fact]
+    public async Task Execute_WhenRunsOnce_CallsConsumeAndCommit()
+    {
+        // Cancel after Purge at end of first loop to avoid a second iteration.
+        const string connector = "test-connector";
+        const int taskId = 1;
+        _pollRecordCollection.TrySubscribe().Returns(true);
+        _pollRecordCollection.TryPublisher().Returns(true);
+        _pollRecordCollection.GetCommands().Returns((IList<CommandRecord>)new List<CommandRecord>());
+        var cts = new CancellationTokenSource();
+        _pollRecordCollection
+            .When(x => x.Purge(ConnectorType.Source, connector, taskId))
+            .Do(_ => cts.Cancel());
 
-            // Act
-            await _sourceTask.Execute(connector, 1, cts);
+        await _sourceTask.Execute(connector, taskId, cts);
 
-            // Assert
-            Received.InOrder(() =>
-            {
-                _executionContext.Initialize(connector, taskId, _sourceTask);
-                _pollRecordCollection.Setup(ConnectorType.Source, connector, taskId);
-                _pollRecordCollection.TrySubscribe();
-                _pollRecordCollection.TryPublisher();
-                _configurationProvider.GetBatchConfig(connector);
-                _configurationProvider.GetParallelRetryOptions(connector);
-                _configurationProvider.GetBatchConfig(connector);
-            });
-        }
-        
-        private CancellationTokenSource GetCancellationToken(int loop = -1)
-        {
-            var cts = new CancellationTokenSource();
-
-            _tokenHandler.When(k => k.NoOp()).Do(_ =>
-            {
-                if (loop-- == 0) cts.Cancel();
-            });
-            return cts;
-        }
+        await _pollRecordCollection.Received(1).Consume(Arg.Any<CancellationToken>());
+        await _pollRecordCollection.Received(1).GetCommands();
+        _pollRecordCollection.Received(1).Commit(Arg.Any<IList<CommandRecord>>());
+        _pollRecordCollection.Received(1).Clear();
+        await _pollRecordCollection.Received(1).Purge(ConnectorType.Source, connector, taskId);
     }
 }
