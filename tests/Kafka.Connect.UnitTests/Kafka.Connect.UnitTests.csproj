@@ -36,13 +36,9 @@
     </ItemGroup>
 
     <ItemGroup>
-      <Compile Remove="Providers\ProcessorServiceProviderTests.cs" />
       <Compile Remove="Serializers\**" />
       <Compile Remove="Connectors\ConnectorTests.cs" />
-      <Compile Remove="Providers\ConfigurationProviderTests.cs" />
       <Compile Remove="Connectors\ExecutionContextTests.cs" />
-      <Compile Remove="Providers\DefaultLogRecordTests.cs" />
-      <Compile Remove="Providers\SinkHandlerProviderTests.cs" />
     </ItemGroup>
 
     <ItemGroup>
