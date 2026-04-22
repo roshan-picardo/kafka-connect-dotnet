@@ -14,6 +14,15 @@ env:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    outputs:
+      unit_total: ${{ steps.test_counts.outputs.unit_total }}
+      unit_passed: ${{ steps.test_counts.outputs.unit_passed }}
+      unit_failed: ${{ steps.test_counts.outputs.unit_failed }}
+      unit_skipped: ${{ steps.test_counts.outputs.unit_skipped }}
+      integration_total: ${{ steps.test_counts.outputs.integration_total }}
+      integration_passed: ${{ steps.test_counts.outputs.integration_passed }}
+      integration_failed: ${{ steps.test_counts.outputs.integration_failed }}
+      integration_skipped: ${{ steps.test_counts.outputs.integration_skipped }}
     permissions:
       contents: read
       checks: write
@@ -158,15 +167,7 @@ jobs:
             out.write(f"integration_skipped={integration['skipped']}\n")
         PY
 
-    - name: Publish test report (main summary)
-      if: always() && github.ref == 'refs/heads/main'
-      run: |
-        echo "## CI Test Summary" >> $GITHUB_STEP_SUMMARY
-        echo "### Test Summary" >> $GITHUB_STEP_SUMMARY
-        echo "- Job status: ${{ job.status == 'success' && '✅ success' || (job.status == 'failure' && '❌ failure' || format('⚠️ {0}', job.status)) }}" >> $GITHUB_STEP_SUMMARY
-        echo "- Unit tests: ${{ steps.unit_tests.outcome == 'success' && '✅ passed' || (steps.unit_tests.outcome == 'failure' && '❌ failed' || format('⚠️ {0}', steps.unit_tests.outcome)) }} (${{ steps.test_counts.outputs.unit_passed }}/${{ steps.test_counts.outputs.unit_total }}, skipped: ${{ steps.test_counts.outputs.unit_skipped }}) ![Unit tests badge](${{ steps.unit_tests.outcome == 'success' && format('https://img.shields.io/badge/tests-{0}%20passed-success', steps.test_counts.outputs.unit_passed) || (steps.unit_tests.outcome == 'failure' && format('https://img.shields.io/badge/tests-{0}%20failed-critical', steps.test_counts.outputs.unit_failed) || format('https://img.shields.io/badge/tests-{0}%20unknown-lightgrey', steps.test_counts.outputs.unit_total)) }})" >> $GITHUB_STEP_SUMMARY
-        echo "- Integration tests: ${{ steps.integration_tests.outcome == 'success' && '✅ passed' || (steps.integration_tests.outcome == 'failure' && '❌ failed' || format('⚠️ {0}', steps.integration_tests.outcome)) }} (${{ steps.test_counts.outputs.integration_passed }}/${{ steps.test_counts.outputs.integration_total }}, skipped: ${{ steps.test_counts.outputs.integration_skipped }}) ![Integration tests badge](${{ steps.integration_tests.outcome == 'success' && format('https://img.shields.io/badge/tests-{0}%20passed-success', steps.test_counts.outputs.integration_passed) || (steps.integration_tests.outcome == 'failure' && format('https://img.shields.io/badge/tests-{0}%20failed-critical', steps.test_counts.outputs.integration_failed) || format('https://img.shields.io/badge/tests-{0}%20unknown-lightgrey', steps.test_counts.outputs.integration_total)) }})" >> $GITHUB_STEP_SUMMARY
-        echo "- [View detailed results in Checks tab](https://github.com/${{ github.repository }}/commit/${{ github.sha }}/checks)" >> $GITHUB_STEP_SUMMARY
+
 
   build-and-push-docker:
     needs: build-and-test
@@ -215,6 +216,7 @@ jobs:
           type=raw,value=${{ steps.version.outputs.VERSION }}
           
     - name: Build and push Docker image (with NuGet publishing)
+      id: docker_build
       uses: docker/build-push-action@v5
       with:
         context: .
@@ -227,36 +229,69 @@ jobs:
           GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
           GITHUB_USERNAME=${{ github.actor }}
 
-    - name: Publish artifact summary (Docker and NuGet)
+    - name: Build Summary
       run: |
         VERSION="${{ steps.version.outputs.VERSION }}"
-
-        echo "## Published Artifacts" >> $GITHUB_STEP_SUMMARY
-        echo "### Docker Images" >> $GITHUB_STEP_SUMMARY
-
-        while IFS= read -r tag; do
-          if [ -n "$tag" ]; then
-            echo "- $tag" >> $GITHUB_STEP_SUMMARY
+        GITHUB_PACKAGES_URL="https://nuget.pkg.github.com/${{ github.repository_owner }}/query?q=version:$VERSION"
+        
+        echo "# Build Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Build**: \`$VERSION\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Unit Tests Drill-down
+        echo "<details>" >> $GITHUB_STEP_SUMMARY
+        echo "<summary>🧪 Unit Tests: ${{ needs.build-and-test.outputs.unit_passed }} passed</summary>" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Metric | Count |" >> $GITHUB_STEP_SUMMARY
+        echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Total | ${{ needs.build-and-test.outputs.unit_total }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Passed | ${{ needs.build-and-test.outputs.unit_passed }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Failed | ${{ needs.build-and-test.outputs.unit_failed }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Skipped | ${{ needs.build-and-test.outputs.unit_skipped }} |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "</details>" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Integration Tests Drill-down
+        echo "<details>" >> $GITHUB_STEP_SUMMARY
+        echo "<summary>🧪 Integration Tests: ${{ needs.build-and-test.outputs.integration_passed }} passed</summary>" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Metric | Count |" >> $GITHUB_STEP_SUMMARY
+        echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Total | ${{ needs.build-and-test.outputs.integration_total }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Passed | ${{ needs.build-and-test.outputs.integration_passed }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Failed | ${{ needs.build-and-test.outputs.integration_failed }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Skipped | ${{ needs.build-and-test.outputs.integration_skipped }} |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "</details>" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Artifacts Drill-down
+        echo "<details>" >> $GITHUB_STEP_SUMMARY
+        echo "<summary>📦 Artifacts</summary>" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Extract docker image name (first tag contains the image reference)
+        DOCKER_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n1)
+        if [ -n "$DOCKER_TAG" ]; then
+          echo "🐳 **docker**: \`$DOCKER_TAG\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        # Query and list NuGet packages published with this version
+        echo "📦 **nuget**:" >> $GITHUB_STEP_SUMMARY
+        
+        # Search the GitHub Packages feed using curl with auth
+        PACKAGES=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          "https://nuget.pkg.github.com/${{ github.repository_owner }}/query?q=version:$VERSION" 2>/dev/null | \
+          grep -oP '(?<=<id>)[^<]+(?=</id>)' | sort -u || true)
+        
+        while IFS= read -r package; do
+          if [ -n "$package" ]; then
+            echo "- \`$package:$VERSION\`" >> $GITHUB_STEP_SUMMARY
           fi
-        done <<< "${{ steps.meta.outputs.tags }}"
-
-        echo "### NuGet Packages" >> $GITHUB_STEP_SUMMARY
-        echo "- Source: https://nuget.pkg.github.com/${{ github.actor }}/index.json" >> $GITHUB_STEP_SUMMARY
-
-        PROJECTS_FILE=$(mktemp)
-        echo "src/Kafka.Connect.Plugin/Kafka.Connect.Plugin.csproj" > "$PROJECTS_FILE"
-        find src/Plugins -mindepth 2 -maxdepth 2 -name '*.csproj' | sort >> "$PROJECTS_FILE"
-
-        while IFS= read -r project; do
-          if [ -z "$project" ] || [ ! -f "$project" ]; then
-            continue
-          fi
-
-          PACKAGE_ID=$(grep -m1 -oP '(?<=<PackageId>).*?(?=</PackageId>)' "$project" || true)
-          if [ -z "$PACKAGE_ID" ]; then
-            PACKAGE_ID=$(basename "$project" .csproj)
-          fi
-          echo "- $PACKAGE_ID $VERSION" >> $GITHUB_STEP_SUMMARY
-        done < "$PROJECTS_FILE"
-
-        rm -f "$PROJECTS_FILE"
+        done <<< "$PACKAGES"
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "</details>" >> $GITHUB_STEP_SUMMARY

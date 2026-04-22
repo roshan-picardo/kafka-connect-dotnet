@@ -46,6 +46,7 @@ RUN cd /src && \
     for package in /src/nupkgs/*.$BUILD_VERSION.nupkg; do \
         if [ -f "$package" ]; then \
             dotnet nuget push "$package" --api-key $GITHUB_TOKEN --source $GITHUB_PACKAGES_SOURCE --skip-duplicate; \
+            echo "PUBLISHED_PACKAGE:$(basename "$package" .nupkg)"; \
         fi; \
     done;
 
