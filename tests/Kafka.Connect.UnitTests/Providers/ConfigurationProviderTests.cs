@@ -1,1209 +1,410 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
-using Confluent.Kafka;
 using Kafka.Connect.Configurations;
-using Kafka.Connect.Plugin;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Options;
-using NSubstitute;
 using Xunit;
 using ConfigurationProvider = Kafka.Connect.Providers.ConfigurationProvider;
 
-namespace UnitTests.Kafka.Connect.Providers
+namespace UnitTests.Kafka.Connect.Providers;
+
+public class ConfigurationProviderTests
 {
-    public class ConfigurationProviderTests
+    [Fact]
+    public void WorkerConfiguration_LoadsDistributedConnectorState()
     {
+        var provider = CreateProvider(BaseWorkerSettings());
 
-        [Theory]
-        [MemberData(nameof(FailOverConfigTests))]
-        public void GetFailOverConfig_Tests(FailOverConfig input, FailOverConfig expected)
+        Assert.True(provider.IsWorker);
+        Assert.False(provider.IsLeader);
+        Assert.False(provider.GetWorkerConfig().Standalone);
+        Assert.Equal("worker-a", provider.GetNodeName());
+
+        var connector = provider.GetConnectorConfig("orders");
+        Assert.Equal("orders", connector.Name);
+        Assert.Equal("orders-group", provider.GetGroupId("orders"));
+        Assert.Equal("custom.log.provider", provider.GetLogEnhancer("orders"));
+        Assert.Equal("plugin-a", provider.GetPluginName("orders"));
+        Assert.Equal("command-topic", provider.GetTopic(TopicType.Command));
+    }
+
+    [Fact]
+    public void LeaderConfiguration_LoadsLeaderConnectorAndTopics()
+    {
+        var provider = CreateProvider(new Dictionary<string, string>
         {
-            var actual = GetProvider(new WorkerConfig() {FailOver = input}).GetFailOverConfig();
+            ["leader:name"] = "leader-a",
+            ["leader:bootstrapServers"] = "localhost:9092",
+            ["leader:groupId"] = "leader-group",
+            ["leader:topics:Config"] = "leader-config-topic",
+            ["leader:connectors:alpha:tasks"] = "1"
+        });
 
-            Assert.NotNull(actual);
-            Assert.Equal(expected.Disabled, actual.Disabled);
-            Assert.Equal(expected.InitialDelayMs, actual.InitialDelayMs);
-            Assert.Equal(expected.PeriodicDelayMs, actual.PeriodicDelayMs);
-            Assert.Equal(expected.FailureThreshold, actual.FailureThreshold);
-            Assert.Equal(expected.RestartDelayMs, actual.RestartDelayMs);
-        }
+        Assert.True(provider.IsLeader);
+        Assert.False(provider.IsWorker);
+        Assert.Equal("leader-a", provider.GetNodeName());
+        Assert.Equal("leader-config-topic", provider.GetTopics("ignored").Single());
+        Assert.Equal(ConnectorType.Leader, provider.GetConnectorConfig("ignored").Plugin.Type);
+        Assert.Single(provider.GetAllConnectorConfigs());
+        Assert.True(provider.GetLeaderConfig().Connectors.ContainsKey("alpha"));
+        Assert.Equal("alpha", provider.GetLeaderConfig().Connectors["alpha"]?["name"]?.GetValue<string>());
+    }
 
-        [Theory]
-        [MemberData(nameof(HealthCheckConfigTests))]
-        public void GetHealthCheckConfig_Tests(HealthCheckConfig input, HealthCheckConfig expected)
+    [Fact]
+    public void GetMessageConverters_UsesTopicThenConnectorThenWorkerFallbacks()
+    {
+        var provider = CreateProvider(BaseWorkerSettings());
+
+        var actual = provider.GetMessageConverters("orders", "topic-a");
+
+        Assert.Equal("ConnectorKeyConverter", actual.Key);
+        Assert.Equal("TopicValueConverter", actual.Value);
+        Assert.Equal("WorkerSubject", actual.Subject);
+        Assert.Null(actual.Record);
+    }
+
+    [Fact]
+    public void GetMessageConverters_UsesDefaultsWhenNothingConfigured()
+    {
+        var provider = CreateProvider(new Dictionary<string, string>
         {
-            var actual = GetProvider(new WorkerConfig() {HealthCheck = input}).GetHealthCheckConfig();
+            ["worker:name"] = "worker-a",
+            ["worker:bootstrapServers"] = "localhost:9092",
+            ["worker:standalone"] = "true",
+            ["worker:connectors:orders:name"] = "orders",
+            ["worker:connectors:orders:plugin:name"] = "plugin-a",
+            ["worker:connectors:orders:plugin:type"] = "Sink",
+            ["worker:connectors:orders:topics:0"] = "orders-topic"
+        });
 
-            Assert.NotNull(actual);
-            Assert.Equal(expected.Disabled, actual.Disabled);
-            Assert.Equal(expected.InitialDelayMs, actual.InitialDelayMs);
-            Assert.Equal(expected.PeriodicDelayMs, actual.PeriodicDelayMs);
-        }
+        var actual = provider.GetMessageConverters("orders", "orders-topic");
 
-        [Theory]
-        [MemberData(nameof(RestartsConfigTests))]
-        public void GetRestartsConfig_Tests(RestartsConfig input, RestartsConfig expected)
+        Assert.Equal("Kafka.Connect.Converters.AvroConverter", actual.Key);
+        Assert.Equal("Kafka.Connect.Converters.AvroConverter", actual.Value);
+        Assert.Equal("Topic", actual.Subject);
+        Assert.Null(actual.Record);
+    }
+
+    [Fact]
+    public void GetMessageProcessors_MergesTopicConnectorAndWorkerByOrder()
+    {
+        var provider = CreateProvider(BaseWorkerSettings());
+
+        var actual = provider.GetMessageProcessors("orders", "topic-a");
+
+        Assert.Equal(4, actual.Count);
+        Assert.Equal(new[] { "TopicProc0", "ConnectorProc1", "TopicProc2", "ProcSettings" }, actual.Select(a => a.Name).ToArray());
+    }
+
+    [Fact]
+    public void FaultToleranceMethods_ComposeCurrentFallbackBehavior()
+    {
+        var provider = CreateProvider(BaseWorkerSettings());
+
+        var errors = provider.GetErrorsConfig("orders");
+        var retries = provider.GetRetriesConfig("orders");
+        var eof = provider.GetEofSignalConfig("orders");
+        var batch = provider.GetBatchConfig("orders");
+        var parallel = provider.GetParallelRetryOptions("orders");
+
+        Assert.Equal(ErrorTolerance.Data, errors.Tolerance);
+        Assert.Equal("worker-dlq", errors.Topic);
+        Assert.Equal(4, retries.Attempts);
+        Assert.Equal(250, retries.Interval);
+        Assert.True(eof.Enabled);
+        Assert.Equal("worker-eof", eof.Topic);
+        Assert.Equal(10, batch.Size);
+        Assert.Equal(3, batch.Parallelism);
+        Assert.False(provider.IsErrorTolerated("orders"));
+        Assert.True(provider.IsDeadLetterEnabled("orders"));
+        Assert.Equal(3, provider.GetDegreeOfParallelism("orders"));
+        Assert.Equal(3, parallel.DegreeOfParallelism);
+        Assert.Equal(4, parallel.Attempts);
+        Assert.Equal(250, parallel.Interval);
+        Assert.True(parallel.ErrorTolerance.Data);
+        Assert.Contains("System.Exception", parallel.Exceptions);
+    }
+
+    [Fact]
+    public void GetBatchConfig_WhenPartitionEofDisabled_ReturnsSingleRecordDefaults()
+    {
+        var provider = CreateProvider(new Dictionary<string, string>
         {
-            var actual = GetProvider(new WorkerConfig() {Restarts = input}).GetRestartsConfig();
+            ["worker:name"] = "worker-a",
+            ["worker:bootstrapServers"] = "localhost:9092",
+            ["worker:standalone"] = "true",
+            ["worker:connectors:orders:name"] = "orders",
+            ["worker:connectors:orders:plugin:name"] = "plugin-a",
+            ["worker:connectors:orders:plugin:type"] = "Sink"
+        });
 
-            Assert.NotNull(actual);
-            Assert.Equal(expected.EnabledFor, actual.EnabledFor);
-            Assert.Equal(expected.RetryWaitTimeMs, actual.RetryWaitTimeMs);
-            Assert.Equal(expected.PeriodicDelayMs, actual.PeriodicDelayMs);
-        }
+        var actual = provider.GetBatchConfig("orders");
 
-        [Theory]
-        [InlineData(null, false, "GET-MACHINE-NAME")]
-        [InlineData("from-env-var", true, "from-env-var")]
-        [InlineData("from-config-var", false, "from-config-var")]
-        public void GetWorkerName_Tests(string configValue, bool isEnvVar, string expected)
+        Assert.Equal(1, actual.Size);
+        Assert.Equal(1, actual.Parallelism);
+    }
+
+    [Fact]
+    public void GetTopics_ForSourceConnector_UsesCommandTopic()
+    {
+        var values = BaseWorkerSettings();
+        values["worker:connectors:orders:plugin:type"] = "Source";
+        values["worker:connectors:orders:topics:0"] = "should-not-be-used";
+        var provider = CreateProvider(values);
+
+        var actual = provider.GetTopics("orders");
+
+        Assert.Equal(["command-topic"], actual);
+    }
+
+    [Fact]
+    public void GetGenericSettingsAndPluginMetadata_ReadFromConfiguration()
+    {
+        var provider = CreateProvider(BaseWorkerSettings());
+
+        var processorSettings = provider.GetProcessorSettings<Dictionary<string, string>>("orders", "ProcSettings");
+        var pluginProperties = provider.GetPluginConfig<Dictionary<string, string>>("orders");
+        var logAttributes = provider.GetLogAttributes<string[]>("orders");
+        var plugin = provider.GetPlugin("orders");
+
+        Assert.Equal("true", processorSettings["enabled"]);
+        Assert.Equal("full", pluginProperties["mode"]);
+        Assert.Equal(new[] { "fieldA", "items[*]" }, logAttributes);
+        Assert.Equal("plugin-a", provider.GetPluginName("orders"));
+        Assert.Equal("plugin-a", plugin.Folder);
+        Assert.Equal("Plugin.dll", plugin.Assembly);
+    }
+
+    [Fact]
+    public void GetAutoCommitConfig_ReturnsWorkerFlags()
+    {
+        var provider = CreateProvider(BaseWorkerSettings());
+
+        var actual = provider.GetAutoCommitConfig();
+
+        Assert.True(actual.EnableAutoCommit);
+        Assert.False(actual.EnableAutoOffsetStore);
+    }
+
+    [Fact]
+    public void ReloadWorkerConfig_UsesSettingsFolderJsonFiles()
+    {
+        var tempDir = CreateTempDirectory();
+        try
         {
-            expected = expected == "GET-MACHINE-NAME" ? Environment.MachineName : expected;
-            var workerConfig = new WorkerConfig() {Name = isEnvVar ? null : configValue};
-            if (isEnvVar)
+            File.WriteAllText(Path.Combine(tempDir, "worker.override.json"), """
             {
-                Environment.SetEnvironmentVariable("WORKER_HOST", configValue);
+              "worker": {
+                "name": "reloaded-worker"
+              }
             }
+            """);
 
-            var actual = GetProvider(workerConfig).GetNodeName();
-
-            Assert.Equal(expected, actual);
-        }
-
-        [Theory]
-        [InlineData(true, true)]
-        [InlineData(false, true)]
-        [InlineData(false, false)]
-        public void GetConnectorConfig_ThrowsException(bool isNull, bool isEmpty)
-        {
-            Assert.Throws<ArgumentException>(() => GetProvider(new WorkerConfig()
+            var provider = CreateProvider(new Dictionary<string, string>
             {
-                Connectors = isNull ? null :
-                    isEmpty ? new Dictionary<string, ConnectorConfig>() : new Dictionary<string, ConnectorConfig>()
-                        {{"some-unknown-connector", new ConnectorConfig()}}
-            }).GetConnectorConfig("expected-connector"));
-        }
+                ["worker:name"] = "initial-worker",
+                ["worker:settings"] = tempDir,
+                ["worker:bootstrapServers"] = "localhost:9092",
+                ["worker:standalone"] = "true",
+                ["worker:connectors:orders:name"] = "orders",
+                ["worker:connectors:orders:plugin:name"] = "plugin-a",
+                ["worker:connectors:orders:plugin:type"] = "Sink"
+            });
 
-        [Theory]
-        [InlineData("expected-connector", null, "expected-connector")]
-        [InlineData("expected-connector", "", "expected-connector")]
-        [InlineData("expected-connector-something", "expected-connector", "expected-connector")]
-        public void GetConnectorConfig_ReturnsConnectorConfig(string key, string name, string expected)
-        {
-            var actual = GetProvider(new WorkerConfig()
-                {
-                    Connectors = new Dictionary<string, ConnectorConfig>() {{key, new ConnectorConfig() {Name = name}}}
-                })
-                .GetConnectorConfig(expected);
-            Assert.NotNull(actual);
-            Assert.Equal(expected, actual.Name);
-        }
+            provider.ReloadWorkerConfig();
 
-        [Theory]
-        [InlineData(null, "GroupId", "ClientId", null, null)]
-        [InlineData("expected-connector", null, null, "expected-connector", "expected-connector")]
-        [InlineData("expected-connector", "expected-groupId", "expected-clientId", "expected-groupId",
-            "expected-clientId")]
-        public void GetConsumerConfig_Tests(string connector, string groupId, string clientId, string expectedGroupId,
-            string expectedClientId)
+            Assert.Equal("reloaded-worker", provider.GetNodeName());
+        }
+        finally
         {
-            var actual = GetProvider(new WorkerConfig()
+            Directory.Delete(tempDir, true);
+        }
+    }
+
+    [Fact]
+    public void GetLeaderConfig_WithReload_UsesSettingsFolderJsonFiles()
+    {
+        var tempDir = CreateTempDirectory();
+        try
+        {
+            File.WriteAllText(Path.Combine(tempDir, "leader.override.json"), """
             {
-                Connectors = new Dictionary<string, ConnectorConfig>()
-                    {{"0", new ConnectorConfig() {Name = connector, GroupId = groupId, ClientId = clientId}}}
-            }).GetConsumerConfig(connector);
-
-            Assert.NotNull(actual);
-            Assert.IsType<WorkerConfig>(actual);
-            Assert.Equal(actual.GroupId, expectedGroupId);
-            Assert.Equal(actual.ClientId, expectedClientId);
-        }
-
-        [Fact]
-        public void GetProducerConfig_Tests()
-        {
-            var actual = GetProvider(new WorkerConfig()
-            {
-                Connectors = new Dictionary<string, ConnectorConfig>() {{"expected-connector", new ConnectorConfig()}}
-            }).GetProducerConfig("expected-connector");
-
-            Assert.NotNull(actual);
-            Assert.IsType<ProducerConfig>(actual);
-        }
-
-        [Fact]
-        public void GetAllConnectorConfigs_ThrowsExceptionWhenNoConnectorsConfigured()
-        {
-            Assert.Throws<ArgumentException>(() => GetProvider(new WorkerConfig()).GetAllConnectorConfigs());
-        }
-
-        [Theory]
-        [InlineData(true, 5)]
-        [InlineData(false, 3)]
-        public void GetAllConnectorConfigs_ReturnsConnectors(bool includeDisabled, int expectedCount)
-        {
-            var actual = GetProvider(new WorkerConfig
-            {
-                Connectors = new Dictionary<string, ConnectorConfig>
-                {
-                    {"Enabled-1", new ConnectorConfig {Disabled = false}},
-                    {"Enabled-2", new ConnectorConfig {Disabled = false}},
-                    {"Disabled-1", new ConnectorConfig {Disabled = true}},
-                    {"Disabled-2", new ConnectorConfig {Disabled = true}},
-                    {"Enabled-3", new ConnectorConfig {Disabled = false}}
-                }
-            }).GetAllConnectorConfigs(includeDisabled);
-
-            Assert.NotNull(actual);
-            Assert.Equal(expectedCount, actual.Count);
-        }
-
-        [Theory]
-        [MemberData(nameof(ErrorsConfigTests))]
-        public void GetErrorsConfig_Tests(RetryConfig connectorRetry, RetryConfig workerRetry,
-            ErrorsConfig expectedRetry)
-        {
-            var actual = GetProvider(new WorkerConfig()
-            {
-                Retries = workerRetry,
-                Connectors = new Dictionary<string, ConnectorConfig>()
-                {
-                    {"connector", new ConnectorConfig() {Retries = connectorRetry}}
-                }
-            }).GetErrorsConfig("connector");
-
-            Assert.NotNull(actual);
-            Assert.Equal(expectedRetry.Topic, actual.Topic);
-            Assert.Equal(expectedRetry.Tolerance, actual.Tolerance);
-        }
-
-        [Theory]
-        [MemberData(nameof(RetriesConfigTests))]
-        public void GetRetriesConfig_Tests(RetryConfig connectorRetry, RetryConfig workerRetry,
-            RetryConfig expectedRetry)
-        {
-            var actual = GetProvider(new WorkerConfig
-            {
-                Retries = workerRetry,
-                Connectors = new Dictionary<string, ConnectorConfig>
-                {
-                    {"connector", new ConnectorConfig {Retries = connectorRetry}}
-                }
-            }).GetRetriesConfig("connector");
-
-            Assert.NotNull(actual);
-            Assert.Equal(expectedRetry.Attempts, actual.Attempts);
-            Assert.Equal(expectedRetry.DelayTimeoutMs, actual.DelayTimeoutMs);
-        }
-
-        [Theory]
-        [MemberData(nameof(EofSignalConfigTests))]
-        public void GetEofSignalConfig_Tests(BatchConfig connectorBatch, BatchConfig workerBatch, EofConfig expectedEof)
-        {
-            var actual = GetProvider(new WorkerConfig
-            {
-                Batches = workerBatch,
-                Connectors = new Dictionary<string, ConnectorConfig>
-                {
-                    {"connector", new ConnectorConfig {Batches = connectorBatch}}
-                }
-            }).GetEofSignalConfig("connector");
-
-            Assert.NotNull(actual);
-            Assert.Equal(expectedEof.Enabled, actual.Enabled);
-            Assert.Equal(expectedEof.Topic, actual.Topic);
-        }
-
-        [Theory]
-        [MemberData(nameof(BatchConfigTests))]
-        public void GetBatchConfig_Tests(bool enablePartitionEof, BatchConfig connectorBatch, BatchConfig workerBatch,
-            BatchConfig expectedBatch)
-        {
-            var actual = GetProvider(new WorkerConfig
-            {
-                EnablePartitionEof = enablePartitionEof,
-                Batches = workerBatch,
-                Connectors = new Dictionary<string, ConnectorConfig>
-                {
-                    {"connector", new ConnectorConfig {Batches = connectorBatch}}
-                }
-            }).GetBatchConfig("connector");
-
-            Assert.NotNull(actual);
-            Assert.Equal(expectedBatch.Size, actual.Size);
-            Assert.Equal(expectedBatch.Parallelism, actual.Parallelism);
-        }
-
-        [Fact]
-        public void GetGroupId_Tests()
-        {
-            var actual = GetProvider(new WorkerConfig
-            {
-                Connectors = new Dictionary<string, ConnectorConfig>
-                {
-                    {"connector-group-id", new ConnectorConfig()}
-                }
-            }).GetGroupId("connector-group-id");
-
-            Assert.Equal("connector-group-id", actual);
-        }
-
-        [Theory]
-        [MemberData(nameof(MessageConvertersTests))]
-        public void GetMessageConverters_Tests(BatchConfig connectorBatch, BatchConfig workerBatch,
-            (string Key, string Value) expectedSerializer)
-        {
-            var converterConfig = GetProvider(new WorkerConfig
-            {
-                Batches = workerBatch,
-                Connectors = new Dictionary<string, ConnectorConfig>
-                {
-                    {"connector", new ConnectorConfig {Batches = connectorBatch}}
-                }
-            }).GetMessageConverters("connector", "test-topic");
-
-            Assert.Equal(expectedSerializer.Key, converterConfig.Key);
-            Assert.Equal(expectedSerializer.Value, converterConfig.Value);
-        }
-
-        [Theory]
-        [InlineData(null, null, new string[0])]
-        [InlineData("", null, new string[0])]
-        [InlineData("", new string[0], new string[0])]
-        [InlineData("topic-single", null, new[] {"topic-single"})]
-        [InlineData("topic-single", new string[0], new[] {"topic-single"})]
-        [InlineData("topic-single", new[] {"topic-list-one", "topic-list-two"},
-            new[] {"topic-single", "topic-list-one", "topic-list-two"})]
-        [InlineData("topic-list-one", new[] {"topic-list-one", "topic-list-two"},
-            new[] {"topic-list-one", "topic-list-two"})]
-        [InlineData(null, new[] {"topic-list-one", "topic-list-two"}, new[] {"topic-list-one", "topic-list-two"})]
-        public void GetTopics_Tests(string topic, string[] topics, string[] expectedTopics)
-        {
-            var actualTopics = GetProvider(new WorkerConfig
-            {
-                Connectors = new Dictionary<string, ConnectorConfig>
-                {
-                    {"connector", new ConnectorConfig {Topic = topic, Topics = topics}}
-                }
-            }).GetTopics("connector");
-
-            Assert.Equal(expectedTopics.Length, actualTopics.Count);
-            Assert.All(expectedTopics, s => actualTopics.Contains(s));
-        }
-
-        
-
-        [Theory]
-        [MemberData(nameof(MessageProcessorsTests))]
-        public void GetMessageProcessors_Tests(IDictionary<string, ProcessorConfig> processors,
-            IList<ProcessorConfig> expectedProcessors)
-        {
-            var actual = GetProvider(new WorkerConfig
-            {
-                Connectors = new Dictionary<string, ConnectorConfig>
-                {
-                    {"connector", new ConnectorConfig {Processors = processors}}
-                }
-            }).GetMessageProcessors("connector", "test-topic");
-
-            Assert.Equal(expectedProcessors.Count, actual.Count);
-            Assert.All(expectedProcessors, config => actual.Any(a => a.Name == config.Name && a.Order == config.Order));
-        }
-        
-        [Theory]
-        [MemberData(nameof(SinkConfigTests))]
-        public void GetSinkConfig_Tests(SinkConfig input, string connectorPlugin, SinkConfig expected)
-        {
-            var actual = GetProvider(new WorkerConfig
-            {
-                Connectors = new Dictionary<string, ConnectorConfig>
-                {
-                    {"connector", new ConnectorConfig {Sink = input, Plugin = connectorPlugin}}
-                }
-            }).GetSinkConfig("connector");
-
-            Assert.NotNull(actual);
-            Assert.Equal(expected.Handler, expected.Handler);
-            Assert.Equal(expected.Plugin, expected.Plugin);
-        }
-
-        [Theory]
-        [InlineData(ErrorTolerance.All, true)]
-        [InlineData(ErrorTolerance.None, false)]
-        public void IsErrorTolerated_Tests(ErrorTolerance input, bool expected)
-        {
-            var actual = GetProvider(new WorkerConfig
-            {
-                Connectors = new Dictionary<string, ConnectorConfig>
-                {
-                    {
-                        "connector",
-                        new ConnectorConfig {Retries = new RetryConfig {Errors = new ErrorsConfig {Tolerance = input}}}
-                    }
-                }
-            }).IsErrorTolerated("connector");
-            
-            Assert.Equal(actual, expected);
-        }
-        
-        [Theory]
-        [InlineData(ErrorTolerance.None, null, false)]
-        [InlineData(ErrorTolerance.All, null, false)]
-        [InlineData(ErrorTolerance.All, "", false)]
-        [InlineData(ErrorTolerance.All, "dead-letter-topic", true)]
-        public void IsDeadLetterEnabled_Tests(ErrorTolerance tolerance, string deadLetterTopic,  bool expected)
-        {
-            var actual = GetProvider(new WorkerConfig
-            {
-                Connectors = new Dictionary<string, ConnectorConfig>
-                {
-                    {
-                        "connector",
-                        new ConnectorConfig
-                        {
-                            Retries = new RetryConfig
-                                {Errors = new ErrorsConfig {Tolerance = tolerance, Topic = deadLetterTopic}}
-                        }
-                    }
-                }
-            }).IsDeadLetterEnabled("connector");
-            
-            Assert.Equal(actual, expected);
-        }
-
-        [Theory]
-        [InlineData(null, null, false, false)]
-        [InlineData(false, false, false, false)]
-        [InlineData(true, true, true, true)]
-        public void GetAutoCommitConfig_Tests(bool? inputEnableAutoCommit, bool? inputEnableAutoOffsetStore, bool expectedEnableAutoCommit, bool expectedEnableAutoOffsetStore)
-        {
-            var (enableAutoCommit, enableAutoOffsetStore) = GetProvider(new WorkerConfig
-            {
-                EnableAutoCommit = inputEnableAutoCommit,
-                EnableAutoOffsetStore = inputEnableAutoOffsetStore
-            }).GetAutoCommitConfig();
-            
-            Assert.Equal(expectedEnableAutoCommit, enableAutoCommit);
-            Assert.Equal(expectedEnableAutoOffsetStore, enableAutoOffsetStore);
-        }
-
-        [Theory]
-        [MemberData(nameof(ValidateConfigTests))]
-        public void Validate_Tests(WorkerConfig workerConfig, string expected, bool throwsException = true)
-        {
-            var exception = Record.Exception(() => GetProvider(workerConfig).Validate());
-            if (!throwsException)
-            {
-                Assert.Null(exception);
+              "leader": {
+                "name": "reloaded-leader"
+              }
             }
-            else
+            """);
+
+            var provider = CreateProvider(new Dictionary<string, string>
             {
-                Assert.NotNull(exception);
-                Assert.IsType<ArgumentException>(exception);
-                Assert.Equal(expected, exception.Message);
-            }
-        }
+                ["leader:name"] = "initial-leader",
+                ["leader:settings"] = tempDir,
+                ["leader:bootstrapServers"] = "localhost:9092",
+                ["leader:topics:Config"] = "leader-config-topic"
+            });
 
-        [Theory]
-        [MemberData(nameof(GetProcessorSettings))]
-        public void GetProcessorSettings_Tests(string connector, string processor, IDictionary<string, string> settings,
-            ConfigGenericType expected)
-        {
-            var actual = GetProvider(settings).GetProcessorSettings<ConfigGenericType>(connector, processor);
-            Assert.Equivalent(expected, actual);
-        }
+            var actual = provider.GetLeaderConfig(reload: true);
 
-        [Theory]
-        [MemberData(nameof(GetSinkConfigProperties))]
-        public void GetSinkConfigProperties_Tests(string connector, string plugin, IDictionary<string, string> settings,
-            ConfigGenericType expected)
-        {
-            var actual = GetProvider(settings).GetSinkConfigProperties<ConfigGenericType>(connector, plugin);
-            Assert.Equivalent(expected, actual);
+            Assert.Equal("reloaded-leader", actual.Name);
         }
+        finally
+        {
+            Directory.Delete(tempDir, true);
+        }
+    }
 
-        [Theory]
-        [MemberData(nameof(GetLogAttributes))]
-        public void GetLogAttributes_Tests(string connector, IDictionary<string, string> settings,
-            ConfigGenericType expected)
+    [Fact]
+    public void GetAllConnectorConfigs_WhenStandalone_RespectsDisabledFlag()
+    {
+        var provider = CreateProvider(new Dictionary<string, string>
         {
-            var actual = GetProvider(settings).GetLogAttributes<ConfigGenericType>(connector);
-            Assert.Equivalent(expected, actual);
-        }
+            ["worker:name"] = "worker-a",
+            ["worker:bootstrapServers"] = "localhost:9092",
+            ["worker:standalone"] = "true",
+            ["worker:plugins:initializers:plugin-a:folder"] = "plugin-a",
+            ["worker:plugins:initializers:plugin-a:assembly"] = "Plugin.dll",
+            ["worker:plugins:initializers:plugin-a:class"] = "Plugin.Initializer",
+            ["worker:connectors:enabled:name"] = "enabled",
+            ["worker:connectors:enabled:plugin:name"] = "plugin-a",
+            ["worker:connectors:enabled:plugin:type"] = "Sink",
+            ["worker:connectors:disabled:name"] = "disabled",
+            ["worker:connectors:disabled:disabled"] = "true",
+            ["worker:connectors:disabled:plugin:name"] = "plugin-a",
+            ["worker:connectors:disabled:plugin:type"] = "Sink"
+        });
 
-        [Theory]
-        [InlineData(false, "", "Kafka.Connect.Providers.DefaultLogRecord")]
-        [InlineData(true, null, "Kafka.Connect.Providers.DefaultLogRecord")]
-        [InlineData(true, "Kafka.Connect.Logging.CustomLogRecord", "Kafka.Connect.Logging.CustomLogRecord")]
-        public void GetLogEnhancer_Tests(bool hasLogger, string provider, string expected)
-        {
-            var config = new WorkerConfig
-            {
-                Connectors = new Dictionary<string, ConnectorConfig>()
-                {
-                    {
-                        "connector-1", new ConnectorConfig()
-                        {
-                            Log = hasLogger ? new LogConfig() { Provider = provider } : null
-                        }
-                    }
-                }
-            };
-            var actual = GetProvider(config).GetLogEnhancer("connector-1");
-            Assert.Equal(expected, actual);
-        }
-        
+        Assert.Single(provider.GetAllConnectorConfigs());
+        Assert.Equal(2, provider.GetAllConnectorConfigs(includeDisabled: true).Count);
+    }
 
-        private static ConfigurationProvider GetProvider(WorkerConfig config)
+    [Fact]
+    public void Validate_ThrowsWhenStandaloneWorkerHasNoConnectors()
+    {
+        var provider = CreateProvider(new Dictionary<string, string>
         {
-            var options = Substitute.For<IOptions<WorkerConfig>>();
-            options.Value.Returns(config);
-            return new ConfigurationProvider(Substitute.For<IConfiguration>());
-        }
-        
-        private static ConfigurationProvider GetProvider(IDictionary<string, string> settings)
-        {
-            IConfiguration configuration = new ConfigurationBuilder()
-                .AddInMemoryCollection(settings)
-                .Build();
-            
-            var options = Substitute.For<IOptions<WorkerConfig>>();
-            options.Value.Returns(new WorkerConfig());
-            
-            return new ConfigurationProvider(configuration);
-        }
+            ["worker:name"] = "worker-a",
+            ["worker:bootstrapServers"] = "localhost:9092",
+            ["worker:standalone"] = "true"
+        });
 
-        public static IEnumerable<object[]> FailOverConfigTests
-        {
-            get
-            {
-                yield return new object[] {null, new FailOverConfig()};
-                yield return new object[]
-                {
-                    new FailOverConfig
-                    {
-                        Disabled = true,
-                        InitialDelayMs = 100,
-                        PeriodicDelayMs = 100,
-                        FailureThreshold = 2,
-                        RestartDelayMs = 100
-                    },
-                    new FailOverConfig
-                    {
-                        Disabled = true,
-                        InitialDelayMs = 100,
-                        PeriodicDelayMs = 100,
-                        FailureThreshold = 2,
-                        RestartDelayMs = 100
-                    }
-                };
-            }
-        }
+        var exception = Assert.Throws<ArgumentException>(() => provider.Validate());
 
-        public static IEnumerable<object[]> HealthCheckConfigTests
-        {
-            get
-            {
-                yield return new object[] {null, new HealthCheckConfig()};
-                yield return new object[]
-                {
-                    new HealthCheckConfig()
-                    {
-                        Disabled = true,
-                        InitialDelayMs = 100,
-                        PeriodicDelayMs = 100,
-                    },
-                    new HealthCheckConfig()
-                    {
-                        Disabled = true,
-                        InitialDelayMs = 100,
-                        PeriodicDelayMs = 100
-                    }
-                };
-            }
-        }
+        Assert.Contains("At least one connector is required", exception.Message);
+    }
 
-        public static IEnumerable<object[]> RestartsConfigTests
+    [Fact]
+    public void Validate_ThrowsWhenConnectorPluginIsUnavailable()
+    {
+        var provider = CreateProvider(new Dictionary<string, string>
         {
-            get
-            {
-                yield return new object[] {null, new RestartsConfig()};
-                yield return new object[]
-                {
-                    new RestartsConfig()
-                    {
-                        EnabledFor = RestartsLevel.Connector,
-                        RetryWaitTimeMs = 100,
-                        PeriodicDelayMs = 100,
-                    },
-                    new RestartsConfig()
-                    {
-                        EnabledFor = RestartsLevel.Connector,
-                        RetryWaitTimeMs = 100,
-                        PeriodicDelayMs = 100
-                    }
-                };
-            }
-        }
+            ["worker:name"] = "worker-a",
+            ["worker:bootstrapServers"] = "localhost:9092",
+            ["worker:standalone"] = "true",
+            ["worker:plugins:initializers:plugin-a:folder"] = "plugin-a",
+            ["worker:plugins:initializers:plugin-a:assembly"] = "Plugin.dll",
+            ["worker:plugins:initializers:plugin-a:class"] = "Plugin.Initializer",
+            ["worker:connectors:orders:name"] = "orders",
+            ["worker:connectors:orders:plugin:name"] = "missing-plugin",
+            ["worker:connectors:orders:plugin:type"] = "Sink"
+        });
 
-        public static IEnumerable<object[]> RetriesConfigTests
+        var exception = Assert.Throws<ArgumentException>(() => provider.Validate());
+
+        Assert.Contains("is not associated to any of the available Plugins", exception.Message);
+    }
+
+    [Fact]
+    public void Validate_DoesNotThrowForValidStandaloneConfiguration()
+    {
+        var provider = CreateProvider(new Dictionary<string, string>
         {
-            get
-            {
-                yield return new object[] {null, null, new RetryConfig()};
-                yield return new object[]
-                {
-                    null, new RetryConfig {Attempts = 5, DelayTimeoutMs = 1000},
-                    new RetryConfig {Attempts = 5, DelayTimeoutMs = 1000}
-                };
-                yield return new object[]
-                {
-                    new RetryConfig {Attempts = 10, DelayTimeoutMs = 2000},
-                    new RetryConfig {Attempts = 5, DelayTimeoutMs = 1000},
-                    new RetryConfig {Attempts = 10, DelayTimeoutMs = 2000}
-                };
-            }
-        }
+            ["worker:name"] = "worker-a",
+            ["worker:bootstrapServers"] = "localhost:9092",
+            ["worker:standalone"] = "true",
+            ["worker:plugins:initializers:plugin-a:folder"] = "plugin-a",
+            ["worker:plugins:initializers:plugin-a:assembly"] = "Plugin.dll",
+            ["worker:plugins:initializers:plugin-a:class"] = "Plugin.Initializer",
+            ["worker:connectors:orders:name"] = "orders",
+            ["worker:connectors:orders:plugin:name"] = "plugin-a",
+            ["worker:connectors:orders:plugin:type"] = "Sink"
+        });
 
-        public static IEnumerable<object[]> ErrorsConfigTests
+        provider.Validate();
+    }
+
+    private static ConfigurationProvider CreateProvider(IDictionary<string, string> values)
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(values)
+            .Build();
+
+        return new ConfigurationProvider(configuration);
+    }
+
+    private static Dictionary<string, string> BaseWorkerSettings()
+    {
+        return new Dictionary<string, string>
         {
-            get
-            {
-                yield return new object[] {null, null, new ErrorsConfig {Tolerance = ErrorTolerance.All}};
-                yield return new object[] {null, new RetryConfig(), new ErrorsConfig {Tolerance = ErrorTolerance.All}};
-                yield return new object[] {new RetryConfig(), null, new ErrorsConfig {Tolerance = ErrorTolerance.All}};
-                yield return new object[]
-                    {new RetryConfig(), new RetryConfig(), new ErrorsConfig {Tolerance = ErrorTolerance.All}};
-                yield return new object[]
-                {
-                    null,
-                    new RetryConfig
-                        {Errors = new ErrorsConfig {Tolerance = ErrorTolerance.None, Topic = "worker-topic"}},
-                    new ErrorsConfig {Tolerance = ErrorTolerance.None, Topic = "worker-topic"}
-                };
-                yield return new object[]
-                {
-                    new RetryConfig(),
-                    new RetryConfig
-                        {Errors = new ErrorsConfig {Tolerance = ErrorTolerance.None, Topic = "worker-topic"}},
-                    new ErrorsConfig {Tolerance = ErrorTolerance.None, Topic = "worker-topic"}
-                };
-                yield return new object[]
-                {
-                    new RetryConfig
-                        {Errors = new ErrorsConfig {Tolerance = ErrorTolerance.None, Topic = "connector-topic"}},
-                    new RetryConfig
-                        {Errors = new ErrorsConfig {Tolerance = ErrorTolerance.None, Topic = "worker-topic"}},
-                    new ErrorsConfig {Tolerance = ErrorTolerance.None, Topic = "connector-topic"}
-                };
-            }
-        }
+            ["worker:name"] = "worker-a",
+            ["worker:bootstrapServers"] = "localhost:9092",
+            ["worker:standalone"] = "false",
+            ["worker:enablePartitionEof"] = "true",
+            ["worker:enableAutoCommit"] = "true",
+            ["worker:enableAutoOffsetStore"] = "false",
+            ["worker:topics:Command"] = "command-topic",
+            ["worker:topics:Config"] = "config-topic",
+            ["worker:converters:key"] = "WorkerKeyConverter",
+            ["worker:converters:value"] = "WorkerValueConverter",
+            ["worker:converters:subject"] = "WorkerSubject",
+            ["worker:processors:2:name"] = "WorkerProc2",
+            ["worker:faultTolerance:batches:size"] = "50",
+            ["worker:faultTolerance:batches:parallelism"] = "5",
+            ["worker:faultTolerance:retries:attempts"] = "4",
+            ["worker:faultTolerance:retries:interval"] = "250",
+            ["worker:faultTolerance:errors:tolerance"] = "Data",
+            ["worker:faultTolerance:errors:topic"] = "worker-dlq",
+            ["worker:faultTolerance:errors:exceptions:0"] = "System.Exception",
+            ["worker:faultTolerance:eof:enabled"] = "true",
+            ["worker:faultTolerance:eof:topic"] = "worker-eof",
+            ["worker:plugins:initializers:plugin-a:folder"] = "plugin-a",
+            ["worker:plugins:initializers:plugin-a:assembly"] = "Plugin.dll",
+            ["worker:plugins:initializers:plugin-a:class"] = "Plugin.Initializer",
+            ["worker:connectors:orders:name"] = "orders",
+            ["worker:connectors:orders:groupId"] = "orders-group",
+            ["worker:connectors:orders:clientId"] = "orders-client",
+            ["worker:connectors:orders:topics:0"] = "orders-topic",
+            ["worker:connectors:orders:plugin:name"] = "plugin-a",
+            ["worker:connectors:orders:plugin:type"] = "Sink",
+            ["worker:connectors:orders:plugin:handler"] = "handler-a",
+            ["worker:connectors:orders:plugin:properties:mode"] = "full",
+            ["worker:connectors:orders:converters:key"] = "ConnectorKeyConverter",
+            ["worker:connectors:orders:log:provider"] = "custom.log.provider",
+            ["worker:connectors:orders:log:attributes:0"] = "fieldA",
+            ["worker:connectors:orders:log:attributes:1"] = "items[*]",
+            ["worker:connectors:orders:processors:1:name"] = "ConnectorProc1",
+            ["worker:connectors:orders:processors:2:name"] = "ConnectorProc2",
+            ["worker:connectors:orders:processors:5:name"] = "ProcSettings",
+            ["worker:connectors:orders:processors:5:settings:enabled"] = "true",
+            ["worker:connectors:orders:overrides:topic-a:converters:value"] = "TopicValueConverter",
+            ["worker:connectors:orders:overrides:topic-a:processors:0:name"] = "TopicProc0",
+            ["worker:connectors:orders:overrides:topic-a:processors:2:name"] = "TopicProc2",
+            ["worker:connectors:orders:faultTolerance:batches:size"] = "10",
+            ["worker:connectors:orders:faultTolerance:batches:parallelism"] = "3",
+            ["worker:connectors:orders:faultTolerance:retries:attempts"] = "7",
+            ["worker:connectors:orders:faultTolerance:retries:interval"] = "300",
+            ["worker:connectors:orders:faultTolerance:errors:tolerance"] = "All",
+            ["worker:connectors:orders:faultTolerance:errors:topic"] = "connector-dlq",
+            ["worker:connectors:orders:faultTolerance:errors:exceptions:0"] = "System.InvalidOperationException",
+            ["worker:connectors:orders:faultTolerance:eof:enabled"] = "true",
+            ["worker:connectors:orders:faultTolerance:eof:topic"] = "connector-eof"
+        };
+    }
 
-        public static IEnumerable<object[]> EofSignalConfigTests
-        {
-            get
-            {
-                yield return new object[] {null, null, new EofConfig()};
-                yield return new object[] {null, new BatchConfig(), new EofConfig()};
-                yield return new object[] {new BatchConfig(), null, new EofConfig()};
-                yield return new object[] {new BatchConfig(), new BatchConfig(), new EofConfig()};
-                yield return new object[]
-                {
-                    null, new BatchConfig {EofSignal = new EofConfig {Enabled = true, Topic = "worker-topic"}},
-                    new EofConfig {Enabled = true, Topic = "worker-topic"}
-                };
-                yield return new object[]
-                {
-                    new BatchConfig(),
-                    new BatchConfig {EofSignal = new EofConfig {Enabled = true, Topic = "worker-topic"}},
-                    new EofConfig {Enabled = true, Topic = "worker-topic"}
-                };
-                yield return new object[]
-                {
-                    new BatchConfig {EofSignal = new EofConfig {Enabled = true, Topic = "connector-topic"}},
-                    new BatchConfig {EofSignal = new EofConfig {Enabled = true, Topic = "worker-topic"}},
-                    new EofConfig {Enabled = true, Topic = "connector-topic"}
-                };
-            }
-        }
-
-        public static IEnumerable<object[]> BatchConfigTests
-        {
-            get
-            {
-                yield return new object[] {false, null, null, new BatchConfig {Size = 1, Parallelism = 1}};
-                yield return new object[] {true, null, null, new BatchConfig()};
-                yield return new object[]
-                {
-                    true, null, new BatchConfig {Size = 5, Parallelism = 50},
-                    new BatchConfig {Size = 5, Parallelism = 50}
-                };
-                yield return new object[]
-                {
-                    true, new BatchConfig {Size = 100, Parallelism = 25}, new BatchConfig {Size = 5, Parallelism = 50},
-                    new BatchConfig {Size = 100, Parallelism = 25}
-                };
-            }
-        }
-
-        public static IEnumerable<object[]> MessageConvertersTests
-        {
-            get
-            {
-                yield return new object[] {null, null, (Constants.DefaultDeserializer, Constants.DefaultDeserializer)};
-                yield return new object[]
-                    {null, new BatchConfig(), (Constants.DefaultDeserializer, Constants.DefaultDeserializer)};
-                yield return new object[]
-                    {new BatchConfig(), null, (Constants.DefaultDeserializer, Constants.DefaultDeserializer)};
-                yield return new object[]
-                {
-                    new BatchConfig(), new BatchConfig(), (Constants.DefaultDeserializer, Constants.DefaultDeserializer)
-                };
-                yield return new object[]
-                {
-                    new BatchConfig(), new BatchConfig {Converters = new ConverterConfig()},
-                    (Constants.DefaultDeserializer, Constants.DefaultDeserializer)
-                };
-                yield return new object[]
-                {
-                    new BatchConfig {Converters = new ConverterConfig()},
-                    new BatchConfig {Converters = new ConverterConfig()},
-                    (Constants.DefaultDeserializer, Constants.DefaultDeserializer)
-                };
-                yield return new object[]
-                {
-                    new BatchConfig {Converters = new ConverterConfig()},
-                    new BatchConfig
-                    {
-                        Converters = new ConverterConfig
-                            {Key = "worker-key-deserializer", Value = "worker-value-deserializer"}
-                    },
-                    ("worker-key-deserializer", "worker-value-deserializer")
-                };
-                yield return new object[]
-                {
-                    new BatchConfig {Converters = new ConverterConfig()},
-                    new BatchConfig
-                    {
-                        Converters = new ConverterConfig
-                        {
-                            Key = "worker-key-deserializer", Value = "worker-value-deserializer",
-                            Overrides = new List<ConverterOverrideConfig>
-                            {
-                                new()
-                                {
-                                    Topic = "test-topic", Key = "worker-key-override-deserializer",
-                                    Value = "worker-value-override-deserializer"
-                                }
-                            }
-                        }
-                    },
-                    ("worker-key-override-deserializer", "worker-value-override-deserializer")
-                };
-                yield return new object[]
-                {
-                    new BatchConfig
-                    {
-                        Converters = new ConverterConfig
-                            {Key = "connector-key-deserializer", Value = "connector-value-deserializer"}
-                    },
-                    new BatchConfig
-                    {
-                        Converters = new ConverterConfig
-                        {
-                            Key = "worker-key-deserializer", Value = "worker-value-deserializer",
-                            Overrides = new List<ConverterOverrideConfig>
-                            {
-                                new()
-                                {
-                                    Topic = "test-topic", Key = "worker-key-override-serializer",
-                                    Value = "worker-value-override-serializer"
-                                }
-                            }
-                        }
-                    },
-                    ("connector-key-deserializer", "connector-value-deserializer")
-                };
-                yield return new object[]
-                {
-                    new BatchConfig
-                    {
-                        Converters = new ConverterConfig
-                        {
-                            Key = "connector-key-deserializer", Value = "connector-value-deserializer",
-                            Overrides = new List<ConverterOverrideConfig>
-                            {
-                                new()
-                                {
-                                    Topic = "test-topic", Key = "connector-key-override-deserializer",
-                                    Value = "connector-value-override-deserializer"
-                                }
-                            }
-                        }
-                    },
-                    new BatchConfig
-                    {
-                        Converters = new ConverterConfig
-                        {
-                            Key = "worker-key-deserializer", Value = "worker-value-deserializer",
-                            Overrides = new List<ConverterOverrideConfig>
-                            {
-                                new()
-                                {
-                                    Topic = "test-topic", Key = "worker-key-override-deserializer",
-                                    Value = "worker-value-override-deserializer"
-                                }
-                            }
-                        }
-                    },
-                    ("connector-key-override-deserializer", "connector-value-override-deserializer")
-                };
-            }
-        }
-
-        public static IEnumerable<object[]> MessageProcessorsTests
-        {
-            get
-            {
-                yield return new object[] {null, new List<ProcessorConfig>()};
-                yield return new object[] {new Dictionary<string, ProcessorConfig>(), new List<ProcessorConfig>()};
-                yield return new object[]
-                {
-                    new Dictionary<string, ProcessorConfig>()
-                    {
-                        {"first-processor", new ProcessorConfig {Order = 1}},
-                        {"another-processor", new ProcessorConfig {Name = "second-processor", Order = 1}}
-                    },
-                    new List<ProcessorConfig>
-                        {new() {Name = "first-processor", Order = 1}, new() {Name = "second-processor", Order = 1}}
-                };
-                yield return new object[]
-                {
-                    new Dictionary<string, ProcessorConfig>()
-                    {
-                        {"first-processor", new ProcessorConfig {Order = 1, Topics = new[] {"some-other-topic"}}},
-                        {"another-processor", new ProcessorConfig {Name = "second-processor", Order = 1}},
-                        {"topic-first-processor", new ProcessorConfig {Order = 1, Topics = new[] {"test-topic"}}},
-                        {
-                            "another-topic-processor",
-                            new ProcessorConfig
-                            {
-                                Name = "topic-second-processor", Order = 1,
-                                Topics = new[] {"test-topic", "additional-topic"}
-                            }
-                        }
-                    },
-                    new List<ProcessorConfig>
-                    {
-                        new() {Name = "topic-first-processor", Order = 1}, new() {Name = "second-processor", Order = 1},
-                        new() {Name = "topic-second-processor", Order = 1}
-                    }
-                };
-            }
-        }
-
-        public static IEnumerable<object[]> SinkConfigTests
-        {
-            get
-            {
-                yield return new object[] {null, "connector-plugin", new SinkConfig {Plugin = "connector-plugin"}};
-                yield return new object[]
-                    {new SinkConfig(), "connector-plugin", new SinkConfig {Plugin = "connector-plugin"}};
-                yield return new object[]
-                {
-                    new SinkConfig {Handler = "sink-handler", Plugin = "sink-plugin"}, "connector-plugin",
-                    new SinkConfig {Handler = "sink-handler", Plugin = "sink-plugin"}
-                };
-            }
-        }
-
-        public static IEnumerable<object[]> ValidateConfigTests
-        {
-            get
-            {
-                yield return new object[] { new WorkerConfig{ BootstrapServers = null}, "Bootstrap Servers isn't configured for worker."};
-                yield return new object[] { new WorkerConfig{ BootstrapServers = ""}, "Bootstrap Servers isn't configured for worker."};
-                yield return new object[] { new WorkerConfig{ BootstrapServers = "bootstrap-server", Connectors = null} , "At least one connector is required for the worker to start."};
-                yield return new object[] { new WorkerConfig{ BootstrapServers = "bootstrap-server", Connectors = new Dictionary<string, ConnectorConfig>()} , "At least one connector is required for the worker to start."};
-                yield return new object[] { new WorkerConfig{ BootstrapServers = "bootstrap-server", Connectors = new Dictionary<string, ConnectorConfig>{ {"", null } }} , "Connector Name configuration property must be specified and must be unique."};
-                yield return new object[] { new WorkerConfig{ BootstrapServers = "bootstrap-server", Connectors = new Dictionary<string, ConnectorConfig>{ {"", new ConnectorConfig() } }} , "Connector Name configuration property must be specified and must be unique."};
-                yield return new object[] { new WorkerConfig{ BootstrapServers = "bootstrap-server", Connectors = new Dictionary<string, ConnectorConfig>{ {"first", new ConnectorConfig{Name = "same-name"}}, {"second", new ConnectorConfig{Name = "same-name"} } }} , "Connector Name configuration property must be specified and must be unique."};
-                yield return new object[] { new WorkerConfig{ BootstrapServers = "bootstrap-server", Connectors = new Dictionary<string, ConnectorConfig>{ {"first", new ConnectorConfig{Name = "same-name"}}, {"second", new ConnectorConfig{Name = "new-name"} } }, Plugins = null} , "At least one plugin is required for the worker to start."};
-                yield return new object[] { new WorkerConfig{ BootstrapServers = "bootstrap-server", Connectors = new Dictionary<string, ConnectorConfig>{ {"first", new ConnectorConfig{Name = "same-name"}}, {"second", new ConnectorConfig{Name = "new-name"} } }, Plugins = new PluginConfig()} , "At least one plugin is required for the worker to start."};
-                yield return new object[] { new WorkerConfig{ BootstrapServers = "bootstrap-server", Connectors = new Dictionary<string, ConnectorConfig>{ {"first", new ConnectorConfig{Name = "same-name"}}, {"second", new ConnectorConfig{Name = "new-name"} } }, Plugins = new PluginConfig{ Initializers = null}} , "At least one plugin is required for the worker to start."};
-                yield return new object[] { new WorkerConfig{ BootstrapServers = "bootstrap-server", Connectors = new Dictionary<string, ConnectorConfig>{ {"first", new ConnectorConfig{Name = "same-name"}}, {"second", new ConnectorConfig{Name = "new-name"} } }, Plugins = new PluginConfig{ Initializers = new Dictionary<string, InitializerConfig>()}} , "At least one plugin is required for the worker to start."};
-                yield return new object[] { new WorkerConfig{ BootstrapServers = "bootstrap-server", Connectors = new Dictionary<string, ConnectorConfig>{ {"first", new ConnectorConfig{Name = "same-name"}}, {"second", new ConnectorConfig{Name = "new-name"} } }, Plugins = new PluginConfig{ Initializers = new Dictionary<string, InitializerConfig>{{"", null }}}} , "Plugin Name configuration property must be specified and must be unique."};
-                yield return new object[] { new WorkerConfig{ BootstrapServers = "bootstrap-server", Connectors = new Dictionary<string, ConnectorConfig>{ {"connector-name", new ConnectorConfig{ Plugin = null} } }, Plugins = new PluginConfig{ Initializers = new Dictionary<string, InitializerConfig>{{"plugin-one", new InitializerConfig() }, {"plugin-two", new InitializerConfig() }}}} , "Connector: connector-name is not associated to any of the available Plugins: [ plugin-one, plugin-two ]."};
-                yield return new object[] { new WorkerConfig{ BootstrapServers = "bootstrap-server", Connectors = new Dictionary<string, ConnectorConfig>{ {"connector-name", new ConnectorConfig{ Plugin = "non-exiting-plugin"} } }, Plugins = new PluginConfig{ Initializers = new Dictionary<string, InitializerConfig>{{"plugin-one", new InitializerConfig() }, {"plugin-two", new InitializerConfig() }}}} , "Connector: connector-name is not associated to any of the available Plugins: [ plugin-one, plugin-two ]."};
-                yield return new object[] { new WorkerConfig{ BootstrapServers = "bootstrap-server", Connectors = new Dictionary<string, ConnectorConfig>{ {"connector-name", new ConnectorConfig{ Plugin = "plugin-one"} } }, Plugins = new PluginConfig{ Initializers = new Dictionary<string, InitializerConfig>{{"plugin-one", new InitializerConfig() }, {"plugin-two", new InitializerConfig() }}}} , null, false};
-            }
-        }
-
-        public class ConfigGenericType
-        {
-            public string Name { get; set; }
-            public int Count { get; set; }
-        }
-
-        public static IEnumerable<object[]> GetProcessorSettings
-        {
-            get
-            {
-                yield return new object[]
-                {
-                    "connector", "processor",
-                    new Dictionary<string, string>() { { "worker:connectors:healthCheck:disabled", "true" } }, null
-                };
-                yield return new object[]
-                {
-                    "connector", "processor",
-                    new Dictionary<string, string>() { { "worker:connectors:connector-1:name", "connector-1" } }, null
-                };
-                
-                yield return new object[]
-                {
-                    "connector-1", "processor-1",
-                    new Dictionary<string, string>()
-                    {
-                        { "worker:connectors:connector-1:processors:processor-1:order", "1" },
-                        { "worker:connectors:connector-1:processors:processor-1:settings:name", "my-name" },
-                        { "worker:connectors:connector-1:processors:processor-1:settings:count", "100" },
-                    },
-                    new ConfigGenericType(){Name = "my-name", Count = 100}
-                };
-                yield return new object[]
-                {
-                    "connector-1", "processor-1",
-                    new Dictionary<string, string>()
-                    {
-                        { "worker:connectors:connector-1:name", "connector-1" },
-                        { "worker:connectors:connector-1:processors:processor-1:order", "1" },
-                        { "worker:connectors:connector-1:processors:processor-1:settings:name", "my-name" },
-                        { "worker:connectors:connector-1:processors:processor-1:settings:count", "100" },
-                    },
-                    new ConfigGenericType(){Name = "my-name", Count = 100}
-                };
-                yield return new object[]
-                {
-                    "connector-1", "processor-1",
-                    new Dictionary<string, string>()
-                    {
-                        { "worker:connectors:connector-1:name", "connector-1" },
-                        { "worker:connectors:connector-1:processors:processor-1:name", "processor-1" },
-                        { "worker:connectors:connector-1:processors:processor-1:order", "1" },
-                        { "worker:connectors:connector-1:processors:processor-1:settings:name", "my-name" },
-                        { "worker:connectors:connector-1:processors:processor-1:settings:count", "100" },
-                    },
-                    new ConfigGenericType(){Name = "my-name", Count = 100}
-                };
-                yield return new object[]
-                {
-                    "connector-1", "processor-1",
-                    new Dictionary<string, string>()
-                    {
-                        { "worker:connectors:connector-1:name", "connector-1" },
-                        { "worker:connectors:connector-1:processors:processor-1:name", "processor-1" },
-                        { "worker:connectors:connector-1:processors:processor-1:order", "1" },
-                        { "worker:connectors:connector-1:processors:processor-1:settings:auto", "true" },
-                        { "worker:connectors:connector-1:processors:processor-1:settings:Number", "500" },
-                    },
-                    new ConfigGenericType()
-                };
-                yield return new object[]
-                {
-                    "connector-1", "processor-2",
-                    new Dictionary<string, string>()
-                    {
-                        { "worker:connectors:connector-1:name", "connector-1" },
-                        { "worker:connectors:connector-1:processors:processor-1:name", "processor-1" },
-                        { "worker:connectors:connector-1:processors:processor-1:order", "1" },
-                        { "worker:connectors:connector-1:processors:processor-1:settings:name", "my-name" },
-                        { "worker:connectors:connector-1:processors:processor-1:settings:count", "100" },
-                    },
-                    null
-                };
-                yield return new object[]
-                {
-                    "connector-2", "processor-1",
-                    new Dictionary<string, string>()
-                    {
-                        { "worker:connectors:connector-1:name", "connector-1" },
-                        { "worker:connectors:connector-1:processors:processor-1:name", "processor-1" },
-                        { "worker:connectors:connector-1:processors:processor-1:order", "1" },
-                        { "worker:connectors:connector-1:processors:processor-1:settings:name", "my-name" },
-                        { "worker:connectors:connector-1:processors:processor-1:settings:count", "100" },
-                    },
-                    null
-                };
-                
-                yield return new object[]
-                {
-                    "connector-1", "processor-1",
-                    new Dictionary<string, string>()
-                    {
-                        { "worker:connectors:connector-1:name", "connector-1" },
-                        { "worker:connectors:connector-1:processors:processor-1:name", "processor-1" },
-                        { "worker:connectors:connector-1:processors:processor-1:order", "1" },
-                        { "worker:connectors:connector-1:processors:processor-1:settings:name", "my-name" },
-                        { "worker:connectors:connector-1:processors:processor-1:settings:count", "100" },
-                        { "worker:connectors:connector-1:processors:processor-2:name", "processor-2" },
-                        { "worker:connectors:connector-1:processors:processor-2:order", "1" },
-                        { "worker:connectors:connector-1:processors:processor-2:settings:name", "my-name" },
-                        { "worker:connectors:connector-1:processors:processor-2:settings:count", "100" }
-                    },
-                    new ConfigGenericType(){Name = "my-name", Count = 100}
-                };
-                yield return new object[]
-                {
-                    "connector-1", "processor-1",
-                    new Dictionary<string, string>()
-                    {
-                        { "worker:connectors:connector-1:name", "connector-1" },
-                        { "worker:connectors:connector-1:processors:processor-1:name", "processor-1" },
-                        { "worker:connectors:connector-1:processors:processor-1:order", "1" },
-                        { "worker:connectors:connector-1:processors:processor-1:settings:name", "my-name" },
-                        { "worker:connectors:connector-1:processors:processor-1:settings:count", "100" },
-                        { "worker:connectors:connector-1:processors:processor-2:name", "processor-2" },
-                        { "worker:connectors:connector-1:processors:processor-2:order", "1" },
-                        { "worker:connectors:connector-1:processors:processor-2:settings:name", "my-name" },
-                        { "worker:connectors:connector-1:processors:processor-2:settings:count", "100" },
-                        { "worker:connectors:connector-2:name", "connector-2" },
-                        { "worker:connectors:connector-2:processors:processor-1:name", "processor-1" },
-                        { "worker:connectors:connector-2:processors:processor-1:order", "1" },
-                        { "worker:connectors:connector-2:processors:processor-1:settings:name", "my-name" },
-                        { "worker:connectors:connector-2:processors:processor-1:settings:count", "100" },
-                        { "worker:connectors:connector-2:processors:processor-2:name", "processor-2" },
-                        { "worker:connectors:connector-2:processors:processor-2:order", "1" },
-                        { "worker:connectors:connector-2:processors:processor-2:settings:name", "my-name" },
-                        { "worker:connectors:connector-2:processors:processor-2:settings:count", "100" },
-                    },
-                    new ConfigGenericType(){Name = "my-name", Count = 100}
-                };
-            }
-        }
-
-        public static IEnumerable<object[]> GetSinkConfigProperties
-        {
-            get
-            {
-                yield return new object[]
-                {
-                    "connector-1", "plugin-1",
-                    new Dictionary<string, string>()
-                    {
-                        { "worker:connectors:connector-1:name", "connector-1" },
-                        { "worker:connectors:connector-1:plugin", "plugin-1" }
-                    }, null
-                };
-                yield return new object[]
-                {
-                    "connector-2", "plugin-1",
-                    new Dictionary<string, string>()
-                    {
-                        { "worker:connectors:connector-1:name", "connector-1" },
-                        { "worker:connectors:connector-1:plugin", "plugin-1" },
-                        { "worker:connectors:connector-1:sink:handler", "Kafka.Connect.Mongodb.MongodbSinkHandler" },
-                        { "worker:connectors:connector-1:sink:properties:dbName", "mongo-db-name" },
-                        { "worker:connectors:connector-1:sink:properties:password", "300" }
-                    }, null
-                };
-                yield return new object[]
-                {
-                    "connector-1", "plugin-1",
-                    new Dictionary<string, string>()
-                    {
-                        { "worker:connectors:connector-1:name", "connector-1" },
-                        { "worker:connectors:connector-1:plugin", "plugin-1" },
-                        { "worker:connectors:connector-1:sink:handler", "Kafka.Connect.Mongodb.MongodbSinkHandler" },
-                        { "worker:connectors:connector-1:sink:properties:dbName", "mongo-db-name" },
-                        { "worker:connectors:connector-1:sink:properties:password", "300" }
-                    },
-                    new ConfigGenericType()
-                };
-                yield return new object[]
-                {
-                    "connector-1", "plugin-2",
-                    new Dictionary<string, string>()
-                    {
-                        { "worker:connectors:connector-1:name", "connector-1" },
-                        { "worker:connectors:connector-1:plugin", "plugin-1" },
-                        { "worker:connectors:connector-1:sink:handler", "Kafka.Connect.Mongodb.MongodbSinkHandler" },
-                        { "worker:connectors:connector-1:sink:properties:name", "mongo-db-name" },
-                        { "worker:connectors:connector-1:sink:properties:count", "300" }
-                    },
-                    null
-                };
-                yield return new object[]
-                {
-                    "connector-1", null,
-                    new Dictionary<string, string>()
-                    {
-                        { "worker:connectors:connector-1:name", "connector-1" },
-                        { "worker:connectors:connector-1:plugin", "plugin-1" },
-                        { "worker:connectors:connector-1:sink:handler", "Kafka.Connect.Mongodb.MongodbSinkHandler" },
-                        { "worker:connectors:connector-1:sink:properties:name", "mongo-db-name" },
-                        { "worker:connectors:connector-1:sink:properties:count", "300" }
-                    },
-                    new ConfigGenericType { Name = "mongo-db-name", Count = 300 }
-                };
-                yield return new object[]
-                {
-                    "connector-1", "",
-                    new Dictionary<string, string>()
-                    {
-                        { "worker:connectors:connector-1:name", "connector-1" },
-                        { "worker:connectors:connector-1:plugin", "plugin-1" },
-                        { "worker:connectors:connector-1:sink:handler", "Kafka.Connect.Mongodb.MongodbSinkHandler" },
-                        { "worker:connectors:connector-1:sink:properties:name", "mongo-db-name" },
-                        { "worker:connectors:connector-1:sink:properties:count", "300" }
-                    },
-                    new ConfigGenericType { Name = "mongo-db-name", Count = 300 }
-                };
-                yield return new object[]
-                {
-                    "connector-1", "plugin-1",
-                    new Dictionary<string, string>()
-                    {
-                        { "worker:connectors:connector-1:plugin", "plugin-1" },
-                        { "worker:connectors:connector-1:sink:handler", "Kafka.Connect.Mongodb.MongodbSinkHandler" },
-                        { "worker:connectors:connector-1:sink:properties:name", "mongo-db-name" },
-                        { "worker:connectors:connector-1:sink:properties:count", "300" }
-                    },
-                    new ConfigGenericType { Name = "mongo-db-name", Count = 300 }
-                };
-                yield return new object[]
-                {
-                    "connector-1", "plugin-1",
-                    new Dictionary<string, string>()
-                    {
-                        { "worker:connectors:connector-1:name", "connector-1" },
-                        { "worker:connectors:connector-1:plugin", "plugin-1" },
-                        { "worker:connectors:connector-1:sink:handler", "Kafka.Connect.Mongodb.MongodbSinkHandler" },
-                        { "worker:connectors:connector-1:sink:properties:name", "mongo-db-name" },
-                        { "worker:connectors:connector-1:sink:properties:count", "300" }
-                    },
-                    new ConfigGenericType { Name = "mongo-db-name", Count = 300 }
-                };
-                yield return new object[]
-                {
-                    "connector-1", "plugin-1",
-                    new Dictionary<string, string>()
-                    {
-                        { "worker:connectors:connector-1:name", "connector-1" },
-                        { "worker:connectors:connector-1:plugin", "plugin-1" },
-                        { "worker:connectors:connector-1:sink:handler", "Kafka.Connect.Mongodb.MongodbSinkHandler" },
-                        { "worker:connectors:connector-1:sink:properties:name", "mongo-db-name" },
-                        { "worker:connectors:connector-1:sink:properties:count", "300" },
-                        { "worker:connectors:connector-2:name", "connector-2" },
-                        { "worker:connectors:connector-2:plugin", "plugin-2" },
-                        { "worker:connectors:connector-2:sink:handler", "Kafka.Connect.Mongodb.MongodbSinkHandler" },
-                        { "worker:connectors:connector-2:sink:properties:name", "mongo-db-name" },
-                        { "worker:connectors:connector-2:sink:properties:count", "300" }
-                    },
-                    new ConfigGenericType { Name = "mongo-db-name", Count = 300 }
-                };
-            }
-        }
-
-        public static IEnumerable<object[]> GetLogAttributes
-        {
-            get
-            {
-                yield return new object[]
-                {
-                    "connector-1",
-                    new Dictionary<string, string>()
-                    {
-                        { "worker:connectors:connector-d:name", "connector-1" },
-                        { "worker:connectors:connector-d:log:provider", "default-log-provider" },
-                        { "worker:connectors:connector-d:log:attributes:logger", "default-logger" },
-                        { "worker:connectors:connector-d:log:attributes:limit", "300" }
-                    },
-                    new ConfigGenericType()
-                };
-                yield return new object[]
-                {
-                    "connector-1",
-                    new Dictionary<string, string>()
-                    {
-                        { "worker:connectors:connector-d:name", "connector-1" },
-                        { "worker:connectors:connector-d:log:provider", "default-log-provider" }
-                    },
-                    null
-                };
-                yield return new object[]
-                {
-                    "connector-1",
-                    new Dictionary<string, string>()
-                    {
-                        { "worker:connectors:connector-d:name", "connector-1" }
-                    },
-                    null
-                };   
-                yield return new object[]
-                {
-                    "connector-1",
-                    new Dictionary<string, string>()
-                    {
-                        { "worker:connectors:connector-d:log:provider", "default-log-provider" },
-                        { "worker:connectors:connector-d:log:attributes:name", "default-logger" },
-                        { "worker:connectors:connector-d:log:attributes:count", "300" }
-                    },
-                    null
-                };
-                yield return new object[]
-                {
-                    "connector-1",
-                    new Dictionary<string, string>()
-                    {
-                        { "worker:connectors:connector-d:name", "connector-1" },
-                        { "worker:connectors:connector-d:log:provider", "default-log-provider" },
-                        { "worker:connectors:connector-d:log:attributes:name", "default-logger" },
-                        { "worker:connectors:connector-d:log:attributes:count", "300" }
-                    },
-                    new ConfigGenericType { Name = "default-logger", Count = 300 }
-                };
-                yield return new object[]
-                {
-                    "connector-1",
-                    new Dictionary<string, string>()
-                    {
-                        { "worker:connectors:connector-1:log:provider", "default-log-provider" },
-                        { "worker:connectors:connector-1:log:attributes:name", "default-logger" },
-                        { "worker:connectors:connector-1:log:attributes:count", "300" }
-                    },
-                    new ConfigGenericType { Name = "default-logger", Count = 300 }
-                };
-                yield return new object[]
-                {
-                    "connector-1",
-                    new Dictionary<string, string>()
-                    {
-                        { "worker:connectors:connector-1:name", "connector-1" },
-                        { "worker:connectors:connector-1:log:provider", "default-log-provider" },
-                        { "worker:connectors:connector-1:log:attributes:name", "default-logger" },
-                        { "worker:connectors:connector-1:log:attributes:count", "300" }
-                    },
-                    new ConfigGenericType { Name = "default-logger", Count = 300 }
-                };
-                yield return new object[]
-                {
-                    "connector-1",
-                    new Dictionary<string, string>()
-                    {
-                        { "worker:connectors:connector-1:name", "connector-1" },
-                        { "worker:connectors:connector-1:log:provider", "default-log-provider" },
-                        { "worker:connectors:connector-1:log:attributes:name", "default-logger" },
-                        { "worker:connectors:connector-1:log:attributes:count", "300" },
-                        { "worker:connectors:connector-2:log:provider", "default-log-provider" },
-                        { "worker:connectors:connector-2:log:attributes:name", "default-logger" },
-                        { "worker:connectors:connector-2:log:attributes:count", "300" }
-                    },
-                    new ConfigGenericType { Name = "default-logger", Count = 300 }
-                };
-            }
-        }
-
+    private static string CreateTempDirectory()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "kafka-connect-provider-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(path);
+        return path;
     }
 }

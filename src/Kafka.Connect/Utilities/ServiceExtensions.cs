@@ -12,9 +12,7 @@ using Kafka.Connect.Converters;
 using Kafka.Connect.Handlers;
 using Kafka.Connect.Processors;
 using Kafka.Connect.Plugin.Processors;
-using Kafka.Connect.Plugin.Tokens;
 using Kafka.Connect.Providers;
-using Kafka.Connect.Tokens;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
@@ -45,8 +43,6 @@ internal static class ServiceExtensions
             .AddScoped<IWorkerTask, WorkerTask>()
             .AddScoped<IKafkaClientBuilder, KafkaClientBuilder>()
             .AddScoped<IKafkaClientEventHandler, KafkaClientEventHandler>()
-
-            .AddScoped<ITokenHandler, TokenHandler>()
             .AddScoped<IConfigurationChangeHandler, ConfigurationChangeHandler>()
 
             .AddScoped<IConnectPluginFactory, ConnectPluginFactory>()

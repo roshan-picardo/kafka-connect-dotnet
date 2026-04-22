@@ -5,7 +5,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Kafka.Connect.Configurations;
 using Kafka.Connect.Plugin.Logging;
-using Kafka.Connect.Plugin.Tokens;
 using Kafka.Connect.Providers;
 using Kafka.Connect.Tokens;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,8 +15,7 @@ public class Connector(
     ILogger<Connector> logger,
     IServiceScopeFactory serviceScopeFactory,
     IConfigurationProvider configurationProvider,
-    IExecutionContext executionContext,
-    ITokenHandler tokenHandler)
+    IExecutionContext executionContext)
     : IConnector
 {
     private readonly PauseTokenSource _pauseTokenSource = new();
@@ -38,7 +36,6 @@ public class Connector(
 
         while (!cts.IsCancellationRequested) 
         {
-            tokenHandler.NoOp();
             await _pauseTokenSource.WaitWhilePaused(cts.Token);
 
             if (cts.IsCancellationRequested)

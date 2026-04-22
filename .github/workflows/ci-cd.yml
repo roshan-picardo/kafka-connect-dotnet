@@ -14,6 +14,11 @@ env:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+      issues: write
     
     steps:
     - name: Checkout code
@@ -22,42 +27,84 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '8.0.x'
-        
-    - name: Restore dependencies
-      run: dotnet restore src/Kafka.Connect.sln --configfile nuget.config
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        GITHUB_USERNAME: ${{ github.actor }}
+        dotnet-version: |
+          8.0.x
+          10.0.x
         
     - name: Build
-      run: dotnet build src/Kafka.Connect.sln --no-restore
-      
-    - name: Run unit tests
-      run: dotnet test tests/Kafka.Connect.UnitTests/Kafka.Connect.UnitTests.csproj --no-build --verbosity normal
-        
-    - name: Restore integration test dependencies
-      run: dotnet restore tests/Kafka.Connect.Tests/Kafka.Connect.Tests.csproj --configfile nuget.config
+      run: |
+        dotnet restore src/Kafka.Connect.sln --configfile nuget.config
+        dotnet build src/Kafka.Connect.sln --no-restore
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         GITHUB_USERNAME: ${{ github.actor }}
-        
-    - name: Build integration tests
-      run: dotnet build tests/Kafka.Connect.Tests/Kafka.Connect.Tests.csproj --no-restore
-      
+
+    - name: Run unit tests
+      run: |
+        dotnet restore tests/Kafka.Connect.UnitTests/Kafka.Connect.UnitTests.csproj --configfile nuget.config
+        dotnet build tests/Kafka.Connect.UnitTests/Kafka.Connect.UnitTests.csproj --no-restore
+        dotnet test tests/Kafka.Connect.UnitTests/Kafka.Connect.UnitTests.csproj --no-build --verbosity normal --logger "trx;LogFileName=unit-tests.trx" --results-directory TestResults
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_USERNAME: ${{ github.actor }}
+
     - name: Run integration tests
-      run: dotnet test tests/Kafka.Connect.Tests/Kafka.Connect.Tests.csproj --no-build --verbosity normal --logger trx --results-directory TestResults
+      run: |
+        dotnet restore tests/Kafka.Connect.Tests/Kafka.Connect.Tests.csproj --configfile nuget.config
+        dotnet build tests/Kafka.Connect.Tests/Kafka.Connect.Tests.csproj --no-restore
+        dotnet test tests/Kafka.Connect.Tests/Kafka.Connect.Tests.csproj --no-build --verbosity normal --logger "trx;LogFileName=integration-tests.trx" --results-directory TestResults
       env:
         DOCKER_HOST: unix:///var/run/docker.sock
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         GITHUB_USERNAME: ${{ github.actor }}
         
-    - name: Upload test results
+    - name: Publish test report (upload results)
       uses: actions/upload-artifact@v4
       if: always()
       with:
         name: test-results
-        path: TestResults/*.trx
+        path: TestResults/**/*.trx
+
+    - name: Publish test report (checks)
+      if: always()
+      uses: dorny/test-reporter@v1
+      with:
+        name: .NET Test Results
+        path: TestResults/**/*.trx
+        reporter: dotnet-trx
+
+    - name: Publish test report (PR status comment)
+      if: always() && github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      env:
+        JOB_STATUS: ${{ job.status }}
+      with:
+        script: |
+          const status = process.env.JOB_STATUS || 'unknown';
+          const icon = status === 'success' ? '✅' : (status === 'failure' ? '❌' : '⚠️');
+          const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+          const body = [
+            `### ${icon} CI Test Status: ${status.toUpperCase()}`,
+            '',
+            `- Unit and integration tests were executed.`,
+            `- Test reports are attached as artifacts and published to Checks.`,
+            `- Workflow run: ${runUrl}`
+          ].join('\n');
+
+          await github.rest.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+            body
+          });
+
+    - name: Publish test report (main summary)
+      if: always() && github.ref == 'refs/heads/main'
+      run: |
+        echo "## CI Test Summary" >> $GITHUB_STEP_SUMMARY
+        echo "- Job status: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Unit + integration tests executed" >> $GITHUB_STEP_SUMMARY
+        echo "- Detailed results are available in the Checks tab and uploaded artifacts" >> $GITHUB_STEP_SUMMARY
 
   build-and-push-docker:
     needs: build-and-test
