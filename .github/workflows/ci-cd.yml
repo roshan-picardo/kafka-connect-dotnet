@@ -19,10 +19,12 @@ jobs:
       unit_passed: ${{ steps.test_counts.outputs.unit_passed }}
       unit_failed: ${{ steps.test_counts.outputs.unit_failed }}
       unit_skipped: ${{ steps.test_counts.outputs.unit_skipped }}
+      unit_elapsed: ${{ steps.test_counts.outputs.unit_elapsed }}
       integration_total: ${{ steps.test_counts.outputs.integration_total }}
       integration_passed: ${{ steps.test_counts.outputs.integration_passed }}
       integration_failed: ${{ steps.test_counts.outputs.integration_failed }}
       integration_skipped: ${{ steps.test_counts.outputs.integration_skipped }}
+      integration_elapsed: ${{ steps.test_counts.outputs.integration_elapsed }}
     permissions:
       contents: read
       checks: write
@@ -116,7 +118,18 @@ jobs:
         python3 - <<'PY'
         import glob
         import os
+        from datetime import datetime
         import xml.etree.ElementTree as ET
+
+        def parse_utc(value):
+            if not value:
+                return None
+            # TRX timestamps are usually ISO 8601 and may end with Z.
+            normalized = value.replace('Z', '+00:00')
+            try:
+                return datetime.fromisoformat(normalized)
+            except ValueError:
+                return None
 
         def parse_trx(filename):
             files = sorted(glob.glob(f"TestResults/**/{filename}", recursive=True))
@@ -126,6 +139,7 @@ jobs:
                     "passed": 0,
                     "failed": 0,
                     "skipped": 0,
+                    "elapsed": "0s",
                 }
 
             root = ET.parse(files[-1]).getroot()
@@ -136,6 +150,7 @@ jobs:
                     "passed": 0,
                     "failed": 0,
                     "skipped": 0,
+                    "elapsed": "0s",
                 }
 
             total = int(counters.attrib.get('total', '0'))
@@ -144,12 +159,21 @@ jobs:
             not_executed = int(counters.attrib.get('notExecuted', '0'))
             inconclusive = int(counters.attrib.get('inconclusive', '0'))
             skipped = not_executed + inconclusive
+            times = root.find('.//{*}Times')
+            elapsed = '0s'
+            if times is not None:
+                start_dt = parse_utc(times.attrib.get('start'))
+                finish_dt = parse_utc(times.attrib.get('finish'))
+                if start_dt is not None and finish_dt is not None:
+                    seconds = max(0, int((finish_dt - start_dt).total_seconds()))
+                    elapsed = f'{seconds}s'
 
             return {
                 "total": total,
                 "passed": passed,
                 "failed": failed,
                 "skipped": skipped,
+                "elapsed": elapsed,
             }
 
         unit = parse_trx('unit-tests.trx')
@@ -160,11 +184,13 @@ jobs:
             out.write(f"unit_passed={unit['passed']}\n")
             out.write(f"unit_failed={unit['failed']}\n")
             out.write(f"unit_skipped={unit['skipped']}\n")
+            out.write(f"unit_elapsed={unit['elapsed']}\n")
 
             out.write(f"integration_total={integration['total']}\n")
             out.write(f"integration_passed={integration['passed']}\n")
             out.write(f"integration_failed={integration['failed']}\n")
             out.write(f"integration_skipped={integration['skipped']}\n")
+            out.write(f"integration_elapsed={integration['elapsed']}\n")
         PY
 
 
@@ -173,6 +199,10 @@ jobs:
     needs: build-and-test
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    outputs:
+      version: ${{ steps.version.outputs.VERSION }}
+      docker_tag: ${{ steps.primary_tag.outputs.value }}
+      docker_tags: ${{ steps.meta.outputs.tags }}
     
     permissions:
       contents: read
@@ -214,6 +244,12 @@ jobs:
           type=semver,pattern={{major}}.{{minor}}
           type=raw,value=latest,enable={{is_default_branch}}
           type=raw,value=${{ steps.version.outputs.VERSION }}
+
+    - name: Capture primary docker tag
+      id: primary_tag
+      run: |
+        PRIMARY_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n1)
+        echo "value=$PRIMARY_TAG" >> $GITHUB_OUTPUT
           
     - name: Build and push Docker image (with NuGet publishing)
       id: docker_build
@@ -229,69 +265,107 @@ jobs:
           GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
           GITHUB_USERNAME=${{ github.actor }}
 
+
+  build-summary:
+    needs: [build-and-test, build-and-push-docker]
+    runs-on: ubuntu-latest
+    if: always() && github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    permissions:
+      contents: read
+      packages: read
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
     - name: Build Summary
       run: |
-        VERSION="${{ steps.version.outputs.VERSION }}"
-        GITHUB_PACKAGES_URL="https://nuget.pkg.github.com/${{ github.repository_owner }}/query?q=version:$VERSION"
-        
+        VERSION="${{ needs.build-and-push-docker.outputs.version }}"
+        DOCKER_TAG="${{ needs.build-and-push-docker.outputs.docker_tag }}"
+        DOCKER_TAGS="${{ needs.build-and-push-docker.outputs.docker_tags }}"
+
+        normalize_count() {
+          local value="$1"
+          if [ "$value" = "0" ] || [ -z "$value" ]; then
+            echo "-"
+          else
+            echo "$value"
+          fi
+        }
+
+        UNIT_PASSED_DISPLAY=$(normalize_count "${{ needs.build-and-test.outputs.unit_passed }}")
+        UNIT_FAILED_DISPLAY=$(normalize_count "${{ needs.build-and-test.outputs.unit_failed }}")
+        UNIT_SKIPPED_DISPLAY=$(normalize_count "${{ needs.build-and-test.outputs.unit_skipped }}")
+        UNIT_TOTAL_DISPLAY=$(normalize_count "${{ needs.build-and-test.outputs.unit_total }}")
+
+        INTEGRATION_PASSED_DISPLAY=$(normalize_count "${{ needs.build-and-test.outputs.integration_passed }}")
+        INTEGRATION_FAILED_DISPLAY=$(normalize_count "${{ needs.build-and-test.outputs.integration_failed }}")
+        INTEGRATION_SKIPPED_DISPLAY=$(normalize_count "${{ needs.build-and-test.outputs.integration_skipped }}")
+        INTEGRATION_TOTAL_DISPLAY=$(normalize_count "${{ needs.build-and-test.outputs.integration_total }}")
+
         echo "# Build Summary" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "**Build**: \`$VERSION\`" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        
+
         # Unit Tests Drill-down
         echo "<details>" >> $GITHUB_STEP_SUMMARY
         echo "<summary>🧪 Unit Tests: ${{ needs.build-and-test.outputs.unit_passed }} passed</summary>" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "| Metric | Count |" >> $GITHUB_STEP_SUMMARY
-        echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
-        echo "| Total | ${{ needs.build-and-test.outputs.unit_total }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Passed | ${{ needs.build-and-test.outputs.unit_passed }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Failed | ${{ needs.build-and-test.outputs.unit_failed }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Skipped | ${{ needs.build-and-test.outputs.unit_skipped }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| ✓ Passed | ✘ Failed | ↷ Skipped | ∑ Total | ⧗ Elapsed |" >> $GITHUB_STEP_SUMMARY
+        echo "|---:|---:|---:|---:|---:|" >> $GITHUB_STEP_SUMMARY
+        echo "| $UNIT_PASSED_DISPLAY | $UNIT_FAILED_DISPLAY | $UNIT_SKIPPED_DISPLAY | $UNIT_TOTAL_DISPLAY | ${{ needs.build-and-test.outputs.unit_elapsed }} |" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "</details>" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        
+
         # Integration Tests Drill-down
         echo "<details>" >> $GITHUB_STEP_SUMMARY
         echo "<summary>🧪 Integration Tests: ${{ needs.build-and-test.outputs.integration_passed }} passed</summary>" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "| Metric | Count |" >> $GITHUB_STEP_SUMMARY
-        echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
-        echo "| Total | ${{ needs.build-and-test.outputs.integration_total }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Passed | ${{ needs.build-and-test.outputs.integration_passed }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Failed | ${{ needs.build-and-test.outputs.integration_failed }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Skipped | ${{ needs.build-and-test.outputs.integration_skipped }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| ✓ Passed | ✘ Failed | ↷ Skipped | ∑ Total | ⧗ Elapsed |" >> $GITHUB_STEP_SUMMARY
+        echo "|---:|---:|---:|---:|---:|" >> $GITHUB_STEP_SUMMARY
+        echo "| $INTEGRATION_PASSED_DISPLAY | $INTEGRATION_FAILED_DISPLAY | $INTEGRATION_SKIPPED_DISPLAY | $INTEGRATION_TOTAL_DISPLAY | ${{ needs.build-and-test.outputs.integration_elapsed }} |" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "</details>" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        
+
         # Artifacts Drill-down
         echo "<details>" >> $GITHUB_STEP_SUMMARY
         echo "<summary>📦 Artifacts</summary>" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        
-        # Extract docker image name (first tag contains the image reference)
-        DOCKER_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n1)
-        if [ -n "$DOCKER_TAG" ]; then
-          echo "🐳 **docker**: \`$DOCKER_TAG\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-        fi
-        
-        # Query and list NuGet packages published with this version
-        echo "📦 **nuget**:" >> $GITHUB_STEP_SUMMARY
-        
-        # Search the GitHub Packages feed using curl with auth
-        PACKAGES=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-          "https://nuget.pkg.github.com/${{ github.repository_owner }}/query?q=version:$VERSION" 2>/dev/null | \
-          grep -oP '(?<=<id>)[^<]+(?=</id>)' | sort -u || true)
-        
-        while IFS= read -r package; do
-          if [ -n "$package" ]; then
-            echo "- \`$package:$VERSION\`" >> $GITHUB_STEP_SUMMARY
+
+        echo "🐳 **docker**:" >> $GITHUB_STEP_SUMMARY
+        while IFS= read -r tag; do
+          if [ -n "$tag" ]; then
+            echo "- \`$tag\`" >> $GITHUB_STEP_SUMMARY
           fi
-        done <<< "$PACKAGES"
-        
+        done <<< "$DOCKER_TAGS"
+
+        if [ -z "$DOCKER_TAGS" ] && [ -n "$DOCKER_TAG" ]; then
+          echo "- \`$DOCKER_TAG\`" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "📦 **nuget**:" >> $GITHUB_STEP_SUMMARY
+        echo "- source: https://nuget.pkg.github.com/${{ github.actor }}/index.json" >> $GITHUB_STEP_SUMMARY
+
+        PROJECTS_FILE=$(mktemp)
+        echo "src/Kafka.Connect.Plugin/Kafka.Connect.Plugin.csproj" > "$PROJECTS_FILE"
+        find src/Plugins -mindepth 2 -maxdepth 2 -name '*.csproj' | sort >> "$PROJECTS_FILE"
+
+        while IFS= read -r project; do
+          if [ -z "$project" ] || [ ! -f "$project" ]; then
+            continue
+          fi
+
+          PACKAGE_ID=$(grep -m1 -oP '(?<=<PackageId>).*?(?=</PackageId>)' "$project" || true)
+          if [ -z "$PACKAGE_ID" ]; then
+            PACKAGE_ID=$(basename "$project" .csproj)
+          fi
+          echo "- \`$PACKAGE_ID:$VERSION\`" >> $GITHUB_STEP_SUMMARY
+        done < "$PROJECTS_FILE"
+
+        rm -f "$PROJECTS_FILE"
+
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "</details>" >> $GITHUB_STEP_SUMMARY
