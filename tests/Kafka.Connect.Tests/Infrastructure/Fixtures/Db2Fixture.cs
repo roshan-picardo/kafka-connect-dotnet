@@ -15,9 +15,9 @@ public class Db2Fixture(
 
     protected override async Task WaitForReadyAsync()
     {
-        var connectionString = Configuration.GetServiceEndpoint("Db2");
+        var connectionString = BuildDb2ConnectionString();
 
-        for (var attempt = 1; attempt <= 180; attempt++)
+        for (var attempt = 1; attempt <= ReadyMaxAttempts; attempt++)
         {
             try
             {
@@ -32,13 +32,13 @@ public class Db2Fixture(
             }
             catch (Exception ex)
             {
-                if (attempt == 180)
+                if (attempt == ReadyMaxAttempts)
                 {
                     throw new TimeoutException(
-                        $"Failed to start {GetTargetName()} after 180 attempts", ex);
+                        $"Failed to start {GetTargetName()} after {ReadyMaxAttempts} attempts", ex);
                 }
 
-                LogMessage($"Starting: {GetTargetName()} (attempt: {attempt}/180)", "");
+                LogMessage($"Starting: {GetTargetName()} (attempt: {attempt}/{ReadyMaxAttempts})", ex.Message);
                 await Task.Delay(ReadyDelayMs);
             }
         }
@@ -46,7 +46,7 @@ public class Db2Fixture(
 
     protected override async Task ExecuteScriptsAsync(string database, string[] scripts)
     {
-        await using var connection = new DB2Connection(Configuration.GetServiceEndpoint("Db2"));
+        await using var connection = new DB2Connection(BuildDb2ConnectionString());
         await connection.OpenAsync();
 
         foreach (var script in scripts)
@@ -54,5 +54,19 @@ public class Db2Fixture(
             await using var command = new DB2Command(script, connection);
             await command.ExecuteNonQueryAsync();
         }
+    }
+
+    private string BuildDb2ConnectionString()
+    {
+        var configured = Configuration.GetServiceEndpoint("Db2") ?? string.Empty;
+
+        // Ensure each attempt fails fast while DB2 is still bootstrapping.
+        if (!configured.Contains("Connect Timeout=", StringComparison.OrdinalIgnoreCase) &&
+            !configured.Contains("Connection Timeout=", StringComparison.OrdinalIgnoreCase))
+        {
+            configured = $"{configured}Connect Timeout=5;";
+        }
+
+        return configured;
     }
 }

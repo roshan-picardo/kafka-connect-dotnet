@@ -2,7 +2,7 @@
   "title": "db2-standalone-source-connector-tests",
   "properties": {
     "topic": "standalone-db2-source-data-topic",
-    "database": "kafka_connect_db",
+    "database": "KAFKADB",
     "schema": "DB2INST1",
     "table": "standalone_db2_source_data_table"
   },

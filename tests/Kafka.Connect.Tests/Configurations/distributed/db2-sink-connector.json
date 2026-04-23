@@ -29,7 +29,7 @@
         "port": 50000,
         "userId": "db2inst1",
         "password": "db2password",
-        "database": "kafka_connect_db",
+        "database": "KAFKADB",
         "schema": "DB2INST1",
         "table": "distributed_db2_sink_data_table",
         "lookup": "\"userId\"='#userId#'",

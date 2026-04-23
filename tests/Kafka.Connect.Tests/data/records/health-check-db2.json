@@ -3,7 +3,7 @@
   "properties": {
     "target": "Db2",
     "topic": "-",
-    "database": "kafka_connect_db",
+    "database": "KAFKADB",
     "schema": "DB2INST1",
     "table": "health_table"
   },

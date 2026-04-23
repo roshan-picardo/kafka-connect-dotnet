@@ -26,7 +26,7 @@
       "/records/distributed/source-tests-mongo.json"
     ],
     "setup": {
-      "database": "kafka_connect_db",
+      "database": "KAFKADB",
       "scripts": [
         "{ \"create\": \"standalone_mongodb_source_data_collection\", \"changeStreamPreAndPostImages\": { \"enabled\": true } }",
         "{ \"create\": \"standalone_mongodb_sink_data_collection\", \"changeStreamPreAndPostImages\": { \"enabled\": true } }",
@@ -62,7 +62,7 @@
       "/records/distributed/source-tests-db2.json"
     ],
     "setup": {
-      "database": "kafka_connect_db",
+      "database": "KAFKADB",
       "scripts": [
         "BEGIN ATOMIC DECLARE CONTINUE HANDLER FOR SQLSTATE '42704' BEGIN END; EXECUTE IMMEDIATE 'DROP TABLE DB2INST1.standalone_db2_source_data_table'; EXECUTE IMMEDIATE 'CREATE TABLE DB2INST1.standalone_db2_source_data_table (\"userId\" VARCHAR(255), \"userName\" VARCHAR(255), \"email\" VARCHAR(255), \"timestamp\" VARCHAR(255), \"action\" VARCHAR(255))'; END",
         "BEGIN ATOMIC DECLARE CONTINUE HANDLER FOR SQLSTATE '42704' BEGIN END; EXECUTE IMMEDIATE 'DROP TABLE DB2INST1.distributed_db2_source_data_table'; EXECUTE IMMEDIATE 'CREATE TABLE DB2INST1.distributed_db2_source_data_table (\"userId\" VARCHAR(255), \"userName\" VARCHAR(255), \"email\" VARCHAR(255), \"timestamp\" VARCHAR(255), \"action\" VARCHAR(255))'; END"
@@ -80,7 +80,7 @@
       "/records/distributed/source-tests-sqlserver.json"
     ],
     "setup": {
-      "database": "kafka_connect_db",
+      "database": "KAFKADB",
       "scripts": [
         "IF OBJECT_ID('[dbo].[standalone_sqlserver_source_data_table]', 'U') IS NOT NULL DROP TABLE [dbo].[standalone_sqlserver_source_data_table]; CREATE TABLE [dbo].[standalone_sqlserver_source_data_table]([userId] NVARCHAR(255), [userName] NVARCHAR(255), [email] NVARCHAR(255), [timestamp] NVARCHAR(255), [action] NVARCHAR(255));",
         "IF OBJECT_ID('[dbo].[distributed_sqlserver_source_data_table]', 'U') IS NOT NULL DROP TABLE [dbo].[distributed_sqlserver_source_data_table]; CREATE TABLE [dbo].[distributed_sqlserver_source_data_table]([userId] NVARCHAR(255), [userName] NVARCHAR(255), [email] NVARCHAR(255), [timestamp] NVARCHAR(255), [action] NVARCHAR(255));"
@@ -98,7 +98,7 @@
       "/records/distributed/source-tests-mysql.json"
     ],
     "setup": {
-      "database": "kafka_connect_db",
+      "database": "KAFKADB",
       "scripts": [
         "DROP TABLE IF EXISTS `standalone_mysql_source_data_table`; CREATE TABLE `standalone_mysql_source_data_table`(`userId` VARCHAR(255), `userName` VARCHAR(255), `email` VARCHAR(255), `timestamp` VARCHAR(255), `action` VARCHAR(255));",
         "DROP TABLE IF EXISTS `distributed_mysql_source_data_table`; CREATE TABLE `distributed_mysql_source_data_table`(`userId` VARCHAR(255), `userName` VARCHAR(255), `email` VARCHAR(255), `timestamp` VARCHAR(255), `action` VARCHAR(255));"
@@ -116,7 +116,7 @@
       "/records/distributed/source-tests-mariadb.json"
     ],
     "setup": {
-      "database": "kafka_connect_db",
+      "database": "KAFKADB",
       "scripts": [
         "DROP TABLE IF EXISTS `standalone_mariadb_source_data_table`; CREATE TABLE `standalone_mariadb_source_data_table`(`userId` VARCHAR(255), `userName` VARCHAR(255), `email` VARCHAR(255), `timestamp` VARCHAR(255), `action` VARCHAR(255));",
         "DROP TABLE IF EXISTS `distributed_mariadb_source_data_table`; CREATE TABLE `distributed_mariadb_source_data_table`(`userId` VARCHAR(255), `userName` VARCHAR(255), `email` VARCHAR(255), `timestamp` VARCHAR(255), `action` VARCHAR(255));"

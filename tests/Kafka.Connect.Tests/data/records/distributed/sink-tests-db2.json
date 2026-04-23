@@ -2,7 +2,7 @@
   "title": "db2-distributed-sink-connector-tests",
   "properties": {
     "topic": "distributed-db2-sink-data-topic",
-    "database": "kafka_connect_db",
+    "database": "KAFKADB",
     "schema": "DB2INST1",
     "table": "distributed_db2_sink_data_table"
   },
