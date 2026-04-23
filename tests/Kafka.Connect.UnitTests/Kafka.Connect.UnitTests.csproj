@@ -26,6 +26,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\..\src\Kafka.Connect\Kafka.Connect.csproj" />
+      <ProjectReference Include="..\..\src\Plugins\Kafka.Connect.DynamoDb\Kafka.Connect.DynamoDb.csproj" />
     </ItemGroup>
 
     <ItemGroup>
