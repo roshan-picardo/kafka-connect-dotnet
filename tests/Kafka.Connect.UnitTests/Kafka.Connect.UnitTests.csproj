@@ -30,6 +30,7 @@
       <ProjectReference Include="..\..\src\Plugins\Kafka.Connect.MariaDb\Kafka.Connect.MariaDb.csproj" />
       <ProjectReference Include="..\..\src\Plugins\Kafka.Connect.MongoDb\Kafka.Connect.MongoDb.csproj" />
       <ProjectReference Include="..\..\src\Plugins\Kafka.Connect.MySql\Kafka.Connect.MySql.csproj" />
+      <ProjectReference Include="..\..\src\Plugins\Kafka.Connect.Oracle\Kafka.Connect.Oracle.csproj" />
     </ItemGroup>
 
     <ItemGroup>

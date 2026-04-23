@@ -25,6 +25,7 @@ public class DefaultPluginInitializer : IPluginInitializer
             .AddScoped<IStrategy, ReadStrategy>()
             .AddScoped<IStrategySelector, ChangelogStrategySelector>()
             .AddSingleton<IOracleClientProvider, OracleClientProvider>()
-            .AddScoped<IOracleCommandHandler, OracleCommandHandler>();
+            .AddScoped<IOracleCommandHandler, OracleCommandHandler>()
+            .AddScoped<IOracleSqlExecutor, OracleSqlExecutor>();
     }
 }

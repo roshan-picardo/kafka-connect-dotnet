@@ -19,6 +19,7 @@ public interface IOracleCommandHandler
 public class OracleCommandHandler(
     IConfigurationProvider configurationProvider,
     IOracleClientProvider oracleClientProvider,
+    IOracleSqlExecutor sqlExecutor,
     ILogger<OracleCommandHandler> logger)
     : IOracleCommandHandler
 {
@@ -42,8 +43,7 @@ public class OracleCommandHandler(
                                               OWNER = '{changelogSchema}' AND
                                               TABLE_NAME = '{changelogTable}'
                                           """;
-                    var cmd = new OracleCommand(lookupLogTable, connection);
-                    var exists = Convert.ToInt32(await cmd.ExecuteScalarAsync()) > 0;
+                    var exists = Convert.ToInt32(await sqlExecutor.ExecuteScalarAsync(connection, lookupLogTable)) > 0;
                     if (!exists)
                     {
                         var auditLogTable = $"""
@@ -58,7 +58,7 @@ public class OracleCommandHandler(
                                                  LOG_AFTER CLOB
                                              )
                                              """;
-                        await new OracleCommand(auditLogTable, connection).ExecuteNonQueryAsync();
+                        await sqlExecutor.ExecuteNonQueryAsync(connection, auditLogTable);
                     }
                 }
 
@@ -79,8 +79,7 @@ public class OracleCommandHandler(
                                                  TABLE_NAME = '{tableName}' AND
                                                  TRIGGER_NAME = 'TRG_{tableName.ToUpper()}_AUDIT_LOG'
                                              """;
-                        var cmd = new OracleCommand(lookupTrigger, connection);
-                        var exists = Convert.ToInt32(await cmd.ExecuteScalarAsync()) > 0;
+                        var exists = Convert.ToInt32(await sqlExecutor.ExecuteScalarAsync(connection, lookupTrigger)) > 0;
                         if (exists) continue;
 
                         // Execute the LISTAGG query in C# to get column lists
@@ -97,16 +96,20 @@ public class OracleCommandHandler(
                                           AND OWNER = '{schemaName}'
                                           """;
                         
-                        var columnsCmd = new OracleCommand(columnsQuery, connection);
+                        var rows = await sqlExecutor.QueryRowsAsync(connection, columnsQuery);
                         var newColumns = string.Empty;
                         var oldColumns = string.Empty;
 
-                        await using (var reader = await columnsCmd.ExecuteReaderAsync())
+                        if (rows.Count > 0)
                         {
-                            if (await reader.ReadAsync())
+                            var row = rows[0];
+                            if (row.TryGetValue("new_columns", out var newCol))
                             {
-                                newColumns = reader.IsDBNull(0) ? string.Empty : reader.GetString(0);
-                                oldColumns = reader.IsDBNull(1) ? string.Empty : reader.GetString(1);
+                                newColumns = newCol?.ToString() ?? string.Empty;
+                            }
+                            if (row.TryGetValue("old_columns", out var oldCol))
+                            {
+                                oldColumns = oldCol?.ToString() ?? string.Empty;
                             }
                         }
                         
@@ -146,7 +149,7 @@ public class OracleCommandHandler(
                                                      ('{schemaName}', '{tableName}', v_operation, v_before, v_after);
                                              END;
                                              """;
-                        await new OracleCommand(attachTrigger, connection).ExecuteNonQueryAsync();
+                        await sqlExecutor.ExecuteNonQueryAsync(connection, attachTrigger);
                     }
                 }
             }
@@ -238,7 +241,7 @@ public class OracleCommandHandler(
                                  DELETE FROM {config.Changelog.Schema}.{config.Changelog.Table}
                                  WHERE LOG_TIMESTAMP < SYSTIMESTAMP - INTERVAL '{config.Changelog.Retention}' DAY
                                  """;
-                    var records = await new OracleCommand(purge, connection).ExecuteNonQueryAsync();
+                    var records = await sqlExecutor.ExecuteNonQueryAsync(connection, purge);
                     logger.Debug($"Purged {records} records from the audit log.");
                 }
                 catch (Exception exception)
