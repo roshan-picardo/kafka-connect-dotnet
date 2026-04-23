@@ -22,6 +22,7 @@ public class TestFixture : IAsyncLifetime
     private PostgresFixture? _postgresFixture;
     private MySqlFixture? _mySqlFixture;
     private MariaDbFixture? _mariaDbFixture;
+    private Db2Fixture? _db2Fixture;
     private SqlServerFixture? _sqlServerFixture;
     private OracleFixture? _oracleFixture;
     private MongoDbFixture? _mongoDbFixture;
@@ -191,6 +192,7 @@ public class TestFixture : IAsyncLifetime
         _postgresFixture = new PostgresFixture(Configuration, LogMessage, _containerService, _network!, testConfigs);
         _mySqlFixture = new MySqlFixture(Configuration, LogMessage, _containerService, _network!, testConfigs);
         _mariaDbFixture = new MariaDbFixture(Configuration, LogMessage, _containerService, _network!, testConfigs);
+        _db2Fixture = new Db2Fixture(Configuration, LogMessage, _containerService, _network!, testConfigs);
         _sqlServerFixture = new SqlServerFixture(Configuration, LogMessage, _containerService, _network!, testConfigs);
         _oracleFixture = new OracleFixture(Configuration, LogMessage, _containerService, _network!, testConfigs);
         _mongoDbFixture = new MongoDbFixture(Configuration, LogMessage, _containerService, _network!, testConfigs);
@@ -210,6 +212,7 @@ public class TestFixture : IAsyncLifetime
             _postgresFixture!.InitializeAsync(),
             _mySqlFixture!.InitializeAsync(),
             _mariaDbFixture!.InitializeAsync(),
+            _db2Fixture!.InitializeAsync(),
             _sqlServerFixture!.InitializeAsync(),
             _oracleFixture!.InitializeAsync(),
             _mongoDbFixture!.InitializeAsync(),
@@ -342,6 +345,7 @@ public class TestFixture : IAsyncLifetime
             if (_mongoDbFixture != null) infrastructureDisposalTasks.Add(_mongoDbFixture.DisposeAsync().AsTask());
             if (_oracleFixture != null) infrastructureDisposalTasks.Add(_oracleFixture.DisposeAsync().AsTask());
             if (_sqlServerFixture != null) infrastructureDisposalTasks.Add(_sqlServerFixture.DisposeAsync().AsTask());
+            if (_db2Fixture != null) infrastructureDisposalTasks.Add(_db2Fixture.DisposeAsync().AsTask());
             if (_mariaDbFixture != null) infrastructureDisposalTasks.Add(_mariaDbFixture.DisposeAsync().AsTask());
             if (_mySqlFixture != null) infrastructureDisposalTasks.Add(_mySqlFixture.DisposeAsync().AsTask());
             if (_postgresFixture != null) infrastructureDisposalTasks.Add(_postgresFixture.DisposeAsync().AsTask());

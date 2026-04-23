@@ -18,7 +18,7 @@ public abstract class InfrastructureFixture(
     private readonly List<IContainer> _containers = new();
 
     // Readiness check configuration
-    protected const int ReadyMaxAttempts = 60;
+    protected const int ReadyMaxAttempts = 100;
     protected const int ReadyDelayMs = 1000;
 
     public abstract Task InitializeAsync();

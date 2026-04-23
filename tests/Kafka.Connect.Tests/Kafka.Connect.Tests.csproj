@@ -36,6 +36,8 @@
     <PackageReference Include="MongoDB.Driver" />
     <PackageReference Include="Npgsql" />
     <PackageReference Include="Microsoft.Data.SqlClient" />
+    <PackageReference Include="Net.IBM.Data.Db2-osx" Condition="$([MSBuild]::IsOSPlatform('OSX'))" />
+    <PackageReference Include="Net.IBM.Data.Db2-lnx" Condition="$([MSBuild]::IsOSPlatform('Linux'))" />
     <PackageReference Include="MySql.Data" />
     <PackageReference Include="MySqlConnector" />
     <PackageReference Include="Oracle.ManagedDataAccess.Core" />

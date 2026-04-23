@@ -1,0 +1,32 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>disable</Nullable>
+        <LangVersion>13</LangVersion>
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="Net.IBM.Data.Db2-osx" Condition="$([MSBuild]::IsOSPlatform('OSX'))" />
+        <PackageReference Include="Net.IBM.Data.Db2-lnx" Condition="$([MSBuild]::IsOSPlatform('Linux'))" />
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" ExcludeAssets="runtime" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" ExcludeAssets="runtime" />
+    </ItemGroup>
+    <Choose>
+        <When Condition="'$(Configuration)'=='Debug'">
+            <ItemGroup>
+                <ProjectReference Include="..\..\Kafka.Connect.Plugin\Kafka.Connect.Plugin.csproj">
+                    <Private>false</Private>
+                    <ExcludeAssets>runtime</ExcludeAssets>
+                </ProjectReference>
+            </ItemGroup>
+        </When>
+        <Otherwise>
+            <ItemGroup>
+                <PackageReference Include="Kafka.Connect.Plugin">
+                    <Private>false</Private>
+                    <ExcludeAssets>runtime</ExcludeAssets>
+                </PackageReference>
+            </ItemGroup>
+        </Otherwise>
+    </Choose>
+</Project>

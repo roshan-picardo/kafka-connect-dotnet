@@ -57,9 +57,10 @@ jobs:
         dotnet build tests/Kafka.Connect.UnitTests/Kafka.Connect.UnitTests.csproj --no-restore
         dotnet test tests/Kafka.Connect.UnitTests/Kafka.Connect.UnitTests.csproj --no-build --verbosity normal --logger "trx;LogFileName=unit-tests.trx" --results-directory TestResults
       env:
+        LD_LIBRARY_PATH: ${{ github.workspace }}/tests/Kafka.Connect.UnitTests/bin/Debug/net10.0/clidriver/lib:${{ env.LD_LIBRARY_PATH }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         GITHUB_USERNAME: ${{ github.actor }}
-
+        
     - name: Run integration tests
       id: integration_tests
       run: |
@@ -68,6 +69,7 @@ jobs:
         dotnet test tests/Kafka.Connect.Tests/Kafka.Connect.Tests.csproj --no-build --verbosity normal --logger "trx;LogFileName=integration-tests.trx" --results-directory TestResults
       env:
         DOCKER_HOST: unix:///var/run/docker.sock
+        LD_LIBRARY_PATH: ${{ github.workspace }}/tests/Kafka.Connect.Tests/bin/Debug/net10.0/clidriver/lib:${{ env.LD_LIBRARY_PATH }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         GITHUB_USERNAME: ${{ github.actor }}
         

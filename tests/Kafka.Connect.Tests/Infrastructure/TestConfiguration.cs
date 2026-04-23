@@ -31,6 +31,7 @@ public class ContainerConfig
     public string Image { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string Hostname { get; set; } = string.Empty;
+    public string? Platform { get; set; }
     public List<string> Ports { get; set; } = [];
     public Dictionary<string, string> Environment { get; set; } = [];
     public List<string> NetworkAliases { get; set; } = [];
@@ -45,6 +46,7 @@ public class ContainerConfig
     public string HealthCheckEndpoint { get; set; } = string.Empty;
     public int StartupTimeoutSeconds { get; set; }
     public bool Enabled { get; set; } = true;
+    public bool Privileged { get; set; }
     
     // Target infrastructure component (e.g., "kafka", "postgres", "mongodb", etc.)
     public string? Target { get; set; }
@@ -56,6 +58,7 @@ public class ShakedownConfig
     public string SchemaRegistry { get; set; } = string.Empty;
     public string Mongo { get; set; } = string.Empty;
     public string Postgres { get; set; } = string.Empty;
+    public string Db2 { get; set; } = string.Empty;
     public string SqlServer { get; set; } = string.Empty;
     public string MySql { get; set; } = string.Empty;
     public string Oracle { get; set; } = string.Empty;

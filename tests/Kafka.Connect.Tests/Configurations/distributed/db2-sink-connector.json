@@ -1,0 +1,54 @@
+{
+  "connector": {
+    "groupId": "distributed-db2-sink-connector",
+    "topics": ["distributed-db2-sink-data-topic"],
+    "tasks": 1,
+    "paused": false,
+    "disabled": false,
+    "processors": {
+      "1": {
+        "name": "Kafka.Connect.Processors.WhitelistFieldProjector",
+        "settings": [
+          "userId",
+          "userName",
+          "email",
+          "timestamp",
+          "action"
+        ]
+      }
+    },
+    "plugin": {
+      "type": "sink",
+      "name": "db2",
+      "handler": "Kafka.Connect.Db2.Db2PluginHandler",
+      "strategy": {
+        "Name": "Kafka.Connect.Db2.Strategies.UpsertStrategy"
+      },
+      "properties": {
+        "server": "db2",
+        "port": 50000,
+        "userId": "db2inst1",
+        "password": "db2password",
+        "database": "KAFKADB",
+        "schema": "DB2INST1",
+        "table": "distributed_db2_sink_data_table",
+        "lookup": "\"userId\"='#userId#'",
+        "filter": "\"userId\"='#userId#'"
+      }
+    },
+    "log": {
+      "provider": "",
+      "attributes": [
+        "timestamp",
+        "operation",
+        "after.id",
+        "after.name",
+        "id",
+        "name"
+      ]
+    }
+  },
+  "workers": [
+    "distributed-worker"
+  ]
+}
