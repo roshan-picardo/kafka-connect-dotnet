@@ -1,0 +1,53 @@
+{
+  "connector": {
+    "groupId": "distributed-db2-source-connector",
+    "tasks": 1,
+    "paused": false,
+    "disabled": false,
+    "plugin": {
+      "type": "source",
+      "name": "db2",
+      "handler": "Kafka.Connect.Db2.Db2PluginHandler",
+      "strategy": {
+        "name": "Kafka.Connect.Db2.Strategies.ReadStrategy"
+      },
+      "properties": {
+        "server": "db2",
+        "port": 50000,
+        "userId": "db2inst1",
+        "password": "db2password",
+        "database": "kafka_connect_db",
+        "changelog": {
+          "schema": "DB2INST1",
+          "table": "distributed_db2_audit_log"
+        },
+        "commands": {
+          "distributed-db2-source-command": {
+            "topic": "distributed-db2-source-data-topic",
+            "table": "distributed_db2_source_data_table",
+            "schema": "DB2INST1",
+            "keys": ["userId"],
+            "snapshot": {
+              "enabled": false,
+              "key": "userId"
+            }
+          }
+        }
+      }
+    },
+    "log": {
+      "provider": "",
+      "attributes": [
+        "id",
+        "timestamp",
+        "operation",
+        "after.userId",
+        "after.userName",
+        "after.email"
+      ]
+    }
+  },
+  "workers": [
+    "distributed-worker"
+  ]
+}

@@ -1,6 +1,7 @@
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
 using DotNet.Testcontainers.Networks;
+using Docker.DotNet.Models;
 
 namespace IntegrationTests.Kafka.Connect.Infrastructure;
 
@@ -114,6 +115,15 @@ public class ContainerService : IContainerService
         if (config.Command.Count > 0)
         {
             containerBuilder = containerBuilder.WithCommand(config.Command.ToArray());
+        }
+
+        if (config.Privileged)
+        {
+            containerBuilder = containerBuilder.WithCreateParameterModifier(parameters =>
+            {
+                parameters.HostConfig ??= new HostConfig();
+                parameters.HostConfig.Privileged = true;
+            });
         }
 
         var container = containerBuilder.Build();

@@ -7,6 +7,7 @@
       "/records/health-check-kafka.json",
       "/records/health-check-mongo.json",
       "/records/health-check-postgres.json",
+      "/records/health-check-db2.json",
       "/records/health-check-sqlserver.json",
       "/records/health-check-mysql.json",
       "/records/health-check-mariadb.json",
@@ -49,6 +50,24 @@
       "CREATE TABLE IF NOT EXISTS public.\"standalone_postgres_source_data_table\"(\"userId\" text, \"userName\" text, email text, timestamp text, action text);",
       "CREATE TABLE IF NOT EXISTS public.\"distributed_postgres_source_data_table\"(\"userId\" text, \"userName\" text, email text, timestamp text, action text);"
     ]}
+  },
+  {
+    "target": "Db2",
+    "schema": "/schemas/user-event.avsc",
+    "skip": false,
+    "files": [
+      "/records/standalone/sink-tests-db2.json",
+      "/records/standalone/source-tests-db2.json",
+      "/records/distributed/sink-tests-db2.json",
+      "/records/distributed/source-tests-db2.json"
+    ],
+    "setup": {
+      "database": "kafka_connect_db",
+      "scripts": [
+        "BEGIN ATOMIC DECLARE CONTINUE HANDLER FOR SQLSTATE '42704' BEGIN END; EXECUTE IMMEDIATE 'DROP TABLE DB2INST1.standalone_db2_source_data_table'; EXECUTE IMMEDIATE 'CREATE TABLE DB2INST1.standalone_db2_source_data_table (\"userId\" VARCHAR(255), \"userName\" VARCHAR(255), \"email\" VARCHAR(255), \"timestamp\" VARCHAR(255), \"action\" VARCHAR(255))'; END",
+        "BEGIN ATOMIC DECLARE CONTINUE HANDLER FOR SQLSTATE '42704' BEGIN END; EXECUTE IMMEDIATE 'DROP TABLE DB2INST1.distributed_db2_source_data_table'; EXECUTE IMMEDIATE 'CREATE TABLE DB2INST1.distributed_db2_source_data_table (\"userId\" VARCHAR(255), \"userName\" VARCHAR(255), \"email\" VARCHAR(255), \"timestamp\" VARCHAR(255), \"action\" VARCHAR(255))'; END"
+      ]
+    }
   },
   {
     "target": "SqlServer",

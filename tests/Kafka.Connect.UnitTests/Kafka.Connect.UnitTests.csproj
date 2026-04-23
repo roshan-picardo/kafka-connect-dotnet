@@ -13,6 +13,8 @@
         <PackageReference Include="Moq" />
         <PackageReference Include="Newtonsoft.Json" />
         <PackageReference Include="NSubstitute" />
+        <PackageReference Include="Net.IBM.Data.Db2-osx" Condition="$([MSBuild]::IsOSPlatform('OSX'))" />
+        <PackageReference Include="Net.IBM.Data.Db2-lnx" Condition="$([MSBuild]::IsOSPlatform('Linux'))" />
         <PackageReference Include="xunit" />
         <PackageReference Include="xunit.runner.visualstudio">
           <PrivateAssets>all</PrivateAssets>
@@ -32,6 +34,7 @@
       <ProjectReference Include="..\..\src\Plugins\Kafka.Connect.MySql\Kafka.Connect.MySql.csproj" />
       <ProjectReference Include="..\..\src\Plugins\Kafka.Connect.Oracle\Kafka.Connect.Oracle.csproj" />
       <ProjectReference Include="..\..\src\Plugins\Kafka.Connect.Postgres\Kafka.Connect.Postgres.csproj" />
+      <ProjectReference Include="..\..\src\Plugins\Kafka.Connect.Db2\Kafka.Connect.Db2.csproj" />
       <ProjectReference Include="..\..\src\Plugins\Kafka.Connect.SqlServer\Kafka.Connect.SqlServer.csproj" />
     </ItemGroup>
 
