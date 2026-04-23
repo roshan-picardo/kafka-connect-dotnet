@@ -292,67 +292,114 @@ jobs:
           fi
         }
 
-        UNIT_PASSED_DISPLAY=$(normalize_count "${{ needs.build-and-test.outputs.unit_passed }}")
-        UNIT_FAILED_DISPLAY=$(normalize_count "${{ needs.build-and-test.outputs.unit_failed }}")
-        UNIT_SKIPPED_DISPLAY=$(normalize_count "${{ needs.build-and-test.outputs.unit_skipped }}")
-        UNIT_TOTAL_DISPLAY=$(normalize_count "${{ needs.build-and-test.outputs.unit_total }}")
+        # Get test counts
+        UNIT_PASSED="${{ needs.build-and-test.outputs.unit_passed }}"
+        UNIT_FAILED="${{ needs.build-and-test.outputs.unit_failed }}"
+        UNIT_SKIPPED="${{ needs.build-and-test.outputs.unit_skipped }}"
+        UNIT_TOTAL="${{ needs.build-and-test.outputs.unit_total }}"
+        
+        INTEGRATION_PASSED="${{ needs.build-and-test.outputs.integration_passed }}"
+        INTEGRATION_FAILED="${{ needs.build-and-test.outputs.integration_failed }}"
+        INTEGRATION_SKIPPED="${{ needs.build-and-test.outputs.integration_skipped }}"
+        INTEGRATION_TOTAL="${{ needs.build-and-test.outputs.integration_total }}"
 
-        INTEGRATION_PASSED_DISPLAY=$(normalize_count "${{ needs.build-and-test.outputs.integration_passed }}")
-        INTEGRATION_FAILED_DISPLAY=$(normalize_count "${{ needs.build-and-test.outputs.integration_failed }}")
-        INTEGRATION_SKIPPED_DISPLAY=$(normalize_count "${{ needs.build-and-test.outputs.integration_skipped }}")
-        INTEGRATION_TOTAL_DISPLAY=$(normalize_count "${{ needs.build-and-test.outputs.integration_total }}")
+        UNIT_PASSED_DISPLAY=$(normalize_count "$UNIT_PASSED")
+        UNIT_FAILED_DISPLAY=$(normalize_count "$UNIT_FAILED")
+        UNIT_SKIPPED_DISPLAY=$(normalize_count "$UNIT_SKIPPED")
+        UNIT_TOTAL_DISPLAY=$(normalize_count "$UNIT_TOTAL")
 
-        echo "# Build Summary" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "**Build**: \`$VERSION\`" >> $GITHUB_STEP_SUMMARY
+        INTEGRATION_PASSED_DISPLAY=$(normalize_count "$INTEGRATION_PASSED")
+        INTEGRATION_FAILED_DISPLAY=$(normalize_count "$INTEGRATION_FAILED")
+        INTEGRATION_SKIPPED_DISPLAY=$(normalize_count "$INTEGRATION_SKIPPED")
+        INTEGRATION_TOTAL_DISPLAY=$(normalize_count "$INTEGRATION_TOTAL")
+
+        # Determine overall test status
+        TOTAL_TESTS=$((UNIT_TOTAL + INTEGRATION_TOTAL))
+        TOTAL_PASSED=$((UNIT_PASSED + INTEGRATION_PASSED))
+        TOTAL_FAILED=$((UNIT_FAILED + INTEGRATION_FAILED))
+        
+        if [ "$TOTAL_FAILED" -gt 0 ]; then
+          STATUS_ICON="❌"
+          STATUS_TEXT="Failed"
+          STATUS_COLOR="🔴"
+        elif [ "$TOTAL_TESTS" -eq "$TOTAL_PASSED" ] && [ "$TOTAL_TESTS" -gt 0 ]; then
+          STATUS_ICON="✅"
+          STATUS_TEXT="Passed"
+          STATUS_COLOR="🟢"
+        else
+          STATUS_ICON="⚠️"
+          STATUS_TEXT="Partial"
+          STATUS_COLOR="🟡"
+        fi
+
+        # Build Summary - 3 collapsible sections only
+        echo "# build-summary summary" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 
-        # Unit Tests Drill-down
-        echo "<details>" >> $GITHUB_STEP_SUMMARY
-        echo "<summary>🧪 Unit Tests: ${{ needs.build-and-test.outputs.unit_passed }} passed</summary>" >> $GITHUB_STEP_SUMMARY
+        # 1. Build Summary drill-down
+        echo "<details open>" >> $GITHUB_STEP_SUMMARY
+        echo "<summary>🏗️ <strong>Build Summary</strong></summary>" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "| ✓ Passed | ✘ Failed | ↷ Skipped | ∑ Total | ⧗ Elapsed |" >> $GITHUB_STEP_SUMMARY
-        echo "|---:|---:|---:|---:|---:|" >> $GITHUB_STEP_SUMMARY
-        echo "| $UNIT_PASSED_DISPLAY | $UNIT_FAILED_DISPLAY | $UNIT_SKIPPED_DISPLAY | $UNIT_TOTAL_DISPLAY | ${{ needs.build-and-test.outputs.unit_elapsed }} |" >> $GITHUB_STEP_SUMMARY
+        echo "**Version:** \`$VERSION\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Status:** $STATUS_COLOR **$STATUS_TEXT**" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Workflow:** [\`${{ github.workflow }}\`](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Commit:** [\`${GITHUB_SHA:0:7}\`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "</details>" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 
-        # Integration Tests Drill-down
-        echo "<details>" >> $GITHUB_STEP_SUMMARY
-        echo "<summary>🧪 Integration Tests: ${{ needs.build-and-test.outputs.integration_passed }} passed</summary>" >> $GITHUB_STEP_SUMMARY
+        # 2. Tests Summary drill-down
+        echo "<details open>" >> $GITHUB_STEP_SUMMARY
+        echo "<summary>🧪 <strong>Tests Summary</strong></summary>" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "| ✓ Passed | ✘ Failed | ↷ Skipped | ∑ Total | ⧗ Elapsed |" >> $GITHUB_STEP_SUMMARY
-        echo "|---:|---:|---:|---:|---:|" >> $GITHUB_STEP_SUMMARY
-        echo "| $INTEGRATION_PASSED_DISPLAY | $INTEGRATION_FAILED_DISPLAY | $INTEGRATION_SKIPPED_DISPLAY | $INTEGRATION_TOTAL_DISPLAY | ${{ needs.build-and-test.outputs.integration_elapsed }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Test Suite | Passed | Failed | Skipped | Total | Duration |" >> $GITHUB_STEP_SUMMARY
+        echo "|------------|-------:|-------:|--------:|------:|---------:|" >> $GITHUB_STEP_SUMMARY
+        echo "| **Unit Tests** | ✅ $UNIT_PASSED_DISPLAY | ❌ $UNIT_FAILED_DISPLAY | ⏭️ $UNIT_SKIPPED_DISPLAY | 📊 $UNIT_TOTAL_DISPLAY | ⏱️ ${{ needs.build-and-test.outputs.unit_elapsed }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Integration Tests** | ✅ $INTEGRATION_PASSED_DISPLAY | ❌ $INTEGRATION_FAILED_DISPLAY | ⏭️ $INTEGRATION_SKIPPED_DISPLAY | 📊 $INTEGRATION_TOTAL_DISPLAY | ⏱️ ${{ needs.build-and-test.outputs.integration_elapsed }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Total** | ✅ **$TOTAL_PASSED** | ❌ **$TOTAL_FAILED** | ⏭️ **$((UNIT_SKIPPED + INTEGRATION_SKIPPED))** | 📊 **$TOTAL_TESTS** | - |" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "</details>" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 
-        # Artifacts Drill-down
-        echo "<details>" >> $GITHUB_STEP_SUMMARY
-        echo "<summary>📦 Artifacts</summary>" >> $GITHUB_STEP_SUMMARY
+        # 3. Packages Summary drill-down
+        echo "<details open>" >> $GITHUB_STEP_SUMMARY
+        echo "<summary>📦 <strong>Packages Summary</strong></summary>" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-
-        echo "🐳 **docker**:" >> $GITHUB_STEP_SUMMARY
+        
+        # Docker images
+        echo "🐳 **docker:**" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        DOCKER_COUNT=0
         while IFS= read -r tag; do
           if [ -n "$tag" ]; then
+            DOCKER_COUNT=$((DOCKER_COUNT + 1))
             echo "- \`$tag\`" >> $GITHUB_STEP_SUMMARY
           fi
         done <<< "$DOCKER_TAGS"
 
         if [ -z "$DOCKER_TAGS" ] && [ -n "$DOCKER_TAG" ]; then
           echo "- \`$DOCKER_TAG\`" >> $GITHUB_STEP_SUMMARY
+          DOCKER_COUNT=1
         fi
-
+        
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "📦 **nuget**:" >> $GITHUB_STEP_SUMMARY
-        echo "- source: https://nuget.pkg.github.com/${{ github.actor }}/index.json" >> $GITHUB_STEP_SUMMARY
+        
+        # NuGet packages
+        echo "📦 **nuget:**" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- source: [\`https://nuget.pkg.github.com/${{ github.actor }}/index.json\`](https://nuget.pkg.github.com/${{ github.actor }}/index.json)" >> $GITHUB_STEP_SUMMARY
 
         PROJECTS_FILE=$(mktemp)
         echo "src/Kafka.Connect.Plugin/Kafka.Connect.Plugin.csproj" > "$PROJECTS_FILE"
         find src/Plugins -mindepth 2 -maxdepth 2 -name '*.csproj' | sort >> "$PROJECTS_FILE"
 
+        PACKAGE_COUNT=0
         while IFS= read -r project; do
           if [ -z "$project" ] || [ ! -f "$project" ]; then
             continue
@@ -362,6 +409,7 @@ jobs:
           if [ -z "$PACKAGE_ID" ]; then
             PACKAGE_ID=$(basename "$project" .csproj)
           fi
+          PACKAGE_COUNT=$((PACKAGE_COUNT + 1))
           echo "- \`$PACKAGE_ID:$VERSION\`" >> $GITHUB_STEP_SUMMARY
         done < "$PROJECTS_FILE"
 
@@ -369,3 +417,5 @@ jobs:
 
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "</details>" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "<sub>Job summary generated at run-time</sub>" >> $GITHUB_STEP_SUMMARY

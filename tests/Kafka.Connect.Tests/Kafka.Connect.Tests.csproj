@@ -53,12 +53,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Project References -->
-    <ProjectReference Include="..\..\src\Kafka.Connect\Kafka.Connect.csproj" />
-    <ProjectReference Include="..\..\src\Kafka.Connect.Plugin\Kafka.Connect.Plugin.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Content Include="appsettings.json">
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
