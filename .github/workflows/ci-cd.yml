@@ -333,11 +333,27 @@ jobs:
         fi
 
         # Build Summary - 3 collapsible sections only
-        echo "# build-summary summary" >> $GITHUB_STEP_SUMMARY
+        echo "# Build Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Extract version tags for badge display
+        VERSION_TAGS=""
+        while IFS= read -r tag; do
+          if [ -n "$tag" ]; then
+            TAG_NAME=$(echo "$tag" | rev | cut -d':' -f1 | rev)
+            VERSION_TAGS="$VERSION_TAGS\`$TAG_NAME\` "
+          fi
+        done <<< "$DOCKER_TAGS"
+        
+        if [ -z "$VERSION_TAGS" ]; then
+          VERSION_TAGS="\`$VERSION\` \`${{ github.ref_name }}\`"
+        fi
+        
+        echo "$VERSION_TAGS" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 
         # 1. Build Summary drill-down
-        echo "<details open>" >> $GITHUB_STEP_SUMMARY
+        echo "<details>" >> $GITHUB_STEP_SUMMARY
         echo "<summary>🏗️ <strong>Build Summary</strong></summary>" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "**Version:** \`$VERSION\`" >> $GITHUB_STEP_SUMMARY
@@ -354,7 +370,7 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
 
         # 2. Tests Summary drill-down
-        echo "<details open>" >> $GITHUB_STEP_SUMMARY
+        echo "<details>" >> $GITHUB_STEP_SUMMARY
         echo "<summary>🧪 <strong>Tests Summary</strong></summary>" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "| Test Suite | Passed | Failed | Skipped | Total | Duration |" >> $GITHUB_STEP_SUMMARY
@@ -367,7 +383,7 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
 
         # 3. Packages Summary drill-down
-        echo "<details open>" >> $GITHUB_STEP_SUMMARY
+        echo "<details>" >> $GITHUB_STEP_SUMMARY
         echo "<summary>📦 <strong>Packages Summary</strong></summary>" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
