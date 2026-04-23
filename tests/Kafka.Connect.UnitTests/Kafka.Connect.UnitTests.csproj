@@ -28,6 +28,7 @@
       <ProjectReference Include="..\..\src\Kafka.Connect\Kafka.Connect.csproj" />
       <ProjectReference Include="..\..\src\Plugins\Kafka.Connect.DynamoDb\Kafka.Connect.DynamoDb.csproj" />
       <ProjectReference Include="..\..\src\Plugins\Kafka.Connect.MariaDb\Kafka.Connect.MariaDb.csproj" />
+      <ProjectReference Include="..\..\src\Plugins\Kafka.Connect.MongoDb\Kafka.Connect.MongoDb.csproj" />
     </ItemGroup>
 
     <ItemGroup>
