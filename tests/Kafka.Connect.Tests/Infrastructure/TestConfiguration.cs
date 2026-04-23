@@ -31,6 +31,7 @@ public class ContainerConfig
     public string Image { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string Hostname { get; set; } = string.Empty;
+    public string? Platform { get; set; }
     public List<string> Ports { get; set; } = [];
     public Dictionary<string, string> Environment { get; set; } = [];
     public List<string> NetworkAliases { get; set; } = [];

@@ -38,7 +38,11 @@ public class Db2Fixture(
                         $"Failed to start {GetTargetName()} after {ReadyMaxAttempts} attempts", ex);
                 }
 
-                LogMessage($"Starting: {GetTargetName()} (attempt: {attempt}/{ReadyMaxAttempts})", ex.Message);
+                var transientMessage = IsDb2StartupTransient(ex)
+                    ? "DB2 is not accepting connections yet (SQL1035/57019), waiting for startup to complete"
+                    : ex.Message;
+
+                LogMessage($"Starting: {GetTargetName()} (attempt: {attempt}/{ReadyMaxAttempts})", transientMessage);
                 await Task.Delay(ReadyDelayMs);
             }
         }
@@ -68,5 +72,12 @@ public class Db2Fixture(
         }
 
         return configured;
+    }
+
+    private static bool IsDb2StartupTransient(Exception ex)
+    {
+        var message = ex.Message;
+        return message.Contains("SQL1035N", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("SQLSTATE=57019", StringComparison.OrdinalIgnoreCase);
     }
 }

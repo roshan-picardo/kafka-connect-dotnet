@@ -117,12 +117,21 @@ public class ContainerService : IContainerService
             containerBuilder = containerBuilder.WithCommand(config.Command.ToArray());
         }
 
-        if (config.Privileged)
+        if (config.Privileged || !string.IsNullOrWhiteSpace(config.Platform))
         {
             containerBuilder = containerBuilder.WithCreateParameterModifier(parameters =>
             {
                 parameters.HostConfig ??= new HostConfig();
-                parameters.HostConfig.Privileged = true;
+
+                if (config.Privileged)
+                {
+                    parameters.HostConfig.Privileged = true;
+                }
+
+                if (!string.IsNullOrWhiteSpace(config.Platform))
+                {
+                    parameters.Platform = config.Platform;
+                }
             });
         }
 
