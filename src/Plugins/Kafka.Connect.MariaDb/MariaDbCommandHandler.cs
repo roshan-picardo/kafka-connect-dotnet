@@ -19,6 +19,7 @@ public interface IMariaDbCommandHandler
 public class MariaDbCommandHandler(
     IConfigurationProvider configurationProvider,
     IMariaDbClientProvider mariaDbClientProvider,
+    IMariaDbSqlExecutor sqlExecutor,
     ILogger<MariaDbCommandHandler> logger)
     : IMariaDbCommandHandler
 {
@@ -39,8 +40,7 @@ public class MariaDbCommandHandler(
                                               table_schema = '{config.Changelog.Schema}' AND 
                                               table_name = '{config.Changelog.Table}'
                                           """;
-                    var cmd = new MySqlCommand(lookupLogTable, connection);
-                    var exists = Convert.ToInt32(await cmd.ExecuteScalarAsync()) > 0;
+                    var exists = Convert.ToInt32(await sqlExecutor.ExecuteScalarAsync(connection, lookupLogTable)) > 0;
                     if (!exists)
                     {
                         var auditLogTable = $"""
@@ -55,7 +55,7 @@ public class MariaDbCommandHandler(
                                                  log_after JSON
                                              )
                                              """;
-                        await new MySqlCommand(auditLogTable, connection).ExecuteNonQueryAsync();
+                        await sqlExecutor.ExecuteNonQueryAsync(connection, auditLogTable);
                     }
                 }
 
@@ -72,8 +72,7 @@ public class MariaDbCommandHandler(
                                                  event_object_table = '{command.Table}' AND
                                                  trigger_name LIKE 'trg_{command.Table}%_audit_log'
                                              """;
-                        var cmd = new MySqlCommand(lookupTrigger, connection);
-                        var exists = Convert.ToInt32(await cmd.ExecuteScalarAsync()) == 3;
+                        var exists = Convert.ToInt32(await sqlExecutor.ExecuteScalarAsync(connection, lookupTrigger)) == 3;
                         if (exists) continue;
                         
                         var columnQuery = $$"""
@@ -81,26 +80,17 @@ public class MariaDbCommandHandler(
                                             FROM INFORMATION_SCHEMA.COLUMNS
                                             WHERE TABLE_SCHEMA = '{{command.Schema}}' AND TABLE_NAME = '{{command.Table}}'
                                             """;
-                        
-                        var columnsCmd = new MySqlCommand(columnQuery, connection);
-                        List<string> columns = [];
 
-                        await using (var reader = await columnsCmd.ExecuteReaderAsync())
-                        {
-                            while (await reader.ReadAsync())
-                            {
-                                columns.Add(reader.GetString(0));
-                            }
-                        }
+                        var columns = await sqlExecutor.QuerySingleColumnAsync(connection, columnQuery);
 
                         // Drop triggers if they exist (to recreate them)
                         var dropInsertTrigger = $"DROP TRIGGER IF EXISTS {command.Schema}.trg_{command.Table}_insert_audit_log";
                         var dropUpdateTrigger = $"DROP TRIGGER IF EXISTS {command.Schema}.trg_{command.Table}_update_audit_log";
                         var dropDeleteTrigger = $"DROP TRIGGER IF EXISTS {command.Schema}.trg_{command.Table}_delete_audit_log";
-                        
-                        await new MySqlCommand(dropInsertTrigger, connection).ExecuteNonQueryAsync();
-                        await new MySqlCommand(dropUpdateTrigger, connection).ExecuteNonQueryAsync();
-                        await new MySqlCommand(dropDeleteTrigger, connection).ExecuteNonQueryAsync();
+
+                        await sqlExecutor.ExecuteNonQueryAsync(connection, dropInsertTrigger);
+                        await sqlExecutor.ExecuteNonQueryAsync(connection, dropUpdateTrigger);
+                        await sqlExecutor.ExecuteNonQueryAsync(connection, dropDeleteTrigger);
 
                         // Create insert trigger
                         var insertTrigger = $"""
@@ -116,7 +106,7 @@ public class MariaDbCommandHandler(
                                                     ('{command.Schema}', '{command.Table}', 'INSERT', NULL, JSON_OBJECT({string.Format(string.Join(',', columns), "NEW")}));
                                             END;
                                             """;
-                        await new MySqlCommand(insertTrigger, connection).ExecuteNonQueryAsync();
+                                        await sqlExecutor.ExecuteNonQueryAsync(connection, insertTrigger);
 
                         // Create update trigger
                         var updateTrigger = $"""
@@ -132,7 +122,7 @@ public class MariaDbCommandHandler(
                                                     ('{command.Schema}', '{command.Table}', 'UPDATE', JSON_OBJECT({string.Format(string.Join(',', columns), "OLD")}), JSON_OBJECT({string.Format(string.Join(',', columns), "NEW")}));
                                             END;
                                             """;
-                        await new MySqlCommand(updateTrigger, connection).ExecuteNonQueryAsync();
+                                        await sqlExecutor.ExecuteNonQueryAsync(connection, updateTrigger);
 
                         // Create delete trigger
                         var deleteTrigger = $"""
@@ -148,7 +138,7 @@ public class MariaDbCommandHandler(
                                                     ('{command.Schema}', '{command.Table}', 'DELETE', JSON_OBJECT({string.Format(string.Join(',', columns), "OLD")}), NULL);
                                             END;
                                             """;
-                        await new MySqlCommand(deleteTrigger, connection).ExecuteNonQueryAsync();
+                        await sqlExecutor.ExecuteNonQueryAsync(connection, deleteTrigger);
                     }
                 }
             }
@@ -240,7 +230,7 @@ public class MariaDbCommandHandler(
                                  DELETE FROM {config.Changelog.Schema}.{config.Changelog.Table}
                                  WHERE log_timestamp < DATE_SUB(NOW(), INTERVAL {config.Changelog.Retention} DAY)
                                  """;
-                    var records = await new MySqlCommand(purge, connection).ExecuteNonQueryAsync();
+                    var records = await sqlExecutor.ExecuteNonQueryAsync(connection, purge);
                     logger.Debug($"Purged {records} records from the audit log.");
                 }
                 catch (Exception exception)

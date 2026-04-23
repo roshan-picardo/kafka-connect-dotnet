@@ -7,7 +7,6 @@ using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Plugin.Providers;
 using Kafka.Connect.MariaDb.Models;
-using MySqlConnector;
 
 namespace Kafka.Connect.MariaDb;
 
@@ -16,6 +15,7 @@ public class MariaDbPluginHandler(
     IConnectPluginFactory connectPluginFactory,
     IMariaDbCommandHandler mariaDbCommandHandler,
     IMariaDbClientProvider mariaDbClientProvider,
+    IMariaDbSqlExecutor sqlExecutor,
     ILogger<MariaDbPluginHandler> logger)
     : PluginHandler(configurationProvider)
 {
@@ -30,22 +30,16 @@ public class MariaDbPluginHandler(
             var changeLog = _configurationProvider.GetPluginConfig<PluginConfig>(connector).Changelog;
             command.Changelog = JsonSerializer.SerializeToNode(changeLog);
             var model = await connectPluginFactory.GetStrategy(connector, command).Build<string>(connector, command);
-
-            await using var reader = await new MySqlCommand(model.Model,
-                    mariaDbClientProvider.GetMariaDbClient(connector, taskId).GetConnection())
-                .ExecuteReaderAsync();
             var records = new List<ConnectRecord>();
             try
             {
-                while (await reader.ReadAsync())
-                {
-                    var record = new Dictionary<string, object>();
-                    for (var i = 0; i < reader.FieldCount; i++)
-                    {
-                        record.Add(reader.GetName(i).ToLower(), reader.GetValue(i));
-                    }
+                var rows = await sqlExecutor.QueryRowsAsync(
+                    mariaDbClientProvider.GetMariaDbClient(connector, taskId).GetConnection(),
+                    model.Model);
 
-                    records.Add(GetConnectRecord(record, command));
+                foreach (var row in rows)
+                {
+                    records.Add(GetConnectRecord(row, command));
                 }
             }
             catch (Exception ex)
@@ -56,10 +50,7 @@ public class MariaDbPluginHandler(
                     throw new ConnectDataException(ex.Message, ex);
                 }
             }
-            finally
-            {
-                await reader.CloseAsync();
-            }
+
             return records;
         }
     }
@@ -95,8 +86,7 @@ public class MariaDbPluginHandler(
                     {
                         if (cr is ConnectRecord { Saving: true } record)
                         {
-                            var command = new MySqlCommand(record.GetModel<string>(), connection);
-                            if (await command.ExecuteNonQueryAsync() == 0)
+                            if (await sqlExecutor.ExecuteNonQueryAsync(connection, record.GetModel<string>()) == 0)
                             {
                                 record.Status = Status.Skipped;
                             }
