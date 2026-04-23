@@ -174,6 +174,45 @@ public class OracleCommandHandlerTests
     }
 
     [Fact]
+    public async Task Initialize_WhenOracleReturnsUppercaseColumnAliases_StillCreatesTrigger()
+    {
+        var configProvider = Substitute.For<IConfigurationProvider>();
+        configProvider.GetPluginConfig<PluginConfig>("c1").Returns(new PluginConfig
+        {
+            Changelog = new ChangelogConfig { Schema = "audit", Table = "log" },
+            Commands = new Dictionary<string, CommandConfig>
+            {
+                ["read"] = new() { Schema = "dbo", Table = "users" }
+            }
+        });
+
+        var clientProvider = Substitute.For<IOracleClientProvider>();
+        var client = Substitute.For<IOracleClient>();
+        client.GetConnection().Returns(new global::Oracle.ManagedDataAccess.Client.OracleConnection());
+        clientProvider.GetOracleClient("c1", -1).Returns(client);
+
+        var sqlExecutor = Substitute.For<IOracleSqlExecutor>();
+        sqlExecutor.ExecuteScalarAsync(Arg.Any<global::Oracle.ManagedDataAccess.Client.OracleConnection>(), Arg.Any<string>()).Returns(0);
+        sqlExecutor.QueryRowsAsync(Arg.Any<global::Oracle.ManagedDataAccess.Client.OracleConnection>(), Arg.Any<string>()).Returns(
+            new List<Dictionary<string, object>>
+            {
+                new(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["NEW_COLUMNS"] = "col1",
+                    ["OLD_COLUMNS"] = "col1"
+                }
+            });
+
+        var sut = NewSut(configProvider, clientProvider, sqlExecutor);
+
+        await sut.Initialize("c1");
+
+        await sqlExecutor.Received().ExecuteNonQueryAsync(
+            Arg.Any<global::Oracle.ManagedDataAccess.Client.OracleConnection>(),
+            Arg.Is<string>(sql => sql.Contains("CREATE OR REPLACE TRIGGER")));
+    }
+
+    [Fact]
     public async Task Initialize_WhenTriggersAlreadyExist_SkipsTriggerBootstrap()
     {
         var configProvider = Substitute.For<IConfigurationProvider>();

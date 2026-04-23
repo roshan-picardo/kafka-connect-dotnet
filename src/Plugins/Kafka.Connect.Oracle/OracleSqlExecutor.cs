@@ -50,10 +50,11 @@ public class OracleSqlExecutor : IOracleSqlExecutor
 
     private static Dictionary<string, object> ReadRow(DbDataReader reader)
     {
-        var row = new Dictionary<string, object>();
+        var row = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
         for (var i = 0; i < reader.FieldCount; i++)
         {
-            // Preserve column name case as-is (no ToLower) to match Oracle behavior
+            // Oracle commonly returns unquoted aliases in uppercase; use case-insensitive lookup
+            // so callers can access metadata columns predictably without losing original names.
             row.Add(reader.GetName(i), reader.GetValue(i));
         }
 
