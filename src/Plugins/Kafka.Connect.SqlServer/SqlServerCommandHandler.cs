@@ -19,6 +19,7 @@ public interface ISqlServerCommandHandler
 public class SqlServerCommandHandler(
     IConfigurationProvider configurationProvider,
     ISqlServerClientProvider sqlServerClientProvider,
+    ISqlServerSqlExecutor sqlExecutor,
     ILogger<SqlServerCommandHandler> logger)
     : ISqlServerCommandHandler
 {
@@ -40,7 +41,7 @@ public class SqlServerCommandHandler(
                                               TABLE_SCHEMA = '{config.Changelog.Schema}' AND 
                                               TABLE_NAME = '{config.Changelog.Table}';
                                           """;
-                    var exists = (int)(await new SqlCommand(lookupLogTable, connection).ExecuteScalarAsync())! > 0;
+                    var exists = (int)(await sqlExecutor.ExecuteScalarAsync(connection, lookupLogTable))! > 0;
                     if (!exists)
                     {
                         var auditLogTable = $"""
@@ -56,7 +57,7 @@ public class SqlServerCommandHandler(
                                                  CONSTRAINT [uk_{config.Changelog.Table}] UNIQUE (log_id)
                                              );
                                              """;
-                        await new SqlCommand(auditLogTable, connection).ExecuteNonQueryAsync();
+                        await sqlExecutor.ExecuteNonQueryAsync(connection, auditLogTable);
                     }
                 }
 
@@ -74,7 +75,7 @@ public class SqlServerCommandHandler(
                                                  tab.name = '{command.Table}' AND
                                                  t.name = 'trg_{command.Table}_audit_log'
                                              """;
-                        var exists = (int)(await new SqlCommand(lookupTrigger, connection).ExecuteScalarAsync())! > 0;
+                        var exists = (int)(await sqlExecutor.ExecuteScalarAsync(connection, lookupTrigger))! > 0;
                         if (exists) continue;
                         
                         var attachTrigger = $"""
@@ -110,7 +111,7 @@ public class SqlServerCommandHandler(
                                                      END;
                                              END;
                                              """;
-                        await new SqlCommand(attachTrigger, connection).ExecuteNonQueryAsync();
+                        await sqlExecutor.ExecuteNonQueryAsync(connection, attachTrigger);
                     }
                 }
             }
@@ -202,7 +203,7 @@ public class SqlServerCommandHandler(
                                  DELETE FROM [{config.Changelog.Schema}].[{config.Changelog.Table}]
                                  WHERE log_timestamp < DATEADD(day, -{config.Changelog.Retention}, GETDATE());
                                  """;
-                    var records = await new SqlCommand(purge, connection).ExecuteNonQueryAsync();
+                    var records = await sqlExecutor.ExecuteNonQueryAsync(connection, purge);
                     logger.Debug($"Purged {records} records from the audit log.");
                 }
                 catch (Exception exception)

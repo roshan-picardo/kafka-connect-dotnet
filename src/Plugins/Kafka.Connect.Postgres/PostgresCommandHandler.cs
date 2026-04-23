@@ -19,6 +19,7 @@ public interface IPostgresCommandHandler
 public class PostgresCommandHandler(
     IConfigurationProvider configurationProvider,
     IPostgresClientProvider postgresClientProvider,
+    IPostgresSqlExecutor sqlExecutor,
     ILogger<PostgresCommandHandler> logger) : IPostgresCommandHandler
 {
     public async Task Initialize(string connector)
@@ -39,7 +40,7 @@ public class PostgresCommandHandler(
                                               table_schema = '{config.Changelog.Schema}' AND 
                                               table_name = '{config.Changelog.Table}';
                                           """;
-                    var exists = (long)(await new NpgsqlCommand(lookupLogTable, connection).ExecuteScalarAsync())! > 0;
+                    var exists = Convert.ToInt64(await sqlExecutor.ExecuteScalarAsync(connection, lookupLogTable)) > 0;
                     if (!exists)
                     {
                         var auditLogTable = $"""
@@ -56,7 +57,7 @@ public class PostgresCommandHandler(
                                                  CONSTRAINT "uk_{config.Changelog.Table}" UNIQUE (log_id)
                                              ); 
                                              """;
-                        await new NpgsqlCommand(auditLogTable, connection).ExecuteScalarAsync();
+                        await sqlExecutor.ExecuteScalarAsync(connection, auditLogTable);
                     }
                 }
 
@@ -73,8 +74,7 @@ public class PostgresCommandHandler(
                                                  routine_schema = '{config.Changelog.Schema}' AND
                                                  routine_name = '{functionName}'
                                              """;
-                    var exists = (long)(await new NpgsqlCommand(lookupLogFunction, connection).ExecuteScalarAsync())! >
-                                 0;
+                    var exists = Convert.ToInt64(await sqlExecutor.ExecuteScalarAsync(connection, lookupLogFunction)) > 0;
                     if (!exists)
                     {
                         var auditLogTrigger = $"""
@@ -86,7 +86,7 @@ public class PostgresCommandHandler(
                                                    END;
                                                $audit_log$ LANGUAGE plpgsql;
                                                """;
-                        await new NpgsqlCommand(auditLogTrigger, connection).ExecuteScalarAsync();
+                        await sqlExecutor.ExecuteScalarAsync(connection, auditLogTrigger);
                     }
                 }
 
@@ -103,15 +103,14 @@ public class PostgresCommandHandler(
                                                  trigger_name = 'trg_{command.Table}_audit_log' AND
                                                  event_object_table = '{command.Table}'
                                              """;
-                        var exists = (long)(await new NpgsqlCommand(lookupTrigger, connection).ExecuteScalarAsync())! >
-                                     0;
+                        var exists = Convert.ToInt64(await sqlExecutor.ExecuteScalarAsync(connection, lookupTrigger)) > 0;
                         if (exists) continue;
                         var attachTrigger = $"""
                                              CREATE OR REPLACE TRIGGER trg_{command.Table}_audit_log
                                              AFTER INSERT OR UPDATE OR DELETE ON {command.Schema}.{command.Table}
                                              FOR EACH ROW EXECUTE PROCEDURE {config.Changelog.Schema}.{functionName}();
                                              """;
-                        await new NpgsqlCommand(attachTrigger, connection).ExecuteScalarAsync();
+                        await sqlExecutor.ExecuteScalarAsync(connection, attachTrigger);
                     }
                 }
             }
@@ -203,8 +202,8 @@ public class PostgresCommandHandler(
                                  DELETE FROM {config.Changelog.Schema}.{config.Changelog.Table}
                                  WHERE log_timestamp < now() - interval '{config.Changelog.Retention} days';
                                  """;
-                   var records = await new NpgsqlCommand(purge, connection).ExecuteNonQueryAsync();
-                   logger.Debug($"Purged {records} records from the audit log.");
+                    var records = await sqlExecutor.ExecuteNonQueryAsync(connection, purge);
+                    logger.Debug($"Purged {records} records from the audit log.");
                 }
                 catch (Exception exception)
                 {

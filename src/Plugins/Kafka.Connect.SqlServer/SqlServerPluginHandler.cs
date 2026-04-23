@@ -16,6 +16,7 @@ public class SqlServerPluginHandler(
     IConnectPluginFactory connectPluginFactory,
     ISqlServerCommandHandler sqlServerCommandHandler,
     ISqlServerClientProvider sqlServerClientProvider,
+    ISqlServerSqlExecutor sqlExecutor,
     ILogger<SqlServerPluginHandler> logger)
     : PluginHandler(configurationProvider)
 {
@@ -31,21 +32,14 @@ public class SqlServerPluginHandler(
             command.Changelog = JsonSerializer.SerializeToNode(changeLog);
             var model = await connectPluginFactory.GetStrategy(connector, command).Build<string>(connector, command);
 
-            await using var reader = await new SqlCommand(model.Model,
-                    sqlServerClientProvider.GetSqlServerClient(connector, taskId).GetConnection())
-                .ExecuteReaderAsync();
+            var connection = sqlServerClientProvider.GetSqlServerClient(connector, taskId).GetConnection();
             var records = new List<ConnectRecord>();
             try
             {
-                while (await reader.ReadAsync())
+                var rows = await sqlExecutor.QueryRowsAsync(connection, model.Model);
+                foreach (var row in rows)
                 {
-                    var record = new Dictionary<string, object>();
-                    for (var i = 0; i < reader.FieldCount; i++)
-                    {
-                        record.Add(reader.GetName(i), reader.GetValue(i));
-                    }
-
-                    records.Add(GetConnectRecord(record, command));
+                    records.Add(GetConnectRecord(row, command));
                 }
             }
             catch (Exception ex)
@@ -55,10 +49,6 @@ public class SqlServerPluginHandler(
                 {
                     throw new ConnectDataException(ex.Message, ex);
                 }
-            }
-            finally
-            {
-                await reader.CloseAsync();
             }
             return records;
         }
@@ -95,8 +85,7 @@ public class SqlServerPluginHandler(
                     {
                         if (cr is ConnectRecord { Saving: true } record)
                         {
-                            var command = new SqlCommand(record.GetModel<string>(), connection);
-                            if (await command.ExecuteNonQueryAsync() == 0)
+                            if (await sqlExecutor.ExecuteNonQueryAsync(connection, record.GetModel<string>()) == 0)
                             {
                                 record.Status = Status.Skipped;
                             }

@@ -16,6 +16,7 @@ public class PostgresPluginHandler(
     IConnectPluginFactory connectPluginFactory,
     IPostgresCommandHandler postgresCommandHandler,
     IPostgresClientProvider postgresClientProvider,
+    IPostgresSqlExecutor sqlExecutor,
     ILogger<PostgresPluginHandler> logger)
     : PluginHandler(configurationProvider)
 {
@@ -31,20 +32,13 @@ public class PostgresPluginHandler(
             command.Changelog = JsonSerializer.SerializeToNode(changeLog);
             var model = await connectPluginFactory.GetStrategy(connector, command).Build<string>(connector, command);
 
-            await using var reader = await new NpgsqlCommand(model.Model,
-                    postgresClientProvider.GetPostgresClient(connector, taskId).GetConnection())
-                .ExecuteReaderAsync();
+            var connection = postgresClientProvider.GetPostgresClient(connector, taskId).GetConnection();
             var records = new List<ConnectRecord>();
             try
             {
-                while (await reader.ReadAsync())
+                var rows = await sqlExecutor.QueryRowsAsync(connection, model.Model);
+                foreach (var record in rows)
                 {
-                    var record = new Dictionary<string, object>();
-                    for (var i = 0; i < reader.FieldCount; i++)
-                    {
-                        record.Add(reader.GetName(i), reader.GetValue(i));
-                    }
-
                     records.Add(GetConnectRecord(record, command));
                 }
             }
@@ -55,10 +49,6 @@ public class PostgresPluginHandler(
                 {
                     throw new ConnectDataException(ex.Message, ex);
                 }
-            }
-            finally
-            {
-                await reader.CloseAsync();
             }
             return records;
         }
@@ -95,8 +85,7 @@ public class PostgresPluginHandler(
                     {
                         if (cr is ConnectRecord { Saving: true } record)
                         {
-                            var command = new NpgsqlCommand(record.GetModel<string>(), connection);
-                            if (await command.ExecuteNonQueryAsync() == 0)
+                            if (await sqlExecutor.ExecuteNonQueryAsync(connection, record.GetModel<string>()) == 0)
                             {
                                 record.Status = Status.Skipped;
                             }

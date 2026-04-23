@@ -25,6 +25,7 @@ public class DefaultPluginInitializer : IPluginInitializer
             .AddScoped<IStrategy, ReadStrategy>()
             .AddScoped<IStrategySelector, ChangelogStrategySelector>()
             .AddSingleton<IMySqlClientProvider, MySqlClientProvider>()
+            .AddScoped<IMySqlSqlExecutor, MySqlSqlExecutor>()
             .AddScoped<IMySqlCommandHandler, MySqlCommandHandler>();
     }
 }

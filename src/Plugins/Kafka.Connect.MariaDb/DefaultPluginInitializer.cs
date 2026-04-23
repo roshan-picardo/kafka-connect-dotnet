@@ -25,6 +25,7 @@ public class DefaultPluginInitializer : IPluginInitializer
             .AddScoped<IStrategy, ReadStrategy>()
             .AddScoped<IStrategySelector, ChangelogStrategySelector>()
             .AddSingleton<IMariaDbClientProvider, MariaDbClientProvider>()
+            .AddScoped<IMariaDbSqlExecutor, MariaDbSqlExecutor>()
             .AddScoped<IMariaDbCommandHandler, MariaDbCommandHandler>();
     }
 }
