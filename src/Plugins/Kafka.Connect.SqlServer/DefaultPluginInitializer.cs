@@ -25,6 +25,7 @@ public class DefaultPluginInitializer : IPluginInitializer
             .AddScoped<IStrategy, ReadStrategy>()
             .AddScoped<IStrategySelector, ChangelogStrategySelector>()
             .AddSingleton<ISqlServerClientProvider, SqlServerClientProvider>()
+            .AddScoped<ISqlServerSqlExecutor, SqlServerSqlExecutor>()
             .AddScoped<ISqlServerCommandHandler, SqlServerCommandHandler>();
     }
 }

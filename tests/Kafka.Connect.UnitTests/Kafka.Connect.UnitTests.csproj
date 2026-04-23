@@ -32,6 +32,7 @@
       <ProjectReference Include="..\..\src\Plugins\Kafka.Connect.MySql\Kafka.Connect.MySql.csproj" />
       <ProjectReference Include="..\..\src\Plugins\Kafka.Connect.Oracle\Kafka.Connect.Oracle.csproj" />
       <ProjectReference Include="..\..\src\Plugins\Kafka.Connect.Postgres\Kafka.Connect.Postgres.csproj" />
+      <ProjectReference Include="..\..\src\Plugins\Kafka.Connect.SqlServer\Kafka.Connect.SqlServer.csproj" />
     </ItemGroup>
 
     <ItemGroup>
