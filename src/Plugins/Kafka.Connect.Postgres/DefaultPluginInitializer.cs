@@ -22,6 +22,7 @@ public class DefaultPluginInitializer : IPluginInitializer
             .AddScoped<IStrategy, ReadStrategy>()
             .AddScoped<IStrategySelector, ChangelogStrategySelector>()
             .AddSingleton<IPostgresClientProvider, PostgresClientProvider>()
-            .AddScoped<IPostgresCommandHandler, PostgresCommandHandler>();
+            .AddScoped<IPostgresCommandHandler, PostgresCommandHandler>()
+            .AddScoped<IPostgresSqlExecutor, PostgresSqlExecutor>();
     }
 }
