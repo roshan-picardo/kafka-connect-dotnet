@@ -58,6 +58,19 @@ public class ConnectExceptionsTests
     }
 
     [Fact]
+    public void ConnectAggregateException_WhenSingleExceptionConstructorUsed_CanRespectCanRetryFlag()
+    {
+        var exception = new ConnectAggregateException(
+            "aggregate",
+            new InvalidOperationException("other"),
+            canRetry: true);
+
+        Assert.False(exception.ShouldRetry);
+        Assert.True(exception.CanRetry);
+        Assert.Single(exception.GetAllExceptions());
+    }
+
+    [Fact]
     public void ConnectToleranceExceededException_SplitsConnectAndNonConnectExceptions()
     {
         var connect = new ConnectDataException("bad-data", new Exception("bad"));

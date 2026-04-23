@@ -21,6 +21,14 @@ public class SupportingModelsTests
     }
 
     [Fact]
+    public void StrategyModel_WhenNoModelsPresent_ModelReturnsDefault()
+    {
+        var strategy = new StrategyModel<string>();
+
+        Assert.Null(strategy.Model);
+    }
+
+    [Fact]
     public void LogTimestamp_ComputedPropertiesReturnExpectedValues()
     {
         var timestamp = new LogTimestamp
@@ -103,6 +111,28 @@ public class SupportingModelsTests
         Assert.Contains(nameof(Status.Published), names);
         Assert.Contains(nameof(Status.Failed), names);
         Assert.True(names.Length > 10);
+    }
+
+    [Fact]
+    public void ParallelRetryOptions_WhenAssigned_PreservesConfiguredValues()
+    {
+        var options = new ParallelRetryOptions
+        {
+            DegreeOfParallelism = 4,
+            Attempts = 3,
+            Interval = 250,
+            ErrorTolerated = true,
+            Exceptions = [typeof(InvalidOperationException).FullName!],
+            ErrorTolerance = (All: false, Data: true, None: false)
+        };
+
+        Assert.Equal(4, options.DegreeOfParallelism);
+        Assert.Equal(3, options.Attempts);
+        Assert.Equal(250, options.Interval);
+        Assert.True(options.ErrorTolerated);
+        Assert.Single(options.Exceptions);
+        Assert.True(options.ErrorTolerance.Data);
+        Assert.False(options.ErrorTolerance.None);
     }
 
     private sealed class CommandPayload
