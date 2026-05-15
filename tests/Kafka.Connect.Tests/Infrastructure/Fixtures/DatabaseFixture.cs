@@ -15,13 +15,20 @@ public abstract class DatabaseFixture(
     public override async Task InitializeAsync()
     {
         var targetName = GetTargetName();
+
+        if (!IsTargetActive())
+        {
+            LogMessage($"Skipping (not in Targets): {targetName}", "");
+            return;
+        }
+
         await CreateContainersAsync();
-        
+
         await WaitForReadyAsync();
-        
+
         var testConfig = TestConfigs?.FirstOrDefault(tc =>
             tc.Target?.Equals(targetName, StringComparison.OrdinalIgnoreCase) == true);
-            
+
         if (testConfig?.Setup?.Scripts is { Length: > 0 })
         {
             await ExecuteScriptsAsync(testConfig.Setup.Database, testConfig.Setup.Scripts);

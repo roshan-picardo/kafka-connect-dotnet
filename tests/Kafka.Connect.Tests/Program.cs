@@ -1,33 +1,24 @@
 using System.Text.Json;
 using IntegrationTests.Kafka.Connect;
 using IntegrationTests.Kafka.Connect.Infrastructure;
+using Xunit.Abstractions;
 
 var fixture = new TestFixture();
-
-fixture.LogMessage("=== Kafka Connect Debug Mode ===");
+fixture.Configuration.DebugMode = true;
 
 try
 {
-    fixture.Configuration.DebugMode = true;
-    await InitializeInfrastructure();
-    
-    fixture.LogMessage("Available services:");
-    foreach (var service in fixture.Configuration.Services)
-    {
-        fixture.LogMessage($"{service.Key}: {service.Value}");
-    }
-    
-    fixture.LogMessage("Interactive Mode:");
-    fixture.LogMessage("- Press ENTER to open test case selector");
-    fixture.LogMessage("- Press ESC to exit debug mode");
-    fixture.LogMessage("- Or type commands: 'select', 'exit'");
+    fixture.LogMessage("=== Kafka Connect Debug Runner ===");
+    fixture.LogMessage("Starting infrastructure (Kafka, databases)...");
+    await fixture.InitializeAsync();
+    fixture.LogMessage("Infrastructure ready. Press ENTER to pick a test case, ESC to exit.");
 
-    await RunInteractiveMode();
+    await RunInteractiveLoop();
 }
 catch (Exception ex)
 {
-    fixture.LogMessage($"Error: {ex.Message}");
-    fixture.LogMessage($"Stack trace: {ex.StackTrace}");
+    fixture.LogMessage($"Fatal: {ex.Message}");
+    fixture.LogMessage(ex.StackTrace ?? "");
 }
 finally
 {
@@ -36,241 +27,138 @@ finally
 
 return;
 
-async Task InitializeInfrastructure()
-{
-    Console.WriteLine("Initializing test infrastructure...");
-    
-    try
-    {
-        fixture.LogMessage("Starting TestFixture initialization...");
-        await fixture.InitializeAsync();
-        fixture.LogMessage("TestFixture initialization completed.");
-    }
-    catch (Exception ex)
-    {
-        fixture.LogMessage($"Error during initialization: {ex.Message}");
-        fixture.LogMessage($"Stack trace: {ex.StackTrace}");
-        throw;
-    }
-}
-
-async Task RunInteractiveMode()
+async Task RunInteractiveLoop()
 {
     while (true)
     {
-        fixture.LogMessage("Press ENTER to select test case, ESC to exit, or type 'select'/'exit': ");
-        var keyInfo = Console.ReadKey(true);
-        switch (keyInfo.Key)
+        var key = Console.ReadKey(true);
+
+        if (key.Key == ConsoleKey.Escape)
         {
-            case ConsoleKey.Enter:
-                try
-                {
-                    var selectedTestCase = SelectTestCaseInteractively();
-                    if (!string.IsNullOrEmpty(selectedTestCase))
-                    {
-                        await ExecuteTestCase(selectedTestCase);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    fixture.LogMessage($"Error executing test case: {ex.Message}");
-                }
+            fixture.LogMessage("Exiting...");
+            return;
+        }
+
+        if (key.Key != ConsoleKey.Enter)
+            continue;
+
+        var testCase = SelectTestCase();
+        if (testCase == null) continue;
+
+        await RunTestCase(testCase);
+    }
+}
+
+TestCase? SelectTestCase()
+{
+    var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+    var configs = JsonSerializer.Deserialize<TestCaseConfig[]>(
+        File.ReadAllText(Path.Combine("data", "test-config.json")), options) ?? [];
+
+    var activeTargets = fixture.Configuration.Targets.Count > 0
+        ? fixture.Configuration.Targets.Select(t => t.ToLowerInvariant()).ToHashSet()
+        : null;
+
+    var allCases = new List<(TestCase testCase, string target)>();
+
+    foreach (var config in configs.Where(c => !c.Skip && c.Target != null && c.Files?.Length > 0))
+    {
+        if (activeTargets != null && !activeTargets.Contains(config.Target!.ToLowerInvariant()))
+            continue;
+
+        foreach (var file in config.Files!)
+        {
+            var filePath = $"data/{file.TrimStart('/')}";
+            if (!File.Exists(filePath)) continue;
+
+            var testCase = JsonSerializer.Deserialize<TestCase>(File.ReadAllText(filePath), options);
+            if (testCase == null) continue;
+
+            testCase.Properties.TryAdd("target", config.Target!);
+            allCases.Add((testCase, config.Target!));
+        }
+    }
+
+    if (allCases.Count == 0)
+    {
+        fixture.LogMessage("No test cases found.");
+        return null;
+    }
+
+    var selectedIndex = 0;
+    ConsoleKeyInfo key;
+
+    do
+    {
+        Console.Clear();
+        fixture.LogMessage("↑↓ to navigate, ENTER to run, ESC to cancel", "Select");
+
+        for (var i = 0; i < allCases.Count; i++)
+        {
+            var (tc, targetLabel) = allCases[i];
+            var prefix = i == selectedIndex ? "► " : "  ";
+
+            if (i == selectedIndex)
+            {
+                Console.BackgroundColor = ConsoleColor.DarkGreen;
+                Console.ForegroundColor = ConsoleColor.White;
+            }
+
+            fixture.LogMessage($"{prefix}{tc.Title}", targetLabel);
+
+            if (i == selectedIndex)
+                Console.ResetColor();
+        }
+
+        key = Console.ReadKey(true);
+
+        switch (key.Key)
+        {
+            case ConsoleKey.UpArrow:
+                selectedIndex = selectedIndex > 0 ? selectedIndex - 1 : allCases.Count - 1;
                 break;
-                
-            case ConsoleKey.Escape:
-                fixture.LogMessage("Exiting debug mode...");
-                return;
-                
-            default:
-                Console.Write(keyInfo.KeyChar);
-                var input = Console.ReadLine();
-                var fullInput = (keyInfo.KeyChar + input).Trim();
-                
-                if (string.IsNullOrEmpty(fullInput) || fullInput.Equals("exit", StringComparison.OrdinalIgnoreCase))
-                {
-                    return;
-                }
-
-                var parts = fullInput.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                var command = parts[0].ToLowerInvariant();
-
-                try
-                {
-                    switch (command)
-                    {
-                        case "select":
-                            var selectedTestCase = SelectTestCaseInteractively();
-                            if (!string.IsNullOrEmpty(selectedTestCase))
-                            {
-                                await ExecuteTestCase(selectedTestCase);
-                            }
-                            break;
-                        
-                        default:
-                            fixture.LogMessage($"Unknown command: {command}");
-                            fixture.LogMessage("Available commands: select, exit");
-                            break;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    fixture.LogMessage($"Error executing command: {ex.Message}");
-                }
+            case ConsoleKey.DownArrow:
+                selectedIndex = selectedIndex < allCases.Count - 1 ? selectedIndex + 1 : 0;
                 break;
         }
-    }
+    } while (key.Key != ConsoleKey.Enter && key.Key != ConsoleKey.Escape);
 
-    async Task ExecuteTestCase(string fileName)
+    Console.Clear();
+    return key.Key == ConsoleKey.Enter ? allCases[selectedIndex].testCase : null;
+}
+
+async Task RunTestCase(TestCase testCase)
+{
+    var target = testCase.Properties.GetValueOrDefault("target", "Unknown");
+    fixture.LogMessage($"Running: {testCase.Title} ({testCase.Records.Length} records)", target);
+
+    var runner = new TestRunnerBaseHealthChecks(fixture, new ConsoleTestOutputHelper());
+
+    for (var i = 0; i < testCase.Records.Length; i++)
     {
+        var record = testCase.Records[i];
+        fixture.LogMessage($"[{i + 1}/{testCase.Records.Length}] {record.Operation} — press any key to execute, ESC to abort", target);
+
+        if (Console.ReadKey(true).Key == ConsoleKey.Escape) return;
+
         try
         {
-            var configPath = Path.Combine("data", "test-config.json");
-            var configContent = File.ReadAllText(configPath);
-            var configs = JsonSerializer.Deserialize<TestCaseConfig[]>(configContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-            
-            var target = (from config in configs?.Where(c => !c.Skip) where config.Files?.Any(f => Path.GetFileNameWithoutExtension(f.TrimStart('/')) == Path.GetFileNameWithoutExtension(fileName)) == true select config.Target).FirstOrDefault();
-
-            var filePath = Path.Combine("data/records", fileName.EndsWith(".json") ? fileName : $"{fileName}.json");
-            var content = await File.ReadAllTextAsync(filePath);
-            var testCase = JsonSerializer.Deserialize<TestCase>(content, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-            
-            if (testCase == null)
-            {
-                fixture.LogMessage("Failed to deserialize test case");
-                return;
-            }
-
-            if (!string.IsNullOrEmpty(target))
-            {
-                testCase.Properties.TryAdd("target", target);
-            }
-
-            fixture.LogMessage($"Test Case: {testCase.Title}, Records: {testCase.Records.Length}, Target: {target ?? "Unknown"}");
-            for (var i = 0; i < testCase.Records.Length; i++)
-            {
-                var record = testCase.Records[i];
-                fixture.LogMessage($"Executing: {testCase.Title} - {record.Operation}" ,$"Record: {i + 1}/{testCase.Records.Length}");
-                await ExecuteSingleRecord(testCase, record);
-                if (i < testCase.Records.Length - 1)
-                {
-                    Console.ReadKey();
-                }
-            }
-            
-            fixture.LogMessage($"Test case '{testCase.Title}' completed successfully!");
+            await runner.Execute(testCase with { Records = [record] });
+            fixture.LogMessage($"[{i + 1}/{testCase.Records.Length}] {record.Operation} OK", target);
         }
         catch (Exception ex)
         {
-            fixture.LogMessage($"Error executing test case: {ex.Message}");
-            fixture.LogMessage($"Stack trace: {ex.StackTrace}");
+            fixture.LogMessage($"[{i + 1}/{testCase.Records.Length}] {record.Operation} FAILED: {ex.Message}", target);
+            fixture.LogMessage("Press any key to continue to next record, ESC to abort", target);
+            if (Console.ReadKey(true).Key == ConsoleKey.Escape) return;
         }
     }
 
-    async Task ExecuteSingleRecord(TestCase testCase, TestCaseRecord record)
-    {
-        try
-        {
-            await new TestRunnerBaseHealthChecks(fixture, new ConsoleTestOutputHelper()).Execute(testCase with
-            {
-                Title = $"{testCase.Title} - {record.Operation}", 
-                Records = [record],
-            });
-        }
-        catch (Exception ex)
-        {
-            fixture.LogMessage($"Error executing record: {ex.Message}");
-            throw;
-        }
-    }
+    fixture.LogMessage($"Completed: {testCase.Title}", target);
+}
 
-    string? SelectTestCaseInteractively()
-    {
-        try
-        {
-            var configPath = Path.Combine("data", "test-config.json");
-            if (!File.Exists(configPath))
-            {
-                fixture.LogMessage("test-config.json not found");
-                return null;
-            }
-            
-            var configContent = File.ReadAllText(configPath);
-            var configs = JsonSerializer.Deserialize<TestCaseConfig[]>(configContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-            
-            if (configs == null || configs.Length == 0)
-            {
-                fixture.LogMessage("No test case configurations found");
-                return null;
-            }
-            
-            var testCases = (from config in configs.Where(c => !c.Skip && c.Files != null && c.Files.Any())
-                            let target = config.Target ?? "Unknown"
-                            from file in config.Files!
-                            let fileName = Path.GetFileNameWithoutExtension(file.TrimStart('/')) ?? "unknown"
-                            select (fileName: fileName, target: target)).ToList();
-
-            if (testCases.Count == 0)
-            {
-                fixture.LogMessage("No test cases found");
-                return null;
-            }
-            
-            var selectedIndex = 0;
-            ConsoleKeyInfo keyInfo;
-            
-            do
-            {
-                Console.Clear();
-                fixture.LogMessage("Use ↑↓ arrows, Enter to select, Esc to cancel", "TestCase");
-                
-                for (int i = 0; i < testCases.Count; i++)
-                {
-                    var (fileName, target) = testCases[i];
-                    var prefix = i == selectedIndex ? "► " : "  ";
-                    var line = $" {prefix} {fileName}";
-                    
-                    if (i == selectedIndex)
-                    {
-                        Console.BackgroundColor = ConsoleColor.DarkGreen;
-                        Console.ForegroundColor = ConsoleColor.White;
-                    }
-                    
-                    fixture.LogMessage(line, target);
-                    
-                    if (i == selectedIndex)
-                    {
-                        Console.ResetColor();
-                    }
-                }
-                
-                keyInfo = Console.ReadKey(true);
-                
-                switch (keyInfo.Key)
-                {
-                    case ConsoleKey.UpArrow:
-                        selectedIndex = selectedIndex > 0 ? selectedIndex - 1 : testCases.Count - 1;
-                        break;
-                        
-                    case ConsoleKey.DownArrow:
-                        selectedIndex = selectedIndex < testCases.Count - 1 ? selectedIndex + 1 : 0;
-                        break;
-                }
-                
-            } while (keyInfo.Key != ConsoleKey.Enter && keyInfo.Key != ConsoleKey.Escape);
-            
-            Console.Clear();
-            
-            if (keyInfo.Key == ConsoleKey.Enter)
-            {
-                return testCases[selectedIndex].fileName;
-            }
-            
-            return null;
-        }
-        catch (Exception ex)
-        {
-            fixture.LogMessage($"Error in interactive selection: {ex.Message}");
-            return null;
-        }
-    }
+class ConsoleTestOutputHelper : ITestOutputHelper
+{
+    public void WriteLine(string message) => Console.WriteLine(message);
+    public void WriteLine(string format, params object[] args) => Console.WriteLine(format, args);
 }

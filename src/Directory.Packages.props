@@ -28,5 +28,6 @@
         <PackageVersion Include="MySql.Data" Version="9.2.0" />
         <PackageVersion Include="MySqlConnector" Version="2.4.0" />
         <PackageVersion Include="AWSSDK.DynamoDBv2" Version="3.7.400" />
+        <PackageVersion Include="CassandraCSharpDriver" Version="3.22.0" />
     </ItemGroup>
 </Project>

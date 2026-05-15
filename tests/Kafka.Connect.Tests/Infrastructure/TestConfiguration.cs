@@ -9,6 +9,7 @@ public class TestConfiguration
     public bool DebugMode { get; set; } = false;
     public bool Distributed { get; set; } = false;
     public bool Standalone { get; set; } = true;
+    public List<string> Targets { get; set; } = [];
     public TestContainersConfig TestContainers { get; set; } = new();
     public Dictionary<string, string> Services { get; set; } = new();
     

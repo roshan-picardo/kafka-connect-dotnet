@@ -287,7 +287,7 @@ public record TestCaseConfig(string Schema, string? Folder, string[]? Files, str
 
 public record TestCaseRecord(string Operation, int Delay, string Script, JsonNode? Key, JsonNode? Value);
 
-public record TestCase(string Title, Dictionary<string, string> Properties, TestCaseRecord[] Records, bool Skip = false)
+public record TestCase(string Title, Dictionary<string, string> Properties, TestCaseRecord[] Records)
 {
     public override string ToString()
     {

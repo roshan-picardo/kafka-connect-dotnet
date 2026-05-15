@@ -25,6 +25,13 @@ public abstract class InfrastructureFixture(
 
     protected abstract string GetTargetName();
 
+    protected bool IsTargetActive()
+    {
+        if (Configuration.Targets.Count == 0) return true;
+        var target = GetTargetName().ToLowerInvariant();
+        return Configuration.Targets.Any(t => t.Equals(target, StringComparison.OrdinalIgnoreCase));
+    }
+
     protected async Task CreateContainersAsync()
     {
         var targetName = GetTargetName();
