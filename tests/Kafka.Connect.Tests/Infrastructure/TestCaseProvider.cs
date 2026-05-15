@@ -7,12 +7,13 @@ public static class TestCaseProvider
 {
     private const string RootFolder = "data";
     private const string ConfigFile = "test-config.json";
+
     public static IEnumerable<object[]> GetTestCases(string target = "")
     {
         var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
         var jsonNode = JsonNode.Parse(File.ReadAllText($"{RootFolder.TrimEnd('/')}/{ConfigFile}"));
         if (jsonNode == null) yield break;
-        
+
         foreach (var node in jsonNode.AsArray())
         {
             var config = node.Deserialize<TestCaseConfig>(options);
@@ -72,7 +73,7 @@ public static class TestCaseProvider
 
                 var testData = JsonSerializer.Deserialize<TestCase>(File.ReadAllText(testFile), options);
                 if (testData == null) continue;
-                
+
                 yield return [testData];
             }
         }

@@ -26,6 +26,7 @@ public class TestFixture : IAsyncLifetime
     private OracleFixture? _oracleFixture;
     private MongoDbFixture? _mongoDbFixture;
     private DynamoDbFixture? _dynamoDbFixture;
+    private CassandraFixture? _cassandraFixture;
     private LeaderFixture? _leaderFixture;
     private StandaloneFixture? _standaloneFixture;
     private DistributedFixture? _distributedFixture;
@@ -107,28 +108,43 @@ public class TestFixture : IAsyncLifetime
         }
     }
 
+    private static readonly HashSet<string> AlwaysOnTargets = ["kafka", "leader", "standalone", "distributed"];
+
     private void ConfigureContainersForMode()
     {
         LogMessage($"Configuring containers for mode: Distributed={Configuration.Distributed}, Standalone={Configuration.Standalone}");
-        
+
+        if (Configuration.Targets.Count > 0)
+        {
+            var activeTargets = Configuration.Targets.Select(t => t.ToLowerInvariant()).ToHashSet();
+            var skipped = new List<string>();
+
+            foreach (var container in Configuration.TestContainers.Containers)
+            {
+                var target = container.Target?.ToLowerInvariant();
+                if (target != null && !AlwaysOnTargets.Contains(target) && !activeTargets.Contains(target))
+                {
+                    container.Enabled = false;
+                    skipped.Add(target);
+                }
+            }
+
+            if (skipped.Count > 0)
+                LogMessage($"Targets filter — skipping: {string.Join(", ", skipped.Distinct())}");
+        }
+
         var leaderContainer = Configuration.TestContainers.Containers.FirstOrDefault(c => c.Target == "leader");
         var standaloneContainer = Configuration.TestContainers.Containers.FirstOrDefault(c => c.Target == "standalone");
         var distributedContainer = Configuration.TestContainers.Containers.FirstOrDefault(c => c.Target == "distributed");
-        
+
         if (leaderContainer != null)
-        {
             leaderContainer.Enabled = Configuration.Distributed;
-        }
-        
+
         if (standaloneContainer != null)
-        {
             standaloneContainer.Enabled = Configuration.Standalone;
-        }
-        
+
         if (distributedContainer != null)
-        {
             distributedContainer.Enabled = Configuration.Distributed;
-        }
     }
 
     private async Task CreateNetworkAsync()
@@ -195,6 +211,7 @@ public class TestFixture : IAsyncLifetime
         _oracleFixture = new OracleFixture(Configuration, LogMessage, _containerService, _network!, testConfigs);
         _mongoDbFixture = new MongoDbFixture(Configuration, LogMessage, _containerService, _network!, testConfigs);
         _dynamoDbFixture = new DynamoDbFixture(Configuration, LogMessage, _containerService, _network!, testConfigs);
+        _cassandraFixture = new CassandraFixture(Configuration, LogMessage, _containerService, _network!, testConfigs);
         _leaderFixture = new LeaderFixture(Configuration, LogMessage, _containerService, _network!);
         _standaloneFixture = new StandaloneFixture(Configuration, LogMessage, _containerService, _network!);
         _distributedFixture = new DistributedFixture(Configuration, LogMessage, _containerService, _network!);
@@ -213,7 +230,8 @@ public class TestFixture : IAsyncLifetime
             _sqlServerFixture!.InitializeAsync(),
             _oracleFixture!.InitializeAsync(),
             _mongoDbFixture!.InitializeAsync(),
-            _dynamoDbFixture!.InitializeAsync()
+            _dynamoDbFixture!.InitializeAsync(),
+            _cassandraFixture!.InitializeAsync()
         };
 
         await Task.WhenAll(initializationTasks);
@@ -251,6 +269,9 @@ public class TestFixture : IAsyncLifetime
     }
 
     public TestConfiguration Configuration { get; }
+
+    public Cassandra.ISession GetCassandraSession() =>
+        _cassandraFixture?.GetSession() ?? throw new InvalidOperationException("CassandraFixture is not initialized");
     
     public async Task EnsureConnectorsHealthyAsync()
     {
@@ -339,6 +360,7 @@ public class TestFixture : IAsyncLifetime
             // Dispose infrastructure components in parallel
             var infrastructureDisposalTasks = new List<Task>();
             if (_dynamoDbFixture != null) infrastructureDisposalTasks.Add(_dynamoDbFixture.DisposeAsync().AsTask());
+            if (_cassandraFixture != null) infrastructureDisposalTasks.Add(_cassandraFixture.DisposeAsync().AsTask());
             if (_mongoDbFixture != null) infrastructureDisposalTasks.Add(_mongoDbFixture.DisposeAsync().AsTask());
             if (_oracleFixture != null) infrastructureDisposalTasks.Add(_oracleFixture.DisposeAsync().AsTask());
             if (_sqlServerFixture != null) infrastructureDisposalTasks.Add(_sqlServerFixture.DisposeAsync().AsTask());

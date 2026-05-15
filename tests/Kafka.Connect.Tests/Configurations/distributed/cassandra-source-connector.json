@@ -1,0 +1,50 @@
+{
+  "connector": {
+    "groupId": "distributed-cassandra-source-connector",
+    "tasks": 1,
+    "paused": false,
+    "disabled": false,
+    "plugin": {
+      "type": "source",
+      "name": "cassandra",
+      "handler": "Kafka.Connect.Cassandra.CassandraPluginHandler",
+      "strategy": {
+        "name": "Kafka.Connect.Cassandra.Strategies.ReadStrategy"
+      },
+      "properties": {
+        "hosts": ["cassandra"],
+        "port": 9042,
+        "keyspace": "kafka_connect_db",
+        "commands": {
+          "distributed-cassandra-source-command": {
+            "topic": "distributed-cassandra-source-data-topic",
+            "table": "distributed_cassandra_source_data_table",
+            "keyspace": "kafka_connect_db",
+            "keys": ["userId"],
+            "filters": {
+              "userId": ""
+            },
+            "snapshot": {
+              "enabled": false,
+              "key": "userId"
+            }
+          }
+        }
+      }
+    },
+    "log": {
+      "provider": "",
+      "attributes": [
+        "id",
+        "timestamp",
+        "operation",
+        "after.userId",
+        "after.userName",
+        "after.email"
+      ]
+    }
+  },
+  "workers": [
+    "distributed-worker"
+  ]
+}

@@ -1,12 +1,15 @@
 <Project>
   <!-- Import the main package versions from src -->
   <Import Project="../src/Directory.Packages.props" />
+  <PropertyGroup>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
   <ItemGroup>
     <!-- Test Framework Packages (not in src) -->
     <PackageVersion Include="Docker.DotNet" Version="3.125.15" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
     <PackageVersion Include="xunit" Version="2.6.2" />
-    <PackageVersion Include="xunit.runner.visualstudio" Version="2.5.3" />
+<PackageVersion Include="xunit.runner.visualstudio" Version="2.5.3" />
     <PackageVersion Include="coverlet.collector" Version="6.0.0" />
     <PackageVersion Include="Moq" Version="4.20.70" />
     <PackageVersion Include="NSubstitute" Version="5.1.0" />
@@ -21,6 +24,8 @@
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="9.0.4" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="9.0.4" />
     <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="9.0.4" />
+    <!-- Transitive override: Snappier 1.0.0 has a known high severity vulnerability (GHSA-pggp-6c3x-2xmx) -->
+    <PackageVersion Include="Snappier" Version="1.2.0" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageVersion Include="System.Text.Json" Version="9.0.4" />
   </ItemGroup>

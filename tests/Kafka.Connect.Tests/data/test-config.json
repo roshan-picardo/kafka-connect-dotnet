@@ -11,7 +11,8 @@
       "/records/health-check-mysql.json",
       "/records/health-check-mariadb.json",
       "/records/health-check-oracle.json",
-      "/records/health-check-dynamodb.json"
+      "/records/health-check-dynamodb.json",
+      "/records/health-check-cassandra.json"
     ]
   },
   {
@@ -121,6 +122,26 @@
         "CREATE TABLE \"SYSTEM\".\"standalone_oracle_source_data_table\" (\"userId\" VARCHAR2(255), \"userName\" VARCHAR2(255), \"email\" VARCHAR2(255), \"timestamp\" VARCHAR2(255), \"action\" VARCHAR2(255))",
         "BEGIN EXECUTE IMMEDIATE 'DROP TABLE \"SYSTEM\".\"distributed_oracle_source_data_table\"'; EXCEPTION WHEN OTHERS THEN IF SQLCODE != -942 THEN RAISE; END IF; END;",
         "CREATE TABLE \"SYSTEM\".\"distributed_oracle_source_data_table\" (\"userId\" VARCHAR2(255), \"userName\" VARCHAR2(255), \"email\" VARCHAR2(255), \"timestamp\" VARCHAR2(255), \"action\" VARCHAR2(255))"
+      ]
+    }
+  },
+  {
+    "target": "Cassandra",
+    "schema": "/schemas/user-event.avsc",
+    "skip": false,
+    "files": [
+      "/records/standalone/sink-tests-cassandra.json",
+      "/records/standalone/source-tests-cassandra.json",
+      "/records/distributed/sink-tests-cassandra.json",
+      "/records/distributed/source-tests-cassandra.json"
+    ],
+    "setup": {
+      "database": "kafka_connect_db",
+      "scripts": [
+        "CREATE KEYSPACE IF NOT EXISTS kafka_connect_db WITH replication = {'class':'SimpleStrategy','replication_factor':1}",
+        "CREATE TABLE IF NOT EXISTS kafka_connect_db.health_check_table (\"id\" text PRIMARY KEY, \"status\" text, \"timestamp\" text)",
+        "CREATE TABLE IF NOT EXISTS kafka_connect_db.standalone_cassandra_source_data_table (\"userId\" text PRIMARY KEY, \"userName\" text, \"email\" text, \"timestamp\" text, \"action\" text)",
+        "CREATE TABLE IF NOT EXISTS kafka_connect_db.distributed_cassandra_source_data_table (\"userId\" text PRIMARY KEY, \"userName\" text, \"email\" text, \"timestamp\" text, \"action\" text)"
       ]
     }
   },
