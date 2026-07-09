@@ -22,11 +22,7 @@ public class ReadStrategy(ILogger<ReadStrategy> logger) : Strategy<string>
                 ? string.Empty
                 : " WHERE " + string.Join(" AND ", filters.Select(f => $"\"{f.Key}\" > '{f.Value}'"));
 
-            var orderBy = command.Filters == null || command.Filters.Count == 0
-                ? string.Empty
-                : $" ORDER BY {string.Join(", ", command.Filters.Keys.Select(k => $"\"{k}\""))}";
-
-            model.Model = $"SELECT * FROM {command.Keyspace}.{command.Table}{where}{orderBy} LIMIT {record.BatchSize} ALLOW FILTERING;";
+            model.Model = $"SELECT * FROM {command.Keyspace}.{command.Table}{where} LIMIT {record.BatchSize} ALLOW FILTERING;";
             return Task.FromResult(model);
         }
     }
