@@ -1,6 +1,5 @@
 using System.Text.Json.Nodes;
 using Kafka.Connect.Cassandra.Models;
-using Kafka.Connect.Plugin.Extensions;
 using Kafka.Connect.Plugin.Logging;
 using Kafka.Connect.Plugin.Models;
 using Kafka.Connect.Plugin.Providers;
@@ -56,11 +55,6 @@ public class CassandraCommandHandler(
         if (records.Count < command.BatchSize)
         {
             config.Snapshot.Enabled = false;
-            config.Snapshot.Id = 0;
-            foreach (var key in config.Filters.Keys.ToList())
-            {
-                config.Filters[key] = string.Empty;
-            }
         }
 
         return config.ToJson();
