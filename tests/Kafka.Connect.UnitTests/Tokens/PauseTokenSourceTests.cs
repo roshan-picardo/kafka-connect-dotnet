@@ -67,10 +67,8 @@ public class PauseTokenSourceTests
         Assert.True(linked.IsCancellationRequested);
         Assert.True(source.IsPaused);
 
-        await Task.Delay(120);
-
-        Assert.True(resumed);
-        Assert.False(source.IsPaused);
+        await AssertEventuallyAsync(() => resumed, TimeSpan.FromSeconds(2));
+        await AssertEventuallyAsync(() => !source.IsPaused, TimeSpan.FromSeconds(2));
     }
 
     [Fact]
