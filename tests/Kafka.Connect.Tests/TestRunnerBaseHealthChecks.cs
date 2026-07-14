@@ -16,6 +16,15 @@ public class TestRunnerBaseHealthChecks(TestFixture fixture, ITestOutputHelper o
     [MemberData(nameof(TestCases), Target)]
     public async Task Execute(TestCase testCase)
     {
+        var caseTarget = testCase.Properties["target"]?.ToLowerInvariant();
+        var activeTargets = _fixture.Configuration.Targets;
+        if (activeTargets.Count > 0 && caseTarget != "kafka" &&
+            !activeTargets.Any(t => t.Equals(caseTarget, StringComparison.OrdinalIgnoreCase)))
+        {
+            _output.WriteLine($"Skipping health check for '{caseTarget}' (not in active targets)");
+            return;
+        }
+
         switch (testCase.Properties["target"]?.ToLower())
         {
             case "mongodb":
@@ -38,6 +47,9 @@ public class TestRunnerBaseHealthChecks(TestFixture fixture, ITestOutputHelper o
                 break;
             case "dynamodb":
                 await new TestRunnerDynamoDb(_fixture, _output).Execute(testCase);
+                break;
+            case "cassandra":
+                await new TestRunnerCassandra(_fixture, _output).Execute(testCase);
                 break;
             default:
                 await Run(testCase, Target);

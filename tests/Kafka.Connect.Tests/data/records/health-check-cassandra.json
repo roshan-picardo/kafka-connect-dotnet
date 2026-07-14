@@ -1,0 +1,70 @@
+{
+  "title": "cassandra-health-check-tests",
+  "properties": {
+    "target": "Cassandra",
+    "topic": "-",
+    "keyspace": "kafka_connect_db",
+    "table": "health_check_table"
+  },
+  "records": [
+    {
+      "operation": "insert",
+      "key": null,
+      "value": {
+        "id": "health-001",
+        "status": "healthy",
+        "timestamp": "2024-01-15T10:00:00Z"
+      }
+    },
+    {
+      "delay": 500,
+      "operation": "search",
+      "key": {
+        "id": "health-001"
+      },
+      "value": {
+        "id": "health-001",
+        "status": "healthy",
+        "timestamp": "2024-01-15T10:00:00Z"
+      }
+    },
+    {
+      "delay": 500,
+      "operation": "update",
+      "key": {
+        "id": "health-001"
+      },
+      "value": {
+        "status": "updated",
+        "timestamp": "2024-01-15T11:00:00Z"
+      }
+    },
+    {
+      "delay": 500,
+      "operation": "search",
+      "key": {
+        "id": "health-001"
+      },
+      "value": {
+        "id": "health-001",
+        "status": "updated",
+        "timestamp": "2024-01-15T11:00:00Z"
+      }
+    },
+    {
+      "delay": 500,
+      "operation": "delete",
+      "key": {
+        "id": "health-001"
+      }
+    },
+    {
+      "delay": 500,
+      "operation": "search",
+      "key": {
+        "id": "health-001"
+      },
+      "value": null
+    }
+  ]
+}

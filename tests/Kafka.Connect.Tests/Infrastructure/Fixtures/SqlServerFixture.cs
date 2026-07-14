@@ -17,6 +17,12 @@ public class SqlServerFixture(
 
     public override async Task InitializeAsync()
     {
+        if (!IsTargetActive())
+        {
+            LogMessage($"Skipping (not in Targets): {GetTargetName()}", "");
+            return;
+        }
+
         var targetName = GetTargetName();
         
         await CreateContainersAsync();

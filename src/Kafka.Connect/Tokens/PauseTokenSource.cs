@@ -30,23 +30,20 @@ public class PauseTokenSource
             if (value)
             {
                 Interlocked.CompareExchange(
-                    ref _paused, new TaskCompletionSource<bool>(), null);
+                    ref _paused, new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously), null);
                 CancelAll();
                 _onPaused?.Invoke();
             }
             else
             {
-                Task.Run(() =>
+                while (true)
                 {
-                    while (true)
-                    {
-                        var tcs = _paused;
-                        if (tcs == null) return;
-                        if (Interlocked.CompareExchange(ref _paused, null, tcs) != tcs) continue;
-                        tcs.SetResult(true);
-                        break;
-                    }
-                });
+                    var tcs = _paused;
+                    if (tcs == null) return;
+                    if (Interlocked.CompareExchange(ref _paused, null, tcs) != tcs) continue;
+                    tcs.SetResult(true);
+                    break;
+                }
                 _onResumed?.Invoke();
             }
         }

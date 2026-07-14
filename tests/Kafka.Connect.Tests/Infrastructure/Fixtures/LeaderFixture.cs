@@ -41,13 +41,32 @@ public class LeaderFixture(
         }
         
         var configFiles = Directory.GetFiles(configDirectory, "*.json");
-        
+
         if (configFiles.Length == 0)
         {
             LogMessage("No distributed connector configuration files found, skipping connector submission", "");
             return;
         }
-        
+
+        if (Configuration.Targets.Count > 0)
+        {
+            var activeTargets = Configuration.Targets.Select(t => t.ToLowerInvariant()).ToHashSet();
+            configFiles = configFiles
+                .Where(f =>
+                {
+                    var name = Path.GetFileNameWithoutExtension(f);
+                    var target = name.Split('-')[0].ToLowerInvariant();
+                    return activeTargets.Contains(target);
+                })
+                .ToArray();
+
+            if (configFiles.Length == 0)
+            {
+                LogMessage("No connector configurations match active Targets, skipping connector submission", "");
+                return;
+            }
+        }
+
         var connectorNames = configFiles.Select(Path.GetFileNameWithoutExtension).ToList();
         var successCount = await SubmitConnectorConfigurationsAsync(connectorNames!, configDirectory, "submitted");
         
