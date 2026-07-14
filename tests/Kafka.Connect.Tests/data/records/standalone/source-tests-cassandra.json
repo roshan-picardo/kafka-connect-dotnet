@@ -39,38 +39,6 @@
       }
     },
     {
-      "operation": "insert",
-      "key": {
-        "userId": "user-002"
-      },
-      "value": {
-        "userId": "user-002",
-        "userName": "Jane Smith",
-        "email": "jane.smith@example.com",
-        "timestamp": "2024-01-15T10:31:00Z",
-        "action": "CREATE"
-      }
-    },
-    {
-      "operation": "consume",
-      "key": {
-        "userId": "user-002"
-      },
-      "value": {
-        "id": 2,
-        "operation": "CHANGE",
-        "timestamp": "*",
-        "before": {},
-        "after": {
-          "userId": "user-002",
-          "userName": "Jane Smith",
-          "email": "jane.smith@example.com",
-          "timestamp": "2024-01-15T10:31:00Z",
-          "action": "CREATE"
-        }
-      }
-    },
-    {
       "operation": "cleanup",
       "script": "DROP TABLE IF EXISTS kafka_connect_db.standalone_cassandra_source_data_table;"
     }
